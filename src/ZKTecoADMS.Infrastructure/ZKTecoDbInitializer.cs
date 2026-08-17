@@ -1125,11 +1125,73 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenSentAt"" timestamp without time zone NULL;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenDoneQty"" numeric(18,3) NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenPrepStatus"" character varying(20) NOT NULL DEFAULT 'none';
+                    ALTER TABLE ""PosCustomers"" ADD COLUMN IF NOT EXISTS ""Birthday"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosCustomers"" ADD COLUMN IF NOT EXISTS ""DeliveryAddress"" character varying(500);
+
+                    -- Tách NVL / Topping thành ProductType riêng (3 / 4). Topping trước, rồi hàng ẩn POS.
+                    UPDATE ""PosProducts"" SET ""ProductType"" = 4
+                    WHERE ""Deleted"" IS NULL AND ""ProductType"" = 0 AND ""IsTopping"" = true;
+                    UPDATE ""PosProducts"" SET ""ProductType"" = 3, ""IsDirectSale"" = false, ""IsTopping"" = false
+                    WHERE ""Deleted"" IS NULL AND ""ProductType"" = 0 AND ""IsDirectSale"" = false AND ""IsTopping"" = false;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProducts_StoreId_ProductType""
+                        ON ""PosProducts"" (""StoreId"", ""ProductType"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductRecipeLines"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ParentProductId"" uuid NOT NULL,
+                        ""ComponentProductId"" uuid NOT NULL,
+                        ""Qty"" numeric(18,4) NOT NULL DEFAULT 1,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosProductRecipeLines_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosProductRecipeLines_Parent""
+                            FOREIGN KEY (""ParentProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosProductRecipeLines_Component""
+                            FOREIGN KEY (""ComponentProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE RESTRICT
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductRecipeLines_Parent""
+                        ON ""PosProductRecipeLines""(""ParentProductId"");
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosProductRecipeLines_Parent_Component_Active""
+                        ON ""PosProductRecipeLines""(""ParentProductId"", ""ComponentProductId"")
+                        WHERE ""Deleted"" IS NULL;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""ToppingsJson"" text NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""IsTopping"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowToppings"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AutoOpenToppingPopup"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ShowComboComponentsOnSell"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowDecimalQty"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosPrintTemplates"" ADD COLUMN IF NOT EXISTS ""SourceCatalogId"" uuid NULL;
+                    CREATE TABLE IF NOT EXISTS ""PosPrintTemplateCatalogs"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""Name"" character varying(120) NOT NULL,
+                        ""DocumentType"" integer NOT NULL DEFAULT 1,
+                        ""PaperSize"" integer NOT NULL DEFAULT 1,
+                        ""HtmlContent"" text NOT NULL DEFAULT '',
+                        ""IsRecommended"" boolean NOT NULL DEFAULT false,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosPrintTemplateCatalogs_DocumentType_Sort""
+                        ON ""PosPrintTemplateCatalogs"" (""DocumentType"", ""SortOrder"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosPrintTemplates_SourceCatalogId""
+                        ON ""PosPrintTemplates"" (""SourceCatalogId"");
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""AllowProvisionalBill"" boolean NOT NULL DEFAULT false;
                     DO $$
                     BEGIN
@@ -1219,6 +1281,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceIssuedAt"" timestamp without time zone NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceError"" character varying(1000) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerName"" character varying(200) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerCompanyName"" character varying(200) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerTaxCode"" character varying(50) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerAddress"" character varying(500) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerEmail"" character varying(200) NULL;
@@ -1278,6 +1341,46 @@ public class ZKTecoDbInitializer(
                     CREATE INDEX IF NOT EXISTS ""IX_PosBarcodeCatalog_Store_Barcode""
                         ON ""PosBarcodeCatalog"" (""StoreId"", ""Barcode"");
                     ALTER TABLE ""PosBarcodeCatalog"" ADD COLUMN IF NOT EXISTS ""ImageUrl"" character varying(1000) NULL;
+
+                    CREATE TABLE IF NOT EXISTS ""PosProductSampleCatalog"" (
+                        ""Id"" uuid NOT NULL,
+                        ""Barcode"" character varying(50) NULL,
+                        ""Name"" character varying(500) NOT NULL,
+                        ""UnitName"" character varying(100) NULL,
+                        ""BrandName"" character varying(200) NULL,
+                        ""CategoryName"" character varying(200) NULL,
+                        ""ImageUrl"" character varying(1000) NULL,
+                        ""Description"" character varying(2000) NULL,
+                        ""Kind"" integer NOT NULL DEFAULT 0,
+                        ""ProductType"" integer NOT NULL DEFAULT 0,
+                        ""DefaultPrice"" numeric(18,2) NULL,
+                        ""DefaultCostPrice"" numeric(18,2) NULL,
+                        ""VatRate"" numeric(9,4) NOT NULL DEFAULT 8,
+                        ""VatExempt"" boolean NOT NULL DEFAULT false,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosProductSampleCatalog"" PRIMARY KEY (""Id"")
+                    );
+                    ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""Description"" character varying(2000) NULL;
+                    ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""DefaultCostPrice"" numeric(18,2) NULL;
+                    ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""VatRate"" numeric(9,4) NOT NULL DEFAULT 8;
+                    ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""VatExempt"" boolean NOT NULL DEFAULT false;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductSampleCatalog_Barcode""
+                        ON ""PosProductSampleCatalog"" (""Barcode"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductSampleCatalog_Kind_Sort""
+                        ON ""PosProductSampleCatalog"" (""Kind"", ""SortOrder"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductSampleCatalog_ProductType""
+                        ON ""PosProductSampleCatalog"" (""ProductType"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductSampleCatalog_Name""
+                        ON ""PosProductSampleCatalog"" (""Name"");
 
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
@@ -1942,6 +2045,7 @@ public class ZKTecoDbInitializer(
             await PatchPosReportRolePermissionsAsync();
             await SeedServicePackagesAsync();
             await PatchPosReportPackageModulesAsync();
+            await SeedPosProductSampleCatalogAsync();
 
             await context.SaveChangesAsync();
             logger.LogInformation("Database seeding completed successfully.");
@@ -1950,6 +2054,96 @@ public class ZKTecoDbInitializer(
         {
             logger.LogError(ex, "An error occurred while seeding the database.");
         }
+    }
+
+    private async Task SeedPosProductSampleCatalogAsync()
+    {
+        if (await context.PosProductSampleCatalog.AnyAsync(x => x.Deleted == null))
+            return;
+
+        void Add(
+            PosProductSampleKind kind,
+            PosProductType type,
+            string name,
+            string unit,
+            string cat,
+            string? barcode = null,
+            decimal? price = null,
+            decimal? cost = null,
+            string? brand = null,
+            decimal vat = 8,
+            bool vatExempt = false,
+            int sort = 0,
+            string? desc = null)
+        {
+            context.PosProductSampleCatalog.Add(new PosProductSampleCatalog
+            {
+                Id = Guid.NewGuid(),
+                Kind = kind,
+                ProductType = type,
+                Name = name,
+                UnitName = unit,
+                CategoryName = cat,
+                BrandName = brand,
+                Barcode = barcode,
+                DefaultPrice = price,
+                DefaultCostPrice = cost,
+                VatRate = vatExempt ? 0 : vat,
+                VatExempt = vatExempt,
+                Description = desc,
+                SortOrder = sort,
+                IsActive = true,
+                CreatedBy = "System",
+            });
+        }
+
+        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Coca Cola 330ml", "Lon", "Nước giải khát",
+            "8934588012013", 10000, 7000, "Coca-Cola", sort: 1);
+        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Pepsi 330ml", "Lon", "Nước giải khát",
+            "8934588012020", 10000, 7000, "Pepsi", sort: 2);
+        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Sting dâu 330ml", "Lon", "Nước giải khát",
+            "8934588012037", 11000, 7500, "Sting", sort: 3);
+        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Aquafina 500ml", "Chai", "Nước suối",
+            "8934588060014", 7000, 4000, "Aquafina", sort: 4);
+
+        Add(PosProductSampleKind.Food, PosProductType.Goods, "Cơm tấm sườn", "Phần", "Món chính",
+            price: 45000, cost: 25000, sort: 1);
+        Add(PosProductSampleKind.Food, PosProductType.Goods, "Phở bò", "Tô", "Món chính",
+            price: 55000, cost: 30000, sort: 2);
+        Add(PosProductSampleKind.Food, PosProductType.Goods, "Bún chả", "Suất", "Món chính",
+            price: 50000, cost: 28000, sort: 3);
+        Add(PosProductSampleKind.Food, PosProductType.Goods, "Bánh mì thịt", "Cái", "Ăn nhanh",
+            price: 25000, cost: 12000, sort: 4);
+        Add(PosProductSampleKind.Food, PosProductType.Goods, "Gỏi cuốn", "Phần", "Khai vị",
+            price: 35000, cost: 18000, sort: 5);
+        Add(PosProductSampleKind.Food, PosProductType.Goods, "Nem rán", "Phần", "Khai vị",
+            price: 30000, cost: 15000, sort: 6);
+
+        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Trà sữa truyền thống", "Ly", "Trà sữa",
+            price: 30000, cost: 12000, sort: 1);
+        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Trà đào cam sả", "Ly", "Trà trái cây",
+            price: 35000, cost: 14000, sort: 2);
+        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Cà phê sữa đá", "Ly", "Cà phê",
+            price: 25000, cost: 8000, sort: 3);
+        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Cà phê đen", "Ly", "Cà phê",
+            price: 20000, cost: 6000, sort: 4);
+        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Nước cam ép", "Ly", "Nước ép",
+            price: 35000, cost: 15000, sort: 5);
+        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Sinh tố bơ", "Ly", "Sinh tố",
+            price: 40000, cost: 18000, sort: 6);
+
+        Add(PosProductSampleKind.Food, PosProductType.Service, "Phí giao hàng", "Lần", "Dịch vụ",
+            price: 15000, cost: 0, sort: 10, desc: "Phí ship nội thành");
+        Add(PosProductSampleKind.Drink, PosProductType.Topping, "Trân châu đen", "Phần", "Topping",
+            price: 5000, cost: 2000, sort: 11);
+        Add(PosProductSampleKind.Drink, PosProductType.Topping, "Thạch rau câu", "Phần", "Topping",
+            price: 5000, cost: 1500, sort: 12);
+        Add(PosProductSampleKind.Food, PosProductType.Material, "Gạo tấm", "Kg", "Nguyên liệu",
+            price: 0, cost: 18000, vatExempt: true, sort: 13, desc: "NVL — không bán trực tiếp");
+        Add(PosProductSampleKind.Food, PosProductType.Combo, "Combo cơm + nước", "Suất", "Combo",
+            price: 59000, cost: 32000, sort: 14, desc: "Combo mẫu");
+
+        logger.LogInformation("Seeded default PosProductSampleCatalog rows.");
     }
 
     #region Seed Roles

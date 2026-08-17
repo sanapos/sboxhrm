@@ -1,8 +1,12 @@
+﻿import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
+
+import 'image_compress.dart';
 
 class PickedImageResult {
   final Uint8List bytes;
@@ -10,15 +14,19 @@ class PickedImageResult {
   const PickedImageResult(this.bytes, this.name);
 }
 
-/// Bottom sheet: Chụp ảnh / Chọn thư viện (mobile). Web → file picker.
+/// Bottom sheet: Chá»¥p áº£nh / Chá»n thÆ° viá»‡n (mobile). Web â†’ file picker.
 Future<PickedImageResult?> pickSingleImageWithCamera(
   BuildContext context, {
   List<String>? allowedExtensions,
+  int maxEdge = 1200,
+  int jpegQuality = 78,
 }) async {
   final list = await pickImagesWithCamera(
     context,
     allowMultiple: false,
     allowedExtensions: allowedExtensions,
+    maxEdge: maxEdge,
+    jpegQuality: jpegQuality,
   );
   if (list == null || list.isEmpty) return null;
   return list.first;
@@ -30,11 +38,15 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
   BuildContext context, {
   bool allowMultiple = false,
   List<String>? allowedExtensions,
+  int maxEdge = 1200,
+  int jpegQuality = 78,
 }) async {
   if (kIsWeb) {
     return _pickFromGallery(
       allowMultiple: allowMultiple,
       allowedExtensions: allowedExtensions,
+      maxEdge: maxEdge,
+      jpegQuality: jpegQuality,
     );
   }
 
@@ -63,8 +75,8 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
                 backgroundColor: Color(0xFFE3F2FD),
                 child: Icon(Icons.camera_alt, color: Colors.blue),
               ),
-              title: Text(tr('Chụp ảnh')),
-              subtitle: Text(tr('Sử dụng camera để chụp')),
+              title: Text(tr('Chá»¥p áº£nh')),
+              subtitle: Text(tr('Sá»­ dá»¥ng camera Ä‘á»ƒ chá»¥p')),
               onTap: () => Navigator.pop(ctx, 'camera'),
             ),
             ListTile(
@@ -72,8 +84,8 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
                 backgroundColor: Color(0xFFE8F5E9),
                 child: Icon(Icons.photo_library, color: Colors.green),
               ),
-              title: Text(tr('Chọn từ thư viện')),
-              subtitle: Text(tr('Chọn ảnh có sẵn trong máy')),
+              title: Text(tr('Chá»n tá»« thÆ° viá»‡n')),
+              subtitle: Text(tr('Chá»n áº£nh cÃ³ sáºµn trong mÃ¡y')),
               onTap: () => Navigator.pop(ctx, 'gallery'),
             ),
             const SizedBox(height: 8),
@@ -89,24 +101,35 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
     final picker = ImagePicker();
     final photo = await picker.pickImage(
       source: ImageSource.camera,
-      maxWidth: 2048,
-      maxHeight: 2048,
-      imageQuality: 85,
+      maxWidth: maxEdge.toDouble(),
+      maxHeight: maxEdge.toDouble(),
+      imageQuality: jpegQuality,
     );
     if (photo == null) return null;
     final bytes = await photo.readAsBytes();
-    return [PickedImageResult(Uint8List.fromList(bytes), photo.name)];
+    final compressed = compressImageBytes(
+      Uint8List.fromList(bytes),
+      maxEdge: maxEdge,
+      jpegQuality: jpegQuality,
+    );
+    return [
+      PickedImageResult(compressed, jpegFileName(photo.name)),
+    ];
   }
 
   return _pickFromGallery(
     allowMultiple: allowMultiple,
     allowedExtensions: allowedExtensions,
+    maxEdge: maxEdge,
+    jpegQuality: jpegQuality,
   );
 }
 
 Future<List<PickedImageResult>?> _pickFromGallery({
   bool allowMultiple = false,
   List<String>? allowedExtensions,
+  int maxEdge = 1200,
+  int jpegQuality = 78,
 }) async {
   final result = await FilePicker.platform.pickFiles(
     type: allowedExtensions != null ? FileType.custom : FileType.image,
@@ -118,6 +141,17 @@ Future<List<PickedImageResult>?> _pickFromGallery({
 
   return result.files
       .where((f) => f.bytes != null)
-      .map((f) => PickedImageResult(Uint8List.fromList(f.bytes!), f.name))
+      .map((f) {
+        final raw = Uint8List.fromList(f.bytes!);
+        final compressed = compressImageBytes(
+          raw,
+          maxEdge: maxEdge,
+          jpegQuality: jpegQuality,
+        );
+        final name = compressed.length < raw.length
+            ? jpegFileName(f.name)
+            : f.name;
+        return PickedImageResult(compressed, name);
+      })
       .toList();
 }

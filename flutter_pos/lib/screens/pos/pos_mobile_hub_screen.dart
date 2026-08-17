@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/mobile_bottom_nav_config.dart';
@@ -49,6 +52,25 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
       _labelForTab(_tab),
       moduleCode: _moduleForTab(_tab),
     );
+    unawaited(_restoreLastTab());
+  }
+
+  Future<void> _restoreLastTab() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final t = prefs.getInt('pos_hub_last_tab');
+      if (!mounted || t == null) return;
+      final next = t.clamp(0, 4);
+      if (next == _tab) return;
+      setState(() {
+        _activatedTabs.add(next);
+        _tab = next;
+      });
+      NavigationNotifier.reportScreen(
+        _labelForTab(next),
+        moduleCode: _moduleForTab(next),
+      );
+    } catch (_) {}
   }
 
   @override
@@ -178,6 +200,9 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
       _activatedTabs.add(index);
       _tab = index;
     });
+    unawaited(SharedPreferences.getInstance().then((p) {
+      p.setInt('pos_hub_last_tab', index);
+    }));
     NavigationNotifier.reportScreen(
       _labelForTab(index),
       moduleCode: _moduleForTab(index),

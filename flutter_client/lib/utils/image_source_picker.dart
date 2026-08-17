@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+
+import 'image_compress.dart';
 
 class PickedImageResult {
   final Uint8List bytes;
@@ -14,11 +18,15 @@ class PickedImageResult {
 Future<PickedImageResult?> pickSingleImageWithCamera(
   BuildContext context, {
   List<String>? allowedExtensions,
+  int maxEdge = 1200,
+  int jpegQuality = 78,
 }) async {
   final list = await pickImagesWithCamera(
     context,
     allowMultiple: false,
     allowedExtensions: allowedExtensions,
+    maxEdge: maxEdge,
+    jpegQuality: jpegQuality,
   );
   if (list == null || list.isEmpty) return null;
   return list.first;
@@ -30,11 +38,15 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
   BuildContext context, {
   bool allowMultiple = false,
   List<String>? allowedExtensions,
+  int maxEdge = 1200,
+  int jpegQuality = 78,
 }) async {
   if (kIsWeb) {
     return _pickFromGallery(
       allowMultiple: allowMultiple,
       allowedExtensions: allowedExtensions,
+      maxEdge: maxEdge,
+      jpegQuality: jpegQuality,
     );
   }
 
@@ -89,24 +101,35 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
     final picker = ImagePicker();
     final photo = await picker.pickImage(
       source: ImageSource.camera,
-      maxWidth: 2048,
-      maxHeight: 2048,
-      imageQuality: 85,
+      maxWidth: maxEdge.toDouble(),
+      maxHeight: maxEdge.toDouble(),
+      imageQuality: jpegQuality,
     );
     if (photo == null) return null;
     final bytes = await photo.readAsBytes();
-    return [PickedImageResult(Uint8List.fromList(bytes), photo.name)];
+    final compressed = compressImageBytes(
+      Uint8List.fromList(bytes),
+      maxEdge: maxEdge,
+      jpegQuality: jpegQuality,
+    );
+    return [
+      PickedImageResult(compressed, jpegFileName(photo.name)),
+    ];
   }
 
   return _pickFromGallery(
     allowMultiple: allowMultiple,
     allowedExtensions: allowedExtensions,
+    maxEdge: maxEdge,
+    jpegQuality: jpegQuality,
   );
 }
 
 Future<List<PickedImageResult>?> _pickFromGallery({
   bool allowMultiple = false,
   List<String>? allowedExtensions,
+  int maxEdge = 1200,
+  int jpegQuality = 78,
 }) async {
   final result = await FilePicker.platform.pickFiles(
     type: allowedExtensions != null ? FileType.custom : FileType.image,
@@ -118,6 +141,17 @@ Future<List<PickedImageResult>?> _pickFromGallery({
 
   return result.files
       .where((f) => f.bytes != null)
-      .map((f) => PickedImageResult(Uint8List.fromList(f.bytes!), f.name))
+      .map((f) {
+        final raw = Uint8List.fromList(f.bytes!);
+        final compressed = compressImageBytes(
+          raw,
+          maxEdge: maxEdge,
+          jpegQuality: jpegQuality,
+        );
+        final name = compressed.length < raw.length
+            ? jpegFileName(f.name)
+            : f.name;
+        return PickedImageResult(compressed, name);
+      })
       .toList();
 }

@@ -215,6 +215,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosStorageLocation> PosStorageLocations => Set<PosStorageLocation>();
     public DbSet<PosProduct> PosProducts => Set<PosProduct>();
     public DbSet<PosBarcodeCatalog> PosBarcodeCatalog => Set<PosBarcodeCatalog>();
+    public DbSet<PosProductSampleCatalog> PosProductSampleCatalog => Set<PosProductSampleCatalog>();
     public DbSet<StoreAccessDevice> StoreAccessDevices => Set<StoreAccessDevice>();
     public DbSet<ServerMetricSample> ServerMetricSamples => Set<ServerMetricSample>();
     public DbSet<PosProductToppingOption> PosProductToppingOptions => Set<PosProductToppingOption>();
@@ -231,6 +232,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosSaleOrderLine> PosSaleOrderLines => Set<PosSaleOrderLine>();
     public DbSet<PosEInvoiceSetting> PosEInvoiceSettings => Set<PosEInvoiceSetting>();
     public DbSet<PosProductComboLine> PosProductComboLines => Set<PosProductComboLine>();
+    public DbSet<PosProductRecipeLine> PosProductRecipeLines => Set<PosProductRecipeLine>();
     public DbSet<PosProductVariant> PosProductVariants => Set<PosProductVariant>();
     public DbSet<PosStockReceipt> PosStockReceipts => Set<PosStockReceipt>();
     public DbSet<PosStockReceiptLine> PosStockReceiptLines => Set<PosStockReceiptLine>();
@@ -244,6 +246,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosPurchaseReturnLine> PosPurchaseReturnLines => Set<PosPurchaseReturnLine>();
     public DbSet<PosSupplierPayment> PosSupplierPayments => Set<PosSupplierPayment>();
     public DbSet<PosPrintTemplate> PosPrintTemplates => Set<PosPrintTemplate>();
+    public DbSet<PosPrintTemplateCatalog> PosPrintTemplateCatalogs => Set<PosPrintTemplateCatalog>();
     public DbSet<PosStorePrinter> PosStorePrinters => Set<PosStorePrinter>();
     public DbSet<PosPrinterDocumentRoute> PosPrinterDocumentRoutes => Set<PosPrinterDocumentRoute>();
     public DbSet<PosPrintAgent> PosPrintAgents => Set<PosPrintAgent>();

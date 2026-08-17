@@ -1037,11 +1037,18 @@ public class CommunicationController(
             }
             stream.Position = 0;
 
-            var uploadFolder = await GetStoreFolderAsync("uploads/communications");
-            var storedPath = await fileStorageService.UploadAsync(stream, file.FileName, uploadFolder);
-            var imageUrl = fileStorageService.GetFileUrl(storedPath);
-
-            return Ok(AppResponse<string>.Success(imageUrl));
+            var (optimized, uploadName, _) = await ImageOptimizeHelper.OptimizeAsync(
+                stream,
+                file.FileName,
+                ImageOptimizeHelper.PhotoMaxEdge,
+                ImageOptimizeHelper.PhotoJpegQuality);
+            await using (optimized)
+            {
+                var uploadFolder = await GetStoreFolderAsync("uploads/communications");
+                var storedPath = await fileStorageService.UploadAsync(optimized, uploadName, uploadFolder);
+                var imageUrl = fileStorageService.GetFileUrl(storedPath);
+                return Ok(AppResponse<string>.Success(imageUrl));
+            }
         }
         catch (Exception ex)
         {
@@ -1109,12 +1116,18 @@ public class CommunicationController(
                 return BadRequest(AppResponse<string>.Fail("Nội dung file không khớp với định dạng khai báo"));
             }
 
-            using var stream = new MemoryStream(fileBytes);
-            var uploadFolder = await GetStoreFolderAsync("uploads/communications");
-            var storedPath = await fileStorageService.UploadAsync(stream, dto.FileName, uploadFolder);
-            var imageUrl = fileStorageService.GetFileUrl(storedPath);
-
-            return Ok(AppResponse<string>.Success(imageUrl));
+            var (optimized, uploadName, _) = ImageOptimizeHelper.Optimize(
+                fileBytes,
+                dto.FileName,
+                ImageOptimizeHelper.PhotoMaxEdge,
+                ImageOptimizeHelper.PhotoJpegQuality);
+            await using (optimized)
+            {
+                var uploadFolder = await GetStoreFolderAsync("uploads/communications");
+                var storedPath = await fileStorageService.UploadAsync(optimized, uploadName, uploadFolder);
+                var imageUrl = fileStorageService.GetFileUrl(storedPath);
+                return Ok(AppResponse<string>.Success(imageUrl));
+            }
         }
         catch (Exception ex)
         {

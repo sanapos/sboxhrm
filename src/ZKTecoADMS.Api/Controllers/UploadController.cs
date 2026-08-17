@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Hosting;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Infrastructure;
 using ZKTecoADMS.Infrastructure.Services;
@@ -214,21 +215,54 @@ public class UploadController : AuthenticatedControllerBase
             }
 
             stream.Position = 0;
-            var filePath = await _fileStorageService.UploadAsync(stream, file.FileName, storeFolder);
-            var fileUrl = _fileStorageService.GetFileUrl(filePath);
 
-            return Ok(new 
-            { 
-                isSuccess = true, 
-                data = new 
-                { 
-                    filePath,
-                    fileUrl,
-                    fileName = file.FileName,
-                    fileSize = file.Length,
-                    contentType = file.ContentType
+            Stream uploadStream = stream;
+            var uploadFileName = file.FileName;
+            MemoryStream? optimizedHolder = null;
+            long reportedSize = file.Length;
+            var reportedContentType = file.ContentType;
+
+            if (!allowVideo && ImageOptimizeHelper.IsRasterImageExtension(extension))
+            {
+                var (optimized, optName, didOpt) = await ImageOptimizeHelper.OptimizeAsync(
+                    stream,
+                    file.FileName,
+                    ImageOptimizeHelper.PhotoMaxEdge,
+                    ImageOptimizeHelper.PhotoJpegQuality);
+                optimizedHolder = optimized;
+                uploadStream = optimized;
+                if (didOpt)
+                {
+                    uploadFileName = optName;
+                    reportedSize = optimized.Length;
+                    reportedContentType = "image/jpeg";
                 }
-            });
+            }
+
+            try
+            {
+                var filePath = await _fileStorageService.UploadAsync(
+                    uploadStream, uploadFileName, storeFolder);
+                var fileUrl = _fileStorageService.GetFileUrl(filePath);
+
+                return Ok(new
+                {
+                    isSuccess = true,
+                    data = new
+                    {
+                        filePath,
+                        fileUrl,
+                        fileName = uploadFileName,
+                        fileSize = reportedSize,
+                        contentType = reportedContentType
+                    }
+                });
+            }
+            finally
+            {
+                if (optimizedHolder != null)
+                    await optimizedHolder.DisposeAsync();
+            }
         }
         catch (Exception ex)
         {

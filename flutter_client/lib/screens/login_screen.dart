@@ -609,9 +609,8 @@ class _LoginScreenState extends State<LoginScreen>
                           controller: _storeCodeController,
                           hint: 'Ví dụ: SBOX-HQ',
                           icon: Icons.storefront_rounded,
-                          validator: (v) => (v == null || v.isEmpty)
-                              ? 'Vui lòng nhập mã cửa hàng'
-                              : null,
+                          // Để trống = SuperAdmin/Agent (AdminLogin). Store thường vẫn nhập mã.
+                          validator: (_) => null,
                         ),
                         if (_storeAgentContact != null) ...[
                           const SizedBox(height: 12),

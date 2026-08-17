@@ -14,6 +14,7 @@ import '../services/api_service.dart';
 import '../services/app_permission_service.dart';
 import '../services/pos_app_update_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/pos/pos_form_keyboard.dart';
 import '../widgets/pos_app_update_dialog.dart';
 import '../widgets/store_agent_support_card.dart';
 import '../utils/web_marketing_gate_stub.dart'
@@ -557,7 +558,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ===== Form Panel (Right side / Mobile) =====
   Widget _buildFormPanel({required bool isDesktop}) {
-    final viewInsets = MediaQuery.viewInsetsOf(context);
+    final viewInsetsBottom = posImeBottomPad(context);
     final isCompactMobile = !isDesktop &&
         math.min(MediaQuery.sizeOf(context).width,
                 MediaQuery.sizeOf(context).height) <
@@ -573,13 +574,13 @@ class _LoginScreenState extends State<LoginScreen>
             hPad,
             vPad,
             hPad,
-            vPad + viewInsets.bottom,
+            vPad + viewInsetsBottom,
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               minHeight: math.max(
                 0,
-                constraints.maxHeight - vPad * 2 - viewInsets.bottom,
+                constraints.maxHeight - vPad * 2 - viewInsetsBottom,
               ),
             ),
             child: FadeTransition(
@@ -587,7 +588,7 @@ class _LoginScreenState extends State<LoginScreen>
               child: SlideTransition(
                 position: _slideAnim,
                 child: Align(
-                  alignment: isCompactMobile && viewInsets.bottom > 0
+                  alignment: isCompactMobile && viewInsetsBottom > 0
                       ? Alignment.topCenter
                       : Alignment.center,
                   child: ConstrainedBox(

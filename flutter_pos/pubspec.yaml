@@ -1,7 +1,7 @@
 name: sbox_pos
 description: SBOX POS Flutter — Android 6.0 (FVM 3.22), logic thống nhất với flutter_client POS.
 publish_to: "none"
-version: 1.0.223+19223
+version: 1.0.253+19253
 
 environment:
   sdk: ">=3.0.0 <4.0.0"

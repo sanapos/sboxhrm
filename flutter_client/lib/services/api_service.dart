@@ -14088,11 +14088,7 @@ class ApiService {
       }
       if (supplierId != null && supplierId.isNotEmpty) q['supplierId'] = supplierId;
       if (productType != null) {
-        q['productType'] = productType == PosProductType.service
-            ? '1'
-            : productType == PosProductType.combo
-                ? '2'
-                : '0';
+        q['productType'] = productType.apiValue.toString();
       }
       if (isDirectSale != null) q['isDirectSale'] = isDirectSale.toString();
       if (createdFrom != null) {
@@ -14282,6 +14278,24 @@ class ApiService {
           .replace(queryParameters: {'value': value.toString()});
       final response =
           await http.post(uri, headers: _headers).timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> appendPosProductSaleQuickNote(
+    String id,
+    String note,
+  ) async {
+    try {
+      final response = await http
+          .patch(
+            Uri.parse('$baseUrl/api/pos/products/$id/sale-quick-notes'),
+            headers: _headers,
+            body: jsonEncode({'note': note}),
+          )
+          .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14676,21 +14690,38 @@ class ApiService {
     String? search,
     String? categoryId,
     String? supplierId,
+    PosProductType? productType,
   }) async {
     final q = <String, String>{};
     if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
     if (categoryId != null && categoryId.isNotEmpty) q['categoryId'] = categoryId;
     if (supplierId != null && supplierId.isNotEmpty) q['supplierId'] = supplierId;
+    if (productType != null) q['productType'] = productType.apiValue.toString();
     return _getExcelExport(
       Uri.parse('$baseUrl/api/pos/products/export/excel')
           .replace(queryParameters: q.isEmpty ? null : q),
     );
   }
 
+  Future<Map<String, dynamic>> exportPosProductsExcelTemplate(
+      PosProductType productType) {
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/pos/products/excel-template').replace(
+        queryParameters: {'productType': productType.apiValue.toString()},
+      ),
+    );
+  }
+
   Future<Map<String, dynamic>> importPosProductsExcelFile(
-      List<int> fileBytes, String fileName) async {
+      List<int> fileBytes, String fileName,
+      {PosProductType? forceProductType}) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/pos/products/import/excel/file');
+      final uri = Uri.parse('$baseUrl/api/pos/products/import/excel/file')
+          .replace(
+        queryParameters: forceProductType == null
+            ? null
+            : {'forceProductType': forceProductType.apiValue.toString()},
+      );
       final request = http.MultipartRequest('POST', uri);
       final authHeaders = _headers;
       if (authHeaders.containsKey('Authorization')) {
@@ -14738,6 +14769,156 @@ class ApiService {
             Uri.parse('$baseUrl/api/pos/products/quick'),
             headers: _headers,
             body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosSampleCatalog({
+    String? search,
+    String? kind,
+    int page = 1,
+    int pageSize = 60,
+  }) async {
+    try {
+      final q = <String, String>{
+        'page': '$page',
+        'pageSize': '$pageSize',
+      };
+      if (search != null && search.trim().isNotEmpty) {
+        q['search'] = search.trim();
+      }
+      if (kind != null && kind.trim().isNotEmpty) q['kind'] = kind.trim();
+      final uri = Uri.parse('$baseUrl/api/pos/products/sample-catalog')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<List<int>?> getPosSampleCatalogImageBytes(String id) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/products/sample-catalog/$id/image'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return response.bodyBytes;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<Map<String, dynamic>> getSystemPosSampleCatalog({
+    String? search,
+    String? kind,
+    bool includeInactive = false,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final q = <String, String>{
+        'page': '$page',
+        'pageSize': '$pageSize',
+        'includeInactive': '$includeInactive',
+      };
+      if (search != null && search.trim().isNotEmpty) {
+        q['search'] = search.trim();
+      }
+      if (kind != null && kind.trim().isNotEmpty) q['kind'] = kind.trim();
+      final uri = Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createSystemPosSampleCatalog(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSystemPosSampleCatalog(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/$id'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteSystemPosSampleCatalog(String id) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/$id'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadSystemPosSampleCatalogImage(
+      String id, List<int> bytes, String filename) async {
+    try {
+      final uri =
+          Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/$id/image');
+      final request = http.MultipartRequest('POST', uri);
+      final headers = Map<String, String>.from(_headers);
+      headers.remove('Content-Type');
+      request.headers.addAll(headers);
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: filename,
+      ));
+      final streamed = await request.send().timeout(const Duration(seconds: 60));
+      final response = await http.Response.fromStream(streamed);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> seedSystemPosSampleCatalog() async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/system-admin/pos-sample-catalog/seed-defaults'),
+            headers: _headers,
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -15031,13 +15212,16 @@ class ApiService {
   Future<Map<String, dynamic>> savePosEInvoiceSettings(
       Map<String, dynamic> body) async {
     try {
-      final response = await http
-          .put(
-            Uri.parse('$baseUrl/api/pos/einvoice/settings'),
-            headers: _headers,
-            body: jsonEncode(body),
-          )
+      final uri = Uri.parse('$baseUrl/api/pos/einvoice/settings');
+      final encoded = jsonEncode(body);
+      var response = await http
+          .put(uri, headers: _headers, body: encoded)
           .timeout(const Duration(seconds: 30));
+      if (response.statusCode == 405 || response.statusCode == 404) {
+        response = await http
+            .post(uri, headers: _headers, body: encoded)
+            .timeout(const Duration(seconds: 30));
+      }
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15262,6 +15446,34 @@ class ApiService {
       final response = await http
           .put(
             Uri.parse('$baseUrl/api/pos/products/$comboProductId/combo-lines'),
+            headers: _headers,
+            body: jsonEncode({'lines': lines}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosRecipeLines(String productId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/products/$productId/recipe-lines'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> savePosRecipeLines(
+      String productId, List<Map<String, dynamic>> lines) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/products/$productId/recipe-lines'),
             headers: _headers,
             body: jsonEncode({'lines': lines}),
           )
@@ -17302,6 +17514,19 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> lookupPosCustomerTax(String taxCode) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/customers/tax-lookup')
+          .replace(queryParameters: {'taxCode': taxCode});
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createPosCustomer(Map<String, dynamic> body) async {
     try {
       final response = await http
@@ -17348,6 +17573,52 @@ class ApiService {
           .replace(queryParameters: q);
       final response =
           await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosPrintTemplateCatalog({
+    String documentType = 'SaleInvoice',
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/print-templates/catalog')
+          .replace(queryParameters: {'documentType': documentType});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> adoptPosPrintTemplateCatalog(
+    String catalogId, {
+    bool setAsDefault = true,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/print-templates/catalog/$catalogId/adopt'),
+            headers: _headers,
+            body: jsonEncode({'setAsDefault': setAsDefault}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setDefaultPosPrintTemplate(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/print-templates/$id/set-default'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

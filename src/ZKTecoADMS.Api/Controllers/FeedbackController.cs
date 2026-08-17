@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -712,11 +713,18 @@ public class FeedbackController(
         try
         {
             var storeFolder = await GetStoreFolderAsync("uploads/feedback");
-            using var stream = file.OpenReadStream();
-            var filePath = await fileStorageService.UploadAsync(stream, file.FileName, storeFolder);
-            var fileUrl = fileStorageService.GetFileUrl(filePath);
-
-            return Ok(AppResponse<object>.Success(new { filePath, fileUrl }));
+            await using var raw = file.OpenReadStream();
+            var (optimized, uploadName, _) = await ImageOptimizeHelper.OptimizeAsync(
+                raw,
+                file.FileName,
+                ImageOptimizeHelper.PhotoMaxEdge,
+                ImageOptimizeHelper.PhotoJpegQuality);
+            await using (optimized)
+            {
+                var filePath = await fileStorageService.UploadAsync(optimized, uploadName, storeFolder);
+                var fileUrl = fileStorageService.GetFileUrl(filePath);
+                return Ok(AppResponse<object>.Success(new { filePath, fileUrl }));
+            }
         }
         catch
         {

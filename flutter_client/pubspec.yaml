@@ -3,7 +3,7 @@ description: ZKTeco ADMS Flutter Client - Hệ thống quản lý chấm công
 
 publish_to: 'none'
 
-version: 1.0.336+6336
+version: 1.0.368+8366
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -85,6 +85,9 @@ dependencies:
 
   # WiFi info (BSSID/SSID detection)
   network_info_plus: ^6.0.1
+
+  # BLE — cấu hình gateway ESP32 khi giữ WiFi nhà
+  flutter_blue_plus: ^1.35.5
 
   # Bonjour / mDNS — dò gateway trên iOS (sboxadms.local / _sboxgw._tcp)
   multicast_dns: ^0.3.2+7

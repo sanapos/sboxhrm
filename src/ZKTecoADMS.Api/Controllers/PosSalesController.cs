@@ -518,6 +518,7 @@ public partial class PosSalesController(
                 p.IsTopping,
                 p.AllowToppings,
                 p.AutoOpenToppingPopup,
+                p.ShowComboComponentsOnSell,
                 VariantCount = p.Variants.Count(v => v.Deleted == null && v.IsActive),
             })
             .ToListAsync();
@@ -587,6 +588,31 @@ public partial class PosSalesController(
                 .ToListAsync();
         var comboLinesByProduct = comboLinesFlat
             .GroupBy(x => x.ComboProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var recipeParentIds = products
+            .Where(p => p.ProductType != nameof(PosProductType.Combo))
+            .Select(p => p.Id)
+            .ToList();
+        var recipeLinesFlat = recipeParentIds.Count == 0
+            ? []
+            : await dbContext.PosProductRecipeLines.AsNoTracking()
+                .Include(x => x.ComponentProduct)
+                .Where(x => recipeParentIds.Contains(x.ParentProductId) && x.Deleted == null)
+                .Select(x => new
+                {
+                    x.ParentProductId,
+                    x.ComponentProductId,
+                    ComponentProductCode = x.ComponentProduct != null ? x.ComponentProduct.ProductCode : "",
+                    ComponentProductName = x.ComponentProduct != null ? x.ComponentProduct.Name : "",
+                    x.Qty,
+                    ComponentOnHandQty = x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
+                    ComponentBasePrice = x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0m,
+                    ComponentUnitName = x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : "",
+                })
+                .ToListAsync();
+        var recipeLinesByProduct = recipeLinesFlat
+            .GroupBy(x => x.ParentProductId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var toppingRows = productIds.Count == 0
@@ -666,6 +692,7 @@ public partial class PosSalesController(
         var items = products.Select(p =>
         {
             var comboLines = comboLinesByProduct.GetValueOrDefault(p.Id, []);
+            var recipeLines = recipeLinesByProduct.GetValueOrDefault(p.Id, []);
             decimal? sellableQty = null;
             if (p.ProductType == nameof(PosProductType.Combo))
             {
@@ -674,6 +701,11 @@ public partial class PosSalesController(
                 else
                     sellableQty = comboLines.Min(cl =>
                         cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
+            }
+            else if (recipeLines.Count > 0)
+            {
+                sellableQty = recipeLines.Min(cl =>
+                    cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
             }
 
             return new
@@ -704,6 +736,7 @@ public partial class PosSalesController(
                 p.IsTopping,
                 p.AllowToppings,
                 p.AutoOpenToppingPopup,
+                p.ShowComboComponentsOnSell,
                 p.VariantCount,
                 ToppingOptions = toppingMap.GetValueOrDefault(p.Id),
                 ToppingGroupIds = toppingGroupIdsByProduct.GetValueOrDefault(p.Id),
@@ -717,6 +750,16 @@ public partial class PosSalesController(
                     cl.Qty,
                     cl.ComponentOnHandQty,
                     cl.ComponentBasePrice,
+                }).ToList(),
+                RecipeLines = recipeLines.Select(cl => new
+                {
+                    cl.ComponentProductId,
+                    cl.ComponentProductCode,
+                    cl.ComponentProductName,
+                    cl.Qty,
+                    cl.ComponentOnHandQty,
+                    cl.ComponentBasePrice,
+                    cl.ComponentUnitName,
                 }).ToList(),
                 Units = unitsByProduct.GetValueOrDefault(p.Id, []),
                 Variants = variantsByProduct.GetValueOrDefault(p.Id, []),
@@ -820,7 +863,8 @@ public partial class PosSalesController(
         if (product == null)
         {
             var catalog = await dbContext.PosBarcodeCatalog.AsNoTracking()
-                .Where(x => x.StoreId == storeId && x.Deleted == null && x.Barcode.ToLower() == cLower)
+                .Where(x => x.StoreId == storeId && x.Deleted == null && x.IsActive &&
+                            x.Barcode.ToLower() == cLower)
                 .Select(x => new
                 {
                     x.Barcode,
@@ -829,8 +873,43 @@ public partial class PosSalesController(
                     x.BrandName,
                     x.CategoryName,
                     x.ImageUrl,
+                    description = (string?)null,
+                    sampleCatalogId = (Guid?)null,
+                    kind = (string?)null,
+                    productType = (string?)null,
+                    defaultPrice = (decimal?)null,
+                    defaultCostPrice = (decimal?)null,
+                    vatRate = (decimal?)null,
+                    vatExempt = (bool?)null,
                 })
                 .FirstOrDefaultAsync();
+
+            if (catalog == null)
+            {
+                var sample = await dbContext.PosProductSampleCatalog.AsNoTracking()
+                    .Where(x => x.Deleted == null && x.IsActive &&
+                                x.Barcode != null && x.Barcode.ToLower() == cLower)
+                    .Select(x => new
+                    {
+                        Barcode = x.Barcode!,
+                        x.Name,
+                        x.UnitName,
+                        x.BrandName,
+                        x.CategoryName,
+                        x.ImageUrl,
+                        description = (string?)x.Description,
+                        sampleCatalogId = (Guid?)x.Id,
+                        kind = (string?)x.Kind.ToString(),
+                        productType = (string?)x.ProductType.ToString(),
+                        defaultPrice = x.DefaultPrice,
+                        defaultCostPrice = x.DefaultCostPrice,
+                        vatRate = (decimal?)x.VatRate,
+                        vatExempt = (bool?)x.VatExempt,
+                    })
+                    .FirstOrDefaultAsync();
+                catalog = sample;
+            }
+
             return Ok(AppResponse<object>.Success(new
             {
                 matchType = catalog != null ? "catalog" : "none",
@@ -954,6 +1033,9 @@ public partial class PosSalesController(
                         CurrentUserId, EmployeeId, display!, dto.DeviceId, dto.DeviceName),
                     lines.Count);
             }
+
+            if (dto.Complete)
+                PosKitchenKdsHelper.CloseOpenOnPaid(lines);
 
             dbContext.PosSaleOrders.Add(order);
             dbContext.PosSaleOrderLines.AddRange(lines);
@@ -1673,8 +1755,20 @@ public partial class PosSalesController(
                 .GroupBy(c => c.ComboProductId)
                 .ToDictionaryAsync(g => g.Key, g => g.ToList());
 
+        var recipeParentIds = products.Values
+            .Where(p => p.ProductType != PosProductType.Combo)
+            .Select(p => p.Id).ToList();
+        var recipeLinesMap = recipeParentIds.Count == 0
+            ? new Dictionary<Guid, List<PosProductRecipeLine>>()
+            : await dbContext.PosProductRecipeLines.AsNoTracking()
+                .Where(c => recipeParentIds.Contains(c.ParentProductId) && c.Deleted == null)
+                .GroupBy(c => c.ParentProductId)
+                .ToDictionaryAsync(g => g.Key, g => g.ToList());
+
         var comboComponentIds = comboLinesMap.Values
-            .SelectMany(v => v.Select(x => x.ComponentProductId)).Distinct()
+            .SelectMany(v => v.Select(x => x.ComponentProductId))
+            .Concat(recipeLinesMap.Values.SelectMany(v => v.Select(x => x.ComponentProductId)))
+            .Distinct()
             .Where(id => !products.ContainsKey(id)).ToList();
         if (comboComponentIds.Count > 0)
         {
@@ -1729,6 +1823,22 @@ public partial class PosSalesController(
                 variants.TryGetValue(line.VariantId.Value, out variant);
 
             var lineRefund = PosSaleStockHelper.LineUnitRefund(saleLine) * line.Qty;
+
+            if (recipeLinesMap.TryGetValue(p.Id, out var recipeLines) && recipeLines.Count > 0)
+            {
+                var recipeNote = BuildReturnNote(dto.Note, refundMethod, order.OrderNo) +
+                                 $" — hoàn định lượng: {p.Name}";
+                foreach (var cl in recipeLines)
+                {
+                    if (!products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
+                    var restore = cl.Qty * line.Qty;
+                    await PosSaleStockHelper.ApplyComboReturnComponentAsync(
+                        dbContext, storeId, order, comp, restore, lineRefund,
+                        returnNo, recipeNote, CurrentUserEmail);
+                }
+                refundTotal += lineRefund;
+                continue;
+            }
 
             if (p.ProductType == PosProductType.Service)
             {

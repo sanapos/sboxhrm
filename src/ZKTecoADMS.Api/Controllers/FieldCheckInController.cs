@@ -4,11 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
-using SixLabors.ImageSharp.Formats.Jpeg;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -76,16 +74,9 @@ public class FieldCheckInController : AuthenticatedControllerBase
     /// </summary>
     private static MemoryStream CompressImage(byte[] imageBytes, int maxWidth = 1024, int quality = 65)
     {
-        using var image = SixLabors.ImageSharp.Image.Load(imageBytes);
-        if (image.Width > maxWidth || image.Height > maxWidth)
-        {
-            var ratio = Math.Min((double)maxWidth / image.Width, (double)maxWidth / image.Height);
-            image.Mutate(x => x.Resize((int)(image.Width * ratio), (int)(image.Height * ratio)));
-        }
-        var output = new MemoryStream();
-        image.Save(output, new JpegEncoder { Quality = quality });
-        output.Position = 0;
-        return output;
+        var (stream, _, _) = ImageOptimizeHelper.Optimize(
+            imageBytes, "photo.jpg", maxWidth, quality);
+        return stream;
     }
 
     // ==================== FIELD LOCATIONS (ĐIỂM BÁN KHÁCH HÀNG) ====================

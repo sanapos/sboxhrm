@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -83,7 +84,20 @@ public partial class PosProductsController(
         List<PosProductToppingOptionDto>? ToppingOptions = null,
         List<Guid>? ToppingGroupIds = null,
         List<PosProductToppingGroupDto>? ToppingGroups = null,
-        decimal? SellableQty = null);
+        decimal? SellableQty = null,
+        List<PosProductComboLineDto>? ComboLines = null,
+        List<PosProductComboLineDto>? RecipeLines = null,
+        bool ShowComboComponentsOnSell = false);
+
+    public record PosProductComboLineDto(
+        Guid Id,
+        Guid ComponentProductId,
+        string ComponentProductCode,
+        string ComponentProductName,
+        decimal Qty,
+        decimal ComponentOnHandQty,
+        decimal ComponentBasePrice,
+        string ComponentUnitName);
 
     public record PosProductToppingGroupDto(
         Guid Id,
@@ -156,7 +170,8 @@ public partial class PosProductsController(
         bool AutoOpenToppingPopup = true,
         bool AllowDecimalQty = false,
         List<PosProductToppingInput>? Toppings = null,
-        List<Guid>? ToppingGroupIds = null);
+        List<Guid>? ToppingGroupIds = null,
+        bool ShowComboComponentsOnSell = false);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -237,18 +252,24 @@ public partial class PosProductsController(
         query = stockFilter switch
         {
             PosStockFilter.BelowMin => query.Where(p =>
-                p.ProductType == PosProductType.Goods &&
+                (p.ProductType == PosProductType.Goods ||
+                 p.ProductType == PosProductType.Material ||
+                 p.ProductType == PosProductType.Topping) &&
                 p.MinStockQty > 0 && p.OnHandQty > 0 && p.OnHandQty <= p.MinStockQty),
             PosStockFilter.OutOfStock => query.Where(p =>
-                p.ProductType == PosProductType.Goods && p.OnHandQty <= 0),
+                (p.ProductType == PosProductType.Goods ||
+                 p.ProductType == PosProductType.Material ||
+                 p.ProductType == PosProductType.Topping) && p.OnHandQty <= 0),
             PosStockFilter.AboveMax => query.Where(p =>
-                p.ProductType == PosProductType.Goods &&
+                (p.ProductType == PosProductType.Goods ||
+                 p.ProductType == PosProductType.Material ||
+                 p.ProductType == PosProductType.Topping) &&
                 p.MaxStockQty > 0 && p.OnHandQty > p.MaxStockQty),
             _ => query,
         };
 
         var total = await query.CountAsync();
-        var totalOnHand = await query.SumAsync(p => p.OnHandQty);
+        var totalOnHand = total == 0 ? 0m : await query.SumAsync(p => p.OnHandQty);
 
         IOrderedQueryable<PosProduct> ordered = sortBy switch
         {
@@ -287,7 +308,7 @@ public partial class PosProductsController(
                 StorageLocationName = p.StorageLocation != null ? p.StorageLocation.Name : null,
                 p.SupplierId,
                 SupplierName = p.Supplier != null ? p.Supplier.Name : null,
-                ProductType = p.ProductType.ToString(),
+                p.ProductType,
                 p.Description,
                 p.ImageUrl,
                 p.CostPrice,
@@ -308,6 +329,7 @@ public partial class PosProductsController(
                 p.IsTopping,
                 p.AllowToppings,
                 p.AutoOpenToppingPopup,
+                p.ShowComboComponentsOnSell,
                 p.AllowDecimalQty,
                 p.ServiceBillingMode,
                 p.MinBillMinutes,
@@ -324,40 +346,28 @@ public partial class PosProductsController(
             })
             .ToListAsync();
 
-        var metrics = await GetStockoutMetricsBatchAsync(storeId, rows.Select(r => r.Id));
-        var variantCounts = await dbContext.PosProductVariants
-            .AsNoTracking()
-            .Where(v => rows.Select(r => r.Id).Contains(v.ProductId) && v.Deleted == null && v.IsActive)
-            .GroupBy(v => v.ProductId)
-            .Select(g => new { ProductId = g.Key, VariantCount = g.Count() })
-            .ToDictionaryAsync(x => x.ProductId, x => x.VariantCount);
+        var ids = rows.Select(r => r.Id).ToList();
+        var variantCounts = new Dictionary<Guid, int>();
+        var metrics = new Dictionary<Guid, (decimal AvgDaily, DateTime? Stockout)>();
+        var comboSellable = new Dictionary<Guid, decimal>();
+        if (ids.Count > 0)
+        {
+            variantCounts = await dbContext.PosProductVariants
+                .AsNoTracking()
+                .Where(v => ids.Contains(v.ProductId) && v.Deleted == null && v.IsActive)
+                .GroupBy(v => v.ProductId)
+                .Select(g => new { ProductId = g.Key, VariantCount = g.Count() })
+                .ToDictionaryAsync(x => x.ProductId, x => x.VariantCount);
 
-        var toppingByProduct = await dbContext.PosProductToppingOptions
-            .AsNoTracking()
-            .Include(t => t.ToppingProduct)
-            .Where(t => rows.Select(r => r.Id).Contains(t.ProductId)
-                && t.StoreId == storeId && t.Deleted == null && t.IsActive)
-            .OrderBy(t => t.SortOrder)
-            .ToListAsync();
-        var toppingMap = toppingByProduct
-            .GroupBy(t => t.ProductId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Select(t => new PosProductToppingOptionDto(
-                    t.Id,
-                    t.ToppingProductId,
-                    t.ToppingProduct != null ? t.ToppingProduct.Name : "",
-                    t.ExtraPrice ?? (t.ToppingProduct != null ? t.ToppingProduct.BasePrice : 0),
-                    t.SortOrder)).ToList());
+            if (stockoutFilter != PosStockoutFilter.All)
+                metrics = await GetStockoutMetricsBatchAsync(storeId, ids);
 
-        var (groupIdsMap, groupsMap) = await LoadToppingGroupsForProductsAsync(
-            storeId, rows.Select(r => r.Id));
-
-        var comboIds = rows
-            .Where(r => r.ProductType == nameof(PosProductType.Combo))
-            .Select(r => r.Id)
-            .ToList();
-        var comboSellable = await ComputeComboSellableAsync(storeId, comboIds);
+            var comboIds = rows
+                .Where(r => r.ProductType == PosProductType.Combo)
+                .Select(r => r.Id)
+                .ToList();
+            comboSellable = await ComputeComboSellableAsync(storeId, comboIds);
+        }
 
         var items = rows.Select(r =>
         {
@@ -365,16 +375,13 @@ public partial class PosProductsController(
             var avg = m.AvgDaily;
             var stockout = ComputeStockoutDate(r.OnHandQty, avg);
             variantCounts.TryGetValue(r.Id, out var variantCount);
-            toppingMap.TryGetValue(r.Id, out var toppingOpts);
-            groupIdsMap.TryGetValue(r.Id, out var groupIds);
-            groupsMap.TryGetValue(r.Id, out var toppingGroups);
             return new PosProductDto(
                 r.Id, r.ProductCode, r.Barcode, r.Name,
                 r.CategoryId, r.CategoryName, r.CategoryName,
                 r.BrandId, r.BrandName,
                 r.StorageLocationId, r.StorageLocationName,
                 r.SupplierId, r.SupplierName,
-                r.ProductType, r.Description, r.ImageUrl,
+                r.ProductType.ToString(), r.Description, r.ImageUrl,
                 r.CostPrice, r.BasePrice, r.VatRate, r.VatExempt, r.OnHandQty, r.ReservedQty,
                 r.MinStockQty, r.MaxStockQty, r.Weight, r.WeightUnit, r.BaseUnitName,
                 r.IsDirectSale, r.IsFavorite, r.IsActive, variantCount,
@@ -396,12 +403,10 @@ public partial class PosProductsController(
                 AllowToppings: r.AllowToppings,
                 AutoOpenToppingPopup: r.AutoOpenToppingPopup,
                 AllowDecimalQty: r.AllowDecimalQty,
-                ToppingOptions: toppingOpts,
-                ToppingGroupIds: groupIds,
-                ToppingGroups: toppingGroups,
-                SellableQty: r.ProductType == nameof(PosProductType.Combo)
+                SellableQty: r.ProductType == PosProductType.Combo
                     ? comboSellable.GetValueOrDefault(r.Id)
-                    : null);
+                    : null,
+                ShowComboComponentsOnSell: r.ShowComboComponentsOnSell);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -509,34 +514,42 @@ public partial class PosProductsController(
         try
         {
             var folder = await GetStoreFolderAsync("uploads/pos-products");
-            var uploadName = string.IsNullOrWhiteSpace(Path.GetExtension(file.FileName))
-                ? $"product{ext}"
-                : file.FileName;
-            await using var stream = file.OpenReadStream();
-            var path = await fileStorageService.UploadAsync(stream, uploadName, folder);
-            var imagePath = path.TrimStart('/');
-            var updatedBy = CurrentUserEmail ?? "API";
-            var now = DateTime.UtcNow;
-
-            // ExecuteUpdate tránh lỗi change-tracker không persist ImageUrl.
-            var rows = await dbContext.PosProducts
-                .Where(p => p.Id == id && p.StoreId == storeId && p.Deleted == null)
-                .ExecuteUpdateAsync(s => s
-                    .SetProperty(p => p.ImageUrl, imagePath)
-                    .SetProperty(p => p.UpdatedAt, now)
-                    .SetProperty(p => p.UpdatedBy, updatedBy));
-
-            if (rows == 0)
+            await using var raw = file.OpenReadStream();
+            var (optimized, uploadName, _) = await ImageOptimizeHelper.OptimizeAsync(
+                raw,
+                string.IsNullOrWhiteSpace(Path.GetExtension(file.FileName))
+                    ? $"product{ext}"
+                    : file.FileName,
+                ImageOptimizeHelper.ProductMaxEdge,
+                ImageOptimizeHelper.ProductJpegQuality);
+            await using (optimized)
             {
-                logger.LogWarning(
-                    "POS product image DB update returned 0 rows for {ProductId}", id);
-                return NotFound(AppResponse<object>.Fail("Không cập nhật được ảnh sản phẩm"));
+                var path = await fileStorageService.UploadAsync(optimized, uploadName, folder);
+                var imagePath = path.TrimStart('/');
+                var updatedBy = CurrentUserEmail ?? "API";
+                var now = DateTime.UtcNow;
+
+                // ExecuteUpdate tránh lỗi change-tracker không persist ImageUrl.
+                var rows = await dbContext.PosProducts
+                    .Where(p => p.Id == id && p.StoreId == storeId && p.Deleted == null)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(p => p.ImageUrl, imagePath)
+                        .SetProperty(p => p.UpdatedAt, now)
+                        .SetProperty(p => p.UpdatedBy, updatedBy));
+
+                if (rows == 0)
+                {
+                    logger.LogWarning(
+                        "POS product image DB update returned 0 rows for {ProductId}", id);
+                    return NotFound(AppResponse<object>.Fail("Không cập nhật được ảnh sản phẩm"));
+                }
+
+                logger.LogInformation(
+                    "POS product image saved (optimized): {ProductId} -> {ImageUrl} ({Bytes} bytes)",
+                    id, imagePath, optimized.Length);
+
+                return Ok(AppResponse<object>.Success(new { imageUrl = imagePath }));
             }
-
-            logger.LogWarning(
-                "POS product image saved: {ProductId} -> {ImageUrl}", id, imagePath);
-
-            return Ok(AppResponse<object>.Success(new { imageUrl = imagePath }));
         }
         catch (Exception ex)
         {
@@ -583,8 +596,9 @@ public partial class PosProductsController(
         var code = dto.ProductCode?.Trim();
         if (string.IsNullOrEmpty(code))
             code = await GenerateProductCodeAsync(storeId, dto.ProductType);
-        else if (await dbContext.PosProducts.AnyAsync(p =>
-                     p.StoreId == storeId && p.ProductCode == code && p.Deleted == null))
+        // Unique index includes soft-deleted rows — block reuse of deleted codes too.
+        else if (await dbContext.PosProducts.IgnoreQueryFilters().AnyAsync(p =>
+                     p.StoreId == storeId && p.ProductCode == code))
             return BadRequest(AppResponse<PosProductDto>.Fail("Mã hàng đã tồn tại"));
 
         var entity = new PosProduct
@@ -636,6 +650,7 @@ public partial class PosProductsController(
             IsTopping = dto.IsTopping,
             AllowToppings = dto.AllowToppings && !dto.IsTopping,
             AutoOpenToppingPopup = dto.AutoOpenToppingPopup,
+            ShowComboComponentsOnSell = dto.ProductType == PosProductType.Combo && dto.ShowComboComponentsOnSell,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -679,8 +694,8 @@ public partial class PosProductsController(
         {
             var code = dto.ProductCode.Trim();
             if (code != entity.ProductCode &&
-                await dbContext.PosProducts.AnyAsync(p =>
-                    p.StoreId == storeId && p.ProductCode == code && p.Id != id && p.Deleted == null))
+                await dbContext.PosProducts.IgnoreQueryFilters().AnyAsync(p =>
+                    p.StoreId == storeId && p.ProductCode == code && p.Id != id))
                 return BadRequest(AppResponse<PosProductDto>.Fail("Mã hàng đã tồn tại"));
             entity.ProductCode = code;
         }
@@ -727,7 +742,9 @@ public partial class PosProductsController(
         entity.MaxStockQty = dto.MaxStockQty;
         entity.Weight = dto.Weight;
         entity.WeightUnit = string.IsNullOrWhiteSpace(dto.WeightUnit) ? "g" : dto.WeightUnit.Trim();
-        entity.BaseUnitName = string.IsNullOrWhiteSpace(dto.BaseUnitName) ? "Cái" : dto.BaseUnitName.Trim();
+        // Giữ ĐVT hiện có nếu client không gửi — tránh partial PUT về «Cái».
+        if (!string.IsNullOrWhiteSpace(dto.BaseUnitName))
+            entity.BaseUnitName = dto.BaseUnitName.Trim();
         entity.IsDirectSale = dto.IsDirectSale;
         entity.IsFavorite = dto.IsFavorite;
         entity.SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes);
@@ -752,6 +769,8 @@ public partial class PosProductsController(
         entity.IsTopping = dto.IsTopping;
         entity.AllowToppings = dto.AllowToppings && !dto.IsTopping;
         entity.AutoOpenToppingPopup = dto.AutoOpenToppingPopup;
+        entity.ShowComboComponentsOnSell =
+            dto.ProductType == PosProductType.Combo && dto.ShowComboComponentsOnSell;
         entity.UpdatedAt = DateTime.UtcNow;
         entity.UpdatedBy = CurrentUserEmail;
 
@@ -852,6 +871,10 @@ public partial class PosProductsController(
             AllowDecimalQty = source.AllowDecimalQty,
             TrackExpiry = source.TrackExpiry,
             ExpiryWarningDays = source.ExpiryWarningDays,
+            IsTopping = source.IsTopping,
+            AllowToppings = source.AllowToppings,
+            AutoOpenToppingPopup = source.AutoOpenToppingPopup,
+            ShowComboComponentsOnSell = source.ShowComboComponentsOnSell,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -1000,6 +1023,50 @@ public partial class PosProductsController(
         groupIdsMap.TryGetValue(id, out var groupIds);
         groupsMap.TryGetValue(id, out var toppingGroups);
 
+        List<PosProductComboLineDto>? comboLines = null;
+        List<PosProductComboLineDto>? recipeLines = null;
+        decimal? sellableQty = null;
+        if (p.ProductType == PosProductType.Combo)
+        {
+            comboLines = await dbContext.PosProductComboLines.AsNoTracking()
+                .Include(x => x.ComponentProduct)
+                .Where(x => x.ComboProductId == id && x.StoreId == storeId && x.Deleted == null)
+                .OrderBy(x => x.CreatedAt)
+                .Select(x => new PosProductComboLineDto(
+                    x.Id,
+                    x.ComponentProductId,
+                    x.ComponentProduct != null ? x.ComponentProduct.ProductCode : "",
+                    x.ComponentProduct != null ? x.ComponentProduct.Name : "",
+                    x.Qty,
+                    x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
+                    x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0m,
+                    x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : ""))
+                .ToListAsync();
+            sellableQty = (await ComputeComboSellableAsync(storeId, [p.Id])).GetValueOrDefault(p.Id);
+        }
+        else
+        {
+            recipeLines = await dbContext.PosProductRecipeLines.AsNoTracking()
+                .Include(x => x.ComponentProduct)
+                .Where(x => x.ParentProductId == id && x.StoreId == storeId && x.Deleted == null)
+                .OrderBy(x => x.CreatedAt)
+                .Select(x => new PosProductComboLineDto(
+                    x.Id,
+                    x.ComponentProductId,
+                    x.ComponentProduct != null ? x.ComponentProduct.ProductCode : "",
+                    x.ComponentProduct != null ? x.ComponentProduct.Name : "",
+                    x.Qty,
+                    x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
+                    x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0m,
+                    x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : ""))
+                .ToListAsync();
+            if (recipeLines.Count > 0)
+            {
+                sellableQty = recipeLines.Min(cl =>
+                    cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
+            }
+        }
+
         return new PosProductDto(
             p.Id, p.ProductCode, p.Barcode, p.Name,
             p.CategoryId, p.Category?.Name, categoryPath,
@@ -1023,9 +1090,10 @@ public partial class PosProductsController(
             p.IsTopping, p.AllowToppings, p.AutoOpenToppingPopup,
             p.AllowDecimalQty, toppingOpts,
             groupIds, toppingGroups,
-            SellableQty: p.ProductType == PosProductType.Combo
-                ? (await ComputeComboSellableAsync(storeId, [p.Id])).GetValueOrDefault(p.Id)
-                : null);
+            SellableQty: sellableQty,
+            ComboLines: comboLines,
+            RecipeLines: recipeLines,
+            ShowComboComponentsOnSell: p.ShowComboComponentsOnSell);
     }
 
     private async Task<(
@@ -1273,6 +1341,8 @@ public partial class PosProductsController(
             entity.RequiresSerial = false;
             entity.AllowDecimalQty = false;
             entity.TrackExpiry = false;
+            entity.ShowComboComponentsOnSell = false;
+            entity.IsTopping = false;
             // Giữ ServiceBillingMode / phút / SessionPackCount từ DTO
         }
         else if (entity.ProductType == PosProductType.Combo)
@@ -1295,10 +1365,12 @@ public partial class PosProductsController(
             entity.OpeningFee = 0;
             entity.OpeningMinutes = null;
             entity.SessionPackValidDays = 0;
+            entity.IsTopping = false;
+            // ShowComboComponentsOnSell chỉ có ý nghĩa với combo — giữ nguyên giá trị đã set từ DTO.
         }
         else
         {
-            // Goods
+            entity.ShowComboComponentsOnSell = false;
             entity.ServiceBillingMode = PosServiceBillingMode.Flat;
             entity.MinBillMinutes = null;
             entity.BillRoundMinutes = null;
@@ -1309,6 +1381,23 @@ public partial class PosProductsController(
             entity.SessionPackValidDays = 0;
             entity.DefaultDurationMinutes = null;
             entity.SessionPackCount = Math.Max(0, entity.SessionPackCount);
+
+            if (entity.ProductType == PosProductType.Material)
+            {
+                entity.IsDirectSale = false;
+                entity.IsTopping = false;
+                entity.AllowToppings = false;
+            }
+            else if (entity.ProductType == PosProductType.Topping)
+            {
+                entity.IsTopping = true;
+                entity.IsDirectSale = false;
+                entity.AllowToppings = false;
+            }
+            else
+            {
+                entity.IsTopping = false;
+            }
         }
     }
 
@@ -1359,19 +1448,15 @@ public partial class PosProductsController(
     }
 
     /// <summary>
-    /// Mã tự tăng theo loại: HH00001 (hàng hóa), DV00001 (dịch vụ), CB00001 (combo).
+    /// Mã tự tăng: HH / DV / CB / NVL / TP.
     /// </summary>
     private async Task<string> GenerateProductCodeAsync(Guid storeId, PosProductType productType)
     {
-        var prefix = productType switch
-        {
-            PosProductType.Service => "DV",
-            PosProductType.Combo => "CB",
-            _ => "HH",
-        };
+        var prefix = PosProductTypeRules.CodePrefix(productType);
 
-        // Unique index StoreId+ProductCode includes soft-deleted rows — skip those codes too.
+        // Unique index StoreId+ProductCode includes soft-deleted rows — must IgnoreQueryFilters.
         var existing = await dbContext.PosProducts.AsNoTracking()
+            .IgnoreQueryFilters()
             .Where(p => p.StoreId == storeId && p.ProductCode.StartsWith(prefix))
             .Select(p => p.ProductCode)
             .ToListAsync();
@@ -1390,7 +1475,7 @@ public partial class PosProductsController(
         {
             var candidate = $"{prefix}{next + attempt:D5}";
             if (!existing.Contains(candidate, StringComparer.OrdinalIgnoreCase) &&
-                !await dbContext.PosProducts.AnyAsync(p =>
+                !await dbContext.PosProducts.IgnoreQueryFilters().AnyAsync(p =>
                     p.StoreId == storeId && p.ProductCode == candidate))
                 return candidate;
         }
@@ -1442,12 +1527,18 @@ public partial class PosProductsController(
             if (base64Data.Contains(','))
                 base64Data = base64Data[(base64Data.IndexOf(',') + 1)..];
             var bytes = Convert.FromBase64String(base64Data);
-            var fileName = $"pos_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}.jpg";
-            using var stream = new MemoryStream(bytes);
-            var folder = await GetStoreFolderAsync("uploads/pos-products");
-            var path = await fileStorageService.UploadAsync(stream, fileName, folder);
-            // Lưu path tương đối (không gắn host) để tránh URL localhost/host cũ.
-            return path.TrimStart('/');
+            var (optimized, fileName, _) = ImageOptimizeHelper.Optimize(
+                bytes,
+                $"pos_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}.jpg",
+                ImageOptimizeHelper.ProductMaxEdge,
+                ImageOptimizeHelper.ProductJpegQuality);
+            await using (optimized)
+            {
+                var folder = await GetStoreFolderAsync("uploads/pos-products");
+                var path = await fileStorageService.UploadAsync(optimized, fileName, folder);
+                // Lưu path tương đối (không gắn host) để tránh URL localhost/host cũ.
+                return path.TrimStart('/');
+            }
         }
         catch (Exception ex)
         {

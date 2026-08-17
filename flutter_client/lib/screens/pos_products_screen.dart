@@ -24,6 +24,8 @@ import '../widgets/pos/pos_product_filter_sidebar.dart';
 import '../widgets/pos/pos_product_data_table.dart';
 import '../widgets/pos/pos_product_table_columns.dart';
 import '../widgets/pos/pos_product_type_badge.dart';
+import '../widgets/pos/pos_product_type_filter_bar.dart';
+import '../widgets/pos/pos_sample_catalog_picker.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_product_expansion_panel.dart';
 import '../widgets/pos/pos_product_unit_view.dart';
@@ -126,7 +128,125 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
 
   PosProductType? get _typeFilterParam => _typeFilter;
 
-  Future<void> _reloadProducts() async {
+  List<PosProduct>? _localCatalog;
+
+  bool get _canFilterLocally =>
+      _localCatalog != null &&
+      _searchCtrl.text.trim().isEmpty &&
+      !_includeInactive &&
+      _stockoutFilter == PosStockoutFilter.all &&
+      !_useStockoutCustom;
+
+  void _captureLocalCatalogIfComplete() {
+    if (_searchCtrl.text.trim().isNotEmpty) return;
+    if (_typeFilter != null) return;
+    if (_categoryFilter != null ||
+        _brandFilter != null ||
+        _locationFilter != null ||
+        _supplierFilter != null) return;
+    if (_stockFilter != PosStockFilter.all) return;
+    if (_stockoutFilter != PosStockoutFilter.all || _useStockoutCustom) return;
+    if (_directSaleFilter != null) return;
+    if (_createdTimeFilter.preset != PosKiotTimePreset.allTime ||
+        _createdTimeFilter.isCustom) return;
+    if (_total > _pageSize) {
+      _localCatalog = null;
+      return;
+    }
+    _localCatalog = List<PosProduct>.of(_items);
+  }
+
+  List<PosProduct> _sortLocal(List<PosProduct> list) {
+    int dir(int c) => _sortDesc ? -c : c;
+    list.sort((a, b) {
+      final primary = switch (_sortBy) {
+        PosProductSortBy.code =>
+          dir(a.productCode.toLowerCase().compareTo(b.productCode.toLowerCase())),
+        PosProductSortBy.price => dir(a.basePrice.compareTo(b.basePrice)),
+        PosProductSortBy.stock => dir(a.onHandQty.compareTo(b.onHandQty)),
+        PosProductSortBy.name =>
+          dir(a.name.toLowerCase().compareTo(b.name.toLowerCase())),
+        _ => dir((a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+            .compareTo(b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))),
+      };
+      if (primary != 0) return primary;
+      if (a.isFavorite != b.isFavorite) return a.isFavorite ? -1 : 1;
+      return 0;
+    });
+    return list;
+  }
+
+  void _applyLocalFilters() {
+    var list = List<PosProduct>.of(_localCatalog!);
+    if (_typeFilter != null) {
+      list = list.where((p) => p.productType == _typeFilter).toList();
+    }
+    if (_categoryFilter != null) {
+      list = list.where((p) => p.categoryId == _categoryFilter).toList();
+    }
+    if (_brandFilter != null) {
+      list = list.where((p) => p.brandId == _brandFilter).toList();
+    }
+    if (_locationFilter != null) {
+      list = list.where((p) => p.storageLocationId == _locationFilter).toList();
+    }
+    if (_supplierFilter != null) {
+      list = list.where((p) => p.supplierId == _supplierFilter).toList();
+    }
+    if (_directSaleFilter != null) {
+      list = list.where((p) => p.isDirectSale == _directSaleFilter).toList();
+    }
+    if (!_includeInactive) {
+      list = list.where((p) => p.isActive).toList();
+    }
+    final from = _createdTimeFilter.from;
+    final to = _createdTimeFilter.to;
+    if (from != null) {
+      list = list
+          .where((p) => p.createdAt != null && !p.createdAt!.isBefore(from))
+          .toList();
+    }
+    if (to != null) {
+      list = list
+          .where((p) => p.createdAt != null && !p.createdAt!.isAfter(to))
+          .toList();
+    }
+    switch (_stockFilter) {
+      case PosStockFilter.outOfStock:
+        list = list
+            .where((p) => p.productType.tracksInventory && p.onHandQty <= 0)
+            .toList();
+      case PosStockFilter.belowMin:
+        list = list
+            .where((p) =>
+                p.productType.tracksInventory &&
+                p.minStockQty > 0 &&
+                p.onHandQty > 0 &&
+                p.onHandQty <= p.minStockQty)
+            .toList();
+      case PosStockFilter.aboveMax:
+        list = list
+            .where((p) =>
+                p.productType.tracksInventory &&
+                p.maxStockQty > 0 &&
+                p.onHandQty > p.maxStockQty)
+            .toList();
+      case PosStockFilter.all:
+        break;
+    }
+    _items = _sortLocal(list);
+    _total = _items.length;
+    _page = 1;
+    _totalPages = 1;
+    _totalOnHand = _items.fold(0.0, (a, b) => a + b.onHandQty);
+  }
+
+  Future<void> _reloadProducts({bool forceNetwork = false}) async {
+    if (!forceNetwork && _canFilterLocally) {
+      _applyLocalFilters();
+      if (mounted) setState(() {});
+      return;
+    }
     await _loadProducts(page: 1);
     if (mounted) setState(() {});
   }
@@ -198,6 +318,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     if (res['isSuccess'] == true && res['data'] is Map) {
       final data = res['data'] as Map<String, dynamic>;
       final list = data['items'] as List? ?? [];
+      _localCatalog = null;
       _items = list
           .map((e) => PosProduct.fromJson(e as Map<String, dynamic>))
           .toList();
@@ -214,7 +335,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       final summary = data['summary'] as Map<String, dynamic>?;
       _totalOnHand = (summary?['totalOnHandQty'] as num?)?.toDouble() ??
           _items.fold(0.0, (a, b) => a + b.onHandQty);
-      await _prefetchVariantsForPage();
+      _captureLocalCatalogIfComplete();
+      _prefetchVariantsForPage();
     } else if (mounted) {
       NotificationOverlayManager().showError(
         title: 'Không tải được hàng hóa',
@@ -675,6 +797,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
         categoryId: _categoryFilter,
         supplierId: _supplierFilter,
+        productType: _typeFilter,
       );
       if (res['isSuccess'] == true) {
         final bytes = Uint8List.fromList(List<int>.from(res['data']));
@@ -691,7 +814,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     }
   }
 
-  Future<void> _importExcel(PermissionProvider perm) async {
+  Future<void> _importExcel(PermissionProvider perm,
+      {PosProductType? forceProductType}) async {
     if (!perm.canCreate('PosProducts')) return;
     final fileResult = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -701,7 +825,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     if (fileResult == null || fileResult.files.isEmpty) return;
     final file = fileResult.files.first;
     if (file.bytes == null) return;
-    final res = await _api.importPosProductsExcelFile(file.bytes!, file.name);
+    final res = await _api.importPosProductsExcelFile(
+      file.bytes!,
+      file.name,
+      forceProductType: forceProductType,
+    );
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       final data = res['data'] as Map<String, dynamic>?;
@@ -743,6 +871,59 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         title: 'Import từ điển lỗi',
         message: tr((res['message'] ?? 'Cần cột Mã vạch và Tên hàng').toString()),
       );
+    }
+  }
+
+  Future<void> _downloadProductTemplate(PosProductType type) async {
+    final res = await _api.exportPosProductsExcelTemplate(type);
+    if (res['isSuccess'] != true || res['data'] == null) {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: tr((res['message'] ?? 'Không tải được mẫu').toString()),
+      );
+      return;
+    }
+    final bytes = Uint8List.fromList(List<int>.from(res['data']));
+    final slug = switch (type) {
+      PosProductType.service => 'dich_vu',
+      PosProductType.combo => 'combo',
+      PosProductType.material => 'nvl',
+      PosProductType.topping => 'topping',
+      PosProductType.goods => 'hang_hoa',
+    };
+    await file_saver.saveFileBytes(
+      bytes,
+      'mau_${slug}_pos.xlsx',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    NotificationOverlayManager().showSuccess(
+      title: 'Mẫu Excel',
+      message: tr('Đã tải mẫu ${posProductTypeLabel(type)}'),
+    );
+  }
+
+  Future<void> _openTypeHub(
+    PermissionProvider perm, {
+    required String title,
+    bool showCreate = true,
+    bool showImport = true,
+    bool showTemplate = true,
+  }) async {
+    final pick = await showPosProductTypeHub(
+      context,
+      title: title,
+      showCreate: showCreate,
+      showImport: showImport && perm.canCreate('PosProducts'),
+      showTemplate: showTemplate && perm.canCreate('PosProducts'),
+    );
+    if (pick == null || !mounted) return;
+    switch (pick.action) {
+      case PosProductTypePickAction.create:
+        await _openCreate(pick.type);
+      case PosProductTypePickAction.importExcel:
+        await _importExcel(perm, forceProductType: pick.type);
+      case PosProductTypePickAction.downloadTemplate:
+        await _downloadProductTemplate(pick.type);
     }
   }
 
@@ -889,6 +1070,10 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         _openCreate(PosProductType.service);
       case 'combo':
         _openCreate(PosProductType.combo);
+      case 'material':
+        _openCreate(PosProductType.material);
+      case 'topping':
+        _openCreate(PosProductType.topping);
     }
   }
 
@@ -957,13 +1142,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       backgroundColor: const Color(0xFFF0F2F5),
       floatingActionButton: mobile && perm.canCreate('PosProducts')
           ? PosMobileFab(
-              onPressed: () => showPosProductCreateSheet(
-                context,
-                onPick: (t) => _onCreateType(switch (t) {
-                  PosProductType.service => 'service',
-                  PosProductType.combo => 'combo',
-                  _ => 'goods',
-                }),
+              onPressed: () => _openTypeHub(
+                perm,
+                title: 'Tạo hoặc nhập theo loại',
               ),
             )
           : null,
@@ -980,13 +1161,21 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               onFilter: inHub ? null : () => _openMobileFilters(perm),
               onSort: inHub ? null : _showSortSheet,
               onMore: () => _showMobileMoreMenu(perm),
-              onRefresh: inHub ? null : _reloadProducts,
+              onRefresh: inHub ? null : () => _reloadProducts(forceNetwork: true),
               activeFilterCount: _activeMobileFilterCount,
-              filterChips: inHub ? null : _buildFilterChipsRow(),
+              filterChips: null,
             )
           else
             _buildMainToolbar(perm, wide),
           if (_selectedIds.isNotEmpty) _buildSelectionBar(),
+          PosProductTypeFilterBar(
+            value: _typeFilter,
+            onChanged: (v) async {
+              setState(() => _typeFilter = v);
+              await _reloadProducts();
+            },
+          ),
+          const Divider(height: 1, color: PosTheme.border),
           if (mobile && !inHub) _buildMobileStockSummary(),
           Expanded(
             child: _loading
@@ -1093,7 +1282,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                       Expanded(
                         child: Column(
                           children: [
-                            if (!wide) _buildMobileFilterBar(perm),
                             Expanded(child: _buildContent(perm, wide)),
                             _buildPagination(),
                           ],
@@ -1150,6 +1338,29 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             _exportExcel(perm);
                           } else if (v == 'import' && perm.canCreate('PosProducts')) {
                             _importExcel(perm);
+                          } else if (v == 'import_typed' &&
+                              perm.canCreate('PosProducts')) {
+                            _openTypeHub(
+                              perm,
+                              title: 'Nhập Excel theo loại',
+                              showCreate: false,
+                            );
+                          } else if (v == 'sample_menu' &&
+                              perm.canCreate('PosProducts')) {
+                            // ignore: discarded_futures
+                            () async {
+                              final created = await showPosSampleCatalogPicker(
+                                context,
+                                _api,
+                                categories: _categories,
+                              );
+                              if (created != null && mounted) {
+                                await _reloadProducts(forceNetwork: true);
+                              }
+                            }();
+                          } else if (v == 'create_hub' &&
+                              perm.canCreate('PosProducts')) {
+                            _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
                           } else if (v == 'import_catalog' &&
                               perm.canCreate('PosProducts')) {
                             _importBarcodeCatalog(perm);
@@ -1170,11 +1381,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                         itemBuilder: (_) => [
                           if (perm.canCreate('PosProducts')) ...[
                             PopupMenuItem(
-                                value: 'create_goods', child: Text(tr('Tạo hàng hóa'))),
+                                value: 'sample_menu',
+                                child: Text(tr('Thêm từ menu / catalog mẫu'))),
                             PopupMenuItem(
-                                value: 'create_service', child: Text(tr('Tạo dịch vụ'))),
-                            PopupMenuItem(
-                                value: 'create_combo', child: Text(tr('Tạo combo'))),
+                                value: 'create_hub',
+                                child: Text(tr('Tạo / nhập theo loại'))),
                           ],
                           PopupMenuItem(
                               value: 'topping_groups',
@@ -1188,8 +1399,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                                 value: 'export', child: Text(tr('Xuất file'))),
                           if (perm.canCreate('PosProducts')) ...[
                             PopupMenuItem(
+                                value: 'import_typed',
+                                child: Text(tr('Nhập / tải mẫu theo loại'))),
+                            PopupMenuItem(
                                 value: 'import',
-                                child: Text(tr('Import hàng hóa (có giá)'))),
+                                child: Text(tr('Import hỗn hợp (cột Loại hàng)'))),
                             PopupMenuItem(
                                 value: 'import_catalog',
                                 child: Text(tr('Import từ điển mã vạch'))),
@@ -1231,7 +1445,10 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   if (perm.canCreate('PosProducts')) ...[
                     const SizedBox(height: 8),
                     FilledButton.icon(
-                      onPressed: () => _onCreateType('goods'),
+                      onPressed: () => _openTypeHub(
+                        perm,
+                        title: 'Tạo hoặc nhập theo loại',
+                      ),
                       icon: const Icon(Icons.add, size: 18),
                       style: FilledButton.styleFrom(
                         backgroundColor: PosTheme.kiotBlue,
@@ -1291,37 +1508,53 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             if (perm.canCreate('PosProducts'))
               Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: PopupMenuButton<String>(
-                  onSelected: _onCreateType,
-                  offset: const Offset(0, 40),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: PosTheme.kiotBlue,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.add, color: Colors.white, size: 18),
-                        SizedBox(width: 6),
-                        Text(tr('Tạo mới'),
-                            style: TextStyle(color: Colors.white, fontSize: 14)),
-                        Icon(Icons.arrow_drop_down, color: Colors.white, size: 20),
-                      ],
-                    ),
+                child: FilledButton.icon(
+                  onPressed: () => _openTypeHub(
+                    perm,
+                    title: 'Tạo hoặc nhập theo loại',
                   ),
-                  itemBuilder: (_) => [
-                    PopupMenuItem(value: 'goods', child: Text(tr('Hàng hóa'))),
-                    PopupMenuItem(value: 'service', child: Text(tr('Dịch vụ'))),
-                    PopupMenuItem(value: 'combo', child: Text(tr('Combo / Đóng gói'))),
-                  ],
+                  icon: const Icon(Icons.add, size: 18),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: PosTheme.kiotBlue,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                  ),
+                  label: Text(tr('Tạo mới')),
+                ),
+              ),
+            if (perm.canCreate('PosProducts'))
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final created = await showPosSampleCatalogPicker(
+                      context,
+                      _api,
+                      categories: _categories,
+                    );
+                    if (created != null && mounted) {
+                      await _reloadProducts(forceNetwork: true);
+                    }
+                  },
+                  icon: const Icon(Icons.restaurant_menu, size: 18),
+                  label: Text(tr('Catalog mẫu')),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: PosTheme.textPrimary,
+                    side: const BorderSide(color: PosTheme.border),
+                  ),
                 ),
               ),
             if (perm.canCreate('PosProducts'))
               PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'import') _importExcel(perm);
+                  if (v == 'import_typed') {
+                    _openTypeHub(
+                      perm,
+                      title: 'Nhập Excel theo loại',
+                      showCreate: false,
+                    );
+                  }
                   if (v == 'import_catalog') _importBarcodeCatalog(perm);
                   if (v == 'catalog_template') {
                     _downloadBarcodeCatalogTemplate();
@@ -1329,8 +1562,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 },
                 itemBuilder: (_) => [
                   PopupMenuItem(
+                      value: 'import_typed',
+                      child: Text(tr('Nhập / tải mẫu theo loại'))),
+                  PopupMenuItem(
                       value: 'import',
-                      child: Text(tr('Import hàng hóa (có giá)'))),
+                      child: Text(tr('Import hỗn hợp (cột Loại hàng)'))),
                   PopupMenuItem(
                       value: 'import_catalog',
                       child: Text(tr('Import từ điển mã vạch'))),
@@ -1419,39 +1655,10 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   int get _activeMobileFilterCount {
     var n = 0;
     if (_categoryFilter != null) n++;
-    if (_typeFilter != null) n++;
     if (_stockFilter != PosStockFilter.all) n++;
     if (_stockoutFilter != PosStockoutFilter.all) n++;
     if (_brandFilter != null) n++;
     return n;
-  }
-
-  Widget? _buildFilterChipsRow() {
-    final chips = <Widget>[];
-    if (_typeFilter != null) {
-      chips.add(_filterChip('Loại hàng', () => _openMobileFilters(
-          Provider.of<PermissionProvider>(context, listen: false))));
-    } else {
-      chips.add(_filterChip('Tất cả loại hàng', () => _openMobileFilters(
-          Provider.of<PermissionProvider>(context, listen: false))));
-    }
-    chips.add(_filterChip('Giá bán', _showSortSheet));
-    if (chips.isEmpty) return null;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(children: chips),
-    );
-  }
-
-  Widget _filterChip(String label, VoidCallback onTap) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 6),
-      child: ActionChip(
-        label: Text(tr(label), style: const TextStyle(fontSize: 12)),
-        onPressed: onTap,
-        visualDensity: VisualDensity.compact,
-      ),
-    );
   }
 
   void _focusSearch() {
@@ -1566,27 +1773,29 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             ],
             if (perm.canCreate('PosProducts')) ...[
               ListTile(
+                leading: const Icon(Icons.restaurant_menu),
+                title: Text(tr('Thêm từ menu / catalog mẫu')),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  // ignore: discarded_futures
+                  () async {
+                    final created = await showPosSampleCatalogPicker(
+                      context,
+                      _api,
+                      categories: _categories,
+                    );
+                    if (created != null && mounted) {
+                      await _reloadProducts(forceNetwork: true);
+                    }
+                  }();
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.inventory_2_outlined),
-                title: Text(tr('Tạo hàng hoá')),
+                title: Text(tr('Tạo / nhập theo loại')),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _onCreateType('goods');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.handyman_outlined),
-                title: Text(tr('Tạo dịch vụ')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _onCreateType('service');
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.layers_outlined),
-                title: Text(tr('Tạo combo / đóng gói')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _onCreateType('combo');
+                  _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
                 },
               ),
             ],
@@ -1735,38 +1944,13 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     );
   }
 
-  Widget _buildMobileFilterBar(PermissionProvider perm) {
-    final chips = <String>[];
-    if (_categoryFilter != null) chips.add('Nhóm');
-    if (_typeFilter != null) chips.add('Loại');
-    if (_stockFilter != PosStockFilter.all) chips.add('Tồn kho');
-    if (_stockoutFilter != PosStockoutFilter.all) chips.add('Hết hàng');
-    if (chips.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      child: Wrap(
-        spacing: 6,
-        children: [
-          ...chips.map((c) => Chip(
-                label: Text(tr(c), style: const TextStyle(fontSize: 12)),
-                visualDensity: VisualDensity.compact,
-              )),
-          ActionChip(
-            label: Text(tr('Đổi bộ lọc'), style: TextStyle(fontSize: 12)),
-            onPressed: () => _openMobileFilters(perm),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildContent(PermissionProvider perm, bool wide) {
     if (_items.isEmpty) {
       return EmptyState(
         icon: Icons.inventory_2_outlined,
         title: 'Chưa có hàng hóa',
         description: perm.canCreate('PosProducts')
-            ? 'Nhấn «Tạo mới» để thêm hàng hóa, dịch vụ hoặc combo'
+            ? 'Nhấn «Tạo mới» để thêm hàng hóa, dịch vụ, combo, NVL hoặc topping'
             : null,
       );
     }
@@ -2029,7 +2213,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           ? 'Dịch vụ'
           : p.productType == PosProductType.combo
               ? 'Có thể bán: ${_moneyFmt.format(p.sellableQty ?? activeView.onHandQty)}'
-              : 'Tồn: ${_moneyFmt.format(activeView.onHandQty)} $stockUnit',
+              : p.productType == PosProductType.material
+                  ? 'NVL · Tồn: ${_moneyFmt.format(activeView.onHandQty)} $stockUnit'
+                  : p.productType == PosProductType.topping
+                      ? 'Topping · Tồn: ${_moneyFmt.format(activeView.onHandQty)} $stockUnit'
+                      : 'Tồn: ${_moneyFmt.format(activeView.onHandQty)} $stockUnit',
+      typeBadge: PosProductTypeBadge(type: p.productType, compact: true),
       image: PosProductImage(
         productId: p.id,
         imageUrl: p.imageUrl,

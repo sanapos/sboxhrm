@@ -21,40 +21,71 @@ public partial class PosProductsController
         string? ImageUrl);
 
     public record ProductQuickCreateDto(
-        string Barcode,
+        string? Barcode,
         string Name,
         decimal BasePrice,
         decimal CostPrice = 0,
         string? BaseUnitName = null,
         string? CategoryName = null,
+        Guid? CategoryId = null,
         string? BrandName = null,
-        string? ImageUrl = null);
+        Guid? BrandId = null,
+        string? ImageUrl = null,
+        string? Description = null,
+        Guid? SampleCatalogId = null,
+        PosProductType? ProductType = null,
+        decimal? VatRate = null,
+        bool? VatExempt = null);
 
-    /// <summary>Tạo hàng hóa nhanh từ mã vạch (quét bán / nhập kho).</summary>
+    /// <summary>Tạo hàng hóa nhanh từ mã vạch / catalog mẫu (quét bán / menu mẫu).</summary>
     [HttpPost("quick")]
     [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<PosProductDto>>> QuickCreate([FromBody] ProductQuickCreateDto dto)
     {
         var storeId = RequiredStoreId;
-        var barcode = (dto.Barcode ?? "").Trim();
         var name = (dto.Name ?? "").Trim();
-        if (string.IsNullOrEmpty(barcode))
-            return BadRequest(AppResponse<PosProductDto>.Fail("Thiếu mã vạch"));
         if (string.IsNullOrEmpty(name))
             return BadRequest(AppResponse<PosProductDto>.Fail("Thiếu tên hàng"));
         if (dto.BasePrice < 0)
             return BadRequest(AppResponse<PosProductDto>.Fail("Giá bán không hợp lệ"));
 
-        var exists = await dbContext.PosProducts.AsNoTracking().AnyAsync(p =>
-            p.StoreId == storeId && p.Deleted == null && p.IsActive &&
-            p.Barcode == barcode);
-        if (exists)
-            return BadRequest(AppResponse<PosProductDto>.Fail("Mã vạch đã có trong hàng hóa"));
-
-        Guid? categoryId = null;
-        if (!string.IsNullOrWhiteSpace(dto.CategoryName))
+        PosProductSampleCatalog? sample = null;
+        if (dto.SampleCatalogId.HasValue)
         {
-            var key = dto.CategoryName.Trim().ToLower();
+            sample = await dbContext.PosProductSampleCatalog.AsNoTracking()
+                .FirstOrDefaultAsync(x =>
+                    x.Id == dto.SampleCatalogId && x.Deleted == null && x.IsActive);
+            if (sample == null)
+                return BadRequest(AppResponse<PosProductDto>.Fail("Không tìm thấy hàng mẫu"));
+        }
+
+        string? barcode = (dto.Barcode ?? sample?.Barcode)?.Trim();
+        if (string.IsNullOrEmpty(barcode))
+            barcode = null;
+
+        if (barcode != null)
+        {
+            var exists = await dbContext.PosProducts.AsNoTracking().AnyAsync(p =>
+                p.StoreId == storeId && p.Deleted == null && p.IsActive &&
+                p.Barcode == barcode);
+            if (exists)
+                return BadRequest(AppResponse<PosProductDto>.Fail("Mã vạch đã có trong hàng hóa"));
+        }
+
+        Guid? categoryId = dto.CategoryId;
+        if (categoryId.HasValue)
+        {
+            var ok = await dbContext.PosProductCategories.AsNoTracking().AnyAsync(c =>
+                c.Id == categoryId && c.StoreId == storeId && c.Deleted == null);
+            if (!ok) categoryId = null;
+        }
+
+        var categoryName = !string.IsNullOrWhiteSpace(dto.CategoryName)
+            ? dto.CategoryName.Trim()
+            : sample?.CategoryName;
+        if (!categoryId.HasValue && !string.IsNullOrWhiteSpace(categoryName))
+        {
+            var key = categoryName.Trim().ToLower();
             var cat = await dbContext.PosProductCategories
                 .FirstOrDefaultAsync(c => c.StoreId == storeId && c.Deleted == null && c.Name.ToLower() == key);
             if (cat == null)
@@ -63,7 +94,7 @@ public partial class PosProductsController
                 {
                     Id = Guid.NewGuid(),
                     StoreId = storeId,
-                    Name = dto.CategoryName.Trim(),
+                    Name = categoryName.Trim(),
                     IsActive = true,
                     CreatedBy = CurrentUserEmail,
                 };
@@ -72,10 +103,20 @@ public partial class PosProductsController
             categoryId = cat.Id;
         }
 
-        Guid? brandId = null;
-        if (!string.IsNullOrWhiteSpace(dto.BrandName))
+        Guid? brandId = dto.BrandId;
+        if (brandId.HasValue)
         {
-            var key = dto.BrandName.Trim().ToLower();
+            var ok = await dbContext.PosProductBrands.AsNoTracking().AnyAsync(b =>
+                b.Id == brandId && b.StoreId == storeId && b.Deleted == null);
+            if (!ok) brandId = null;
+        }
+
+        var brandName = !string.IsNullOrWhiteSpace(dto.BrandName)
+            ? dto.BrandName.Trim()
+            : sample?.BrandName;
+        if (!brandId.HasValue && !string.IsNullOrWhiteSpace(brandName))
+        {
+            var key = brandName.Trim().ToLower();
             var brand = await dbContext.PosProductBrands
                 .FirstOrDefaultAsync(b => b.StoreId == storeId && b.Deleted == null && b.Name.ToLower() == key);
             if (brand == null)
@@ -84,7 +125,7 @@ public partial class PosProductsController
                 {
                     Id = Guid.NewGuid(),
                     StoreId = storeId,
-                    Name = dto.BrandName.Trim(),
+                    Name = brandName.Trim(),
                     IsActive = true,
                     CreatedBy = CurrentUserEmail,
                 };
@@ -93,33 +134,146 @@ public partial class PosProductsController
             brandId = brand.Id;
         }
 
-        var unit = string.IsNullOrWhiteSpace(dto.BaseUnitName) ? "Cái" : dto.BaseUnitName.Trim();
+        var unit = string.IsNullOrWhiteSpace(dto.BaseUnitName)
+            ? (sample?.UnitName ?? "Cái")
+            : dto.BaseUnitName.Trim();
+        if (string.IsNullOrWhiteSpace(unit)) unit = "Cái";
+
+        // Ảnh dùng chung từ catalog mẫu — không upload lại lên store.
+        var imageUrl = !string.IsNullOrWhiteSpace(dto.ImageUrl)
+            ? NormalizeStoredImageUrl(dto.ImageUrl!)
+            : sample?.ImageUrl;
+
+        var description = !string.IsNullOrWhiteSpace(dto.Description)
+            ? dto.Description.Trim()
+            : sample?.Description;
+
+        // Ưu tiên loại hàng thu ngân chọn trên form; fallback mẫu.
+        var productType = dto.ProductType
+            ?? sample?.ProductType
+            ?? PosProductType.Goods;
+        if (!Enum.IsDefined(productType))
+            productType = PosProductType.Goods;
+
+        var vatExempt = dto.VatExempt ?? sample?.VatExempt ?? false;
+        var vatRate = vatExempt
+            ? 0
+            : Math.Clamp(dto.VatRate ?? sample?.VatRate ?? 8m, 0, 100);
+        var costPrice = dto.CostPrice > 0
+            ? dto.CostPrice
+            : Math.Max(0, sample?.DefaultCostPrice ?? 0);
+
         var entity = new PosProduct
         {
             Id = Guid.NewGuid(),
             StoreId = storeId,
-            ProductCode = await GenerateProductCodeAsync(storeId, PosProductType.Goods),
+            ProductCode = await GenerateProductCodeAsync(storeId, productType),
             Barcode = barcode,
             Name = name,
             CategoryId = categoryId,
             BrandId = brandId,
-            ProductType = PosProductType.Goods,
-            CostPrice = Math.Max(0, dto.CostPrice),
+            ProductType = productType,
+            Description = string.IsNullOrWhiteSpace(description) ? null : description,
+            CostPrice = costPrice,
             BasePrice = dto.BasePrice,
+            VatRate = vatRate,
+            VatExempt = vatExempt,
             BaseUnitName = unit,
-            ImageUrl = string.IsNullOrWhiteSpace(dto.ImageUrl) ? null : dto.ImageUrl.Trim(),
-            IsDirectSale = true,
+            ImageUrl = string.IsNullOrWhiteSpace(imageUrl) ? null : imageUrl.Trim(),
+            IsDirectSale = productType is PosProductType.Goods or PosProductType.Service or PosProductType.Combo,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
+        if (productType == PosProductType.Topping)
+        {
+            entity.IsTopping = true;
+            entity.IsDirectSale = false;
+        }
+        if (productType == PosProductType.Material)
+            entity.IsDirectSale = false;
         NormalizeByProductType(entity);
         dbContext.PosProducts.Add(entity);
-        await UpsertBarcodeCatalogAsync(storeId, barcode, name, unit, dto.BrandName, dto.CategoryName, dto.ImageUrl);
+        if (barcode != null)
+        {
+            await UpsertBarcodeCatalogAsync(
+                storeId, barcode, name, unit, brandName, categoryName, entity.ImageUrl);
+        }
         await dbContext.SaveChangesAsync();
         await EnsureBaseUnitAsync(entity);
 
         var mapped = await MapProductAsync(entity.Id, storeId);
         return Ok(AppResponse<PosProductDto>.Success(mapped!));
+    }
+
+    /// <summary>Duyệt catalog mẫu Super Admin (menu món / đồ uống / hàng có mã).</summary>
+    [HttpGet("sample-catalog")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> ListSampleCatalog(
+        [FromQuery] string? search = null,
+        [FromQuery] PosProductSampleKind? kind = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 60)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+        var q = dbContext.PosProductSampleCatalog.AsNoTracking()
+            .Where(x => x.Deleted == null && x.IsActive);
+        if (kind.HasValue) q = q.Where(x => x.Kind == kind);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var s = search.Trim().ToLower();
+            q = q.Where(x =>
+                x.Name.ToLower().Contains(s) ||
+                (x.Barcode != null && x.Barcode.ToLower().Contains(s)) ||
+                (x.CategoryName != null && x.CategoryName.ToLower().Contains(s)));
+        }
+        var total = await q.CountAsync();
+        var items = await q.OrderBy(x => x.Kind).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(x => new
+            {
+                x.Id,
+                x.Barcode,
+                x.Name,
+                x.UnitName,
+                x.BrandName,
+                x.CategoryName,
+                x.ImageUrl,
+                x.Description,
+                Kind = x.Kind.ToString(),
+                ProductType = x.ProductType.ToString(),
+                x.DefaultPrice,
+                x.DefaultCostPrice,
+                x.VatRate,
+                x.VatExempt,
+                x.SortOrder,
+            })
+            .ToListAsync();
+        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+    }
+
+    [HttpGet("sample-catalog/{id:guid}/image")]
+    [ResponseCache(Duration = 3600)]
+    public async Task<IActionResult> GetSampleCatalogImage(Guid id)
+    {
+        var imageUrl = await dbContext.PosProductSampleCatalog.AsNoTracking()
+            .Where(x => x.Id == id && x.Deleted == null)
+            .Select(x => x.ImageUrl)
+            .FirstOrDefaultAsync();
+        if (string.IsNullOrWhiteSpace(imageUrl))
+            return NotFound();
+        var fullPath = ResolveProductImagePath(imageUrl);
+        if (fullPath == null)
+            return NotFound();
+        var ext = Path.GetExtension(fullPath).ToLowerInvariant();
+        var contentType = ext switch
+        {
+            ".png" => "image/png",
+            ".webp" => "image/webp",
+            ".gif" => "image/gif",
+            _ => "image/jpeg",
+        };
+        return PhysicalFile(fullPath, contentType, enableRangeProcessing: true);
     }
 
     [HttpGet("barcode-catalog")]
