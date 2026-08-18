@@ -14,17 +14,21 @@ class PosComboComponentPicker extends StatefulWidget {
     required this.api,
     this.excludeProductId,
     this.excludeComponentIds = const {},
+    this.materialsPreferred = false,
   });
 
   final ApiService api;
   final String? excludeProductId;
   final Set<String> excludeComponentIds;
+  /// Định lượng NVL: mặc định chỉ hàng không bán POS.
+  final bool materialsPreferred;
 
   static Future<PosProduct?> show(
     BuildContext context, {
     required ApiService api,
     String? excludeProductId,
     Set<String> excludeComponentIds = const {},
+    bool materialsPreferred = false,
   }) {
     return showDialog<PosProduct>(
       context: context,
@@ -32,6 +36,7 @@ class PosComboComponentPicker extends StatefulWidget {
         api: api,
         excludeProductId: excludeProductId,
         excludeComponentIds: excludeComponentIds,
+        materialsPreferred: materialsPreferred,
       ),
     );
   }
@@ -45,10 +50,12 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
   List<PosProduct> _items = [];
   bool _loading = true;
   String _query = '';
+  late bool _materialsOnly;
 
   @override
   void initState() {
     super.initState();
+    _materialsOnly = widget.materialsPreferred;
     _load('');
   }
 
@@ -65,7 +72,10 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
       (page, pageSize) => widget.api.getPosProducts(
         page: page,
         pageSize: pageSize,
-        productType: PosProductType.goods,
+        productType: widget.materialsPreferred
+            ? (_materialsOnly ? PosProductType.material : null)
+            : PosProductType.goods,
+        isDirectSale: null,
         search: trimmed.isEmpty ? null : trimmed,
       ),
       pageSize: 500,
@@ -91,7 +101,9 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
     final dialogWidth = width < 520 ? width * 0.94 : 480.0;
 
     return AlertDialog(
-      title: Text(tr('Chọn hàng thành phần')),
+      title: Text(tr(widget.materialsPreferred
+          ? 'Chọn nguyên vật liệu'
+          : 'Chọn hàng thành phần')),
       content: SizedBox(
         width: dialogWidth,
         height: 420,
@@ -111,6 +123,18 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
               onSubmitted: _load,
               textInputAction: TextInputAction.search,
             ),
+            if (widget.materialsPreferred)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(tr('Chỉ nguyên vật liệu'),
+                    style: const TextStyle(fontSize: 13)),
+                value: _materialsOnly,
+                onChanged: (v) {
+                  setState(() => _materialsOnly = v);
+                  _load(_searchCtrl.text);
+                },
+              ),
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerRight,
@@ -127,7 +151,9 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
                       ? Center(
                           child: Text(
                             tr(_query.isEmpty
-                                ? 'Không có hàng hóa'
+                                ? (_materialsOnly
+                                    ? 'Chưa có NVL — tạo loại Nguyên vật liệu'
+                                    : 'Không có hàng hóa')
                                 : 'Không tìm thấy "$_query"'),
                             style: TextStyle(color: Colors.grey.shade600),
                           ),

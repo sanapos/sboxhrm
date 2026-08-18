@@ -110,6 +110,20 @@ public class PosProductUnitsController(ZKTecoDbContext dbContext) : Authenticate
                 return BadRequest(AppResponse<UnitDto>.Fail("Tỷ lệ quy đổi phải > 0"));
             entity.ConversionRate = dto.ConversionRate;
         }
+        else if (!string.IsNullOrWhiteSpace(dto.UnitName))
+        {
+            // ĐVT cơ bản: cho phép đổi tên tự do (vd. Cái → con); đồng bộ sang PosProducts.
+            entity.UnitName = dto.UnitName.Trim();
+            var product = await dbContext.PosProducts
+                .AsTracking()
+                .FirstOrDefaultAsync(p => p.Id == productId && p.StoreId == storeId && p.Deleted == null);
+            if (product != null)
+            {
+                product.BaseUnitName = entity.UnitName;
+                product.UpdatedAt = DateTime.UtcNow;
+                product.UpdatedBy = CurrentUserEmail;
+            }
+        }
 
         entity.BasePrice = dto.BasePrice;
         entity.IsDirectSale = dto.IsDirectSale;

@@ -252,12 +252,33 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
     }
     if (!mounted) return;
     await _reload();
+
+    // Gán SP chỉ hợp lệ trên máy Agent/cloud — remap twin từ bản nội bộ.
+    await PosPrintOrchestrator.instance.refreshConfig();
+    final orch = PosPrintOrchestrator.instance;
+    final localRow = orch.printers
+        .where((x) => x.id.toLowerCase() == id.toLowerCase())
+        .firstOrNull;
+    final target =
+        localRow == null ? null : orch.preferCloudAgentPrinter(localRow);
+    if (target == null || target.isDeviceLocal) {
+      NotificationOverlayManager().showWarning(
+        title: tr('Gán món trên máy cửa hàng'),
+        message: tr(
+          'Gán sản phẩm chỉ áp dụng cho máy in cửa hàng (Agent/cloud).\n'
+          'Tạo máy cửa hàng cùng cổng/tên với «${p.name}», rồi gán món tại đó. '
+          'Máy nội bộ chỉ để in thử trên thiết bị này.',
+        ),
+      );
+      return;
+    }
+
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => PosPrinterManageProductsScreen(
-          printerId: id,
-          printerName: profile.name,
+          printerId: target.id,
+          printerName: target.name,
           isLabel: profile.isLabel,
           purpose: purposeFromRoles(profile.roles),
         ),
@@ -321,10 +342,12 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Text(
-                      tr('Máy in gắn trực tiếp thiết bị này (Bluetooth / LAN / USB / Sunmi).\n'
-                          '• Máy in nhiệt: hóa đơn, báo bếp, báo kho…\n'
-                          '• Máy in tem: tem mã vạch, tem bếp.\n'
-                          'Máy qua Print Agent / máy khác cửa hàng → dùng «Máy in cửa hàng».'),
+                      tr('Hướng dẫn — máy in nội bộ\n'
+                          '• Chỉ in trên thiết bị này (Bluetooth / LAN / USB / Sunmi), không qua PC Agent.\n'
+                          '• Bật vai trò «Hóa đơn» trên máy nhiệt: khi thanh toán, máy này in trước; OK thì không gửi máy cửa hàng.\n'
+                          '• Máy in nhiệt: hóa đơn, báo bếp, báo kho… · Máy tem: tem mã vạch / tem bếp.\n'
+                          '• Chữ tiếng Việt lỗi: Hãng = Xprinter/Zywell + Chế độ chữ = «In ảnh» hoặc «Tự động» (không dùng UTF-8 thuần trên XP-80C).\n'
+                          '• Máy dùng chung web/A7/PC → quay lại «Máy in cửa hàng».'),
                       style: const TextStyle(fontSize: 12.5, height: 1.35),
                     ),
                   ),
@@ -1448,6 +1471,8 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                   value: _textMode,
                   decoration: InputDecoration(
                     labelText: tr('Chế độ chữ'),
+                    helperText: tr(
+                        'XP-80C / Zywell: «In ảnh» hoặc «Tự động». UTF-8 thường lỗi font tiếng Việt.'),
                     border: const OutlineInputBorder(),
                   ),
                   items: PosThermalTextMode.values

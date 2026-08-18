@@ -559,14 +559,14 @@ class AppLocalizations {
       'dataManagement': 'Quản lý dữ liệu',
       'deleteSampleData': 'Xóa dữ liệu mẫu',
       'deleteSampleDataDesc':
-          'Xóa toàn bộ nhân viên, chấm công, phép... dữ liệu demo',
+          'Xóa nhân viên demo, chấm công, phép và hàng/bàn POS mẫu (CreatedBy SampleData)',
       'deleteSampleDataConfirm':
-          'Bạn có chắc chắn muốn xóa toàn bộ dữ liệu mẫu? Hành động này không thể hoàn tác.',
+          'Xóa dữ liệu mẫu HRM + POS? Hàng/bàn đã bán thật sẽ không xóa được nếu đang được dùng. Không hoàn tác.',
       'seedSampleData': 'Cài dữ liệu mẫu',
       'seedSampleDataDesc':
-          'Tạo 10 nhân viên, 15 ngày chấm công, phép, tăng ca... để trải nghiệm',
+          'HRM: 10 NV + 15 ngày. POS: hàng và bàn/ghế/phòng theo ngành cửa hàng. Nếu đã có nhân viên, chỉ thêm mẫu POS (không trùng tên).',
       'seedSampleDataConfirm':
-          'Bạn có muốn cài dữ liệu mẫu (10 NV, 15 ngày)? Dữ liệu cũ sẽ không bị ảnh hưởng.',
+          'Cài dữ liệu mẫu? Nếu cửa hàng chưa có NV: tạo 10 NV demo + hàng POS theo ngành. Nếu đã có NV: chỉ thêm hàng/bàn POS mẫu, không đụng nhân viên thật.',
 
       // Common
       'more': 'Thêm',
@@ -1018,14 +1018,14 @@ class AppLocalizations {
       'dataManagement': 'Data Management',
       'deleteSampleData': 'Delete Sample Data',
       'deleteSampleDataDesc':
-          'Remove all demo employees, attendance, leave data...',
+          'Remove demo employees, attendance, leave, and POS sample products/tables',
       'deleteSampleDataConfirm':
-          'Are you sure you want to delete all sample data? This action cannot be undone.',
+          'Delete HRM + POS sample data? This cannot be undone. Products already used on real sales may fail to delete.',
       'seedSampleData': 'Install Sample Data',
       'seedSampleDataDesc':
-          'Create 10 employees, 15 days of attendance, leave, overtime... to explore',
+          'HRM: 10 employees + 15 days. POS: products and tables/chairs/rooms for the store industry. If staff already exist, only POS samples are added.',
       'seedSampleDataConfirm':
-          'Do you want to install sample data (10 employees, 15 days)? Existing data will not be affected.',
+          'Install sample data? Empty store: 10 demo employees + POS catalog. Store with staff: POS samples only — existing employees are not changed.',
 
       // Common
       'more': 'More',

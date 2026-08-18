@@ -98,31 +98,12 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
                     $"«{comp.Name}» là dịch vụ — không thể làm thành phần combo"));
         }
 
-        var validCount = componentIds.Count;
-
-        var existing = await dbContext.PosProductComboLines
-            .Where(x => x.ComboProductId == comboProductId && x.Deleted == null)
-            .ToListAsync();
-        foreach (var e in existing)
-        {
-            e.IsActive = false;
-            e.Deleted = DateTime.UtcNow;
-            e.DeletedBy = CurrentUserEmail;
-        }
-
-        foreach (var line in lines)
-        {
-            dbContext.PosProductComboLines.Add(new PosProductComboLine
-            {
-                Id = Guid.NewGuid(),
-                StoreId = storeId,
-                ComboProductId = comboProductId,
-                ComponentProductId = line.ComponentProductId,
-                Qty = line.Qty,
-                IsActive = true,
-                CreatedBy = CurrentUserEmail,
-            });
-        }
+        await PosProductComboLinePersistHelper.ReplaceLinesAsync(
+            dbContext,
+            storeId,
+            comboProductId,
+            lines.Select(l => (l.ComponentProductId, l.Qty)).ToList(),
+            CurrentUserEmail);
 
         combo.ProductType = Domain.Enums.PosProductType.Combo;
         combo.UpdatedAt = DateTime.UtcNow;

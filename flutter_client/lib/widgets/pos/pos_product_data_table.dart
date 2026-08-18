@@ -331,9 +331,9 @@ class PosProductDataTable extends StatelessWidget {
 
     Color? bg;
     if (expanded) {
-      bg = PosTheme.kiotBlueLight.withValues(alpha: 0.5);
+      bg = PosTheme.kiotBlueLight.withOpacity(0.5);
     } else if (selected) {
-      bg = PosTheme.kiotBlueLight.withValues(alpha: 0.35);
+      bg = PosTheme.kiotBlueLight.withOpacity(0.35);
     }
 
     return Material(
@@ -513,7 +513,7 @@ class PosProductDataTable extends StatelessWidget {
       align: TextAlign.right,
       weight: FontWeight.w500,
     );
-    if (canEdit && p.productType == PosProductType.goods && onQuickPrice != null) {
+    if (canEdit && p.productType.tracksInventory && onQuickPrice != null) {
       return InkWell(
         onTap: () {
           if (view.variantId != null && onQuickVariantPrice != null) {
@@ -551,7 +551,7 @@ class PosProductDataTable extends StatelessWidget {
       align: TextAlign.right,
       color: view.onHandQty <= 0 ? const Color(0xFFE53935) : null,
     );
-    if (canEdit && p.productType == PosProductType.goods && onQuickStock != null) {
+    if (canEdit && p.productType.tracksInventory && onQuickStock != null) {
       return InkWell(
         onTap: () {
           if (view.variantId != null && onQuickVariantStock != null) {
@@ -587,16 +587,16 @@ class PosProductDataTable extends StatelessWidget {
     );
   }
 
-  /// Dòng hàng cùng loại (biến thể) — thụt vào kiểu KiotViet, bấm xem chi tiết.
+  /// Dòng hàng cùng lo?i (bi?n th?) — th?t vào ki?u KiotViet, b?m xem chi ti?t.
   Widget _variantDataRow(PosProduct parent, PosProductVariant v) {
     final selected = selectedVariantId == v.id;
     return Material(
       color: selected
-          ? PosTheme.kiotBlueLight.withValues(alpha: 0.65)
+          ? PosTheme.kiotBlueLight.withOpacity(0.65)
           : const Color(0xFFFAFCFF),
       child: InkWell(
         onTap: () => onSelectVariant(parent, v),
-        hoverColor: PosTheme.kiotBlueLight.withValues(alpha: 0.35),
+        hoverColor: PosTheme.kiotBlueLight.withOpacity(0.35),
         child: Container(
           height: 40,
           decoration: BoxDecoration(
@@ -700,7 +700,7 @@ class PosProductDataTable extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             icon: const Icon(Icons.add, size: 16),
-            label: Text(tr('Thêm hàng hóa cùng loại')),
+            label: Text(tr('Thêm hàng hóa cùng lo?i')),
           ),
         ],
       ),

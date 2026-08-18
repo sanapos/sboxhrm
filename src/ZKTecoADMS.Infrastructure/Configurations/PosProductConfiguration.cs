@@ -69,6 +69,7 @@ public class PosProductConfiguration : IEntityTypeConfiguration<PosProduct>
         builder.HasIndex(x => new { x.StoreId, x.ProductCode }).IsUnique();
         builder.HasIndex(x => new { x.StoreId, x.Name });
         builder.HasIndex(x => new { x.StoreId, x.Barcode });
+        builder.HasIndex(x => new { x.StoreId, x.ProductType });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Category).WithMany(x => x.Products).HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.Brand).WithMany(x => x.Products).HasForeignKey(x => x.BrandId).OnDelete(DeleteBehavior.SetNull);
@@ -206,6 +207,8 @@ public class PosCustomerConfiguration : IEntityTypeConfiguration<PosCustomer>
         builder.Property(x => x.Ward).HasMaxLength(100);
         builder.Property(x => x.CompanyName).HasMaxLength(200);
         builder.Property(x => x.TaxCode).HasMaxLength(50);
+        builder.Property(x => x.Birthday);
+        builder.Property(x => x.DeliveryAddress).HasMaxLength(500);
         builder.Property(x => x.Note).HasMaxLength(1000);
         builder.Property(x => x.TotalPurchase).HasPrecision(18, 2);
         builder.Property(x => x.CurrentDebt).HasPrecision(18, 2);
@@ -327,6 +330,7 @@ public class PosSaleOrderConfiguration : IEntityTypeConfiguration<PosSaleOrder>
         builder.Property(x => x.EInvoiceCode).HasMaxLength(50);
         builder.Property(x => x.EInvoiceError).HasMaxLength(1000);
         builder.Property(x => x.EInvoiceBuyerName).HasMaxLength(200);
+        builder.Property(x => x.EInvoiceBuyerCompanyName).HasMaxLength(200);
         builder.Property(x => x.EInvoiceBuyerTaxCode).HasMaxLength(50);
         builder.Property(x => x.EInvoiceBuyerAddress).HasMaxLength(500);
         builder.Property(x => x.EInvoiceBuyerEmail).HasMaxLength(200);
@@ -368,6 +372,20 @@ public class PosProductComboLineConfiguration : IEntityTypeConfiguration<PosProd
         builder.HasIndex(x => new { x.ComboProductId, x.ComponentProductId }).IsUnique();
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.ComboProduct).WithMany(x => x.ComboLines).HasForeignKey(x => x.ComboProductId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.ComponentProduct).WithMany().HasForeignKey(x => x.ComponentProductId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class PosProductRecipeLineConfiguration : IEntityTypeConfiguration<PosProductRecipeLine>
+{
+    public void Configure(EntityTypeBuilder<PosProductRecipeLine> builder)
+    {
+        builder.ToTable("PosProductRecipeLines");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Qty).HasPrecision(18, 4);
+        builder.HasIndex(x => new { x.ParentProductId, x.ComponentProductId });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.ParentProduct).WithMany(x => x.RecipeLines).HasForeignKey(x => x.ParentProductId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.ComponentProduct).WithMany().HasForeignKey(x => x.ComponentProductId).OnDelete(DeleteBehavior.Restrict);
     }
 }
@@ -671,6 +689,19 @@ public class PosPrintTemplateConfiguration : IEntityTypeConfiguration<PosPrintTe
         builder.Property(x => x.HtmlContent).IsRequired();
         builder.HasIndex(x => new { x.StoreId, x.DocumentType, x.IsDefault });
         builder.HasIndex(x => new { x.StoreId, x.DocumentType, x.PaperSize, x.Name });
+        builder.HasIndex(x => x.SourceCatalogId);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class PosPrintTemplateCatalogConfiguration : IEntityTypeConfiguration<PosPrintTemplateCatalog>
+{
+    public void Configure(EntityTypeBuilder<PosPrintTemplateCatalog> builder)
+    {
+        builder.ToTable("PosPrintTemplateCatalogs");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Name).IsRequired().HasMaxLength(120);
+        builder.Property(x => x.HtmlContent).IsRequired();
+        builder.HasIndex(x => new { x.DocumentType, x.SortOrder });
     }
 }

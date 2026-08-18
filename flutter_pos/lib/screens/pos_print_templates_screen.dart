@@ -16,6 +16,7 @@ import '../utils/pos_print_template_compiler.dart';
 import '../utils/pos_print_template_runtime.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_printer_transport.dart';
+import '../utils/pos_sell_print_settings.dart';
 import '../utils/pos_store_printer_mapper.dart';
 import '../utils/pos_thermal_printer_settings.dart';
 import '../models/pos_print_template_v2.dart';
@@ -53,6 +54,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
   String _docType = PosPrintDocumentTypes.saleInvoice;
   List<PosPrintTemplate> _templates = [];
+  List<PosPrintTemplateCatalog> _catalog = [];
   PosPrintTemplate? _selected;
   PosPrintTemplateV2? _v2Template;
   /// Khi khác null: lưu HTML thuần (legacy), không encode V2.
@@ -85,6 +87,16 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     _templates = await loadPosPrintTemplates(_api, _docType);
     await _upgradeLegacyHtmlTemplates();
 
+    final catRes = await _api.getPosPrintTemplateCatalog(documentType: _docType);
+    _catalog = [];
+    if (catRes['isSuccess'] == true && catRes['data'] is List) {
+      _catalog = (catRes['data'] as List)
+          .whereType<Map>()
+          .map((e) => PosPrintTemplateCatalog.fromJson(
+              Map<String, dynamic>.from(e)))
+          .toList();
+    }
+
     _selected = _templates.where((t) => t.isDefault).firstOrNull ??
         _templates.firstOrNull;
 
@@ -98,6 +110,61 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
     if (!mounted) return;
     setState(() => _loading = false);
+  }
+
+  Future<void> _adoptCatalog(PosPrintTemplateCatalog cat) async {
+    final res = await _api.adoptPosPrintTemplateCatalog(cat.id, setAsDefault: true);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã chọn mẫu',
+        message: tr(
+            'Toàn cửa hàng sẽ in theo «${cat.name}». Bạn có thể sửa bản cửa hàng mà không ảnh hưởng mẫu chung.'),
+      );
+      await _load();
+      if (res['data'] is Map) {
+        final adopted = PosPrintTemplate.fromJson(
+            Map<String, dynamic>.from(res['data'] as Map));
+        _applyTemplate(adopted);
+        await _syncDevicePrintTemplateId(adopted.id);
+      }
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Không chọn được mẫu',
+        message: res['message']?.toString() ?? 'Thử lại',
+      );
+    }
+  }
+
+  Future<void> _setStoreDefault() async {
+    final t = _selected;
+    if (t == null) return;
+    final res = await _api.setDefaultPosPrintTemplate(t.id);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Mẫu mặc định cửa hàng',
+        message: tr('Toàn bộ máy thu ngân sẽ in theo «${t.name}»'),
+      );
+      await _syncDevicePrintTemplateId(t.id);
+      await _load();
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Không đặt được mặc định',
+      );
+    }
+  }
+
+  Future<void> _syncDevicePrintTemplateId(String templateId) async {
+    try {
+      final s = await PosSellPrintSettings.load();
+      if (_docType == PosPrintDocumentTypes.saleInvoice) {
+        await s.copyWith(templateId: templateId).save();
+      } else if (_docType == PosPrintDocumentTypes.stockIssue) {
+        await s.copyWith(warehouseTemplateId: templateId).save();
+      }
+    } catch (_) {}
   }
 
   void _applyLocalDefault({String? paperSize}) {
@@ -760,6 +827,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                 ),
               ),
             ),
+          _buildCatalogBar(),
           _buildTemplateSelectorBar(),
           Expanded(
             child: _loading
@@ -882,6 +950,62 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     );
   }
 
+  Widget _buildCatalogBar() {
+    if (_catalog.isEmpty) return const SizedBox.shrink();
+    return Material(
+      color: const Color(0xFFF0FDFA),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              tr('Mẫu chung (chọn → clone bản cửa hàng, sửa riêng không ảnh hưởng mẫu gốc)'),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F766E),
+              ),
+            ),
+            const SizedBox(height: 6),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _catalog.map((c) {
+                  final adopted = _templates.any((t) => t.sourceCatalogId == c.id);
+                  final isDefault = _templates.any(
+                      (t) => t.sourceCatalogId == c.id && t.isDefault);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: OutlinedButton(
+                      onPressed: () => _adoptCatalog(c),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0F766E),
+                        side: BorderSide(
+                          color: isDefault
+                              ? const Color(0xFF0F766E)
+                              : const Color(0xFF99F6E4),
+                          width: isDefault ? 2 : 1,
+                        ),
+                        backgroundColor: isDefault
+                            ? const Color(0xFFCCFBF1)
+                            : Colors.white,
+                      ),
+                      child: Text(
+                        tr(
+                            '${c.name}${c.isRecommended ? ' ★' : ''}${adopted ? (isDefault ? ' · đang dùng' : ' · đã có') : ' · dùng mẫu này'}'),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildTemplateSelectorBar() {
     final selector = DropdownButtonFormField<String>(
       value: _dropdownValue,
@@ -918,24 +1042,6 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             if (!embeddedKit)
               Text(tr('Mẫu in'), style: TextStyle(fontWeight: FontWeight.w600)),
             if (!embeddedKit) const SizedBox(height: 8),
-            if (_templates.length > 1) ...[
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: _templates.map((t) {
-                  final on = _selected?.id == t.id;
-                  return ChoiceChip(
-                    label: Text(
-                      '${PosPrintPaperSizes.displayLabel(t.paperSize)}${t.isDefault ? ' ★' : ''}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    selected: on,
-                    onSelected: (_) => _selectTemplate(t),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 8),
-            ],
             selector,
             const SizedBox(height: 8),
             if (embeddedKit)
@@ -1008,6 +1114,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                       label: Text(tr('In thử')),
                     ),
                     const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: (_selected == null || _selected!.isDefault)
+                          ? null
+                          : _setStoreDefault,
+                      icon: const Icon(Icons.storefront_outlined, size: 18),
+                      label: Text(tr('Mặc định CH')),
+                    ),
+                    const SizedBox(width: 8),
                     FilledButton.icon(
                       style: FilledButton.styleFrom(backgroundColor: _blue),
                       onPressed: _saving || _selected == null ? null : _save,
@@ -1032,7 +1146,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
       child: Row(
         children: [
-          Text(tr('Mẫu in:'), style: TextStyle(fontWeight: FontWeight.w600)),
+          Text(tr('Mẫu cửa hàng:'), style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(width: 8),
           Expanded(child: selector),
           IconButton(
@@ -1044,6 +1158,18 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             tooltip: tr('Xóa mẫu'),
             onPressed: _selected == null ? null : _deleteTemplate,
             icon: const Icon(Icons.delete_outline, color: Colors.red),
+          ),
+          IconButton(
+            tooltip: tr('Đặt mặc định toàn cửa hàng'),
+            onPressed: (_selected == null || _selected!.isDefault)
+                ? null
+                : _setStoreDefault,
+            icon: Icon(
+              Icons.storefront_outlined,
+              color: (_selected == null || _selected!.isDefault)
+                  ? Colors.grey
+                  : _blue,
+            ),
           ),
           IconButton(
             tooltip: tr('In thử'),

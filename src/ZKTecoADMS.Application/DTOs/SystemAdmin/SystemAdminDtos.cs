@@ -201,6 +201,7 @@ public record ServicePackageDto(
     string Name,
     string? Description,
     bool IsActive,
+    bool IsPublic,
     int DefaultDurationDays,
     int MaxUsers,
     int MaxDevices,
@@ -228,7 +229,8 @@ public record CreateServicePackageRequest(
     bool AllowMobile = true,
     int MaxBranches = 0,
     bool AllowFcm = true,
-    List<string>? AllowedFcmCategories = null
+    List<string>? AllowedFcmCategories = null,
+    bool IsPublic = true
 );
 
 public record UpdateServicePackageRequest(
@@ -244,7 +246,8 @@ public record UpdateServicePackageRequest(
     bool AllowMobile = true,
     int MaxBranches = 0,
     bool AllowFcm = true,
-    List<string>? AllowedFcmCategories = null
+    List<string>? AllowedFcmCategories = null,
+    bool IsPublic = true
 );
 
 /// <summary>

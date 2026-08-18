@@ -12,6 +12,7 @@ import '../utils/web_marketing_gate_stub.dart'
     if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
 import '../widgets/store_agent_support_card.dart';
 import 'store_success_screen.dart';
+import 'login_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../models/pos_sell_industry.dart';
@@ -55,7 +56,7 @@ class _StoreLoginNameInputFormatter extends TextInputFormatter {
     if (text == newValue.text) return newValue;
     final offset = newValue.selection.baseOffset.clamp(0, text.length);
     return TextEditingValue(
-      text: tr(text),
+      text: text,
       selection: TextSelection.collapsed(offset: offset),
     );
   }
@@ -294,6 +295,18 @@ class _RegisterScreenState extends State<RegisterScreen>
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  void _goToLogin() {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    // Web `/register` là home → pop không được; thay bằng màn đăng nhập.
+    nav.pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 
   void _navigateToSuccessScreen(String storeCode) {
@@ -675,7 +688,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                         const SizedBox(height: 16),
 
-                        _buildLabel('NGÀNH HÀNG'),
+                        _buildLabel('MÔ HÌNH KINH DOANH'),
                         const SizedBox(height: 6),
                         Text(
                           tr('Chọn để POS tự bật sơ đồ bàn/ghế/phòng, báo bếp, tính giờ…'),
@@ -1022,7 +1035,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           style: TextStyle(
                               color: Color(0xFF586064), fontSize: 14)),
                       TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: _goToLogin,
                         style: TextButton.styleFrom(
                             foregroundColor: const Color(0xFF0C56D0)),
                         child: Text(tr('Đăng nhập'),

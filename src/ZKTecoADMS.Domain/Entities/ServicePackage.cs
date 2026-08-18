@@ -12,6 +12,11 @@ public class ServicePackage : Entity<Guid>
     public bool IsActive { get; set; } = true;
 
     /// <summary>
+    /// Hiện trên màn đăng ký công khai. False = gói nội bộ, Super Admin gán tay cho cửa hàng.
+    /// </summary>
+    public bool IsPublic { get; set; } = true;
+
+    /// <summary>
     /// Số ngày mặc định khi kích hoạt gói (0 = không giới hạn)
     /// </summary>
     public int DefaultDurationDays { get; set; } = 30;

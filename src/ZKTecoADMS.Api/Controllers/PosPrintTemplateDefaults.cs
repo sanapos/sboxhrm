@@ -74,20 +74,43 @@ public static class PosPrintTemplateDefaults
             _ => $"Mẫu {variant}",
         };
 
-    /// <summary>Khổ seed theo loại chứng từ — tem không dùng K58/K80.</summary>
-    public static IReadOnlyList<PosPrintPaperSize> SizesForDocument(PosPrintDocumentType docType)
+    /// <summary>1–3 mẫu chung / loại chứng từ (soạn sẵn để cửa hàng chọn clone).</summary>
+    public readonly record struct CatalogSpec(
+        string Name, PosPrintPaperSize PaperSize, int SortOrder, bool IsRecommended);
+
+    public static IReadOnlyList<CatalogSpec> CatalogSpecs(PosPrintDocumentType docType)
     {
         if (docType is PosPrintDocumentType.BarcodeLabel or PosPrintDocumentType.KitchenLabel)
         {
-            return new[] { PosPrintPaperSize.Label50x30, PosPrintPaperSize.Label40x30 };
+            return new[]
+            {
+                new CatalogSpec($"{DocumentTitle(docType)} · 50×30", PosPrintPaperSize.Label50x30, 0, true),
+                new CatalogSpec($"{DocumentTitle(docType)} · 40×30", PosPrintPaperSize.Label40x30, 1, false),
+            };
         }
+
+        if (docType is PosPrintDocumentType.KitchenSlip or PosPrintDocumentType.KitchenVoid)
+        {
+            return new[]
+            {
+                new CatalogSpec($"{DocumentTitle(docType)} · K80 chuẩn", PosPrintPaperSize.K80, 0, true),
+                new CatalogSpec($"{DocumentTitle(docType)} · K58", PosPrintPaperSize.K58, 1, false),
+            };
+        }
+
+        // Hóa đơn / xuất kho / phiếu khác: 3 mẫu (K80 chuẩn, K80 A4/A5 sheet, K58)
         return new[]
         {
-            PosPrintPaperSize.K58,
-            PosPrintPaperSize.K80,
-            PosPrintPaperSize.A5,
-            PosPrintPaperSize.A4,
+            new CatalogSpec($"{DocumentTitle(docType)} · K80 chuẩn", PosPrintPaperSize.K80, 0, true),
+            new CatalogSpec($"{DocumentTitle(docType)} · K58", PosPrintPaperSize.K58, 1, false),
+            new CatalogSpec($"{DocumentTitle(docType)} · A5", PosPrintPaperSize.A5, 2, false),
         };
+    }
+
+    /// <summary>Khổ seed theo loại chứng từ — tem không dùng K58/K80.</summary>
+    public static IReadOnlyList<PosPrintPaperSize> SizesForDocument(PosPrintDocumentType docType)
+    {
+        return CatalogSpecs(docType).Select(s => s.PaperSize).Distinct().ToList();
     }
 
     public static string BuildHtml(PosPrintDocumentType docType, PosPrintPaperSize paperSize)
@@ -176,17 +199,22 @@ public static class PosPrintTemplateDefaults
             "</div>";
     }
 
-    /// <summary>Mẫu nhiệt V2 — 1 hàng Tên | SL | Đ.giá | TT. Không dùng HTML «SL x Đ.giá».</summary>
+    /// <summary>Mẫu nhiệt V2 gọn — ít dòng, không QR mặc định.</summary>
     static string BuildThermalV2(PosPrintDocumentType docType, PosPrintPaperSize size)
     {
         var k58 = size == PosPrintPaperSize.K58;
         var paper = k58 ? "K58" : "K80";
         var profile = k58 ? "sunmi_k58" : "sunmi_k80";
-        var title = k58 ? 40 : 44;
-        var body = k58 ? 26 : 30;
-        var small = k58 ? 22 : 24;
-        var total = k58 ? 32 : 38;
+        var title = k58 ? 28 : 32;
+        var body = k58 ? 20 : 22;
+        var small = k58 ? 16 : 18;
+        var total = k58 ? 24 : 28;
+        var isReturn = docType == PosPrintDocumentType.SaleReturn;
         var name = TemplateName(docType, size);
+        var totals = isReturn
+            ? "{\"type\":\"totals\",\"fields\":[\"Tong_Cong\"],\"fieldLabels\":{\"Tong_Cong\":\"HOAN TIEN\"},\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + total + ",\"bold\":true,\"align\":\"right\"}}"
+            : "{\"type\":\"totals\",\"fields\":[\"Tong_Tien_Hang\",\"Chiet_Khau_Hoa_Don\",\"Tong_Cong\",\"Khach_Thanh_Toan\"],\"fieldLabels\":{\"Tong_Tien_Hang\":\"Tien hang\",\"Chiet_Khau_Hoa_Don\":\"CK\",\"Tong_Cong\":\"TONG\",\"Khach_Thanh_Toan\":\"Da thu\"},\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + total + ",\"bold\":true,\"align\":\"right\"}}";
+        var footer = isReturn ? "Phieu tra hang" : "Cam on quy khach!";
         return
             "<!--POS_TEMPLATE_V2-->\n" +
             "{\"version\":1,\"paperSize\":\"" + paper + "\",\"printerProfile\":\"" + profile +
@@ -194,18 +222,16 @@ public static class PosPrintTemplateDefaults
             "\",\"blocks\":[" +
             "{\"type\":\"field\",\"field\":\"Ten_Cua_Hang\",\"style\":{\"fontSize\":" + title + ",\"bold\":true,\"align\":\"center\"}}," +
             "{\"type\":\"field\",\"field\":\"Dia_Chi_Chi_Nhanh\",\"style\":{\"fontSize\":" + small + ",\"bold\":false,\"align\":\"center\"}}," +
-            "{\"type\":\"field\",\"field\":\"Dien_Thoai_Chi_Nhanh\",\"style\":{\"fontSize\":" + small + ",\"bold\":false,\"align\":\"center\"}}," +
             "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
             "{\"type\":\"field\",\"field\":\"Tieu_De_In\",\"style\":{\"fontSize\":" + (body + 2) + ",\"bold\":true,\"align\":\"center\"}}," +
-            "{\"type\":\"field\",\"field\":\"Ten_Ban\",\"label\":\"Ban:\",\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
-            "{\"type\":\"pair\",\"leftField\":\"Ma_Don_Hang\",\"rightField\":\"Ngay\",\"fieldLabels\":{\"Ma_Don_Hang\":\"So HD:\",\"Ngay\":\"Ngay:\"},\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
-            "{\"type\":\"field\",\"field\":\"Khach_Hang\",\"label\":\"KH:\",\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"}}," +
+            "{\"type\":\"pair\",\"leftField\":\"Ma_Don_Hang\",\"rightField\":\"Ngay\",\"fieldLabels\":{\"Ma_Don_Hang\":\"HD:\",\"Ngay\":\"\"},\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"field\",\"field\":\"Ten_Ban\",\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"field\",\"field\":\"Khach_Hang\",\"label\":\"KH:\",\"style\":{\"fontSize\":" + small + ",\"bold\":false,\"align\":\"left\"}}," +
             "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
-            "{\"type\":\"lineItems\",\"showColumnHeader\":true,\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"lineItems\",\"showColumnHeader\":false,\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
             "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
-            "{\"type\":\"totals\",\"fields\":[\"Tong_Tien_Hang\",\"Chiet_Khau_Hoa_Don\",\"Tong_Cong\",\"Khach_Thanh_Toan\",\"Tien_Thua\"],\"fieldLabels\":{\"Tong_Tien_Hang\":\"Tong tien hang\",\"Chiet_Khau_Hoa_Don\":\"Chiet khau\",\"Tong_Cong\":\"TONG CONG\",\"Khach_Thanh_Toan\":\"Da thanh toan\",\"Tien_Thua\":\"Tien thua\"},\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + total + ",\"bold\":true,\"align\":\"right\"}}," +
-            "{\"type\":\"field\",\"field\":\"Tong_Cong_Bang_Chu\",\"style\":{\"fontSize\":" + small + ",\"bold\":false,\"align\":\"center\"}}," +
-            "{\"type\":\"text\",\"text\":\"Cam on quy khach!\",\"style\":{\"fontSize\":" + small + ",\"bold\":true,\"align\":\"center\"}}" +
+            totals + "," +
+            "{\"type\":\"text\",\"text\":\"" + footer + "\",\"style\":{\"fontSize\":" + small + ",\"bold\":true,\"align\":\"center\"}}" +
             "]}";
     }
 

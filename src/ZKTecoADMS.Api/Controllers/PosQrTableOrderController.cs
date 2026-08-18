@@ -241,7 +241,10 @@ public class PosQrTableOrderController(
             })
             .ToList();
 
-        var autoPrint = settings.EnableQrOrderAutoPrint;
+        var lockOpts = QrOrderLockHelper.Parse(settings.ExtraJson);
+        // Xác nhận đơn (mặc định tắt): ghi món nhưng không tự in / đánh dấu bếp.
+        var needsConfirm = lockOpts.RequireOrderConfirmation;
+        var autoPrint = settings.EnableQrOrderAutoPrint && !needsConfirm;
         var added = new List<(PosSaleOrderLine Line, decimal Qty, PosProduct Product)>();
         PosSaleOrder? order = null;
         PosResourceSession? session = null;
@@ -415,7 +418,8 @@ public class PosQrTableOrderController(
         var tableName = TableLabel(resource);
         PosFloorRealtimeHelper.Notify(hub, storeId, "qrOrder",
             orderId: order.Id, resourceId: resource.Id, sessionId: session.Id,
-            tableName: tableName);
+            tableName: tableName,
+            message: needsConfirm ? "needsConfirm" : null);
 
         var payload = new
         {
@@ -424,11 +428,14 @@ public class PosQrTableOrderController(
             addedLines = added.Count,
             printJobs,
             autoPrint,
-            message = autoPrint
-                ? (printJobs > 0
-                    ? "Đã đặt hàng"
-                    : "Đã ghi món — chưa in được phiếu (kiểm tra máy in bếp / Agent)")
-                : "Đã ghi món — thu ngân sẽ in phiếu bếp",
+            needsConfirm,
+            message = needsConfirm
+                ? "Đã gửi — chờ thu ngân xác nhận trước khi in bếp"
+                : autoPrint
+                    ? (printJobs > 0
+                        ? "Đã đặt hàng"
+                        : "Đã ghi món — chưa in được phiếu (kiểm tra máy in bếp / Agent)")
+                    : "Đã ghi món — thu ngân sẽ in phiếu bếp",
         };
         if (reqId.Length is > 8 and < 80)
             cache.Set($"qr-req:{token}:{reqId}", payload, new MemoryCacheEntryOptions
@@ -578,6 +585,7 @@ public class PosQrTableOrderController(
             autoPrintKitchen = autoPrint,
             requireOpenSession = lockOpt.RequireOpenSession,
             requireGeofence = lockOpt.RequireGeofence,
+            requireOrderConfirmation = lockOpt.RequireOrderConfirmation,
             geoConfigured,
             publicBaseUrl = urlBase,
             tables = resources.Select(r => new

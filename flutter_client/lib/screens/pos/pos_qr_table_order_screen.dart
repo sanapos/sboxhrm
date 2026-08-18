@@ -30,6 +30,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
   bool _autoPrint = true;
   bool _requireOpenSession = false;
   bool _requireGeofence = false;
+  bool _requireOrderConfirmation = false;
   bool _geoConfigured = false;
   String? _error;
   List<_QrTable> _tables = [];
@@ -71,6 +72,9 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
           data['RequireOpenSession'] == true;
       _requireGeofence =
           data['requireGeofence'] == true || data['RequireGeofence'] == true;
+      _requireOrderConfirmation =
+          data['requireOrderConfirmation'] == true ||
+          data['RequireOrderConfirmation'] == true;
       _geoConfigured =
           data['geoConfigured'] == true || data['GeoConfigured'] == true;
       _tables = tables;
@@ -134,7 +138,11 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     setState(() => _autoPrint = value);
   }
 
-  Future<void> _setLock({bool? requireOpenSession, bool? requireGeofence}) async {
+  Future<void> _setLock({
+    bool? requireOpenSession,
+    bool? requireGeofence,
+    bool? requireOrderConfirmation,
+  }) async {
     setState(() => _busy = true);
     final helper = PosSellSettingsHelper(_api);
     final loaded = await helper.load();
@@ -150,6 +158,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
         .copyWith(
       requireOpenSession: requireOpenSession,
       requireGeofence: requireGeofence,
+      requireOrderConfirmation: requireOrderConfirmation,
     );
     final saved = await helper.save(
       loaded.settings!.copyWith(
@@ -169,6 +178,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     setState(() {
       _requireOpenSession = next.requireOpenSession;
       _requireGeofence = next.requireGeofence;
+      _requireOrderConfirmation = next.requireOrderConfirmation;
     });
   }
 
@@ -391,6 +401,16 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                 onChanged: _busy
                     ? null
                     : (v) => _setLock(requireGeofence: v),
+              ),
+              SwitchListTile(
+                title: Text(tr('Bật xác nhận order (QR)')),
+                subtitle: Text(tr(_requireOrderConfirmation
+                    ? 'Món không in thẳng xuống bếp — có âm thanh + thông báo để thu ngân xác nhận (Báo bếp).'
+                    : 'Mặc định tắt: không cần xác nhận — theo «Tự in phiếu bếp».')),
+                value: _requireOrderConfirmation,
+                onChanged: _busy
+                    ? null
+                    : (v) => _setLock(requireOrderConfirmation: v),
               ),
             ],
           ),

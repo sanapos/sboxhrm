@@ -1428,7 +1428,9 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
         if (!includeGoods || !includeService || !includeCombo)
         {
             query = query.Where(p =>
-                (includeGoods && p.ProductType == PosProductType.Goods) ||
+                (includeGoods && (p.ProductType == PosProductType.Goods ||
+                                  p.ProductType == PosProductType.Material ||
+                                  p.ProductType == PosProductType.Topping)) ||
                 (includeService && p.ProductType == PosProductType.Service) ||
                 (includeCombo && p.ProductType == PosProductType.Combo));
         }

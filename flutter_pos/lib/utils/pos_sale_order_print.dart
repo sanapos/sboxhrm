@@ -257,18 +257,26 @@ List<PosSaleOrderLine> _mergeSaleLines(List<PosSaleOrderLine> lines) {
 }
 
 /// In hóa đơn bán hàng — mở dialog xem trước.
-Future<PosPrintTemplate?> _resolveSalePrintTemplate(String? templateId) async {
-  if (templateId != null && templateId.isNotEmpty) {
-    final res = await ApiService().getPosPrintTemplate(templateId);
-    if (res['isSuccess'] == true && res['data'] is Map) {
-      return PosPrintTemplate.fromJson(res['data'] as Map<String, dynamic>);
-    }
+Future<PosPrintTemplate?> _resolveSalePrintTemplate(
+  String? templateId, {
+  String documentType = PosPrintDocumentTypes.saleInvoice,
+}) async {
+  // Chính sách cửa hàng: ưu tiên mẫu IsDefault của store (không lệch theo máy).
+  var list = await loadPosPrintTemplates(ApiService(), documentType);
+  // Phiếu trả: nếu chưa seed/gán mẫu riêng → dùng mẫu hóa đơn gọn.
+  if (list.isEmpty && documentType == PosPrintDocumentTypes.saleReturn) {
+    list = await loadPosPrintTemplates(
+      ApiService(),
+      PosPrintDocumentTypes.saleInvoice,
+    );
   }
-  final list = await loadPosPrintTemplates(
-    ApiService(),
-    PosPrintDocumentTypes.saleInvoice,
-  );
-  return list.where((t) => t.isDefault).firstOrNull ?? list.firstOrNull;
+  if (list.isEmpty) return null;
+  final storeDefault = list.where((t) => t.isDefault).firstOrNull ?? list.first;
+  if (templateId != null && templateId.isNotEmpty) {
+    final hit = list.where((t) => t.id == templateId).firstOrNull;
+    if (hit != null && hit.id == storeDefault.id) return hit;
+  }
+  return storeDefault;
 }
 
 PosThermalPrinterSettings _thermalSettingsForTemplate(
@@ -291,6 +299,68 @@ PosThermalPrinterSettings _thermalSettingsForTemplate(
   return settings;
 }
 
+/// Cloud / Agent: cùng mẫu V2 như in nội bộ A6 (tạm tính + thanh toán).
+Future<List<int>> _buildSaleEscPosMatchingLocal({
+  required PosSaleOrder printOrder,
+  required PosThermalPrinterSettings settings,
+  PosPrintTemplate? template,
+  String? branchName,
+  String? storeAddress,
+  String? storePhone,
+  required bool mergeSameItems,
+  String? vietQrImageUrl,
+  String? documentTitle,
+  String documentType = PosPrintDocumentTypes.saleInvoice,
+  double vatAmount = 0,
+}) async {
+  // Xprinter/Zywell qua Agent: luôn in ảnh — khớp A6 + tránh Agent vẽ layout thô.
+  var s = settings;
+  if (s.printerBrand != PosThermalPrinterBrand.sunmi &&
+      s.printerBrand != PosThermalPrinterBrand.epson &&
+      s.resolvedTextMode != PosThermalTextMode.image) {
+    s = s.copyWith(textMode: PosThermalTextMode.image);
+  }
+
+  // Cùng preset profile như A6 local EscPos (attempt) — không zywell riêng.
+  final paper = template?.paperSize ??
+      (s.paperWidthMm <= 58 ? PosPrintPaperSizes.k58 : PosPrintPaperSizes.k80);
+  final v2 = PosPrintTemplateRuntime.resolveOrPreset(
+    template: template,
+    documentType: documentType,
+    paperSize: paper,
+    printerProfile: s.paperWidthMm <= 58
+        ? PosPrintPrinterProfiles.sunmiK58
+        : PosPrintPrinterProfiles.sunmiK80,
+  );
+  if (v2.blocks.isNotEmpty) {
+    final output = PosPrintTemplateRuntime.compileSaleOrder(
+      template: v2,
+      order: printOrder,
+      storeName: branchName,
+      storeAddress: storeAddress,
+      storePhone: storePhone,
+      mergeSameItems: mergeSameItems,
+      titleOverride: documentTitle,
+      vietQrImageUrl: vietQrImageUrl,
+    );
+    return PosPrintTemplateRuntime.buildCompiledEscPosBytes(
+      output: output,
+      settings: s,
+    );
+  }
+  return PosThermalPrinterService.buildSaleOrderEscPosBytes(
+    printOrder,
+    settings: s,
+    storeName: branchName,
+    storeAddress: storeAddress,
+    storePhone: storePhone,
+    mergeSameItems: mergeSameItems,
+    vietQrImageUrl: vietQrImageUrl,
+    slipTitle: documentTitle,
+    vatAmount: vatAmount,
+  );
+}
+
 Future<bool> printPosSaleOrder({
   required BuildContext context,
   required PosSaleOrder order,
@@ -307,8 +377,10 @@ Future<bool> printPosSaleOrder({
   bool preferDevicePrintOnly = false,
   /// Mặc định: chỉ mở két khi in lần đầu (không phải in lại).
   bool? openCashDrawer,
-  /// VD: «HÓA ĐƠN TẠM TÍNH» — ghi đè tiêu đề in.
+  /// VD: «HÓA ĐƠN TẠM TÍNH» / «PHIẾU TRẢ HÀNG» — ghi đè tiêu đề in.
   String? documentTitle,
+  /// Loại mẫu: SaleInvoice (mặc định) hoặc SaleReturn.
+  String documentType = PosPrintDocumentTypes.saleInvoice,
   /// Thuế VAT in trên bill (trước Tổng cộng). Null → lấy từ [order.vatAmount].
   double? vatAmount,
   bool? vatIncludedInPrice,
@@ -322,10 +394,15 @@ Future<bool> printPosSaleOrder({
   // Tự gắn VietQR khi bật «In mã VietQR» — kể cả in từ danh sách đơn (caller quên truyền URL).
   var effectiveVietQr = vietQrImageUrl;
   if (effectiveVietQr == null || effectiveVietQr.isEmpty) {
-    effectiveVietQr =
-        await PosVietQrHelper.resolvePrintImageUrlForOrder(printOrder);
+    if (documentType != PosPrintDocumentTypes.saleReturn) {
+      effectiveVietQr =
+          await PosVietQrHelper.resolvePrintImageUrlForOrder(printOrder);
+    }
   }
-  final template = await _resolveSalePrintTemplate(templateId);
+  final template = await _resolveSalePrintTemplate(
+    templateId,
+    documentType: documentType,
+  );
   final effectiveVat = vatAmount ?? printOrder.vatAmount;
   // VAT > 0 = chế độ cộng thêm; = 0 giữ flag caller (giá đã gồm / không thuế).
   final effectiveIncluded =
@@ -400,15 +477,18 @@ Future<bool> printPosSaleOrder({
               printOrder,
             );
         settings = settings.copyWith(openCashDrawer: kick);
-        return PosThermalPrinterService.buildSaleOrderEscPosBytes(
-          printOrder,
+        return _buildSaleEscPosMatchingLocal(
+          printOrder: printOrder,
           settings: settings,
-          storeName: branchName,
+          template: template,
+          branchName: branchName,
           storeAddress: storeAddress,
           storePhone: storePhone,
           mergeSameItems: mergeSameItems,
           vietQrImageUrl: effectiveVietQr,
-          slipTitle: documentTitle,
+          documentTitle: documentTitle,
+          documentType: documentType,
+          vatAmount: effectiveVat,
         );
       },
     );
@@ -470,6 +550,7 @@ Future<bool> printPosSaleOrder({
           showFeedback: false,
           skipDedup: skipDedup || i > 0,
           documentTitle: documentTitle,
+          documentType: documentType,
         );
         if (printed) {
           // Chỉ 1 máy nội bộ — tránh 2 bill khi Sunmi + USB cùng role Hóa đơn.
@@ -532,15 +613,18 @@ Future<bool> printPosSaleOrder({
               printOrder,
             );
         settings = settings.copyWith(openCashDrawer: kick);
-        return PosThermalPrinterService.buildSaleOrderEscPosBytes(
-          printOrder,
+        return _buildSaleEscPosMatchingLocal(
+          printOrder: printOrder,
           settings: settings,
-          storeName: branchName,
+          template: template,
+          branchName: branchName,
           storeAddress: storeAddress,
           storePhone: storePhone,
           mergeSameItems: mergeSameItems,
           vietQrImageUrl: effectiveVietQr,
-          slipTitle: documentTitle,
+          documentTitle: documentTitle,
+          documentType: documentType,
+          vatAmount: effectiveVat,
         );
       },
     );
@@ -559,13 +643,15 @@ Future<bool> printPosSaleOrder({
     }
   }
 
-  if (preferDevicePrintOnly) {
+  // Fallback HTML/PDF: chỉ khi caller cho phép VÀ không phải POS cảm ứng (Android/iOS).
+  // Thanh toán không máy in → không mở hộp thoại in hệ thống.
+  if (preferDevicePrintOnly || !kIsWeb) {
     if (showFeedback) {
       NotificationOverlayManager().showError(
         title: 'Chưa in được',
         message: tr(kIsWeb
             ? 'Chưa cấu hình máy in cửa hàng hoặc Print Agent (Android) chưa online. Không mở mẫu phiếu.'
-            : 'Chưa cấu hình máy in nhiệt hoặc Print Agent. Vào Thiết lập in — không mở mẫu phiếu.'),
+            : 'Chưa cấu hình máy in nhiệt hoặc Print Agent. Vào Thiết lập in — không mở hộp thoại in hệ thống.'),
       );
     }
     return false;
@@ -574,7 +660,7 @@ Future<bool> printPosSaleOrder({
   final saleDate =
       printOrder.saleDate?.toLocal() ?? printOrder.createdAt?.toLocal() ?? DateTime.now();
 
-  // Fallback HTML/PDF chỉ khi caller cho phép (không dùng trên POS cảm ứng).
+  // Fallback HTML/PDF chỉ trên web khi caller cho phép.
   if (template != null && template.htmlContent.trim().isNotEmpty) {
     final html = renderSaleOrderTemplate(
       template.htmlContent,
@@ -657,6 +743,7 @@ Future<bool> _tryLocalSalePrint({
   required bool showFeedback,
   required bool skipDedup,
   String? documentTitle,
+  String documentType = PosPrintDocumentTypes.saleInvoice,
   double vatAmount = 0,
   bool vatIncludedInPrice = true,
   double vatRate = 0,
@@ -669,7 +756,7 @@ Future<bool> _tryLocalSalePrint({
       // HTML legacy không parse được — dùng preset V2 (4 cột), không in HTML 1 x giá.
       final v2 = PosPrintTemplateRuntime.resolveOrPreset(
         template: template,
-        documentType: PosPrintDocumentTypes.saleInvoice,
+        documentType: documentType,
         paperSize: template?.paperSize ?? PosPrintPaperSizes.k80,
         printerProfile: settings.paperWidthMm <= 58
             ? PosPrintPrinterProfiles.sunmiK58
@@ -747,7 +834,7 @@ Future<bool> _tryLocalSalePrint({
   Future<bool> attempt(PosThermalPrinterSettings s, {String? qr}) async {
     final v2 = PosPrintTemplateRuntime.resolveOrPreset(
       template: template,
-      documentType: PosPrintDocumentTypes.saleInvoice,
+      documentType: documentType,
       paperSize: template?.paperSize ?? PosPrintPaperSizes.k80,
       printerProfile: s.paperWidthMm <= 58
           ? PosPrintPrinterProfiles.sunmiK58
@@ -774,7 +861,7 @@ Future<bool> _tryLocalSalePrint({
         showFeedback: false,
         successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
         settingsOverride: s,
-        documentType: PosPrintDocumentTypes.saleInvoice,
+        documentType: documentType,
         skipDedup: skipDedup,
       );
     }
@@ -794,7 +881,7 @@ Future<bool> _tryLocalSalePrint({
       showFeedback: false,
       successTitle: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
       settingsOverride: s,
-      documentType: PosPrintDocumentTypes.saleInvoice,
+      documentType: documentType,
       referenceId: printOrder.id,
       referenceNo: printOrder.orderNo.isEmpty ? null : printOrder.orderNo,
       skipDedup: skipDedup,
@@ -886,4 +973,46 @@ Future<PosSaleOrder> _resolvePrintOrder(PosSaleOrder order) async {
     debugPrint('recordPosSalePrint error: $e');
   }
   return order.copyWithPrintContext(printCount: order.printCount + 1);
+}
+
+/// In phiếu trả hàng (mẫu SaleReturn gọn) — không ghi đếm lần in hóa đơn gốc.
+Future<bool> printPosSaleReturn({
+  required BuildContext context,
+  required PosSaleOrder sourceOrder,
+  required List<PosSaleOrderLine> returnLines,
+  required double refundTotal,
+  String? note,
+  String? refundPaymentMethod,
+}) async {
+  if (returnLines.isEmpty || refundTotal <= 0) return false;
+  final slip = PosSaleOrder(
+    id: '',
+    orderNo: sourceOrder.orderNo,
+    status: 'Return',
+    subTotal: refundTotal,
+    discount: 0,
+    total: refundTotal,
+    paidAmount: refundTotal,
+    paymentMethod: refundPaymentMethod ?? sourceOrder.paymentMethod,
+    customerName: sourceOrder.customerName,
+    customerPhone: sourceOrder.customerPhone ?? sourceOrder.deliveryPhone,
+    note: note,
+    saleDate: DateTime.now(),
+    soldBy: sourceOrder.soldBy,
+    createdBy: sourceOrder.createdBy,
+    lines: returnLines,
+    serviceResourceName: sourceOrder.serviceResourceName,
+    serviceAreaName: sourceOrder.serviceAreaName,
+  );
+  return printPosSaleOrder(
+    context: context,
+    order: slip,
+    documentTitle: 'PHIẾU TRẢ HÀNG',
+    documentType: PosPrintDocumentTypes.saleReturn,
+    preferDevicePrintOnly: true,
+    openCashDrawer: false,
+    mergeSameItems: false,
+    showFeedback: true,
+    skipDedup: true,
+  );
 }

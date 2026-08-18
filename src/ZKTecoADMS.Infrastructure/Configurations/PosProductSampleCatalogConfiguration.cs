@@ -20,9 +20,15 @@ public class PosProductSampleCatalogConfiguration : IEntityTypeConfiguration<Pos
         builder.Property(x => x.DefaultPrice).HasPrecision(18, 2);
         builder.Property(x => x.DefaultCostPrice).HasPrecision(18, 2);
         builder.Property(x => x.VatRate).HasPrecision(9, 4);
+        builder.Property(x => x.SellProfiles).HasMaxLength(200);
         builder.HasIndex(x => x.Barcode);
         builder.HasIndex(x => new { x.Kind, x.SortOrder });
         builder.HasIndex(x => x.ProductType);
         builder.HasIndex(x => x.Name);
+        builder.HasIndex(x => x.CategoryId);
+        builder.HasOne(x => x.Category)
+            .WithMany(x => x.Samples)
+            .HasForeignKey(x => x.CategoryId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

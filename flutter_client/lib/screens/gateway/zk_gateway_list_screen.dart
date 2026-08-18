@@ -29,6 +29,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
   final _client = ZkGatewayClient();
 
   List<ZkGatewayInfo> _gateways = const [];
+  List<String> _conflicts = const [];
   bool _scanning = false;
   bool _firstScanDone = false;
 
@@ -45,6 +46,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
     if (!mounted) return;
     setState(() {
       _gateways = found;
+      _conflicts = ZkGatewayClient.conflictMessages(found);
       _scanning = false;
       _firstScanDone = true;
     });
@@ -107,14 +109,15 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
               controller: ctrl,
               autofocus: true,
               decoration: InputDecoration(
-                hintText: tr('sboxadms.local hoặc 192.168.1.36'),
+                hintText: tr('192.168.1.73 hoặc sboxgw-9781.local'),
                 labelText: tr('Hostname hoặc IP'),
               ),
             ),
             const SizedBox(height: 10),
             Text(
-              tr('Trên iPhone, nếu dò tìm không thấy thì nhập sboxadms.local '
-                  'hoặc IP LAN của mạch, rồi bấm Kết nối trong app hoặc Mở web.'),
+              tr('Ưu tiên nhập IP LAN trên thẻ gateway. '
+                  'Hostname sboxgw-XXXX.local là riêng từng mạch '
+                  '(không dùng sboxadms.local khi có nhiều mạch).'),
               style: const TextStyle(fontSize: 12, color: HrmPageChrome.textMuted),
             ),
           ],
@@ -192,6 +195,10 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 30),
           children: [
             _header(),
+            if (_conflicts.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              _conflictBanner(),
+            ],
             const SizedBox(height: 14),
             if (kIsWeb)
               _webNotice()
@@ -218,6 +225,62 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _conflictBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFDBA74)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded,
+                  color: Color(0xFFEA580C), size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tr('Phát hiện cấu hình xung đột'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                    color: Color(0xFF9A3412),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final m in _conflicts)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                '• ${tr(m)}',
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.4,
+                  color: Color(0xFF9A3412),
+                ),
+              ),
+            ),
+          Text(
+            tr('Mỗi mạch ESP chỉ nên gắn một máy chấm công (một IP máy / một SN). '
+                'Vào từng gateway → Đổi WiFi / cấu hình máy để sửa.'),
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1.4,
+              color: Color(0xFFC2410C),
+            ),
+          ),
+        ],
       ),
     );
   }

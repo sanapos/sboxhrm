@@ -27,6 +27,10 @@ public class PosProductSampleCatalog : AuditableEntity<Guid>
     [MaxLength(200)]
     public string? CategoryName { get; set; }
 
+    /// <summary>Nhóm hàng catalog mẫu Super Admin (tùy chọn — CategoryName vẫn copy sang store).</summary>
+    public Guid? CategoryId { get; set; }
+    public virtual PosProductSampleCategory? Category { get; set; }
+
     /// <summary>Path tương đối wwwroot, vd. catalog/pos-samples/{id}.jpg — dùng chung mọi store.</summary>
     [MaxLength(1000)]
     public string? ImageUrl { get; set; }
@@ -50,6 +54,22 @@ public class PosProductSampleCatalog : AuditableEntity<Guid>
 
     /// <summary>Không chịu thuế GTGT (KCT).</summary>
     public bool VatExempt { get; set; }
+
+    /// <summary>
+    /// Hồ sơ ngành được phép hiện (CSV enum name: Restaurant,Retail).
+    /// Null/rỗng = mọi ngành.
+    /// </summary>
+    [MaxLength(200)]
+    public string? SellProfiles { get; set; }
+
+    /// <summary>Gợi ý cách tính tiền khi ProductType = Service.</summary>
+    public PosServiceBillingMode ServiceBillingMode { get; set; } = PosServiceBillingMode.Flat;
+
+    /// <summary>Số buổi gói (gym / liệu trình). 0 = không phải gói buổi.</summary>
+    public int SessionPackCount { get; set; }
+
+    /// <summary>Hạn gói buổi (ngày). 0 = không hạn.</summary>
+    public int SessionPackValidDays { get; set; }
 
     public int SortOrder { get; set; }
 

@@ -10,6 +10,8 @@ class PosCustomer {
   final String? companyName;
   final String? taxCode;
   final String? note;
+  final DateTime? birthday;
+  final String? deliveryAddress;
   final double totalPurchase;
   final double currentDebt;
   final double pointBalance;
@@ -26,6 +28,8 @@ class PosCustomer {
     this.companyName,
     this.taxCode,
     this.note,
+    this.birthday,
+    this.deliveryAddress,
     this.totalPurchase = 0,
     this.currentDebt = 0,
     this.pointBalance = 0,
@@ -45,6 +49,9 @@ class PosCustomer {
       companyName: json['companyName'] ?? json['CompanyName'] as String?,
       taxCode: json['taxCode'] ?? json['TaxCode'] as String?,
       note: json['note'] ?? json['Note'] as String?,
+      birthday: DateTime.tryParse(
+          '${json['birthday'] ?? json['Birthday'] ?? ''}'),
+      deliveryAddress: json['deliveryAddress'] ?? json['DeliveryAddress'] as String?,
       totalPurchase: n(json['totalPurchase'] ?? json['TotalPurchase']),
       currentDebt: n(json['currentDebt'] ?? json['CurrentDebt']),
       pointBalance: n(json['pointBalance'] ?? json['PointBalance']),

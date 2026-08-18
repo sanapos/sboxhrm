@@ -490,18 +490,20 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         bg = const Color(0xFFF8FAFC);
         fg = const Color(0xFF64748B);
     }
-    final extra = st == 'Issued' && (o.eInvoiceNo ?? '').isNotEmpty
-        ? ' ${o.eInvoiceNo}'
-        : '';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: fg.withOpacity(0.25)),
       ),
       child: Text(
-        tr('${posEInvoiceStatusLabel(st)}$extra'),
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+        tr(posEInvoiceChipLabel(
+          st,
+          provider: o.eInvoiceProvider,
+          invoiceNo: o.eInvoiceNo,
+        )),
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg),
         overflow: TextOverflow.ellipsis,
       ),
     );
@@ -514,7 +516,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       builder: (ctx) => AlertDialog(
         title: Text(tr('Xuất hóa đơn điện tử')),
         content: Text(tr(
-            'Xuất HĐĐT Viettel cho đơn ${o.orderNo}?\nKhách: ${o.customerName ?? 'Khách lẻ'}')),
+            'Xuất HĐĐT cho đơn ${o.orderNo}?\nKhách: ${o.customerName ?? 'Khách lẻ'}')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -542,7 +544,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     } else {
       NotificationOverlayManager().showError(
         title: 'Xuất HĐĐT thất bại',
-        message: res['message']?.toString() ?? 'Viettel từ chối hóa đơn',
+        message: res['message']?.toString() ?? 'Nhà cung cấp từ chối hóa đơn',
       );
       await _load(page: _page);
     }
@@ -1469,7 +1471,16 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         expanded: expanded,
         onTap: () => _toggleExpand(o),
         code: o.orderNo,
-        status: posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
+        status: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (posEInvoiceHasTag(o.eInvoiceStatus)) ...[
+              _eInvoiceChip(o),
+              const SizedBox(width: 6),
+            ],
+            posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
+          ],
+        ),
         accentColor: posSaleOrderAccentColor(o.status, fallback: PosTheme.kiotBlue),
         fields: [
           PosMobileField(
@@ -1478,7 +1489,6 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           ),
           PosMobileField('Khách', o.customerName ?? 'Khách lẻ'),
           PosMobileField('Tổng', '${_moneyFmt.format(o.total)} đ'),
-          PosMobileField('HĐĐT', posEInvoiceStatusLabel(o.eInvoiceStatus)),
           if (o.hasReturns)
             PosMobileField('Đã trả', '${_moneyFmt.format(o.returnedAmount)} đ'),
         ],
@@ -1516,17 +1526,29 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   const SizedBox(width: 4),
                   if (_visibleColumns.contains(_ListColumn.orderNo))
                     Expanded(
-                      flex: 2,
-                      child: Text(
-                        tr(o.orderNo),
-                        style: TextStyle(
-                          color: posSaleOrderAccentColor(o.status, fallback: PosTheme.kiotBlue),
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                          decoration: o.status == 'Cancelled'
-                              ? TextDecoration.lineThrough
-                              : null,
-                        ),
+                      flex: 3,
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              tr(o.orderNo),
+                              style: TextStyle(
+                                color: posSaleOrderAccentColor(o.status,
+                                    fallback: PosTheme.kiotBlue),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                                decoration: o.status == 'Cancelled'
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (posEInvoiceHasTag(o.eInvoiceStatus)) ...[
+                            const SizedBox(width: 6),
+                            Flexible(child: _eInvoiceChip(o)),
+                          ],
+                        ],
                       ),
                     ),
                   if (_visibleColumns.contains(_ListColumn.time))

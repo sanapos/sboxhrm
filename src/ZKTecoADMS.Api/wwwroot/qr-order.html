@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -125,13 +125,14 @@
     .hero-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
     .lang {
       display: flex; gap: 2px; background: rgba(255,255,255,.16);
-      border-radius: 999px; padding: 3px;
+      border-radius: 999px; padding: 3px; flex-wrap: wrap; justify-content: flex-end; max-width: 168px;
     }
     .lang button {
       border: 0; background: transparent; color: #fff; border-radius: 999px;
-      padding: 4px 9px; font-weight: 800; font-size: 11px;
+      padding: 3px 6px; font-weight: 800; font-size: 15px; line-height: 1.2;
+      min-width: 28px;
     }
-    .lang button.on { background: #fff; color: var(--terra-deep); }
+    .lang button.on { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
     .note-link { margin-top: 6px; border: 0; background: none; color: var(--terra); font-weight: 700; font-size: 12px; padding: 0; }
     .cart-line { flex-wrap: wrap; }
     .cart-line .note { margin-top: 8px; }
@@ -264,8 +265,11 @@
       </div>
       <div class="hero-actions">
         <div class="lang" id="lang-switch">
-          <button type="button" data-lang="vi" class="on">VI</button>
-          <button type="button" data-lang="en">EN</button>
+          <button type="button" data-lang="en" class="on" title="English" aria-label="English">🇬🇧</button>
+          <button type="button" data-lang="vi" title="Tiếng Việt" aria-label="Tiếng Việt">🇻🇳</button>
+          <button type="button" data-lang="zh" title="中文" aria-label="中文">🇨🇳</button>
+          <button type="button" data-lang="ko" title="한국어" aria-label="한국어">🇰🇷</button>
+          <button type="button" data-lang="ja" title="日本語" aria-label="日本語">🇯🇵</button>
         </div>
         <div class="chip" id="pay-chip">Thanh toán tại quầy</div>
       </div>
@@ -340,6 +344,7 @@
         payOk: 'Đã gọi thu ngân',
         payFail: 'Không gọi được thanh toán',
         defaultOk: 'Đã đặt hàng. Thanh toán tại quầy khi xong.',
+        pendingConfirm: 'Đã gửi — chờ thu ngân xác nhận trước khi in bếp',
         actions: 'Hỗ trợ',
         callStaff: 'Gọi phục vụ',
         viewBill: 'Xem đơn đã đặt',
@@ -418,6 +423,7 @@
         payOk: 'Cashier has been called',
         payFail: 'Could not call for payment',
         defaultOk: 'Order placed. Pay at the counter when done.',
+        pendingConfirm: 'Sent — waiting for staff to confirm before kitchen print',
         actions: 'Help',
         callStaff: 'Call waiter',
         viewBill: 'View ordered items',
@@ -449,19 +455,257 @@
         lockClosed: 'The cashier has not opened this table yet',
         geoDenied: 'Allow location — order only inside the restaurant',
         geoFail: 'Could not read your location'
+      },
+      zh: {
+        title: '桌边点餐',
+        opening: '正在打开菜单…',
+        payChip: '请到收银台付款',
+        search: '搜索菜品、配料…',
+        all: '全部',
+        choose: '选择',
+        chosen: '已选',
+        options: '选项',
+        topping: '加配料',
+        sold: '售罄',
+        emptyCat: '没有匹配的菜品',
+        ordered: '已点',
+        subtotal: '小计',
+        payHint: '用餐结束后请到收银台付款',
+        noItems: '购物车为空',
+        nItems: (n) => n + ' 件',
+        viewCart: '查看购物车',
+        order: '下单',
+        callPay: '呼叫结账',
+        cartTitle: '购物车',
+        close: '关闭',
+        cancel: '取消',
+        add: '添加',
+        notePh: '备注：少冰、少糖…',
+        noteBtn: '菜品备注',
+        variant: '规格 / 份量',
+        toppingG: '配料',
+        pickVariant: '请选择规格',
+        varSold: '该规格售罄',
+        added: '已添加',
+        sending: '发送中…',
+        calling: '呼叫中…',
+        sentTitle: '已下单',
+        continue: '继续点餐',
+        missing: '缺少桌号',
+        missingHint: '请重新扫描桌上的二维码。',
+        menuFail: '无法打开菜单',
+        retry: '重试',
+        offline: '无网络',
+        offlineHint: '请检查餐厅 Wi‑Fi 后重试。',
+        sendFail: '下单失败',
+        sendAgain: '连接中断 — 请重试',
+        payOk: '已通知收银',
+        payFail: '无法呼叫结账',
+        defaultOk: '已下单。用餐结束后请到收银台付款。',
+        pendingConfirm: '已提交 — 等待收银确认后再出厨',
+        actions: '帮助',
+        callStaff: '呼叫服务员',
+        viewBill: '查看已点',
+        payQr: '付款二维码',
+        confirmPaid: '我已通过二维码付款',
+        confirming: '发送中…',
+        confirmOk: '已请收银核对转账',
+        confirmFail: '无法发送确认',
+        noBill: '尚未点餐',
+        noQr: '本店未配置收款账户',
+        staffOk: '已呼叫服务员',
+        staffFail: '无法呼叫服务员',
+        qrHint: '扫码转账。付款后请点确认，以便收银核对。',
+        transfer: '转账备注',
+        acc: '账号',
+        emptyBill: '尚未点餐',
+        billTitle: '临时账单',
+        unpaid: '*** 未付款 ***',
+        billNo: '单号',
+        billDate: '日期',
+        billIn: '入座',
+        billTable: '桌号',
+        billGuest: '人数',
+        billSub: '小计',
+        billDisc: '优惠',
+        billVat: '税费',
+        billTotal: '合计',
+        billPayHint: '用餐结束后请到收银台付款',
+        lockClosed: '收银尚未开台，暂时无法点餐',
+        geoDenied: '请允许定位 — 仅限店内点餐',
+        geoFail: '无法获取位置'
+      },
+      ko: {
+        title: '테이블 주문',
+        opening: '메뉴를 여는 중…',
+        payChip: '카운터에서 결제',
+        search: '메뉴, 토핑 검색…',
+        all: '전체',
+        choose: '선택',
+        chosen: '선택됨',
+        options: '옵션',
+        topping: '토핑 추가',
+        sold: '품절',
+        emptyCat: '일치하는 메뉴 없음',
+        ordered: '주문됨',
+        subtotal: '소계',
+        payHint: '식사 후 카운터에서 결제하세요',
+        noItems: '장바구니가 비어 있습니다',
+        nItems: (n) => n + '개',
+        viewCart: '장바구니',
+        order: '주문하기',
+        callPay: '결제 호출',
+        cartTitle: '장바구니',
+        close: '닫기',
+        cancel: '취소',
+        add: '추가',
+        notePh: '요청사항: 얼음 적게, 당도 낮게…',
+        noteBtn: '메뉴 메모',
+        variant: '사이즈 / 옵션',
+        toppingG: '토핑',
+        pickVariant: '옵션을 선택하세요',
+        varSold: '이 옵션은 품절입니다',
+        added: '추가됨',
+        sending: '전송 중…',
+        calling: '호출 중…',
+        sentTitle: '주문 완료',
+        continue: '추가 주문',
+        missing: '테이블 코드 없음',
+        missingHint: '테이블 QR을 다시 스캔하세요.',
+        menuFail: '메뉴를 열 수 없습니다',
+        retry: '다시 시도',
+        offline: '연결 없음',
+        offlineHint: '매장 Wi‑Fi를 확인한 후 다시 시도하세요.',
+        sendFail: '주문할 수 없습니다',
+        sendAgain: '연결 끊김 — 다시 시도',
+        payOk: '캐셔에게 알림',
+        payFail: '결제 호출 실패',
+        defaultOk: '주문되었습니다. 식사 후 카운터에서 결제하세요.',
+        pendingConfirm: '전송됨 — 주방에 출력하기 전 직원 확인 대기',
+        actions: '도움',
+        callStaff: '직원 호출',
+        viewBill: '주문 내역',
+        payQr: '결제 QR',
+        confirmPaid: 'QR로 결제했습니다',
+        confirming: '전송 중…',
+        confirmOk: '캐셔에게 확인 요청함',
+        confirmFail: '확인을 보낼 수 없습니다',
+        noBill: '아직 주문 없음',
+        noQr: '매장에 입금 계좌가 없습니다',
+        staffOk: '직원을 호출했습니다',
+        staffFail: '직원을 호출할 수 없습니다',
+        qrHint: '스캔하여 이체하세요. 결제 후 확인을 눌러 캐셔가 확인하게 하세요.',
+        transfer: '이체 메모',
+        acc: '계좌',
+        emptyBill: '아직 주문 없음',
+        billTitle: '임시 영수증',
+        unpaid: '*** 미결제 ***',
+        billNo: '번호',
+        billDate: '날짜',
+        billIn: '입장',
+        billTable: '테이블',
+        billGuest: '인원',
+        billSub: '소계',
+        billDisc: '할인',
+        billVat: '부가세',
+        billTotal: '합계',
+        billPayHint: '식사 후 카운터에서 결제하세요',
+        lockClosed: '캐셔가 아직 테이블을 열지 않았습니다',
+        geoDenied: '위치 허용 — 매장 내에서만 주문',
+        geoFail: '위치를 읽을 수 없습니다'
+      },
+      ja: {
+        title: 'テーブル注文',
+        opening: 'メニューを開いています…',
+        payChip: 'レジでお支払いください',
+        search: '料理・トッピングを検索…',
+        all: 'すべて',
+        choose: '選択',
+        chosen: '選択済み',
+        options: 'オプション',
+        topping: 'トッピング追加',
+        sold: '売り切れ',
+        emptyCat: '該当する料理がありません',
+        ordered: '注文済み',
+        subtotal: '小計',
+        payHint: 'お会計はレジでお願いします',
+        noItems: 'カートは空です',
+        nItems: (n) => n + '点',
+        viewCart: 'カートを見る',
+        order: '注文する',
+        callPay: 'お会計を呼ぶ',
+        cartTitle: 'カート',
+        close: '閉じる',
+        cancel: 'キャンセル',
+        add: '追加',
+        notePh: '備考：氷少なめ、甘さ控え目…',
+        noteBtn: '料理メモ',
+        variant: 'サイズ / バリエーション',
+        toppingG: 'トッピング',
+        pickVariant: 'バリエーションを選択',
+        varSold: 'このバリエーションは売り切れです',
+        added: '追加しました',
+        sending: '送信中…',
+        calling: '呼び出し中…',
+        sentTitle: '注文しました',
+        continue: '追加注文',
+        missing: 'テーブルコードがありません',
+        missingHint: 'テーブルのQRをもう一度スキャンしてください。',
+        menuFail: 'メニューを開けません',
+        retry: '再試行',
+        offline: '接続なし',
+        offlineHint: '店舗のWi‑Fiを確認して再試行してください。',
+        sendFail: '注文できませんでした',
+        sendAgain: '接続が切れました — 再試行',
+        payOk: 'レジに通知しました',
+        payFail: 'お会計を呼べませんでした',
+        defaultOk: '注文しました。お会計はレジでお願いします。',
+        pendingConfirm: '送信済み — 厨房印刷前にスタッフ確認待ち',
+        actions: 'ヘルプ',
+        callStaff: 'スタッフを呼ぶ',
+        viewBill: '注文内容',
+        payQr: '支払いQR',
+        confirmPaid: 'QRで支払いました',
+        confirming: '送信中…',
+        confirmOk: 'レジに確認を依頼しました',
+        confirmFail: '確認を送れませんでした',
+        noBill: 'まだ注文がありません',
+        noQr: '店舗に振込口座がありません',
+        staffOk: 'スタッフを呼びました',
+        staffFail: 'スタッフを呼べませんでした',
+        qrHint: 'スキャンして振込。支払い後に確認を押し、レジが確認できるようにしてください。',
+        transfer: '振込メモ',
+        acc: '口座',
+        emptyBill: 'まだ注文がありません',
+        billTitle: '仮領収書',
+        unpaid: '*** 未払い ***',
+        billNo: '番号',
+        billDate: '日付',
+        billIn: '入店',
+        billTable: 'テーブル',
+        billGuest: '人数',
+        billSub: '小計',
+        billDisc: '割引',
+        billVat: '税',
+        billTotal: '合計',
+        billPayHint: 'お会計はレジでお願いします',
+        lockClosed: 'レジがまだテーブルを開けていません',
+        geoDenied: '位置情報を許可 — 店内のみ注文可',
+        geoFail: '位置情報を取得できません'
       }
     };
-    let lang = 'vi';
+    const LANGS = ['en', 'vi', 'zh', 'ko', 'ja'];
+    let lang = 'en';
     try {
       const saved = localStorage.getItem('sbox_qr_lang');
-      lang = saved === 'en' ? 'en' : 'vi';
+      if (LANGS.includes(saved)) lang = saved;
     } catch (e) {}
     const t = (k) => {
-      const pack = I18N[lang] || I18N.vi;
-      return pack[k] != null ? pack[k] : (I18N.vi[k] || k);
+      const pack = I18N[lang] || I18N.en;
+      return pack[k] != null ? pack[k] : (I18N.en[k] != null ? I18N.en[k] : (I18N.vi[k] || k));
     };
     function setLang(next) {
-      lang = next === 'en' ? 'en' : 'vi';
+      lang = LANGS.includes(next) ? next : 'en';
       try { localStorage.setItem('sbox_qr_lang', lang); } catch (e) {}
       document.documentElement.lang = lang;
       applyStaticLang();
@@ -480,7 +724,8 @@
       });
       if (!menu) document.getElementById('table').textContent = t('opening');
     }
-    const money = n => new Intl.NumberFormat(lang === 'en' ? 'en-US' : 'vi-VN').format(Math.round(n || 0)) + '₫';
+    const MONEY_LOCALE = { en: 'en-US', vi: 'vi-VN', zh: 'zh-CN', ko: 'ko-KR', ja: 'ja-JP' };
+    const money = n => new Intl.NumberFormat(MONEY_LOCALE[lang] || 'en-US').format(Math.round(n || 0)) + '₫';
     function apiBase() {
       return String(window.__SBOX_API__ || location.origin || '').replace(/\/$/, '');
     }
@@ -567,7 +812,7 @@
         }
         menu = data;
         document.getElementById('store').textContent = data.storeName || 'SBOX';
-        document.getElementById('table').textContent = (data.areaName ? data.areaName + ' · ' : '') + (data.tableName || (lang==='en'?'Table':'Bàn'));
+        document.getElementById('table').textContent = (data.areaName ? data.areaName + ' · ' : '') + (data.tableName || ({ en:'Table', vi:'Bàn', zh:'桌', ko:'테이블', ja:'テーブル' }[lang] || 'Table'));
         document.title = (data.tableName || t('title')) + ' · ' + (data.storeName || 'SBOX');
         render();
       } catch (e) {
@@ -931,7 +1176,10 @@
         cartOpen = false;
         picker = null;
         await load();
-        const msg = (json.data && (json.data.message || json.data.Message)) || t('defaultOk');
+        const d = json.data || {};
+        const msg = (d.needsConfirm || d.NeedsConfirm)
+          ? t('pendingConfirm')
+          : ((d.message || d.Message) || t('defaultOk'));
         showSuccess(msg);
       } catch (e) {
         toast(t('sendAgain'), true);

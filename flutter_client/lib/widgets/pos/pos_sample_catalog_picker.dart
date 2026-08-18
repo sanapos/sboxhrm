@@ -49,6 +49,8 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
   final _money = NumberFormat('#,##0', 'vi_VN');
   bool _loading = true;
   List<Map<String, dynamic>> _items = [];
+  List<Map<String, dynamic>> _categories = [];
+  String? _categoryFilter;
 
   static const _kinds = [
     (null, 'Tất cả'),
@@ -85,6 +87,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
     final res = await widget.api.getPosSampleCatalog(
       search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
       kind: kind,
+      category: _categoryFilter,
       pageSize: 100,
     );
     if (!mounted) return;
@@ -96,6 +99,13 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
             .map((e) => Map<String, dynamic>.from(e))
             .toList()
         : [];
+    final cats = data is Map ? data['categories'] : null;
+    if (cats is List) {
+      _categories = cats
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
     setState(() => _loading = false);
   }
 
@@ -151,7 +161,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             child: Text(
-              tr('Chọn món mẫu — xác nhận loại hàng, ĐVT, thương hiệu, thuế. Ảnh dùng chung, không upload lại.'),
+              tr('Danh sách đã lọc theo ngành cửa hàng. Chọn món mẫu — xác nhận loại hàng, ĐVT, thuế. Ảnh dùng chung.'),
               style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
           ),
@@ -180,6 +190,41 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
               onSubmitted: (_) => _load(),
             ),
           ),
+          if (_categories.isNotEmpty)
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FilterChip(
+                      label: Text(tr('Tất cả nhóm')),
+                      selected: _categoryFilter == null,
+                      onSelected: (_) {
+                        setState(() => _categoryFilter = null);
+                        _load();
+                      },
+                    ),
+                  ),
+                  for (final c in _categories)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: FilterChip(
+                        label: Text('${c['name']}'),
+                        selected: _categoryFilter == '${c['name']}',
+                        onSelected: (_) {
+                          final name = '${c['name']}';
+                          setState(() => _categoryFilter =
+                              _categoryFilter == name ? null : name);
+                          _load();
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -276,6 +321,8 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                         if ((s['productType'] ?? '').toString().isNotEmpty)
                           posProductTypeLabel(posProductTypeFromString(
                               s['productType']?.toString())),
+                        if ((s['categoryName'] ?? '').toString().isNotEmpty)
+                          s['categoryName'],
                         priceText,
                         if (unit.isNotEmpty) unit,
                         if ((s['brandName'] ?? '').toString().isNotEmpty)

@@ -11,6 +11,7 @@ internal sealed class SaleStockPlan
     public Dictionary<Guid, PosProduct> Products { get; init; } = [];
     public Dictionary<Guid, PosProductVariant> Variants { get; init; } = [];
     public Dictionary<Guid, List<PosProductComboLine>> ComboLinesMap { get; init; } = [];
+    public Dictionary<Guid, List<PosProductRecipeLine>> RecipeLinesMap { get; init; } = [];
     public HashSet<Guid> ProductsNeedingVariantSync { get; } = [];
 }
 
@@ -514,7 +515,19 @@ internal static class PosSaleStockHelper
                 .GroupBy(c => c.ComboProductId)
                 .ToDictionaryAsync(g => g.Key, g => g.ToList());
 
-        var componentIds = comboLinesMap.Values.SelectMany(v => v.Select(x => x.ComponentProductId)).Distinct().ToList();
+        var recipeParentIds = products.Values
+            .Where(p => p.ProductType != PosProductType.Combo)
+            .Select(p => p.Id).ToList();
+        var recipeLinesMap = recipeParentIds.Count == 0
+            ? new Dictionary<Guid, List<PosProductRecipeLine>>()
+            : await db.PosProductRecipeLines.AsNoTracking()
+                .Where(c => recipeParentIds.Contains(c.ParentProductId) && c.Deleted == null)
+                .GroupBy(c => c.ParentProductId)
+                .ToDictionaryAsync(g => g.Key, g => g.ToList());
+
+        var componentIds = comboLinesMap.Values.SelectMany(v => v.Select(x => x.ComponentProductId))
+            .Concat(recipeLinesMap.Values.SelectMany(v => v.Select(x => x.ComponentProductId)))
+            .Distinct().ToList();
         var missingComponentIds = componentIds.Where(id => !products.ContainsKey(id)).ToList();
         if (missingComponentIds.Count > 0)
         {
@@ -550,7 +563,8 @@ internal static class PosSaleStockHelper
                 ? line.Qty
                 : QtyInBase(line.Qty, line.UnitId, unitRates);
 
-            if (line.VariantId.HasValue)
+            if (line.VariantId.HasValue &&
+                !(recipeLinesMap.TryGetValue(p.Id, out var recipeForVariant) && recipeForVariant.Count > 0))
             {
                 if (!variants.TryGetValue(line.VariantId.Value, out var v))
                     return (null, "Biến thể không hợp lệ");
@@ -561,7 +575,19 @@ internal static class PosSaleStockHelper
                 continue;
             }
 
-            if (p.ProductType == PosProductType.Combo)
+            if (recipeLinesMap.TryGetValue(p.Id, out var recipeLines) && recipeLines.Count > 0)
+            {
+                foreach (var cl in recipeLines)
+                {
+                    if (!products.TryGetValue(cl.ComponentProductId, out var comp))
+                        return (null, $"NVL của «{p.Name}» không hợp lệ");
+                    if (!PosProductTypeRules.IsRecipeComponent(comp.ProductType))
+                        return (null, $"NVL «{comp.Name}» phải là nguyên vật liệu hoặc hàng hóa");
+                    var need = cl.Qty * lineBaseQty;
+                    stockNeeds[cl.ComponentProductId] = stockNeeds.GetValueOrDefault(cl.ComponentProductId) + need;
+                }
+            }
+            else if (p.ProductType == PosProductType.Combo)
             {
                 if (!comboLinesMap.TryGetValue(p.Id, out var comboLines) || comboLines.Count == 0)
                     return (null, $"Combo «{p.Name}» chưa có thành phần");
@@ -577,7 +603,7 @@ internal static class PosSaleStockHelper
             }
             else if (p.ProductType == PosProductType.Service)
             {
-                // Dịch vụ không kiểm tra / trừ tồn kho.
+                // Dịch vụ không định lượng: không kiểm tra / trừ tồn kho.
             }
             else
             {
@@ -630,6 +656,7 @@ internal static class PosSaleStockHelper
             Products = products,
             Variants = variants,
             ComboLinesMap = comboLinesMap,
+            RecipeLinesMap = recipeLinesMap,
         }, null);
     }
 
@@ -654,11 +681,24 @@ internal static class PosSaleStockHelper
                 ? line.Qty
                 : QtyInBase(line.Qty, line.UnitId, unitRates);
 
-            if (soldVariant != null)
+            if (soldVariant != null &&
+                !(plan.RecipeLinesMap.TryGetValue(p.Id, out var recipeForSoldVariant) &&
+                  recipeForSoldVariant.Count > 0))
             {
                 var note = $"Bán hàng POS — {soldVariant.SkuCode}";
                 await ApplyFefoSaleDeductionAsync(
                     db, storeId, order, p, soldVariant, deductQty, note, createdBy, plan);
+            }
+            else if (plan.RecipeLinesMap.TryGetValue(p.Id, out var recipeLines) && recipeLines.Count > 0)
+            {
+                foreach (var cl in recipeLines)
+                {
+                    var comp = plan.Products[cl.ComponentProductId];
+                    var deduct = cl.Qty * deductQty;
+                    await ApplyFefoComboComponentSaleAsync(
+                        db, storeId, order, comp, deduct,
+                        $"Định lượng: {p.Name}", createdBy);
+                }
             }
             else if (p.ProductType == PosProductType.Combo &&
                      plan.ComboLinesMap.TryGetValue(p.Id, out var comboLines))

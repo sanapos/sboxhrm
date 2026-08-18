@@ -85,10 +85,35 @@ String posEInvoiceStatusLabel(String? status) {
     case 'Skipped':
       return 'Không xuất';
     case 'Pending':
-      return 'Đang xử lý';
+      return 'Chờ ký';
     case 'Failed':
       return 'Lỗi xuất';
     default:
       return 'Chưa xuất';
   }
+}
+
+/// Nhãn thẻ ngắn trên danh sách đơn (gắn cạnh số HĐ / cột HĐĐT).
+String posEInvoiceChipLabel(String? status, {String? provider, String? invoiceNo}) {
+  final st = (status ?? 'None').trim();
+  final prov = (provider ?? '').trim();
+  final no = (invoiceNo ?? '').trim();
+  switch (st) {
+    case 'Issued':
+      final head = prov.isEmpty ? 'HĐĐT' : 'HĐĐT $prov';
+      return no.isEmpty ? head : '$head · $no';
+    case 'Pending':
+      return prov.isEmpty ? 'HĐĐT chờ ký' : 'HĐĐT $prov chờ ký';
+    case 'Failed':
+      return 'HĐĐT lỗi';
+    case 'Skipped':
+      return 'Không xuất';
+    default:
+      return '—';
+  }
+}
+
+bool posEInvoiceHasTag(String? status) {
+  final st = (status ?? 'None').trim();
+  return st == 'Issued' || st == 'Pending' || st == 'Failed';
 }

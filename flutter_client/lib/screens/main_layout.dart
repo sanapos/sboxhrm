@@ -322,6 +322,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _isExpanded = false;
   static const _kSidebarExpanded = 'main_sidebar_expanded';
+  static const _kLastNavIndex = 'main_layout_last_nav_index';
   final ValueNotifier<int> _unreadNotificationsCount = ValueNotifier<int>(0);
   Timer? _notifCountDebounce;
   final Set<String> _collapsedGroups = {};
@@ -373,6 +374,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _connectSignalR();
     _loadPermissions();
     _loadSidebarPreference();
+    unawaited(_restoreLastNavIndex());
     MobileBottomNavPrefs.loadAll();
     MobileBottomNavPrefs.revision.addListener(_onMobileNavPrefsChanged);
     MobileQuickActionsPrefs.revision.addListener(_onMobileNavPrefsChanged);
@@ -420,6 +422,28 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     setState(() => _isExpanded = expanded);
   }
 
+  Future<void> _restoreLastNavIndex() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final idx = prefs.getInt(_kLastNavIndex);
+      if (!mounted || idx == null) return;
+      if (idx < 0 || idx >= _navItems.length) return;
+      if (idx == _selectedIndex) return;
+      // Khôi phục module sau khi OS kill app (tắt màn hình / thiếu RAM).
+      setState(() => _selectedIndex = idx);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reportCurrentScreen();
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _persistLastNavIndex(int index) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_kLastNavIndex, index);
+    } catch (_) {}
+  }
+
   Future<void> _toggleSidebar() async {
     setState(() => _isExpanded = !_isExpanded);
     final prefs = await SharedPreferences.getInstance();
@@ -448,7 +472,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         if (storeId != null && storeId.isNotEmpty) {
           unawaited(
             PosPrintAgentService.instance
-                .ensureRunning(storeId, forceReregister: true),
+                .ensureRunning(storeId, forceReregister: false),
           );
         }
       }
@@ -656,6 +680,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       }
       _selectedIndex = index;
     });
+    unawaited(_persistLastNavIndex(index));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _reportCurrentScreen();
     });

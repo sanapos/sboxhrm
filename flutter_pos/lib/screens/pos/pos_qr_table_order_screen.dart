@@ -1,4 +1,4 @@
-import 'package:barcode/barcode.dart';
+﻿import 'package:barcode/barcode.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
@@ -14,7 +14,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-/// In / quản lý QR order tại bàn. Tắt mặc định trong thiết lập ngành hàng.
+/// In / quáº£n lÃ½ QR order táº¡i bÃ n. Táº¯t máº·c Ä‘á»‹nh trong thiáº¿t láº­p ngÃ nh hÃ ng.
 class PosQrTableOrderScreen extends StatefulWidget {
   const PosQrTableOrderScreen({super.key});
 
@@ -30,6 +30,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
   bool _autoPrint = true;
   bool _requireOpenSession = false;
   bool _requireGeofence = false;
+  bool _requireOrderConfirmation = false;
   bool _geoConfigured = false;
   String? _error;
   List<_QrTable> _tables = [];
@@ -50,7 +51,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     if (res['isSuccess'] != true || res['data'] is! Map) {
       setState(() {
         _loading = false;
-        _error = res['message']?.toString() ?? 'Không tải được QR bàn';
+        _error = res['message']?.toString() ?? 'KhÃ´ng táº£i Ä‘Æ°á»£c QR bÃ n';
       });
       return;
     }
@@ -71,6 +72,9 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
           data['RequireOpenSession'] == true;
       _requireGeofence =
           data['requireGeofence'] == true || data['RequireGeofence'] == true;
+      _requireOrderConfirmation =
+          data['requireOrderConfirmation'] == true ||
+          data['RequireOrderConfirmation'] == true;
       _geoConfigured =
           data['geoConfigured'] == true || data['GeoConfigured'] == true;
       _tables = tables;
@@ -85,8 +89,8 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     if (loaded.settings == null) {
       if (mounted) setState(() => _busy = false);
       NotificationOverlayManager().showError(
-        title: 'Không bật được',
-        message: loaded.error ?? 'Thiếu thiết lập POS',
+        title: 'KhÃ´ng báº­t Ä‘Æ°á»£c',
+        message: loaded.error ?? 'Thiáº¿u thiáº¿t láº­p POS',
       );
       return;
     }
@@ -98,8 +102,8 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     setState(() => _busy = false);
     if (saved.settings == null) {
       NotificationOverlayManager().showError(
-        title: 'Không bật được',
-        message: saved.error ?? 'Thử lại',
+        title: 'KhÃ´ng báº­t Ä‘Æ°á»£c',
+        message: saved.error ?? 'Thá»­ láº¡i',
       );
       return;
     }
@@ -113,8 +117,8 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     if (loaded.settings == null) {
       if (mounted) setState(() => _busy = false);
       NotificationOverlayManager().showError(
-        title: 'Không lưu được',
-        message: loaded.error ?? 'Thiếu thiết lập POS',
+        title: 'KhÃ´ng lÆ°u Ä‘Æ°á»£c',
+        message: loaded.error ?? 'Thiáº¿u thiáº¿t láº­p POS',
       );
       return;
     }
@@ -126,23 +130,27 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     setState(() => _busy = false);
     if (saved.settings == null) {
       NotificationOverlayManager().showError(
-        title: 'Không lưu được',
-        message: saved.error ?? 'Thử lại',
+        title: 'KhÃ´ng lÆ°u Ä‘Æ°á»£c',
+        message: saved.error ?? 'Thá»­ láº¡i',
       );
       return;
     }
     setState(() => _autoPrint = value);
   }
 
-  Future<void> _setLock({bool? requireOpenSession, bool? requireGeofence}) async {
+  Future<void> _setLock({
+    bool? requireOpenSession,
+    bool? requireGeofence,
+    bool? requireOrderConfirmation,
+  }) async {
     setState(() => _busy = true);
     final helper = PosSellSettingsHelper(_api);
     final loaded = await helper.load();
     if (loaded.settings == null) {
       if (mounted) setState(() => _busy = false);
       NotificationOverlayManager().showError(
-        title: 'Không lưu được',
-        message: loaded.error ?? 'Thiếu thiết lập POS',
+        title: 'KhÃ´ng lÆ°u Ä‘Æ°á»£c',
+        message: loaded.error ?? 'Thiáº¿u thiáº¿t láº­p POS',
       );
       return;
     }
@@ -150,6 +158,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
         .copyWith(
       requireOpenSession: requireOpenSession,
       requireGeofence: requireGeofence,
+      requireOrderConfirmation: requireOrderConfirmation,
     );
     final saved = await helper.save(
       loaded.settings!.copyWith(
@@ -161,14 +170,15 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     setState(() => _busy = false);
     if (saved.settings == null) {
       NotificationOverlayManager().showError(
-        title: 'Không lưu được',
-        message: saved.error ?? 'Thử lại',
+        title: 'KhÃ´ng lÆ°u Ä‘Æ°á»£c',
+        message: saved.error ?? 'Thá»­ láº¡i',
       );
       return;
     }
     setState(() {
       _requireOpenSession = next.requireOpenSession;
       _requireGeofence = next.requireGeofence;
+      _requireOrderConfirmation = next.requireOrderConfirmation;
     });
   }
 
@@ -213,7 +223,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                           ),
                         ),
                         child: pw.Text(
-                          tr('GỌI MÓN TẠI BÀN'),
+                          tr('Gá»ŒI MÃ“N Táº I BÃ€N'),
                           style: badge,
                           textAlign: pw.TextAlign.center,
                         ),
@@ -237,7 +247,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                             ),
                             pw.SizedBox(height: 8),
                             pw.Text(
-                              tr('Quét để gọi món'),
+                              tr('QuÃ©t Ä‘á»ƒ gá»i mÃ³n'),
                               style: hint,
                               textAlign: pw.TextAlign.center,
                             ),
@@ -290,10 +300,10 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: pushed,
-        title: Text(tr('QR order tại bàn')),
+        title: Text(tr('QR order táº¡i bÃ n')),
         actions: [
           IconButton(
-            tooltip: tr('Tải lại'),
+            tooltip: tr('Táº£i láº¡i'),
             onPressed: _loading || _busy ? null : _load,
             icon: const Icon(Icons.refresh),
           ),
@@ -327,14 +337,14 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              tr('Chưa bật QR order tại bàn'),
+              tr('ChÆ°a báº­t QR order táº¡i bÃ n'),
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             ),
             const SizedBox(height: 8),
             Text(
               tr(
-                'Tắt mặc định. Bật để in QR dán bàn: khách chọn món (kể cả topping / biến thể) trên điện thoại. '
-                'Máy POS đọc loa khi có đơn. Thanh toán vẫn tại quầy.',
+                'Táº¯t máº·c Ä‘á»‹nh. Báº­t Ä‘á»ƒ in QR dÃ¡n bÃ n: khÃ¡ch chá»n mÃ³n (ká»ƒ cáº£ topping / biáº¿n thá»ƒ) trÃªn Ä‘iá»‡n thoáº¡i. '
+                'MÃ¡y POS Ä‘á»c loa khi cÃ³ Ä‘Æ¡n. Thanh toÃ¡n váº«n táº¡i quáº§y.',
               ),
               style: TextStyle(color: Colors.grey.shade700, height: 1.4),
             ),
@@ -342,7 +352,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
             FilledButton.icon(
               onPressed: _busy ? null : _enable,
               icon: const Icon(Icons.qr_code_2),
-              label: Text(tr(_busy ? 'Đang bật…' : 'Bật QR order')),
+              label: Text(tr(_busy ? 'Äang báº­tâ€¦' : 'Báº­t QR order')),
             ),
           ],
         ),
@@ -358,10 +368,10 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           child: SwitchListTile(
-            title: Text(tr('Tự in phiếu bếp')),
+            title: Text(tr('Tá»± in phiáº¿u báº¿p')),
             subtitle: Text(tr(_autoPrint
-                ? 'Khách gửi món là in phiếu qua Agent'
-                : 'Tắt: thu ngân bấm Báo bếp để in thủ công')),
+                ? 'KhÃ¡ch gá»­i mÃ³n lÃ  in phiáº¿u qua Agent'
+                : 'Táº¯t: thu ngÃ¢n báº¥m BÃ¡o báº¿p Ä‘á»ƒ in thá»§ cÃ´ng')),
             value: _autoPrint,
             onChanged: _busy ? null : _setAutoPrint,
           ),
@@ -373,24 +383,34 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
           child: Column(
             children: [
               SwitchListTile(
-                title: Text(tr('Chỉ gọi món khi đã mở bàn')),
+                title: Text(tr('Chá»‰ gá»i mÃ³n khi Ä‘Ã£ má»Ÿ bÃ n')),
                 subtitle: Text(tr(
-                    'Khóa mạnh nhất: khách ngoài quán quét QR cũ cũng không tự mở đơn. '
-                    'Thu ngân mở bàn trên sơ đồ rồi khách mới đặt được.')),
+                    'KhÃ³a máº¡nh nháº¥t: khÃ¡ch ngoÃ i quÃ¡n quÃ©t QR cÅ© cÅ©ng khÃ´ng tá»± má»Ÿ Ä‘Æ¡n. '
+                    'Thu ngÃ¢n má»Ÿ bÃ n trÃªn sÆ¡ Ä‘á»“ rá»“i khÃ¡ch má»›i Ä‘áº·t Ä‘Æ°á»£c.')),
                 value: _requireOpenSession,
                 onChanged: _busy
                     ? null
                     : (v) => _setLock(requireOpenSession: v),
               ),
               SwitchListTile(
-                title: Text(tr('Chỉ gọi món trong phạm vi quán (GPS)')),
+                title: Text(tr('Chá»‰ gá»i mÃ³n trong pháº¡m vi quÃ¡n (GPS)')),
                 subtitle: Text(tr(_geoConfigured
-                    ? 'Dùng vùng chấm công (geofence) của cửa hàng. Khách phải bật vị trí.'
-                    : 'Chưa có vùng GPS — vào Chấm công → Vùng chấm công, tạo vòng 80–150m quanh quán rồi bật lại.')),
+                    ? 'DÃ¹ng vÃ¹ng cháº¥m cÃ´ng (geofence) cá»§a cá»­a hÃ ng. KhÃ¡ch pháº£i báº­t vá»‹ trÃ­.'
+                    : 'ChÆ°a cÃ³ vÃ¹ng GPS â€” vÃ o Cháº¥m cÃ´ng â†’ VÃ¹ng cháº¥m cÃ´ng, táº¡o vÃ²ng 80â€“150m quanh quÃ¡n rá»“i báº­t láº¡i.')),
                 value: _requireGeofence,
                 onChanged: _busy
                     ? null
                     : (v) => _setLock(requireGeofence: v),
+              ),
+              SwitchListTile(
+                title: Text(tr('Báº­t xÃ¡c nháº­n order (QR)')),
+                subtitle: Text(tr(_requireOrderConfirmation
+                    ? 'MÃ³n khÃ´ng in tháº³ng xuá»‘ng báº¿p â€” cÃ³ Ã¢m thanh + thÃ´ng bÃ¡o Ä‘á»ƒ thu ngÃ¢n xÃ¡c nháº­n (BÃ¡o báº¿p).'
+                    : 'Máº·c Ä‘á»‹nh táº¯t: khÃ´ng cáº§n xÃ¡c nháº­n â€” theo Â«Tá»± in phiáº¿u báº¿pÂ».')),
+                value: _requireOrderConfirmation,
+                onChanged: _busy
+                    ? null
+                    : (v) => _setLock(requireOrderConfirmation: v),
               ),
             ],
           ),
@@ -404,8 +424,8 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
               padding: const EdgeInsets.all(12),
               child: Text(
                 tr(
-                  'Link QR đang trỏ máy nội bộ / LAN. Khách dùng 4G sẽ không mở được menu. '
-                  'Cần trỏ về https://sbox.sana.vn rồi in lại.',
+                  'Link QR Ä‘ang trá» mÃ¡y ná»™i bá»™ / LAN. KhÃ¡ch dÃ¹ng 4G sáº½ khÃ´ng má»Ÿ Ä‘Æ°á»£c menu. '
+                  'Cáº§n trá» vá» https://sbox.sana.vn rá»“i in láº¡i.',
                 ),
                 style: TextStyle(color: Colors.orange.shade900, height: 1.35),
               ),
@@ -416,11 +436,11 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
           FilledButton.icon(
             onPressed: () => _printTables(_tables),
             icon: const Icon(Icons.print_outlined),
-            label: Text(tr('In tất cả QR (${_tables.length} bàn)')),
+            label: Text(tr('In táº¥t cáº£ QR (${_tables.length} bÃ n)')),
           ),
         const SizedBox(height: 12),
         if (_tables.isEmpty)
-          Text(tr('Chưa có bàn — thêm bàn trong sơ đồ rồi quay lại.'),
+          Text(tr('ChÆ°a cÃ³ bÃ n â€” thÃªm bÃ n trong sÆ¡ Ä‘á»“ rá»“i quay láº¡i.'),
               style: TextStyle(color: Colors.grey.shade700)),
         for (final t in _tables)
           Card(
@@ -432,11 +452,11 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                 spacing: 0,
                 children: [
                   IconButton(
-                    tooltip: tr('Sao chép link'),
+                    tooltip: tr('Sao chÃ©p link'),
                     onPressed: () async {
                       await Clipboard.setData(ClipboardData(text: t.url));
                       NotificationOverlayManager().showSuccess(
-                        title: 'Đã chép',
+                        title: 'ÄÃ£ chÃ©p',
                         message: t.label,
                       );
                     },
@@ -470,7 +490,7 @@ class _QrTable {
   final String? areaName;
 
   String get label =>
-      (areaName ?? '').isEmpty ? name : '$areaName · $name';
+      (areaName ?? '').isEmpty ? name : '$areaName Â· $name';
 
   factory _QrTable.fromJson(Map<String, dynamic> json) => _QrTable(
         id: (json['id'] ?? json['Id'] ?? '').toString(),

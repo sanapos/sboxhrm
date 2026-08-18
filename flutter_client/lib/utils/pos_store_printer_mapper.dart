@@ -22,12 +22,23 @@ PosThermalPrinterSettings toThermalSettings(PosStorePrinter printer) {
 
   // Sunmi: luôn brand + UTF-8 — tránh auto→image (chữ rác / giấy trắng dài qua printEscPos).
   final isSunmi = conn == PosThermalConnectionType.sunmi;
+  // SboxPrintAgent (Windows) từng lưu brand=Windows + textMode=Utf8 → XP/Zywell lỗi font VN.
+  // Coi như Xprinter + auto (→ in ảnh) để hóa đơn có dấu đúng.
+  final rawBrand = (printer.printerBrand ?? '').trim().toLowerCase();
+  final fromWindowsAgent = rawBrand == 'windows' || rawBrand == 'auto';
   final brand = isSunmi
       ? PosThermalPrinterBrand.sunmi
-      : PosThermalPrinterBrand.fromKey(printer.printerBrand?.toLowerCase());
-  final textMode = isSunmi
+      : PosThermalPrinterBrand.fromKey(
+          fromWindowsAgent ? 'xprinter' : rawBrand,
+        );
+  var textMode = isSunmi
       ? PosThermalTextMode.utf8
       : PosThermalTextMode.fromKey(printer.textMode?.toLowerCase());
+  if (!isSunmi &&
+      fromWindowsAgent &&
+      textMode == PosThermalTextMode.utf8) {
+    textMode = PosThermalTextMode.auto;
+  }
 
   return PosThermalPrinterSettings(
     enabled: true,

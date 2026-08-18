@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:network_info_plus/network_info_plus.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/zk_gateway.dart';
+import '../../services/zk_gateway_ble.dart';
 import '../../services/zk_gateway_client.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
@@ -27,6 +31,7 @@ class ZkGatewaySetupScreen extends StatefulWidget {
 
 class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
   final _client = ZkGatewayClient();
+  final _ble = createZkGatewayBle();
 
   final _nameCtrl = TextEditingController();
   final _ssidCtrl = TextEditingController();
@@ -36,8 +41,11 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
 
   static const _fixedServerUrl = 'https://sboxhrm.com';
 
-  /// IP dùng để nói chuyện với ESP trong lúc cài: AP hoặc IP LAN nếu cấu hình lại.
+  /// IP dùng để nói chuyện với ESP trong lúc cài SoftAP / sau khi lên LAN.
   late String _targetIp;
+
+  /// true = cấu hình qua BLE (giữ WiFi nhà); false = SoftAP cũ.
+  bool _useBle = true;
 
   int _step = 0;
   bool _busy = false;
@@ -47,6 +55,11 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
   List<ZkWifiAp> _aps = const [];
   ZkGatewayInfo? _result;
   String? _waitMessage;
+
+  List<ZkBleDevice> _bleDevices = const [];
+  ZkBleDevice? _bleSelected;
+  StreamSubscription<List<ZkBleDevice>>? _bleScanSub;
+  String? _bleHint;
 
   bool get _isReconfigure => widget.existing != null;
 
@@ -63,6 +76,8 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
 
   @override
   void dispose() {
+    _bleScanSub?.cancel();
+    unawaited(_ble.dispose());
     _nameCtrl.dispose();
     _ssidCtrl.dispose();
     _passCtrl.dispose();
@@ -112,7 +127,105 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
     );
   }
 
-  // ---------- Bước 1: xác nhận đã nối vào sóng thiết bị ----------
+  // ---------- Bước 1: BLE (ưu tiên) hoặc SoftAP ----------
+
+  Future<void> _startBleScan() async {
+    setState(() {
+      _busy = true;
+      _bleDevices = const [];
+      _bleSelected = null;
+      _bleHint = tr('Đang quét Bluetooth… Giữ điện thoại trên WiFi nhà.');
+    });
+    await _bleScanSub?.cancel();
+    try {
+      await _ble.ensureReady();
+      final seen = <String, ZkBleDevice>{};
+      _bleScanSub = _ble.scan(timeout: const Duration(seconds: 12)).listen(
+        (list) {
+          for (final d in list) {
+            seen[d.id] = d;
+          }
+          if (!mounted) return;
+          setState(() {
+            _bleDevices = seen.values.toList()
+              ..sort((a, b) => b.rssi.compareTo(a.rssi));
+            _bleHint = _bleDevices.isEmpty
+                ? tr('Chưa thấy gateway. Cấp nguồn mạch, bật Bluetooth điện thoại.')
+                : null;
+          });
+        },
+        onError: (e) {
+          if (!mounted) return;
+          setState(() {
+            _busy = false;
+            _bleHint = e.toString();
+          });
+        },
+        onDone: () {
+          if (!mounted) return;
+          setState(() {
+            _busy = false;
+            if (_bleDevices.isEmpty) {
+              _bleHint = tr(
+                'Không thấy SBOX-Gateway. Kiểm tra mạch đã reset / chưa cấu hình WiFi, '
+                'hoặc dùng cách SoftAP bên dưới.',
+              );
+            }
+          });
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _bleHint = e.toString();
+      });
+      _fail('Bluetooth', e);
+    }
+  }
+
+  Future<void> _connectBle(ZkBleDevice device) async {
+    setState(() {
+      _busy = true;
+      _bleSelected = device;
+      _bleHint = tr('Đang kết nối ${device.displayName}…');
+    });
+    try {
+      await _ble.stopScan();
+      await _ble.connect(device.id);
+      final info = await _ble.readInfo();
+      if (!mounted) return;
+      setState(() {
+        _probed = ZkGatewayInfo(
+          ip: '',
+          name: info['name']?.toString() ?? '',
+          serial: info['serial']?.toString() ?? '',
+          apSsid: info['apSsid']?.toString() ?? device.name,
+          provisioned: info['provisioned'] == true,
+          wifiConnected: info['wifi'] == true,
+        );
+        _useBle = true;
+        _step = 2;
+        _busy = false;
+        _bleHint = null;
+      });
+      await _prefillWifiFromPhone();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      _fail('Kết nối BLE thất bại', e);
+    }
+  }
+
+  Future<void> _prefillWifiFromPhone() async {
+    try {
+      final ssid = await NetworkInfo().getWifiName();
+      final cleaned = (ssid ?? '').replaceAll('"', '').trim();
+      if (cleaned.isNotEmpty && mounted && _ssidCtrl.text.trim().isEmpty) {
+        setState(() => _ssidCtrl.text = cleaned);
+      }
+    } catch (_) {}
+  }
 
   Future<void> _probeDevice() async {
     setState(() => _busy = true);
@@ -122,6 +235,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
       setState(() {
         _probed = info;
         _targetIp = ZkGatewayClient.apAddress;
+        _useBle = false;
         _step = 2;
       });
       await _prefillFromDevice();
@@ -174,10 +288,34 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
     return true;
   }
 
+  /// Cảnh báo nếu IP máy đã được gateway khác dùng (không chặn lưu).
+  Future<void> _warnIfDeviceIpConflict() async {
+    final want = _deviceIpCtrl.text.trim();
+    if (want.isEmpty) return;
+    try {
+      final others = await _client.discover(duration: const Duration(seconds: 3));
+      final hits = others.where((g) {
+        if (g.deviceIp.trim() != want) return false;
+        if (_useBle) return g.ip.isNotEmpty;
+        return g.ip.isNotEmpty && g.ip != _targetIp;
+      }).toList();
+      if (hits.isEmpty || !mounted) return;
+      final names = hits.map((g) => g.displayName).join(', ');
+      appNotification.showWarning(
+        title: tr('IP máy có thể bị trùng'),
+        message: tr(
+          'IP $want đang thấy trên: $names. '
+          'Mỗi máy chấm công chỉ nên gắn một mạch ESP.',
+        ),
+      );
+    } catch (_) {}
+  }
+
   // ---------- Bước 3: lưu rồi chờ thiết bị lên mạng ----------
 
   Future<void> _saveAndWait() async {
     if (!_validate()) return;
+    await _warnIfDeviceIpConflict();
 
     setState(() {
       _busy = true;
@@ -194,10 +332,69 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
     );
 
     try {
-      await _client.saveConfig(
-        _targetIp,
-        config.toPayload(wifiPass: _passCtrl.text),
-      );
+      if (_useBle && !_isReconfigure) {
+        await _ble.writeConfig(
+          zkBleConfigPayload(config, wifiPass: _passCtrl.text),
+        );
+        setState(() {
+          _waitMessage = tr(
+            'Đã gửi qua Bluetooth. Gateway đang vào WiFi nhà — '
+            'giữ điện thoại trên WiFi nhà, app sẽ tự tìm thiết bị.',
+          );
+        });
+        final sub = _ble.statusNotifications().listen((st) {
+          if (!mounted) return;
+          setState(() {
+            _waitMessage = st.message.isNotEmpty
+                ? st.message
+                : tr('Trạng thái: ${st.state}');
+          });
+        });
+        ZkBleProvStatus? last;
+        for (var i = 0; i < 50; i++) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          try {
+            last = await _ble.readStatus();
+          } catch (_) {
+            continue;
+          }
+          if (!mounted) {
+            await sub.cancel();
+            return;
+          }
+          setState(() {
+            _waitMessage = last!.message.isNotEmpty
+                ? last.message
+                : tr('Trạng thái: ${last.state}');
+          });
+          if (last.isFailed) {
+            await sub.cancel();
+            throw ZkBleException(
+              last.message.isNotEmpty ? last.message : 'BLE config failed',
+            );
+          }
+          if (last.isConnected) break;
+        }
+        await sub.cancel();
+        if (last == null || !last.isConnected) {
+          throw const ZkBleException(
+            'WiFi timeout — kiểm tra SSID/mật khẩu (phải là 2.4GHz)',
+          );
+        }
+        await _ble.disconnect();
+      } else {
+        await _client.saveConfig(
+          _targetIp,
+          config.toPayload(wifiPass: _passCtrl.text),
+        );
+        if (!mounted) return;
+        setState(() {
+          _waitMessage = tr(
+            'Đã lưu. Thiết bị đang rời sóng riêng để vào WiFi của bạn.\n'
+            'Hãy đưa điện thoại về lại WiFi nhà, app sẽ tự tìm thiết bị.',
+          );
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -207,14 +404,6 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
       _fail('Lưu cấu hình thất bại', e);
       return;
     }
-
-    if (!mounted) return;
-    setState(() {
-      _waitMessage = tr(
-        'Đã lưu. Thiết bị đang rời sóng riêng để vào WiFi của bạn.\n'
-        'Hãy đưa điện thoại về lại WiFi nhà, app sẽ tự tìm thiết bị.',
-      );
-    });
 
     final found = await _client.waitUntilOnline(
       serial: _probed?.serial ?? '',
@@ -290,7 +479,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
   }
 
   Widget _buildStepBar() {
-    const labels = ['Chuẩn bị', 'Nối thiết bị', 'Chọn WiFi', 'Hoàn tất'];
+    const labels = ['Chuẩn bị', 'Tìm thiết bị', 'Chọn WiFi', 'Hoàn tất'];
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
@@ -476,18 +665,103 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
           _bullet(3, 'Mật khẩu WiFi 2.4GHz của nơi lắp đặt. Gateway không bắt '
               'được sóng 5GHz.'),
           const SizedBox(height: 12),
-          _title('Các bước sẽ làm'),
-          _bullet(1, 'Nối điện thoại vào sóng WiFi phát ra từ gateway.'),
-          _bullet(2, 'Chọn WiFi 2.4GHz nhà và nhập mật khẩu để gateway vào mạng.'),
-          _bullet(3, 'Nhập IP máy chấm công, kiểm tra kết nối là xong.'),
+          _title('Cách cấu hình (khuyên dùng)'),
+          _bullet(1, 'Giữ điện thoại trên WiFi nhà (vẫn có Internet / app HRM).'),
+          _bullet(2, 'Bật Bluetooth, app quét và chọn đúng SBOX-Gateway-XXXX '
+              '(mỗi mạch một mã XXXX — dán tem nếu lắp nhiều mạch).'),
+          _bullet(3, 'Gửi WiFi + IP máy chấm công qua Bluetooth — đặt tên gợi nhớ '
+              '(Cửa trước / Kho) để dễ phân biệt.'),
+          const SizedBox(height: 8),
+          const GatewayNoteBox(
+            text: 'Không cần đổi WiFi điện thoại sang sóng SoftAP — tránh mất mạng.',
+            icon: Icons.bluetooth_connected,
+          ),
         ]),
         const SizedBox(height: 14),
-        _primaryButton('Bắt đầu', () => setState(() => _step = 1)),
+        _primaryButton(
+          'Bắt đầu bằng Bluetooth',
+          () {
+            setState(() {
+              _useBle = true;
+              _step = 1;
+            });
+            _startBleScan();
+          },
+          icon: Icons.bluetooth_searching,
+        ),
+        const SizedBox(height: 8),
+        TextButton(
+          onPressed: _busy
+              ? null
+              : () => setState(() {
+                    _useBle = false;
+                    _step = 1;
+                  }),
+          child: Text(tr('Cách cũ: nối WiFi SoftAP (mất mạng tạm)')),
+        ),
       ],
     );
   }
 
   Widget _buildJoinAp() {
+    if (_useBle) {
+      return Column(
+        children: [
+          _card(children: [
+            _title('Quét gateway qua Bluetooth'),
+            Text(
+              tr('Giữ điện thoại trên WiFi nhà. Cấp nguồn mạch — tên BLE giống '
+                  'SBOX-Gateway-XXXX.'),
+              style: const TextStyle(
+                fontSize: 13.5,
+                height: 1.45,
+                color: HrmPageChrome.textDark,
+              ),
+            ),
+            if (_bleHint != null) ...[
+              const SizedBox(height: 12),
+              GatewayNoteBox(text: _bleHint!, icon: Icons.info_outline),
+            ],
+            const SizedBox(height: 12),
+            if (_bleDevices.isEmpty && _busy)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2.2)),
+              ),
+            for (final d in _bleDevices) ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.bluetooth, color: HrmPageChrome.primaryNavy),
+                title: Text(
+                  d.displayName,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text('RSSI ${d.rssi} dBm'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: _busy ? null : () => _connectBle(d),
+              ),
+              const Divider(height: 1),
+            ],
+          ]),
+          const SizedBox(height: 14),
+          _primaryButton('Quét lại', _startBleScan, icon: Icons.refresh),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: _busy
+                ? null
+                : () => setState(() {
+                      _useBle = false;
+                    }),
+            child: Text(tr('Chuyển sang cách SoftAP')),
+          ),
+          TextButton(
+            onPressed: _busy ? null : () => setState(() => _step = 0),
+            child: Text(tr('Quay lại')),
+          ),
+        ],
+      );
+    }
+
     return Column(
       children: [
         _card(children: [
@@ -531,6 +805,18 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
         _primaryButton('Tôi đã kết nối, kiểm tra', _probeDevice, icon: Icons.search),
         const SizedBox(height: 8),
         TextButton(
+          onPressed: _busy
+              ? null
+              : () {
+                  setState(() {
+                    _useBle = true;
+                    _step = 1;
+                  });
+                  _startBleScan();
+                },
+          child: Text(tr('Dùng Bluetooth (giữ WiFi nhà)')),
+        ),
+        TextButton(
           onPressed: _busy ? null : () => setState(() => _step = 0),
           child: Text(tr('Quay lại')),
         ),
@@ -549,7 +835,11 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
-                    tr('Đã thấy gateway${_probed!.version.isNotEmpty ? ' (${_probed!.version})' : ''}'),
+                    tr(
+                      _bleSelected != null
+                          ? 'Đã kết nối BLE ${_bleSelected!.displayName}'
+                          : 'Đã thấy gateway${_probed!.version.isNotEmpty ? ' (${_probed!.version})' : ''}',
+                    ),
                     style: const TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w700,
@@ -563,33 +853,48 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
         if (_probed != null) const SizedBox(height: 14),
         _card(children: [
           _title('Chọn WiFi cho gateway'),
+          if (_useBle)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                tr('Nhập SSID 2.4GHz (đã gợi ý từ WiFi điện thoại nếu có). '
+                    'Nút quét WiFi chỉ dùng khi cấu hình SoftAP.'),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  height: 1.4,
+                  color: HrmPageChrome.textMuted,
+                ),
+              ),
+            ),
           Row(
             children: [
               Expanded(
                 child: _field(
                   controller: _ssidCtrl,
                   label: 'Tên WiFi (SSID)',
-                  hint: 'Bấm nút quét rồi chọn',
+                  hint: _useBle ? 'WiFi 2.4GHz nhà' : 'Bấm nút quét rồi chọn',
                 ),
               ),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(top: 20),
-                child: IconButton.filledTonal(
-                  onPressed: _busy ? null : _scanWifi,
-                  icon: _busy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.wifi_find, size: 20),
-                  tooltip: tr('Quét WiFi'),
+              if (!_useBle) ...[
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(top: 20),
+                  child: IconButton.filledTonal(
+                    onPressed: _busy ? null : _scanWifi,
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.wifi_find, size: 20),
+                    tooltip: tr('Quét WiFi'),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
-          if (_aps.isNotEmpty) ...[
+          if (!_useBle && _aps.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
               constraints: const BoxConstraints(maxHeight: 280),

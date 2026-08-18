@@ -3,10 +3,13 @@ using System.Text.Json.Nodes;
 
 namespace ZKTecoADMS.Api.Services;
 
-/// <summary>Khóa QR order ngoài quán: phải mở bàn + (tuỳ chọn) GPS geofence.</summary>
+/// <summary>Khóa QR order ngoài quán + xác nhận đơn trước khi in bếp.</summary>
 public static class QrOrderLockHelper
 {
-    public readonly record struct Options(bool RequireOpenSession, bool RequireGeofence);
+    public readonly record struct Options(
+        bool RequireOpenSession,
+        bool RequireGeofence,
+        bool RequireOrderConfirmation);
 
     public static Options Parse(string? extraJson)
     {
@@ -17,8 +20,10 @@ public static class QrOrderLockHelper
             using var doc = JsonDocument.Parse(extraJson);
             if (!TryGetQr(doc.RootElement, out var qr))
                 return default;
-            return new Options(Flag(qr, "requireOpenSession", "RequireOpenSession"),
-                Flag(qr, "requireGeofence", "RequireGeofence"));
+            return new Options(
+                Flag(qr, "requireOpenSession", "RequireOpenSession"),
+                Flag(qr, "requireGeofence", "RequireGeofence"),
+                Flag(qr, "requireOrderConfirmation", "RequireOrderConfirmation"));
         }
         catch
         {
@@ -26,7 +31,11 @@ public static class QrOrderLockHelper
         }
     }
 
-    public static string Merge(string? existing, bool requireOpenSession, bool requireGeofence)
+    public static string Merge(
+        string? existing,
+        bool requireOpenSession,
+        bool requireGeofence,
+        bool requireOrderConfirmation = false)
     {
         JsonObject root;
         if (!string.IsNullOrWhiteSpace(existing))
@@ -49,6 +58,7 @@ public static class QrOrderLockHelper
         {
             ["requireOpenSession"] = requireOpenSession,
             ["requireGeofence"] = requireGeofence,
+            ["requireOrderConfirmation"] = requireOrderConfirmation,
         };
         return root.ToJsonString();
     }

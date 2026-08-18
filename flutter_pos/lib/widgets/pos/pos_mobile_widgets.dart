@@ -1105,22 +1105,12 @@ class PosMobileKiotHeader extends StatelessWidget {
             ],
           ),
         ),
-        if ((onFilter != null || filterChips != null) && !compactHeader)
+        if (filterChips != null && !compactHeader)
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
             child: Row(
               children: [
-                if (onFilter != null)
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    onPressed: onFilter,
-                    icon: Badge(
-                      isLabelVisible: activeFilterCount > 0,
-                      label: Text(tr('$activeFilterCount')),
-                      child: const Icon(Icons.filter_list, size: 22),
-                    ),
-                  ),
-                if (filterChips != null) Expanded(child: filterChips!),
+                Expanded(child: filterChips!),
               ],
             ),
           ),
@@ -1212,12 +1202,14 @@ class PosMobileProductRow extends StatelessWidget {
     this.selectedQty,
     this.onIncrement,
     this.onDecrement,
+    this.typeBadge,
   });
 
   final String name;
   final String code;
   final String priceText;
   final String stockText;
+  final Widget? typeBadge;
   final Widget? image;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
@@ -1286,6 +1278,10 @@ class PosMobileProductRow extends StatelessWidget {
                         color: PosTheme.textSecondary,
                       ),
                     ),
+                    if (typeBadge != null) ...[
+                      const SizedBox(height: 4),
+                      typeBadge!,
+                    ],
                     if (kiotSellStyle &&
                         (stockText.isNotEmpty ||
                             orderReservedText != null)) ...[

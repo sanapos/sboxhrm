@@ -67,7 +67,7 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
     {
         var rows = await _dbContext.ServicePackages
             .AsNoTracking()
-            .Where(p => p.IsActive)
+            .Where(p => p.IsActive && p.IsPublic)
             .OrderBy(p => p.Name)
             .ToListAsync(cancellationToken);
 

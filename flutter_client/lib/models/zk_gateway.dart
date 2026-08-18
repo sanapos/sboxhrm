@@ -50,11 +50,24 @@ class ZkGatewayInfo {
 
   bool get isHealthy => provisioned && deviceOnline && serverOnline;
 
-  /// Nhãn hiển thị: ưu tiên tên tự đặt, rồi số seri, cuối cùng là IP.
+  /// Nhãn hiển thị: ưu tiên tên tự đặt, rồi mã mạch (XXXX), serial, cuối cùng IP.
   String get displayName {
     if (name.trim().isNotEmpty) return name.trim();
+    final tag = gatewayTag;
+    if (tag.isNotEmpty) return 'Gateway $tag';
     if (serial.isNotEmpty) return 'Gateway $serial';
     return 'Gateway $ip';
+  }
+
+  /// Hậu tố nhận diện mạch từ SoftAP `SBOX-Gateway-XXXX` hoặc host `sboxgw-xxxx`.
+  String get gatewayTag {
+    final ap = apSsid.trim();
+    final mAp = RegExp(r'SBOX-Gateway-([0-9A-Fa-f]{4})$').firstMatch(ap);
+    if (mAp != null) return mAp.group(1)!.toUpperCase();
+    final h = host.trim().toLowerCase();
+    final mHost = RegExp(r'^sboxgw-([0-9a-f]{4})$').firstMatch(h);
+    if (mHost != null) return mHost.group(1)!.toUpperCase();
+    return '';
   }
 
   factory ZkGatewayInfo.fromJson(Map<String, dynamic> json, {String? fallbackIp}) {

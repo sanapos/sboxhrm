@@ -95,7 +95,6 @@ public class PosKdsController(
                 && line.KitchenSentQty > 0
                 && (includeDone || line.KitchenSentQty > line.KitchenDoneQty)
                 && (order.Status == PosSaleOrderStatus.Draft
-                    || (order.Status == PosSaleOrderStatus.Completed && (order.SaleDate ?? order.CreatedAt) >= since)
                     || (includeDone && (order.SaleDate ?? order.CreatedAt) >= since))
             select new
             {
@@ -165,6 +164,7 @@ public class PosKdsController(
                 return new
                 {
                     id = r.Id,
+                    productId = r.ProductId,
                     productName = r.ProductName,
                     qty = open > 0 ? open : r.KitchenSentQty,
                     sentQty = r.KitchenSentQty,

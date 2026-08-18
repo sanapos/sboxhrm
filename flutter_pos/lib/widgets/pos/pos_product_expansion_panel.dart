@@ -201,6 +201,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
   }
 
   Widget _buildInfoTab() {
+    final tracksStock = _p.productType.tracksInventory;
     final isGoods = _p.productType == PosProductType.goods;
     final v = widget.focusVariant;
     final displayName = v?.name ?? _p.name;
@@ -270,16 +271,16 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                       _infoCell('Mã vạch', displayBarcode ?? 'Chưa có'),
                     _infoCell('Giá vốn', widget.moneyFmt.format(displayCost)),
                     _infoCell('Giá bán', widget.moneyFmt.format(displayPrice)),
-                    if (isGoods)
+                    if (tracksStock)
                       _infoCell('Tồn kho', widget.moneyFmt.format(displayStock)),
-                    if (isGoods) _infoCell('Trọng lượng', weightStr),
-                    if (isGoods)
+                    if (tracksStock) _infoCell('Trọng lượng', weightStr),
+                    if (tracksStock)
                       _infoCell(
                         'Định mức tồn',
                         '${widget.moneyFmt.format(_p.minStockQty)} - ${widget.moneyFmt.format(_p.maxStockQty)}',
                       ),
                     _infoCell('Thương hiệu', _p.brandName ?? 'Chưa có'),
-                    if (isGoods)
+                    if (tracksStock)
                       _infoCell('Vị trí', _p.storageLocationName ?? 'Chưa có'),
                   ],
                 ),
@@ -305,6 +306,8 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
         PosProductType.goods => 'Hàng hóa thường',
         PosProductType.service => 'Dịch vụ',
         PosProductType.combo => 'Combo - đóng gói',
+        PosProductType.material => 'Nguyên vật liệu',
+        PosProductType.topping => 'Topping',
       };
 
   Widget _badge(String text, {Color? color}) {

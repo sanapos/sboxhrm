@@ -14,14 +14,25 @@ class ServicePackagesTab extends StatefulWidget {
 
 class ServicePackagesTabState extends State<ServicePackagesTab> {
   final ApiService _apiService = ApiService();
+  final _searchCtrl = TextEditingController();
   List<Map<String, dynamic>> _packages = [];
   List<Map<String, dynamic>> _availableModules = [];
   bool _isLoading = false;
+  /// null = mọi gói; true = công khai đăng ký; false = nội bộ.
+  bool? _visibilityFilter;
+  /// null = mọi trạng thái; true = hoạt động; false = tắt.
+  bool? _activeFilter;
 
   @override
   void initState() {
     super.initState();
     loadData();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   List<Map<String, dynamic>> get packages => _packages;
@@ -164,6 +175,25 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     return v.toString().toLowerCase() != 'false';
   }
 
+  bool _isPublic(Map<String, dynamic> pkg) =>
+      _pkgBool(pkg, 'isPublic', fallback: true);
+
+  List<Map<String, dynamic>> get _filteredPackages {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    return _packages.where((p) {
+      if (_visibilityFilter != null && _isPublic(p) != _visibilityFilter) {
+        return false;
+      }
+      if (_activeFilter != null && (p['isActive'] == true) != _activeFilter) {
+        return false;
+      }
+      if (q.isEmpty) return true;
+      final name = (p['name'] ?? '').toString().toLowerCase();
+      final desc = (p['description'] ?? '').toString().toLowerCase();
+      return name.contains(q) || desc.contains(q);
+    }).toList();
+  }
+
   Map<String, dynamic> _packagePayload({
     required String name,
     required String description,
@@ -178,6 +208,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     required List<String> modules,
     required List<String> fcmCategories,
     required bool isActive,
+    required bool isPublic,
   }) {
     return {
       'name': name,
@@ -193,6 +224,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       'allowedFcmCategories': fcmCategories,
       'allowedModules': modules,
       'isActive': isActive,
+      'isPublic': isPublic,
     };
   }
 
@@ -235,13 +267,16 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       children: [
         _buildToolbar(),
         Expanded(
-          child: _packages.isEmpty
+          child: _filteredPackages.isEmpty
               ? AdminHelpers.emptyState(
-                  Icons.inventory_2, 'Chưa có gói dịch vụ nào')
+                  Icons.inventory_2,
+                  _packages.isEmpty
+                      ? 'Chưa có gói dịch vụ nào'
+                      : 'Không có gói khớp bộ lọc')
               : MediaQuery.of(context).size.width < 600
                 ? ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    itemCount: _packages.length,
+                    itemCount: _filteredPackages.length,
                     itemBuilder: (_, i) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Container(
@@ -251,14 +286,14 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                           border: Border.all(color: const Color(0xFFE4E4E7)),
                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                         ),
-                        child: _buildPkgDeckItem(_packages[i]),
+                        child: _buildPkgDeckItem(_filteredPackages[i]),
                       ),
                     ),
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    itemCount: _packages.length,
-                    itemBuilder: (ctx, i) => _buildPackageCard(_packages[i]),
+                    itemCount: _filteredPackages.length,
+                    itemBuilder: (ctx, i) => _buildPackageCard(_filteredPackages[i]),
                   ),
         ),
       ],
@@ -266,30 +301,102 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   }
 
   Widget _buildToolbar() {
+    final publicCount = _packages.where(_isPublic).length;
+    final internalCount = _packages.length - publicCount;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 6,
-        alignment: WrapAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AdminHelpers.countBadge(
-              'Tổng gói', _packages.length, AdminHelpers.info),
-          AdminHelpers.countBadge(
-              'Hoạt động',
-              _packages.where((p) => p['isActive'] == true).length,
-              AdminHelpers.success),
-          FilledButton.icon(
-            onPressed: () => _showCreateEditDialog(null),
-            icon: const Icon(Icons.add, size: 18),
-            label: Text(tr('Tạo gói mới')),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AdminHelpers.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape:
-                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              AdminHelpers.countBadge(
+                  'Tổng gói', _packages.length, AdminHelpers.info),
+              AdminHelpers.countBadge(
+                  'Công khai', publicCount, AdminHelpers.success),
+              AdminHelpers.countBadge(
+                  'Nội bộ', internalCount, AdminHelpers.warning),
+              AdminHelpers.countBadge(
+                  'Hoạt động',
+                  _packages.where((p) => p['isActive'] == true).length,
+                  AdminHelpers.primary),
+              FilledButton.icon(
+                onPressed: () => _showCreateEditDialog(null),
+                icon: const Icon(Icons.add, size: 18),
+                label: Text(tr('Tạo gói mới')),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AdminHelpers.primary,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: 320,
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: tr('Tìm tên / mô tả gói…'),
+                isDense: true,
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchCtrl.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() {});
+                        },
+                      ),
+              ),
+              onChanged: (_) => setState(() {}),
             ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              FilterChip(
+                label: Text(tr('Mọi hiển thị')),
+                selected: _visibilityFilter == null,
+                onSelected: (_) => setState(() => _visibilityFilter = null),
+              ),
+              FilterChip(
+                label: Text(tr('Công khai (đăng ký)')),
+                selected: _visibilityFilter == true,
+                onSelected: (_) =>
+                    setState(() => _visibilityFilter = true),
+              ),
+              FilterChip(
+                label: Text(tr('Nội bộ (gán tay)')),
+                selected: _visibilityFilter == false,
+                onSelected: (_) =>
+                    setState(() => _visibilityFilter = false),
+              ),
+              FilterChip(
+                label: Text(tr('Mọi trạng thái')),
+                selected: _activeFilter == null,
+                onSelected: (_) => setState(() => _activeFilter = null),
+              ),
+              FilterChip(
+                label: Text(tr('Đang bật')),
+                selected: _activeFilter == true,
+                onSelected: (_) => setState(() => _activeFilter = true),
+              ),
+              FilterChip(
+                label: Text(tr('Đã tắt')),
+                selected: _activeFilter == false,
+                onSelected: (_) => setState(() => _activeFilter = false),
+              ),
+            ],
           ),
         ],
       ),
@@ -298,6 +405,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
 
   Widget _buildPkgDeckItem(Map<String, dynamic> pkg) {
     final isActive = pkg['isActive'] == true;
+    final isPublic = _isPublic(pkg);
     final name = pkg['name']?.toString() ?? '';
     final maxUsers = pkg['maxUsers'] ?? 0;
     final maxDevices = pkg['maxDevices'] ?? 0;
@@ -326,6 +434,23 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: (isPublic ? Colors.blue : Colors.orange)
+                  .withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              tr(isPublic ? 'Công khai' : 'Nội bộ'),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: isPublic ? Colors.blue : Colors.orange,
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: isActive ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
             child: Text(tr(isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? Colors.green : Colors.grey)),
           ),
@@ -336,6 +461,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
 
   Widget _buildPackageCard(Map<String, dynamic> pkg) {
     final isActive = pkg['isActive'] == true;
+    final isPublic = _isPublic(pkg);
     final modules = List<String>.from(pkg['allowedModules'] ?? []);
     final storeCount = pkg['storeCount'] ?? 0;
     final totalModules = _availableModules.length;
@@ -361,6 +487,10 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                     fontWeight: FontWeight.w700, fontSize: 15)),
           ),
           AdminHelpers.statusChip(
+              isPublic ? 'Công khai' : 'Nội bộ',
+              isPublic ? AdminHelpers.info : AdminHelpers.warning),
+          const SizedBox(width: 6),
+          AdminHelpers.statusChip(
               isActive ? 'Hoạt động' : 'Tắt',
               isActive ? AdminHelpers.success : Colors.grey),
         ]),
@@ -383,6 +513,9 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               spacing: 6,
               runSpacing: 4,
               children: [
+                AdminHelpers.statusChip(
+                    isPublic ? 'Hiện đăng ký' : 'Ẩn đăng ký — gán tay',
+                    isPublic ? AdminHelpers.info : AdminHelpers.warning),
                 AdminHelpers.statusChip(
                     _pkgBool(pkg, 'allowWeb') ? 'Web' : 'Không web',
                     _pkgBool(pkg, 'allowWeb')
@@ -461,6 +594,17 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                           color: AdminHelpers.info.withValues(alpha: 0.3))),
                 ),
                 OutlinedButton.icon(
+                  onPressed: () => _togglePackagePublic(pkg),
+                  icon: Icon(isPublic ? Icons.visibility_off : Icons.visibility,
+                      size: 14),
+                  label: Text(tr(isPublic ? 'Ẩn đăng ký' : 'Hiện đăng ký'),
+                      style: const TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminHelpers.info,
+                      side: BorderSide(
+                          color: AdminHelpers.info.withValues(alpha: 0.3))),
+                ),
+                OutlinedButton.icon(
                   onPressed: () => _togglePackageStatus(pkg),
                 icon: Icon(isActive ? Icons.pause : Icons.play_arrow,
                     size: 14),
@@ -529,6 +673,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     var allowWeb = existing == null || _pkgBool(existing, 'allowWeb');
     var allowMobile = existing == null || _pkgBool(existing, 'allowMobile');
     var allowFcm = existing == null || _pkgBool(existing, 'allowFcm');
+    var isPublic = existing == null || _isPublic(existing);
     if (existing != null) {
       selectedModules
           .addAll(List<String>.from(existing['allowedModules'] ?? []));
@@ -562,7 +707,24 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                     const SizedBox(height: 12),
                     AdminHelpers.dialogField(
                         descCtrl, 'Mô tả', Icons.description),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(tr('Hiện trên màn hình đăng ký'),
+                          style: const TextStyle(fontSize: 13)),
+                      subtitle: Text(
+                        tr(isPublic
+                            ? 'Khách tự chọn gói này khi đăng ký cửa hàng'
+                            : 'Gói nội bộ — Super Admin gán tay cho cửa hàng'),
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                      value: isPublic,
+                      onChanged: (v) =>
+                          setDialogState(() => isPublic = v),
+                    ),
+                    const SizedBox(height: 8),
                     Row(children: [
                       Expanded(
                           child: AdminHelpers.dialogField(
@@ -861,6 +1023,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       modules: selectedModules.toList(),
       fcmCategories: selectedFcm.toList(),
       isActive: isEdit ? (existing['isActive'] ?? true) == true : true,
+      isPublic: isPublic,
     );
     if (!isEdit) data.remove('isActive');
 
@@ -906,6 +1069,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       modules: List<String>.from(pkg['allowedModules'] ?? []),
       fcmCategories: List<String>.from(pkg['allowedFcmCategories'] ?? []),
       isActive: !isActive,
+      isPublic: _isPublic(pkg),
     );
 
     final res = await _apiService.updateServicePackage(
@@ -914,6 +1078,51 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     if (res['isSuccess'] == true) {
       AdminHelpers.showSuccess(
           context, isActive ? 'Đã tắt gói dịch vụ' : 'Đã bật gói dịch vụ');
+      loadData();
+    } else {
+      AdminHelpers.showApiError(context, res);
+    }
+  }
+
+  Future<void> _togglePackagePublic(Map<String, dynamic> pkg) async {
+    final isPublic = _isPublic(pkg);
+    final data = _packagePayload(
+      name: pkg['name']?.toString() ?? '',
+      description: pkg['description']?.toString() ?? '',
+      days: pkg['defaultDurationDays'] is int
+          ? pkg['defaultDurationDays'] as int
+          : int.tryParse(pkg['defaultDurationDays']?.toString() ?? '') ?? 30,
+      maxUsers: pkg['maxUsers'] is int
+          ? pkg['maxUsers'] as int
+          : int.tryParse(pkg['maxUsers']?.toString() ?? '') ?? 10,
+      maxDevices: pkg['maxDevices'] is int
+          ? pkg['maxDevices'] as int
+          : int.tryParse(pkg['maxDevices']?.toString() ?? '') ?? 2,
+      maxAccessDevices: pkg['maxAccessDevices'] is int
+          ? pkg['maxAccessDevices'] as int
+          : int.tryParse(pkg['maxAccessDevices']?.toString() ?? '') ?? 0,
+      maxBranches: pkg['maxBranches'] is int
+          ? pkg['maxBranches'] as int
+          : int.tryParse(pkg['maxBranches']?.toString() ?? '') ?? 0,
+      allowWeb: _pkgBool(pkg, 'allowWeb'),
+      allowMobile: _pkgBool(pkg, 'allowMobile'),
+      allowFcm: _pkgBool(pkg, 'allowFcm'),
+      modules: List<String>.from(pkg['allowedModules'] ?? []),
+      fcmCategories: List<String>.from(pkg['allowedFcmCategories'] ?? []),
+      isActive: pkg['isActive'] == true,
+      isPublic: !isPublic,
+    );
+
+    final res = await _apiService.updateServicePackage(
+        pkg['id']?.toString() ?? '', data);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      AdminHelpers.showSuccess(
+        context,
+        isPublic
+            ? 'Đã ẩn gói khỏi màn đăng ký (nội bộ)'
+            : 'Đã hiện gói trên màn đăng ký',
+      );
       loadData();
     } else {
       AdminHelpers.showApiError(context, res);

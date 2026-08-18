@@ -1008,11 +1008,12 @@ class PosPrintAgentService {
     required Map<String, dynamic> slipMap,
     required int copies,
   }) async {
-    final product = slipMap['productName']?.toString() ?? '';
-    final qty = slipMap['qty']?.toString() ?? '1';
     final table = slipMap['tableName']?.toString() ?? '';
     final area = slipMap['areaName']?.toString() ?? '';
-    final orderNo = slipMap['orderNo']?.toString() ?? '';
+    final place = area.trim().isEmpty
+        ? (table.trim().isEmpty ? 'BÃ n' : table.trim())
+        : '${table.trim()} Â· ${area.trim()}';
+
     String fmt(dynamic raw) {
       final t = DateTime.tryParse(raw?.toString() ?? '');
       if (t == null) return '';
@@ -1020,25 +1021,65 @@ class PosPrintAgentService {
       return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
     }
 
-    final called = fmt(slipMap['calledAt']);
+    final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
+    final itemRows = <String>[];
+    DateTime? earliestCall;
+    final linesRaw = slipMap['lines'];
+    if (linesRaw is List) {
+      for (final item in linesRaw) {
+        if (item is! Map) continue;
+        final row = Map<String, dynamic>.from(item);
+        final name = row['productName']?.toString() ?? '';
+        if (name.isEmpty) continue;
+        final qtyNum = (row['qty'] as num?)?.toDouble() ??
+            double.tryParse('${row['qty']}') ??
+            1;
+        itemRows.add('${qtyFmt.format(qtyNum)} Ã— $name');
+        final c = DateTime.tryParse(row['calledAt']?.toString() ?? '');
+        if (c != null && (earliestCall == null || c.isBefore(earliestCall!))) {
+          earliestCall = c;
+        }
+      }
+    }
+    if (itemRows.isEmpty) {
+      final product = slipMap['productName']?.toString() ?? '';
+      final qty = slipMap['qty'];
+      final qtyNum = qty is num
+          ? qty.toDouble()
+          : double.tryParse('$qty') ?? 1;
+      if (product.isNotEmpty) {
+        itemRows.add('${qtyFmt.format(qtyNum)} Ã— $product');
+      }
+    }
+    if (itemRows.isEmpty) return false;
+
+    earliestCall ??= DateTime.tryParse(slipMap['calledAt']?.toString() ?? '');
     final ready = fmt(slipMap['readyAt']);
+    final callAt = earliestCall;
+    final called = callAt == null
+        ? ''
+        : '${callAt.hour.toString().padLeft(2, '0')}:${callAt.minute.toString().padLeft(2, '0')}';
+    final timeLine = called.isNotEmpty
+        ? 'Gá»i $called Â· Ra ${ready.isEmpty ? DateFormat('HH:mm').format(DateTime.now()) : ready}'
+        : 'Ra ${ready.isEmpty ? DateFormat('HH:mm').format(DateTime.now()) : ready}';
+
+    // Giá»‘ng bÃ¡o cháº¿ biáº¿n: bÃ n â†’ badge â†’ mÃ³n â†’ giá» (khÃ´ng HÄ/NV/ngÃ y).
     final textLines = <String>[
-      '$qty × $product',
-      if (area.trim().isNotEmpty) area.trim(),
-      table,
-      if (orderNo.trim().isNotEmpty)
-        'HĐ: ${PosReceiptLayout.formatSaleInvoiceNo(orderNo)}',
-      if (called.isNotEmpty) 'Gọi: $called',
-      'Ra món: ${ready.isEmpty ? DateFormat('HH:mm').format(DateTime.now()) : ready}',
+      '*** RA MÃ“N ***',
+      ...itemRows,
+      timeLine,
     ];
     final onSunmi = await PosPrinterTransport.isSunmiDevice();
     if (onSunmi) {
       var ok = true;
       for (var i = 0; i < copies.clamp(1, 10); i++) {
         final sent = await PosSunmiNativePrint.printTextReport(
-          title: 'RA MÓN',
+          title: place,
           lines: textLines,
-          settings: settings.copyWith(openCashDrawer: false),
+          settings: settings.copyWith(
+            openCashDrawer: false,
+            feedBeforeCut: 2,
+          ),
         );
         if (!sent) {
           ok = false;
@@ -1048,19 +1089,22 @@ class PosPrintAgentService {
       return ok;
     }
     return _printKitchenSlipEscPos(
-      settings: settings.copyWith(openCashDrawer: false),
+      settings: settings.copyWith(openCashDrawer: false, feedBeforeCut: 2),
       isCancel: false,
-      tableName: area.trim().isEmpty ? table : '${area.trim()} · $table',
+      tableName: place,
       lines: [
-        (
-          name: product,
-          qty: qty,
-          unit: null,
-          note: 'Gọi $called · Ra $ready',
-        ),
+        for (final row in itemRows)
+          (
+            name: row.contains(' Ã— ')
+                ? row.split(' Ã— ').skip(1).join(' Ã— ')
+                : row,
+            qty: row.contains(' Ã— ') ? row.split(' Ã— ').first : '1',
+            unit: null,
+            note: null,
+          ),
       ],
       senderName: 'KDS',
-      orderNo: orderNo,
+      orderNo: '',
       sentAt: DateTime.tryParse(slipMap['readyAt']?.toString() ?? '') ??
           DateTime.now(),
       copies: copies,

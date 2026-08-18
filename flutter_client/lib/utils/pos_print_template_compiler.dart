@@ -164,13 +164,15 @@ PosReceiptImageLine? compiledStepToImageLine(Object step) {
     );
   }
   if (step is PosPrintCompiledSaleRow) {
+    // EscPos/Agent (XP-80C): chữ nhỏ hơn Sunmi native — giữ 4 cột một hàng.
+    final fs = step.fontSize.clamp(13.0, 16.0);
     return PosReceiptImageLine(
       text: step.name,
       colQty: step.qty,
       colPrice: step.price,
       colTotal: step.total,
-      fontSize: 22,
-      bold: true,
+      fontSize: fs,
+      bold: step.bold,
     );
   }
   return null;
@@ -247,10 +249,25 @@ abstract final class PosPrintTemplateCompiler {
 
   static bool _isQtyOnlyToken(String raw) {
     final s = raw.trim();
-    return s == '{So_Luong}' ||
-        s == '{So_Luong} {Don_Vi_Tinh}' ||
-        s == 'SL: {So_Luong}' ||
-        s == 'SL:{So_Luong}';
+    if (s.isEmpty) return false;
+    // Chỉ token số lượng / đơn vị — đã gộp cạnh tên món trên tem.
+    final compact = s.replaceAll(RegExp(r'\s+'), ' ');
+    return compact == '{So_Luong}' ||
+        compact == '{So_Luong} {Don_Vi_Tinh}' ||
+        compact == '{Don_Vi_Tinh}' ||
+        compact == 'SL: {So_Luong}' ||
+        compact == 'SL:{So_Luong}' ||
+        compact == 'SL {So_Luong}' ||
+        compact == 'SL: {So_Luong} {Don_Vi_Tinh}' ||
+        compact == 'SL:{So_Luong} {Don_Vi_Tinh}' ||
+        RegExp(r'^SL\s*:\s*\{So_Luong\}(\s*\{Don_Vi_Tinh\})?$',
+                caseSensitive: false)
+            .hasMatch(compact);
+  }
+
+  static bool _isKitchenLabelQtyField(String? field) {
+    final f = (field ?? '').trim();
+    return f == 'So_Luong' || f == 'Don_Vi_Tinh';
   }
 
   static PosPrintTextStyle _toppingNoteStyle(PosPrintTextStyle base) =>
@@ -385,6 +402,10 @@ abstract final class PosPrintTemplateCompiler {
             skipNextKhu = false;
             continue;
           }
+          // Tem: SL đã nằm cùng hàng tên món — bỏ block So_Luong/ĐVT riêng.
+          if (isKitchenLabel && _isKitchenLabelQtyField(block.field)) {
+            continue;
+          }
           if (isKitchenLabel && block.field == 'Ten_Hang_Hoa') {
             final name = (data['Ten_Hang_Hoa'] ?? '').trim();
             final qty = (data['So_Luong'] ?? '').trim();
@@ -451,6 +472,12 @@ abstract final class PosPrintTemplateCompiler {
         case PosPrintBlockType.pair:
           final leftKey = block.leftField ?? '';
           final rightKey = block.rightField ?? '';
+          // Tem: cặp chỉ chứa SL/ĐVT — bỏ (đã gộp với tên món).
+          if (isKitchenLabel &&
+              _isKitchenLabelQtyField(leftKey) &&
+              (rightKey.isEmpty || _isKitchenLabelQtyField(rightKey))) {
+            continue;
+          }
           var leftVal = data[leftKey] ?? leftKey;
           final rightVal = data[rightKey] ?? rightKey;
           if (isKitchenLabel && leftKey == 'Ten_Ban') {

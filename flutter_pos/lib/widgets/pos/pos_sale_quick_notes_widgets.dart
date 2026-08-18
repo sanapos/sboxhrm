@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'pos_theme.dart';
@@ -89,6 +91,7 @@ class PosLineQuickNotesPicker extends StatelessWidget {
     required this.onSelectedChanged,
     required this.extraController,
     required this.onExtraChanged,
+    this.onAddQuickNote,
   });
 
   final List<String> quickNotes;
@@ -96,16 +99,76 @@ class PosLineQuickNotesPicker extends StatelessWidget {
   final ValueChanged<Set<String>> onSelectedChanged;
   final TextEditingController extraController;
   final VoidCallback onExtraChanged;
+  /// Lưu ghi chú thành chip của món (catalog + lần sau gợi ý).
+  final Future<void> Function(String note)? onAddQuickNote;
+
+  Future<void> _addQuickNote(BuildContext context) async {
+    var text = extraController.text.trim();
+    if (text.isEmpty) {
+      final ctrl = TextEditingController();
+      final typed = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Thêm ghi chú nhanh')),
+          content: TextField(
+            controller: ctrl,
+            autofocus: true,
+            maxLength: 80,
+            decoration: InputDecoration(
+              hintText: tr('VD: Ít đá, Không cay, Mang về…'),
+              border: OutlineInputBorder(),
+            ),
+            textCapitalization: TextCapitalization.sentences,
+            onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(tr('Hủy')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: Text(tr('Lưu')),
+            ),
+          ],
+        ),
+      );
+      if (typed == null || typed.isEmpty) return;
+      text = typed;
+    }
+    extraController.clear();
+    onExtraChanged();
+    final next = Set<String>.from(selected)..add(text);
+    onSelectedChanged(next);
+    await onAddQuickNote?.call(text);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(tr('Ghi chú nhanh'),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => unawaited(_addQuickNote(context)),
+              icon: const Icon(Icons.add, size: 16),
+              label: Text(tr('Thêm ghi chú nhanh'),
+                  style: const TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                foregroundColor: _kiotBlue,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+              ),
+            ),
+          ],
+        ),
         if (quickNotes.isNotEmpty) ...[
-          Text(tr('Ghi chú nhanh'),
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-          ),
           const SizedBox(height: 6),
           Wrap(
             spacing: 6,
@@ -134,7 +197,8 @@ class PosLineQuickNotesPicker extends StatelessWidget {
             }).toList(),
           ),
           const SizedBox(height: 8),
-        ],
+        ] else
+          const SizedBox(height: 6),
         TextField(
           controller: extraController,
           maxLines: 2,

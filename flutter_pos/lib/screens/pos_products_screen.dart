@@ -63,6 +63,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   int _page = 1;
   static const _pageSize = 50;
   int _totalPages = 1;
+  bool _loadingMore = false;
+  final _listScroll = ScrollController();
 
   List<PosCatalogItem> _categories = [];
   List<PosCatalogItem> _brands = [];
@@ -98,6 +100,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     ScreenRefreshNotifier.posProducts.addListener(_onExternalRefresh);
     NavigationNotifier.currentModuleCode.addListener(_onModuleVisible);
     _loadColumnPrefs();
+    _listScroll.addListener(_onProductListScroll);
     _loadAll();
   }
 
@@ -122,6 +125,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   void dispose() {
     ScreenRefreshNotifier.posProducts.removeListener(_onExternalRefresh);
     NavigationNotifier.currentModuleCode.removeListener(_onModuleVisible);
+    _listScroll.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -292,8 +296,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     _reloadProducts();
   }
 
-  Future<void> _loadProducts({int? page}) async {
+  Future<void> _loadProducts({int? page, bool append = false}) async {
     if (page != null) _page = page;
+    if (append) {
+      if (_loadingMore || _page > _totalPages) return;
+      _loadingMore = true;
+    }
     final res = await _api.getPosProducts(
       search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
       categoryId: _categoryFilter,
@@ -319,16 +327,22 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       final data = res['data'] as Map<String, dynamic>;
       final list = data['items'] as List? ?? [];
       _localCatalog = null;
-      _items = list
+      final parsed = list
           .map((e) => PosProduct.fromJson(e as Map<String, dynamic>))
           .toList();
       if (_useStockoutCustom && _stockoutBefore != null) {
         final before = _stockoutBefore!;
-        _items = _items
-            .where((p) =>
-                p.estimatedStockoutDate != null &&
-                !p.estimatedStockoutDate!.isAfter(before))
-            .toList();
+        parsed.removeWhere((p) =>
+            p.estimatedStockoutDate == null ||
+            p.estimatedStockoutDate!.isAfter(before));
+      }
+      if (append) {
+        final seen = {for (final p in _items) p.id};
+        for (final p in parsed) {
+          if (seen.add(p.id)) _items.add(p);
+        }
+      } else {
+        _items = parsed;
       }
       _total = (data['total'] as num?)?.toInt() ?? _items.length;
       _totalPages = (_total / _pageSize).ceil().clamp(1, 9999);
@@ -343,6 +357,23 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         message: res['message']?.toString() ?? 'Vui lòng thử lại sau',
       );
     }
+    _loadingMore = false;
+  }
+
+  void _onProductListScroll() {
+    if (!_listScroll.hasClients) return;
+    final pos = _listScroll.position;
+    if (pos.maxScrollExtent <= 0) return;
+    if (pos.pixels >= pos.maxScrollExtent - 280) {
+      _loadMoreProducts();
+    }
+  }
+
+  Future<void> _loadMoreProducts() async {
+    if (_loading || _loadingMore) return;
+    if (_page >= _totalPages) return;
+    await _loadProducts(page: _page + 1, append: true);
+    if (mounted) setState(() {});
   }
 
   Future<void> _prefetchVariantsForPage() async {
@@ -1063,18 +1094,15 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
 
 
   void _onCreateType(String type) {
-    switch (type) {
-      case 'goods':
-        _openCreate(PosProductType.goods);
-      case 'service':
-        _openCreate(PosProductType.service);
-      case 'combo':
-        _openCreate(PosProductType.combo);
-      case 'material':
-        _openCreate(PosProductType.material);
-      case 'topping':
-        _openCreate(PosProductType.topping);
-    }
+    final t = switch (type) {
+      'goods' => PosProductType.goods,
+      'service' => PosProductType.service,
+      'combo' => PosProductType.combo,
+      'material' => PosProductType.material,
+      'topping' => PosProductType.topping,
+      _ => null,
+    };
+    if (t != null) _openCreate(t);
   }
 
   void _showColumnPicker() {
@@ -2050,14 +2078,29 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     }
 
     return ListView.separated(
+      controller: _listScroll,
       padding: Responsive.fabListInsets(
         context,
         base: const EdgeInsets.only(bottom: 8),
         enabled: perm.canCreate('PosProducts'),
       ),
-      itemCount: _items.length,
+      itemCount: _items.length + (_loadingMore ? 1 : 0),
       separatorBuilder: (_, __) => const Divider(height: 1, indent: 70),
-      itemBuilder: (context, i) => _buildKiotMobileProductRow(_items[i], perm),
+      itemBuilder: (context, i) {
+        if (i >= _items.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+        return _buildKiotMobileProductRow(_items[i], perm);
+      },
     );
   }
 
@@ -2438,7 +2481,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
           ),
           const Spacer(),
-          if (_totalPages > 1) ...[
+          if (_totalPages > 1 && !posUseMobileList(context)) ...[
             IconButton(
               onPressed: _page > 1
                   ? () async {

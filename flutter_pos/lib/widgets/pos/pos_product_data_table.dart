@@ -513,7 +513,7 @@ class PosProductDataTable extends StatelessWidget {
       align: TextAlign.right,
       weight: FontWeight.w500,
     );
-    if (canEdit && p.productType == PosProductType.goods && onQuickPrice != null) {
+    if (canEdit && p.productType.tracksInventory && onQuickPrice != null) {
       return InkWell(
         onTap: () {
           if (view.variantId != null && onQuickVariantPrice != null) {
@@ -551,7 +551,7 @@ class PosProductDataTable extends StatelessWidget {
       align: TextAlign.right,
       color: view.onHandQty <= 0 ? const Color(0xFFE53935) : null,
     );
-    if (canEdit && p.productType == PosProductType.goods && onQuickStock != null) {
+    if (canEdit && p.productType.tracksInventory && onQuickStock != null) {
       return InkWell(
         onTap: () {
           if (view.variantId != null && onQuickVariantStock != null) {

@@ -538,9 +538,9 @@ class ApiService {
     try {
       debugPrint('🌱 Seeding sample data for store: $storeCode');
       final response = await http.post(
-        Uri.parse('$baseUrl/api/sampledata/seed/$storeCode'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 30));
+        Uri.parse('$baseUrl/api/sampledata/seed/${Uri.encodeComponent(storeCode)}'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 90));
       debugPrint('📥 Seed response: ${response.statusCode}');
       return _handleResponse(response);
     } catch (e) {
@@ -558,10 +558,10 @@ class ApiService {
       debugPrint('🗑️ Deleting sample data for store: $storeCode');
       final response = await http
           .delete(
-            Uri.parse('$baseUrl/api/sampledata/delete/$storeCode'),
+            Uri.parse('$baseUrl/api/sampledata/delete/${Uri.encodeComponent(storeCode)}'),
             headers: _headers,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 90));
       debugPrint('📥 Delete sample response: ${response.statusCode}');
       return _handleResponse(response);
     } catch (e) {
@@ -14653,6 +14653,9 @@ class ApiService {
   Future<Map<String, dynamic>> getPosSampleCatalog({
     String? search,
     String? kind,
+    String? productType,
+    String? category,
+    String? categoryId,
     int page = 1,
     int pageSize = 60,
   }) async {
@@ -14665,6 +14668,15 @@ class ApiService {
         q['search'] = search.trim();
       }
       if (kind != null && kind.trim().isNotEmpty) q['kind'] = kind.trim();
+      if (productType != null && productType.trim().isNotEmpty) {
+        q['productType'] = productType.trim();
+      }
+      if (category != null && category.trim().isNotEmpty) {
+        q['category'] = category.trim();
+      }
+      if (categoryId != null && categoryId.trim().isNotEmpty) {
+        q['categoryId'] = categoryId.trim();
+      }
       final uri = Uri.parse('$baseUrl/api/pos/products/sample-catalog')
           .replace(queryParameters: q);
       final response =
@@ -15625,6 +15637,28 @@ class ApiService {
     } catch (e) {
       debugPrint('Error saveHkdSettings: $e');
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getHkdBookPreview({
+    required String book,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{'book': book};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/hkd/books/preview')
+                .replace(queryParameters: q),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
     }
   }
 

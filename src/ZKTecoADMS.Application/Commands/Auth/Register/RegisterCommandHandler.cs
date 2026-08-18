@@ -106,12 +106,12 @@ public class RegisterCommandHandler(
         if (request.ServicePackageId.HasValue)
         {
             selectedPackage = await servicePackageRepository.GetSingleAsync(
-                p => p.Id == request.ServicePackageId.Value && p.IsActive,
+                p => p.Id == request.ServicePackageId.Value && p.IsActive && p.IsPublic,
                 cancellationToken: cancellationToken);
             if (selectedPackage == null)
             {
                 return AppResponse<string>.Error(
-                    "Gói dịch vụ được chọn không tồn tại hoặc đã ngừng hoạt động.");
+                    "Gói dịch vụ được chọn không tồn tại, đã ngừng, hoặc không mở đăng ký công khai.");
             }
         }
 

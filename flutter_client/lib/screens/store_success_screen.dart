@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'login_screen.dart';
 
 class StoreSuccessScreen extends StatefulWidget {
   final String storeName;
@@ -377,7 +378,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                       label: Text(
                                         tr(_isSeeding
                                             ? 'Đang cài dữ liệu mẫu...'
-                                            : 'Cài dữ liệu mẫu (10 NV, 15 ngày)'),
+                                            : 'Cài dữ liệu mẫu (HRM + POS theo ngành)'),
                                         style: const TextStyle(fontSize: 14),
                                       ),
                                       style: OutlinedButton.styleFrom(
@@ -471,8 +472,12 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                   elevation: 0,
                                 ),
                                 onPressed: () {
-                                  Navigator.of(context)
-                                      .popUntil((route) => route.isFirst);
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (_) => const LoginScreen(),
+                                    ),
+                                    (_) => false,
+                                  );
                                 },
                               ),
                             ),

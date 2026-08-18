@@ -79,7 +79,14 @@ public class ViettelSInvoiceClient(IHttpClientFactory httpFactory, IMemoryCache 
         if (!login.Ok || string.IsNullOrWhiteSpace(login.AccessToken))
             throw new InvalidOperationException(login.Error ?? "Không đăng nhập được Viettel SInvoice");
 
-        cache.Set(cacheKey, login.AccessToken, TimeSpan.FromMinutes(50));
+        cache.Set(
+            cacheKey,
+            login.AccessToken,
+            new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(50),
+                Size = 1,
+            });
         return login.AccessToken;
     }
 
@@ -96,6 +103,35 @@ public class ViettelSInvoiceClient(IHttpClientFactory httpFactory, IMemoryCache 
         var root = NormalizeBaseUrl(baseUrl);
         var tax = Uri.EscapeDataString(supplierTaxCode.Trim());
         var url = $"{root}/services/einvoiceapplication/api/InvoiceAPI/InvoiceWS/createInvoice/{tax}";
+        return await PostInvoiceAsync(url, accessToken, payload, ct);
+    }
+
+    /// <summary>Tạo hóa đơn nháp (chờ ký) khi tài khoản chưa gắn chứng thư số.</summary>
+    public async Task<ViettelCreateResult> CreateInvoiceDraftAsync(
+        string baseUrl,
+        string accessToken,
+        string supplierTaxCode,
+        object payload,
+        CancellationToken ct = default)
+    {
+        var root = NormalizeBaseUrl(baseUrl);
+        var tax = Uri.EscapeDataString(supplierTaxCode.Trim());
+        var url = $"{root}/services/einvoiceapplication/api/InvoiceAPI/InvoiceWS/createOrUpdateInvoiceDraft/{tax}";
+        var created = await PostInvoiceAsync(url, accessToken, payload, ct);
+        if (created.Ok) return created;
+
+        // Draft đôi khi trả result rỗng — tra cứu theo transactionUuid trong payload.
+        if (TryReadTransactionUuid(payload, out var uuid) && !string.IsNullOrWhiteSpace(uuid))
+        {
+            var found = await SearchByTransactionUuidAsync(baseUrl, accessToken, supplierTaxCode, uuid, ct);
+            if (found.Ok) return found;
+        }
+        return created;
+    }
+
+    async Task<ViettelCreateResult> PostInvoiceAsync(
+        string url, string accessToken, object payload, CancellationToken ct)
+    {
         var client = httpFactory.CreateClient("viettel-sinvoice");
         using var req = new HttpRequestMessage(HttpMethod.Post, url);
         req.Headers.TryAddWithoutValidation("Cookie", $"access_token={accessToken}");
@@ -116,9 +152,27 @@ public class ViettelSInvoiceClient(IHttpClientFactory httpFactory, IMemoryCache 
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Viettel createInvoice failed");
+            logger.LogWarning(ex, "Viettel invoice POST failed: {Url}", url);
             return new(false, null, null, null, null, "EXCEPTION", ex.Message);
         }
+    }
+
+    static bool TryReadTransactionUuid(object payload, out string? uuid)
+    {
+        uuid = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(JsonSerializer.Serialize(payload, JsonOpts));
+            if (doc.RootElement.TryGetProperty("generalInvoiceInfo", out var gi) &&
+                gi.TryGetProperty("transactionUuid", out var u) &&
+                u.ValueKind == JsonValueKind.String)
+            {
+                uuid = u.GetString();
+                return !string.IsNullOrWhiteSpace(uuid);
+            }
+        }
+        catch { /* ignore */ }
+        return false;
     }
 
     public async Task<ViettelCreateResult> SearchByTransactionUuidAsync(
@@ -161,8 +215,19 @@ public class ViettelSInvoiceClient(IHttpClientFactory httpFactory, IMemoryCache 
         {
             using var doc = JsonDocument.Parse(body);
             var root = doc.RootElement;
-            var errorCode = Str(root, "errorCode") ?? Str(root, "code");
+            var errorCode = Str(root, "errorCode");
+            if (string.IsNullOrWhiteSpace(errorCode) &&
+                root.TryGetProperty("code", out var codeEl) &&
+                codeEl.ValueKind == JsonValueKind.String)
+                errorCode = codeEl.GetString();
+            // HTTP body Viettel hay dùng message=SIGNATURE_NOT_FOUND, code=400 (số) — lấy message làm mã.
             var description = Str(root, "description") ?? Str(root, "message") ?? Str(root, "data");
+            if (string.IsNullOrWhiteSpace(errorCode) &&
+                !string.IsNullOrWhiteSpace(description) &&
+                description.Contains('_', StringComparison.Ordinal) &&
+                description.Length <= 80 &&
+                description == description.ToUpperInvariant())
+                errorCode = description;
             JsonElement result = default;
             var hasResult = root.TryGetProperty("result", out result) &&
                             result.ValueKind is JsonValueKind.Object or JsonValueKind.Array;

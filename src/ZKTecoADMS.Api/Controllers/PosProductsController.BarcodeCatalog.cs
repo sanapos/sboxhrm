@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -192,6 +193,16 @@ public partial class PosProductsController
         if (productType == PosProductType.Material)
             entity.IsDirectSale = false;
         NormalizeByProductType(entity);
+        if (sample != null)
+        {
+            entity.ServiceBillingMode = sample.ServiceBillingMode;
+            entity.SessionPackCount = Math.Max(0, sample.SessionPackCount);
+            entity.SessionPackValidDays = Math.Max(0, sample.SessionPackValidDays);
+            if (entity.SessionPackCount > 0 && entity.SessionPackValidDays <= 0)
+                entity.SessionPackValidDays = 90;
+            if (entity.ProductType != PosProductType.Service)
+                entity.ServiceBillingMode = PosServiceBillingMode.Flat;
+        }
         dbContext.PosProducts.Add(entity);
         if (barcode != null)
         {
@@ -211,6 +222,9 @@ public partial class PosProductsController
     public async Task<ActionResult<AppResponse<object>>> ListSampleCatalog(
         [FromQuery] string? search = null,
         [FromQuery] PosProductSampleKind? kind = null,
+        [FromQuery] PosProductType? productType = null,
+        [FromQuery] string? category = null,
+        [FromQuery] Guid? categoryId = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 60)
     {
@@ -218,14 +232,27 @@ public partial class PosProductsController
         pageSize = Math.Clamp(pageSize, 1, 200);
         var q = dbContext.PosProductSampleCatalog.AsNoTracking()
             .Where(x => x.Deleted == null && x.IsActive);
+        var storeProfile = await dbContext.PosStoreSellSettings.AsNoTracking()
+            .Where(s => s.StoreId == RequiredStoreId && s.Deleted == null)
+            .Select(s => s.SellProfile)
+            .FirstOrDefaultAsync();
+        q = q.WhereMatches(storeProfile);
         if (kind.HasValue) q = q.Where(x => x.Kind == kind);
+        if (productType.HasValue) q = q.Where(x => x.ProductType == productType);
+        if (categoryId.HasValue) q = q.Where(x => x.CategoryId == categoryId);
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var c = category.Trim().ToLower();
+            q = q.Where(x => x.CategoryName != null && x.CategoryName.ToLower() == c);
+        }
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();
             q = q.Where(x =>
                 x.Name.ToLower().Contains(s) ||
                 (x.Barcode != null && x.Barcode.ToLower().Contains(s)) ||
-                (x.CategoryName != null && x.CategoryName.ToLower().Contains(s)));
+                (x.CategoryName != null && x.CategoryName.ToLower().Contains(s)) ||
+                (x.BrandName != null && x.BrandName.ToLower().Contains(s)));
         }
         var total = await q.CountAsync();
         var items = await q.OrderBy(x => x.Kind).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
@@ -238,7 +265,9 @@ public partial class PosProductsController
                 x.UnitName,
                 x.BrandName,
                 x.CategoryName,
+                x.CategoryId,
                 x.ImageUrl,
+                HasImage = x.ImageUrl != null && x.ImageUrl != "",
                 x.Description,
                 Kind = x.Kind.ToString(),
                 ProductType = x.ProductType.ToString(),
@@ -246,10 +275,41 @@ public partial class PosProductsController
                 x.DefaultCostPrice,
                 x.VatRate,
                 x.VatExempt,
+                x.SellProfiles,
+                ServiceBillingMode = x.ServiceBillingMode.ToString(),
+                x.SessionPackCount,
+                x.SessionPackValidDays,
                 x.SortOrder,
             })
             .ToListAsync();
-        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+
+        var categories = await dbContext.PosProductSampleCategory.AsNoTracking()
+            .Where(x => x.Deleted == null && x.IsActive)
+            .OrderBy(x => x.SortOrder).ThenBy(x => x.Name)
+            .Select(x => new { x.Id, x.Name, Kind = x.Kind.HasValue ? x.Kind.ToString() : null })
+            .ToListAsync();
+        if (categories.Count == 0)
+        {
+            var names = await dbContext.PosProductSampleCatalog.AsNoTracking()
+                .Where(x => x.Deleted == null && x.IsActive && x.CategoryName != null && x.CategoryName != "")
+                .Select(x => x.CategoryName!)
+                .Distinct()
+                .OrderBy(x => x)
+                .ToListAsync();
+            categories = names
+                .Select(name => new { Id = Guid.Empty, Name = name, Kind = (string?)null })
+                .ToList();
+        }
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            total,
+            page,
+            pageSize,
+            sellProfile = storeProfile.ToString(),
+            items,
+            categories,
+        }));
     }
 
     [HttpGet("sample-catalog/{id:guid}/image")]

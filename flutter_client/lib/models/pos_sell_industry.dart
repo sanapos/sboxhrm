@@ -46,6 +46,13 @@ enum PosSellProfile {
         PosSellProfile.hotel => 'Hotel',
       };
 
+  /// Tab catalog mẫu mặc định trên picker (null = Tất cả).
+  String? get sampleCatalogKind => switch (this) {
+        PosSellProfile.restaurant => 'Food',
+        PosSellProfile.retail => 'Packaged',
+        _ => null,
+      };
+
   String get label => switch (this) {
         PosSellProfile.retail => 'Bán lẻ / Siêu thị',
         PosSellProfile.salon => 'Salon / Spa / Nail',

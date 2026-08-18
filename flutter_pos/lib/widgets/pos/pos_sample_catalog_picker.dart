@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -9,7 +9,7 @@ import '../../models/pos_product.dart';
 import 'pos_quick_add_barcode_sheet.dart';
 import 'pos_theme.dart';
 
-/// Duyá»‡t catalog máº«u (mÃ³n / Ä‘á»“ uá»‘ng / hÃ ng Ä‘Ã³ng gÃ³i) â†’ thÃªm nhanh vá» cá»­a hÃ ng.
+/// Duyệt catalog mẫu (món / đồ uống / hàng đóng gói) → thêm nhanh về cửa hàng.
 Future<PosProduct?> showPosSampleCatalogPicker(
   BuildContext context,
   ApiService api, {
@@ -49,12 +49,14 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
   final _money = NumberFormat('#,##0', 'vi_VN');
   bool _loading = true;
   List<Map<String, dynamic>> _items = [];
+  List<Map<String, dynamic>> _categories = [];
+  String? _categoryFilter;
 
   static const _kinds = [
-    (null, 'Táº¥t cáº£'),
-    ('Food', 'MÃ³n Äƒn'),
-    ('Drink', 'Äá»“ uá»‘ng'),
-    ('Packaged', 'CÃ³ mÃ£ váº¡ch'),
+    (null, 'Tất cả'),
+    ('Food', 'Món ăn'),
+    ('Drink', 'Đồ uống'),
+    ('Packaged', 'Có mã vạch'),
   ];
 
   @override
@@ -85,6 +87,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
     final res = await widget.api.getPosSampleCatalog(
       search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
       kind: kind,
+      category: _categoryFilter,
       pageSize: 100,
     );
     if (!mounted) return;
@@ -96,6 +99,13 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
             .map((e) => Map<String, dynamic>.from(e))
             .toList()
         : [];
+    final cats = data is Map ? data['categories'] : null;
+    if (cats is List) {
+      _categories = cats
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
     setState(() => _loading = false);
   }
 
@@ -134,7 +144,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
               children: [
                 Expanded(
                   child: Text(
-                    tr('ThÃªm tá»« menu / catalog máº«u'),
+                    tr('Thêm từ menu / catalog mẫu'),
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -151,7 +161,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             child: Text(
-              tr('Chá»n mÃ³n máº«u â€” xÃ¡c nháº­n loáº¡i hÃ ng, ÄVT, thÆ°Æ¡ng hiá»‡u, thuáº¿. áº¢nh dÃ¹ng chung, khÃ´ng upload láº¡i.'),
+              tr('Danh sách đã lọc theo ngành cửa hàng. Chọn món mẫu — xác nhận loại hàng, ĐVT, thuế. Ảnh dùng chung.'),
               style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
           ),
@@ -166,7 +176,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
             child: TextField(
               controller: _searchCtrl,
               decoration: InputDecoration(
-                hintText: tr('TÃ¬m tÃªn / mÃ£ váº¡châ€¦'),
+                hintText: tr('Tìm tên / mã vạch…'),
                 isDense: true,
                 prefixIcon: const Icon(Icons.search, size: 20),
                 suffixIcon: IconButton(
@@ -180,11 +190,46 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
               onSubmitted: (_) => _load(),
             ),
           ),
+          if (_categories.isNotEmpty)
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FilterChip(
+                      label: Text(tr('Tất cả nhóm')),
+                      selected: _categoryFilter == null,
+                      onSelected: (_) {
+                        setState(() => _categoryFilter = null);
+                        _load();
+                      },
+                    ),
+                  ),
+                  for (final c in _categories)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: FilterChip(
+                        label: Text('${c['name']}'),
+                        selected: _categoryFilter == '${c['name']}',
+                        onSelected: (_) {
+                          final name = '${c['name']}';
+                          setState(() => _categoryFilter =
+                              _categoryFilter == name ? null : name);
+                          _load();
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _items.isEmpty
-                    ? Center(child: Text(tr('KhÃ´ng cÃ³ máº«u phÃ¹ há»£p')))
+                    ? Center(child: Text(tr('Không có mẫu phù hợp')))
                     : GridView.builder(
                         padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                         gridDelegate:
@@ -208,7 +253,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
     final name = s['name']?.toString() ?? '';
     final unit = s['unitName']?.toString() ?? '';
     final price = s['defaultPrice'];
-    final priceText = price is num ? _money.format(price) : 'â€”';
+    final priceText = price is num ? _money.format(price) : '—';
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(10),
@@ -276,11 +321,13 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                         if ((s['productType'] ?? '').toString().isNotEmpty)
                           posProductTypeLabel(posProductTypeFromString(
                               s['productType']?.toString())),
+                        if ((s['categoryName'] ?? '').toString().isNotEmpty)
+                          s['categoryName'],
                         priceText,
                         if (unit.isNotEmpty) unit,
                         if ((s['brandName'] ?? '').toString().isNotEmpty)
                           s['brandName'],
-                      ].where((e) => e != null && '$e'.isNotEmpty).join(' Â· ')),
+                      ].where((e) => e != null && '$e'.isNotEmpty).join(' · ')),
                       style: const TextStyle(
                         fontSize: 11,
                         color: PosTheme.textSecondary,

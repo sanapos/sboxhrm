@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.DTOs.Hkd;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -76,6 +77,29 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         return await GetSettings();
     }
 
+    /// <summary>Xem sổ trên màn hình (JSON) — không cần tải Excel.</summary>
+    [HttpGet("books/preview")]
+    [RequireModulePermission("HkdBooks", ModulePermissionAction.View)]
+    public async Task<IActionResult> PreviewBook(
+        [FromQuery] string book = "S2a",
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null)
+    {
+        var storeId = RequiredStoreId;
+        var (fromDt, toDt, periodLabel) = ResolvePeriod(from, to);
+        var profile = await LoadProfileAsync(storeId);
+        var bookCode = NormalizePreviewBook(book);
+
+        HkdBookPreviewDto dto = bookCode switch
+        {
+            "S2c" => await PreviewS2cAsync(storeId, fromDt, toDt, profile, periodLabel),
+            "S2d" => await PreviewS2dAsync(storeId, fromDt, toDt, profile, periodLabel),
+            "S2e" => await PreviewS2eAsync(storeId, fromDt, toDt, profile, periodLabel),
+            _ => await PreviewRevenueAsync(storeId, bookCode, fromDt, toDt, profile, periodLabel),
+        };
+        return Ok(AppResponse<HkdBookPreviewDto>.Success(dto));
+    }
+
     /// <summary>Xuất sổ doanh thu S1a-HKD hoặc S2a-HKD từ đơn bán POS hoàn thành.</summary>
     [HttpGet("books/revenue/export/excel")]
     [RequireModulePermission("HkdBooks", ModulePermissionAction.Export)]
@@ -89,15 +113,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         var (fromDt, toDt, periodLabel) = ResolvePeriod(from, to);
         var profile = await LoadProfileAsync(storeId);
 
-        var orders = await dbContext.PosSaleOrders.AsNoTracking()
-            .Where(o => o.StoreId == storeId
-                        && o.Deleted == null
-                        && o.IsActive
-                        && o.Status == PosSaleOrderStatus.Completed
-                        && (o.SaleDate ?? o.CreatedAt) >= fromDt
-                        && (o.SaleDate ?? o.CreatedAt) < toDt)
-            .OrderBy(o => o.SaleDate ?? o.CreatedAt)
-            .ToListAsync();
+        var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
 
         using var workbook = new XLWorkbook();
         switch (bookCode)
@@ -809,6 +825,508 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         ws.Cell(row, 6).Style.Font.Bold = true;
         ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";
         ws.Columns(1, headers.Length).AdjustToContents();
+    }
+
+    private const int PreviewRowLimit = 3000;
+
+    private async Task<HkdBookPreviewDto> PreviewRevenueAsync(
+        Guid storeId, string bookCode, DateTime fromDt, DateTime toDt,
+        HkdProfile profile, string periodLabel)
+    {
+        var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
+        var total = orders.Sum(o => o.Total);
+        var vatEst = RoundMoney(total * (decimal)(profile.VatPercent / 100.0));
+        var pitEst = RoundMoney(total * (decimal)(profile.PitPercent / 100.0));
+        var truncated = orders.Count > PreviewRowLimit;
+        var slice = truncated ? orders.Take(PreviewRowLimit).ToList() : orders;
+
+        var dto = BasePreview(bookCode, profile, periodLabel);
+        dto.RowCount = orders.Count;
+        dto.Truncated = truncated;
+        if (truncated)
+            dto.Note = $"Đang xem {PreviewRowLimit:N0} dòng đầu / {orders.Count:N0}. Xuất Excel để xem đủ.";
+
+        if (bookCode == "S2b")
+        {
+            dto.Title = "SỔ DOANH THU BÁN HÀNG HÓA, DỊCH VỤ — Mẫu số S2b-HKD";
+            dto.Summary =
+            [
+                new("Tổng doanh thu", total),
+                new("GTGT ước tính", vatEst),
+                new("Số chứng từ", orders.Count),
+            ];
+            dto.Columns =
+            [
+                new("stt", "STT"),
+                new("code", "Số hiệu CT"),
+                new("date", "Ngày CT"),
+                new("description", "Diễn giải"),
+                new("amount", "Doanh thu", Money: true),
+                new("vat", "Thuế GTGT ước tính", Money: true),
+            ];
+            var idx = 1;
+            foreach (var o in slice)
+            {
+                dto.Rows.Add(new Dictionary<string, object?>
+                {
+                    ["stt"] = idx++,
+                    ["code"] = o.OrderNo,
+                    ["date"] = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy"),
+                    ["description"] = BuildRevenueDescription(o, profile.Industry),
+                    ["amount"] = o.Total,
+                    ["vat"] = RoundMoney(o.Total * (decimal)(profile.VatPercent / 100.0)),
+                });
+            }
+            return dto;
+        }
+
+        if (bookCode == "S2a")
+        {
+            dto.Title = "SỔ DOANH THU BÁN HÀNG HÓA, DỊCH VỤ — Mẫu số S2a-HKD";
+            dto.Summary =
+            [
+                new("Tổng doanh thu", total),
+                new("GTGT ước tính", vatEst),
+                new("TNCN ước tính", pitEst),
+                new("Số chứng từ", orders.Count),
+            ];
+            dto.Columns =
+            [
+                new("stt", "STT"),
+                new("code", "Số hiệu CT"),
+                new("date", "Ngày CT"),
+                new("description", "Diễn giải"),
+                new("amount", "Doanh thu", Money: true),
+                new("vat", "Thuế GTGT ước tính", Money: true),
+                new("pit", "Thuế TNCN ước tính", Money: true),
+            ];
+            var idx = 1;
+            foreach (var o in slice)
+            {
+                dto.Rows.Add(new Dictionary<string, object?>
+                {
+                    ["stt"] = idx++,
+                    ["code"] = o.OrderNo,
+                    ["date"] = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy"),
+                    ["description"] = BuildRevenueDescription(o, profile.Industry),
+                    ["amount"] = o.Total,
+                    ["vat"] = RoundMoney(o.Total * (decimal)(profile.VatPercent / 100.0)),
+                    ["pit"] = RoundMoney(o.Total * (decimal)(profile.PitPercent / 100.0)),
+                });
+            }
+            return dto;
+        }
+
+        dto.Title = "SỔ DOANH THU BÁN HÀNG HÓA, DỊCH VỤ — Mẫu số S1a-HKD";
+        dto.Summary =
+        [
+            new("Tổng doanh thu", total),
+            new("Số chứng từ", orders.Count),
+        ];
+        dto.Columns =
+        [
+            new("stt", "STT"),
+            new("date", "Ngày tháng"),
+            new("description", "Diễn giải"),
+            new("amount", "Số tiền", Money: true),
+        ];
+        var i = 1;
+        foreach (var o in slice)
+        {
+            dto.Rows.Add(new Dictionary<string, object?>
+            {
+                ["stt"] = i++,
+                ["date"] = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy"),
+                ["description"] = BuildRevenueDescription(o, profile.Industry),
+                ["amount"] = o.Total,
+            });
+        }
+        return dto;
+    }
+
+    private async Task<HkdBookPreviewDto> PreviewS2cAsync(
+        Guid storeId, DateTime fromDt, DateTime toDt,
+        HkdProfile profile, string periodLabel)
+    {
+        var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
+        var expenses = await dbContext.CashTransactions.AsNoTracking()
+            .Include(t => t.Category)
+            .Where(t => t.StoreId == storeId
+                        && t.Deleted == null
+                        && t.Status == CashTransactionStatus.Completed
+                        && t.Type == CashTransactionType.Expense
+                        && t.TransactionDate >= fromDt
+                        && t.TransactionDate < toDt)
+            .OrderBy(t => t.TransactionDate)
+            .ThenBy(t => t.TransactionCode)
+            .ToListAsync();
+        var receipts = await dbContext.PosStockReceipts.AsNoTracking()
+            .Include(r => r.Supplier)
+            .Where(r => r.StoreId == storeId
+                        && r.Deleted == null
+                        && r.Status == PosPurchaseReceiptStatus.Completed
+                        && ((r.ImportDate ?? r.CreatedAt) >= fromDt)
+                        && ((r.ImportDate ?? r.CreatedAt) < toDt))
+            .OrderBy(r => r.ImportDate ?? r.CreatedAt)
+            .ToListAsync();
+
+        var revenueTotal = orders.Sum(o => o.Total);
+        var cashCost = expenses.Sum(t => t.Amount);
+        var purchaseCost = receipts.Sum(r => r.TotalCost + r.TotalVat - r.DiscountAmount);
+        var costTotal = cashCost + purchaseCost;
+        var taxableIncome = revenueTotal - costTotal;
+        var pitEst = RoundMoney(Math.Max(0, taxableIncome) * (decimal)(profile.PitPercent / 100.0));
+
+        var rows = new List<(DateTime Date, string Code, string Desc, string Kind, decimal Amount)>();
+        foreach (var o in orders)
+        {
+            rows.Add((
+                o.SaleDate ?? o.CreatedAt,
+                o.OrderNo,
+                BuildRevenueDescription(o, profile.Industry),
+                "Doanh thu",
+                o.Total));
+        }
+        foreach (var t in expenses)
+        {
+            var cat = t.Category?.Name;
+            var desc = string.IsNullOrWhiteSpace(cat)
+                ? t.Description
+                : $"{cat} — {t.Description}";
+            if (!string.IsNullOrWhiteSpace(t.ContactName))
+                desc = $"{desc} — {t.ContactName}";
+            rows.Add((t.TransactionDate, t.TransactionCode, desc, "Chi phí (thu chi)", t.Amount));
+        }
+        foreach (var r in receipts)
+        {
+            var when = r.ImportDate ?? r.CreatedAt;
+            var supplier = r.Supplier?.Name;
+            var desc = string.IsNullOrWhiteSpace(supplier)
+                ? "Nhập hàng / mua hàng"
+                : $"Nhập hàng — {supplier}";
+            if (!string.IsNullOrWhiteSpace(r.Note))
+                desc = $"{desc} — {r.Note}";
+            rows.Add((when, r.ReceiptNo, desc, "Chi phí (nhập hàng)",
+                r.TotalCost + r.TotalVat - r.DiscountAmount));
+        }
+        rows = rows.OrderBy(x => x.Date).ThenBy(x => x.Code).ToList();
+        var truncated = rows.Count > PreviewRowLimit;
+        var slice = truncated ? rows.Take(PreviewRowLimit).ToList() : rows;
+
+        var dto = BasePreview("S2c", profile, periodLabel);
+        dto.Title = "SỔ CHI TIẾT DOANH THU, CHI PHÍ — Mẫu số S2c-HKD";
+        dto.Summary =
+        [
+            new("Tổng doanh thu", revenueTotal),
+            new("Tổng chi phí hợp lý", costTotal),
+            new("Thu nhập tính thuế", taxableIncome),
+            new($"TNCN ước tính ({profile.PitPercent}%)", pitEst),
+        ];
+        dto.Columns =
+        [
+            new("stt", "STT"),
+            new("code", "Số hiệu CT"),
+            new("date", "Ngày CT"),
+            new("description", "Diễn giải"),
+            new("kind", "Loại"),
+            new("amount", "Số tiền", Money: true),
+        ];
+        dto.RowCount = rows.Count;
+        dto.Truncated = truncated;
+        if (truncated)
+            dto.Note = $"Đang xem {PreviewRowLimit:N0} dòng đầu / {rows.Count:N0}. Xuất Excel để xem đủ.";
+        var idx = 1;
+        foreach (var item in slice)
+        {
+            dto.Rows.Add(new Dictionary<string, object?>
+            {
+                ["stt"] = idx++,
+                ["code"] = item.Code,
+                ["date"] = item.Date.ToString("dd/MM/yyyy"),
+                ["description"] = item.Desc,
+                ["kind"] = item.Kind,
+                ["amount"] = item.Amount,
+            });
+        }
+        return dto;
+    }
+
+    private async Task<HkdBookPreviewDto> PreviewS2dAsync(
+        Guid storeId, DateTime fromDt, DateTime toDt,
+        HkdProfile profile, string periodLabel)
+    {
+        var products = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId
+                        && p.Deleted == null
+                        && p.IsActive
+                        && p.ProductType != PosProductType.Service)
+            .Select(p => new
+            {
+                p.Id,
+                p.ProductCode,
+                p.Name,
+                p.BaseUnitName,
+                p.CostPrice,
+            })
+            .ToListAsync();
+        var productIds = products.Select(p => p.Id).ToList();
+        var openingRows = await dbContext.PosStockTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId
+                        && productIds.Contains(t.ProductId)
+                        && t.Deleted == null
+                        && t.CreatedAt < fromDt)
+            .GroupBy(t => t.ProductId)
+            .Select(g => new { ProductId = g.Key, Qty = g.Sum(x => x.QtyChange) })
+            .ToListAsync();
+        var openingByProduct = openingRows.ToDictionary(x => x.ProductId, x => x.Qty);
+        var periodTxs = await dbContext.PosStockTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId
+                        && productIds.Contains(t.ProductId)
+                        && t.Deleted == null
+                        && t.CreatedAt >= fromDt
+                        && t.CreatedAt < toDt)
+            .OrderBy(t => t.ProductId)
+            .ThenBy(t => t.CreatedAt)
+            .ToListAsync();
+
+        var productMap = products.ToDictionary(
+            p => p.Id,
+            p => new S2dProduct(
+                p.ProductCode,
+                p.Name,
+                string.IsNullOrWhiteSpace(p.BaseUnitName) ? "Cái" : p.BaseUnitName,
+                p.CostPrice,
+                openingByProduct.GetValueOrDefault(p.Id)));
+        var movedIds = periodTxs.Select(t => t.ProductId).ToHashSet();
+        var relevant = productMap
+            .Where(p => movedIds.Contains(p.Key) || p.Value.OpeningQty != 0)
+            .OrderBy(p => p.Value.Code)
+            .ToList();
+        var txsByProduct = periodTxs.GroupBy(t => t.ProductId).ToDictionary(g => g.Key, g => g.ToList());
+
+        var dto = BasePreview("S2d", profile, periodLabel);
+        dto.Title = "SỔ CHI TIẾT VẬT LIỆU, DỤNG CỤ, SẢN PHẨM, HÀNG HÓA — Mẫu số S2d-HKD";
+        dto.Summary =
+        [
+            new("Số SKU có phát sinh / tồn đầu", relevant.Count),
+            new("Số dòng biến động kỳ", periodTxs.Count),
+        ];
+        dto.Columns =
+        [
+            new("stt", "STT"),
+            new("sku", "Mã SP"),
+            new("productName", "Tên hàng"),
+            new("code", "Số hiệu CT"),
+            new("date", "Ngày CT"),
+            new("description", "Diễn giải"),
+            new("unit", "ĐVT"),
+            new("price", "Đơn giá", Money: true),
+            new("qtyIn", "SL nhập", Qty: true),
+            new("valIn", "GT nhập", Money: true),
+            new("qtyOut", "SL xuất", Qty: true),
+            new("valOut", "GT xuất", Money: true),
+            new("qtyBal", "SL tồn", Qty: true),
+            new("valBal", "GT tồn", Money: true),
+        ];
+
+        var idx = 1;
+        foreach (var (productId, product) in relevant)
+        {
+            if (dto.Rows.Count >= PreviewRowLimit)
+            {
+                dto.Truncated = true;
+                break;
+            }
+            var unitCost = product.CostPrice;
+            var balQty = product.OpeningQty;
+            var balVal = RoundMoney(balQty * unitCost);
+            dto.Rows.Add(new Dictionary<string, object?>
+            {
+                ["stt"] = idx++,
+                ["sku"] = product.Code,
+                ["productName"] = product.Name,
+                ["code"] = "",
+                ["date"] = "",
+                ["description"] = "Tồn đầu kỳ",
+                ["unit"] = product.Unit,
+                ["price"] = unitCost,
+                ["qtyBal"] = balQty,
+                ["valBal"] = balVal,
+            });
+
+            if (txsByProduct.TryGetValue(productId, out var list))
+            {
+                foreach (var t in list)
+                {
+                    if (dto.Rows.Count >= PreviewRowLimit)
+                    {
+                        dto.Truncated = true;
+                        break;
+                    }
+                    var qty = t.QtyChange;
+                    var price = t.UnitCost
+                        ?? (t.LineAmount.HasValue && qty != 0
+                            ? Math.Abs(t.LineAmount.Value / qty)
+                            : unitCost);
+                    var absQty = Math.Abs(qty);
+                    var lineVal = t.LineAmount.HasValue
+                        ? Math.Abs(t.LineAmount.Value)
+                        : RoundMoney(absQty * price);
+                    balQty += qty;
+                    if (qty > 0)
+                        balVal += lineVal;
+                    else if (qty < 0)
+                        balVal -= lineVal;
+                    else if (t.LineAmount.HasValue)
+                        balVal += t.LineAmount.Value;
+
+                    var row = new Dictionary<string, object?>
+                    {
+                        ["stt"] = idx++,
+                        ["sku"] = product.Code,
+                        ["productName"] = product.Name,
+                        ["code"] = t.ReferenceNo ?? StockTxnLabel(t.TransactionType),
+                        ["date"] = t.CreatedAt.ToString("dd/MM/yyyy"),
+                        ["description"] = BuildStockDescription(t),
+                        ["unit"] = product.Unit,
+                        ["price"] = price,
+                        ["qtyBal"] = balQty,
+                        ["valBal"] = RoundMoney(balVal),
+                    };
+                    if (qty > 0)
+                    {
+                        row["qtyIn"] = absQty;
+                        row["valIn"] = lineVal;
+                    }
+                    else if (qty < 0)
+                    {
+                        row["qtyOut"] = absQty;
+                        row["valOut"] = lineVal;
+                    }
+                    dto.Rows.Add(row);
+                }
+            }
+
+            if (dto.Rows.Count >= PreviewRowLimit)
+            {
+                dto.Truncated = true;
+                break;
+            }
+            dto.Rows.Add(new Dictionary<string, object?>
+            {
+                ["stt"] = idx++,
+                ["sku"] = product.Code,
+                ["productName"] = product.Name,
+                ["description"] = "Tồn cuối kỳ",
+                ["unit"] = product.Unit,
+                ["qtyBal"] = balQty,
+                ["valBal"] = RoundMoney(balVal),
+            });
+        }
+
+        dto.RowCount = dto.Rows.Count;
+        if (dto.Truncated)
+            dto.Note = $"Đang xem {PreviewRowLimit:N0} dòng đầu. Xuất Excel để xem đủ thẻ kho.";
+        return dto;
+    }
+
+    private async Task<HkdBookPreviewDto> PreviewS2eAsync(
+        Guid storeId, DateTime fromDt, DateTime toDt,
+        HkdProfile profile, string periodLabel)
+    {
+        var txs = await dbContext.CashTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId
+                        && t.Deleted == null
+                        && t.Status == CashTransactionStatus.Completed
+                        && t.TransactionDate >= fromDt
+                        && t.TransactionDate < toDt)
+            .OrderBy(t => t.TransactionDate)
+            .ThenBy(t => t.TransactionCode)
+            .ToListAsync();
+        var totalIn = txs.Where(t => t.Type == CashTransactionType.Income).Sum(t => t.Amount);
+        var totalOut = txs.Where(t => t.Type == CashTransactionType.Expense).Sum(t => t.Amount);
+        var truncated = txs.Count > PreviewRowLimit;
+        var slice = truncated ? txs.Take(PreviewRowLimit).ToList() : txs;
+
+        var dto = BasePreview("S2e", profile, periodLabel);
+        dto.Title = "SỔ CHI TIẾT TIỀN — Mẫu số S2e-HKD";
+        dto.Summary =
+        [
+            new("Tổng thu", totalIn),
+            new("Tổng chi", totalOut),
+            new("Chênh lệch", totalIn - totalOut),
+            new("Số chứng từ", txs.Count),
+        ];
+        dto.Columns =
+        [
+            new("stt", "STT"),
+            new("code", "Số hiệu CT"),
+            new("date", "Ngày CT"),
+            new("description", "Diễn giải"),
+            new("income", "Thu", Money: true),
+            new("expense", "Chi", Money: true),
+            new("method", "Hình thức"),
+        ];
+        dto.RowCount = txs.Count;
+        dto.Truncated = truncated;
+        if (truncated)
+            dto.Note = $"Đang xem {PreviewRowLimit:N0} dòng đầu / {txs.Count:N0}. Xuất Excel để xem đủ.";
+        var idx = 1;
+        foreach (var t in slice)
+        {
+            var isIn = t.Type == CashTransactionType.Income;
+            dto.Rows.Add(new Dictionary<string, object?>
+            {
+                ["stt"] = idx++,
+                ["code"] = t.TransactionCode,
+                ["date"] = t.TransactionDate.ToString("dd/MM/yyyy"),
+                ["description"] = string.IsNullOrWhiteSpace(t.ContactName)
+                    ? t.Description
+                    : $"{t.Description} — {t.ContactName}",
+                ["income"] = isIn ? t.Amount : null,
+                ["expense"] = isIn ? null : t.Amount,
+                ["method"] = PaymentMethodLabel(t.PaymentMethod),
+            });
+        }
+        return dto;
+    }
+
+    private static HkdBookPreviewDto BasePreview(string book, HkdProfile profile, string periodLabel) => new()
+    {
+        Book = book,
+        PeriodLabel = periodLabel,
+        TaxGroup = profile.TaxGroup,
+        TaxCode = profile.TaxCode,
+        BusinessName = profile.BusinessName,
+        Industry = profile.Industry,
+        VatPercent = profile.VatPercent,
+        PitPercent = profile.PitPercent,
+    };
+
+    private Task<List<PosSaleOrder>> LoadCompletedOrdersAsync(Guid storeId, DateTime fromDt, DateTime toDt) =>
+        dbContext.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId
+                        && o.Deleted == null
+                        && o.IsActive
+                        && o.Status == PosSaleOrderStatus.Completed
+                        && (o.SaleDate ?? o.CreatedAt) >= fromDt
+                        && (o.SaleDate ?? o.CreatedAt) < toDt)
+            .OrderBy(o => o.SaleDate ?? o.CreatedAt)
+            .ToListAsync();
+
+    private static string NormalizePreviewBook(string? book)
+    {
+        var b = (book ?? "S2a").Trim().ToUpperInvariant().Replace("-HKD", "");
+        return b switch
+        {
+            "S1A" or "S1" => "S1a",
+            "S2A" or "S2" => "S2a",
+            "S2B" => "S2b",
+            "S2C" => "S2c",
+            "S2D" => "S2d",
+            "S2E" => "S2e",
+            _ => "S2a",
+        };
     }
 
     private async Task<HkdProfile> LoadProfileAsync(Guid storeId)

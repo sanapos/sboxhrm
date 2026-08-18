@@ -32,7 +32,7 @@ class NotificationOverlayManager {
     required String message,
     NotificationType type = NotificationType.info,
     String? relatedEntityType,
-    Duration duration = const Duration(seconds: 2),
+    Duration duration = const Duration(seconds: 3),
     VoidCallback? onTap,
     bool playSound = true,
   }) {
@@ -72,7 +72,7 @@ class NotificationOverlayManager {
     required String message,
     VoidCallback? onTap,
     String? relatedEntityType,
-    Duration duration = const Duration(seconds: 2),
+    Duration duration = const Duration(seconds: 4),
   }) {
     show(
       title: title,
@@ -90,7 +90,7 @@ class NotificationOverlayManager {
     required String message,
     VoidCallback? onTap,
     String? relatedEntityType,
-    Duration duration = const Duration(seconds: 3),
+    Duration duration = const Duration(seconds: 5),
   }) {
     show(
       title: title,
@@ -175,7 +175,11 @@ class NotificationOverlayItem {
   }) : createdAt = DateTime.now();
 }
 
-/// Widget hiển thị thông báo overlay ở góc phải trên
+/// Widget hiển thị thông báo ở góc phải trên.
+///
+/// Dùng [Stack] (không insert [OverlayEntry]) vì widget này thường nằm trong
+/// `MaterialApp.builder` — **ngoài** Overlay của Navigator, nên
+/// `Overlay.maybeOf(context)` hay trả null → bấm «Kiểm tra kết nối» im lặng.
 class NotificationOverlay extends StatefulWidget {
   final Widget child;
   final double extraTopInset;
@@ -192,94 +196,45 @@ class NotificationOverlay extends StatefulWidget {
 
 class _NotificationOverlayState extends State<NotificationOverlay> {
   final _manager = NotificationOverlayManager();
-  StreamSubscription? _subscription;
-  OverlayEntry? _overlayEntry;
-
-  @override
-  void initState() {
-    super.initState();
-    _subscription = _manager.stream.listen((items) {
-      _updateOverlay(items);
-    });
-    // Khởi tạo overlay sau frame đầu tiên
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateOverlay(_manager.notifications);
-    });
-  }
-
-  /// Gỡ + chèn lại entry mỗi lần có thông báo mới làm card chạy lại animation
-  /// và ném «Null check on null» khi Overlay đã đổi (đổi màn hình giữa lúc
-  /// nhiều lệnh in báo lỗi liên tiếp). Giữ một entry, chỉ dựng lại nội dung.
-  void _updateOverlay(List<NotificationOverlayItem> items) {
-    if (!mounted) return;
-    if (items.isEmpty) {
-      _removeEntry();
-      return;
-    }
-
-    final current = _overlayEntry;
-    if (current != null && current.mounted) {
-      current.markNeedsBuild();
-      return;
-    }
-    _removeEntry();
-
-    final overlay = Overlay.maybeOf(context);
-    if (overlay == null) return;
-
-    final entry = OverlayEntry(
-      builder: (context) {
-        final visible = _manager.notifications.take(1).toList();
-        if (visible.isEmpty) return const SizedBox.shrink();
-        final screenWidth = MediaQuery.of(context).size.width;
-        final isMobile = screenWidth < 600;
-        return Positioned(
-          top: MediaQuery.of(context).padding.top +
-              widget.extraTopInset +
-              (isMobile ? 8 : 16),
-          left: isMobile ? 8 : null,
-          right: isMobile ? 8 : 16,
-          child: Material(
-            color: Colors.transparent,
-            child: SizedBox(
-              width: isMobile ? null : 380,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: visible
-                    .map((item) => _NotificationCard(
-                          key: ValueKey(item.id),
-                          item: item,
-                          onDismiss: () => _manager.remove(item.id),
-                        ))
-                    .toList(),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-    _overlayEntry = entry;
-    overlay.insert(entry);
-  }
-
-  void _removeEntry() {
-    final entry = _overlayEntry;
-    _overlayEntry = null;
-    if (entry == null || !entry.mounted) return;
-    entry.remove();
-  }
-
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    _removeEntry();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
-    return widget.child;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        widget.child,
+        StreamBuilder<List<NotificationOverlayItem>>(
+          stream: _manager.stream,
+          initialData: _manager.notifications,
+          builder: (context, snapshot) {
+            final items = snapshot.data ?? const <NotificationOverlayItem>[];
+            if (items.isEmpty) return const SizedBox.shrink();
+            final item = items.first;
+            final screenWidth = MediaQuery.sizeOf(context).width;
+            final isMobile = screenWidth < 600;
+            final top = MediaQuery.paddingOf(context).top +
+                widget.extraTopInset +
+                (isMobile ? 8.0 : 16.0);
+            return Positioned(
+              top: top,
+              left: isMobile ? 8 : null,
+              right: isMobile ? 8 : 16,
+              child: Material(
+                color: Colors.transparent,
+                child: SizedBox(
+                  width: isMobile ? null : 380,
+                  child: _NotificationCard(
+                    key: ValueKey(item.id),
+                    item: item,
+                    onDismiss: () => _manager.remove(item.id),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
   }
 }
 

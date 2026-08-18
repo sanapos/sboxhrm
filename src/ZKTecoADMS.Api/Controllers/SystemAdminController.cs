@@ -4443,6 +4443,7 @@ public class SystemAdminController : AuthenticatedControllerBase
         p.Name,
         p.Description,
         p.IsActive,
+        p.IsPublic,
         p.DefaultDurationDays,
         p.MaxUsers,
         p.MaxDevices,
@@ -4520,6 +4521,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 Description = request.Description,
                 DefaultDurationDays = request.DefaultDurationDays,
                 IsActive = true,
+                IsPublic = request.IsPublic,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = CurrentUserId.ToString(),
             };
@@ -4564,6 +4566,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             package.Description = request.Description;
             package.DefaultDurationDays = request.DefaultDurationDays;
             package.IsActive = request.IsActive;
+            package.IsPublic = request.IsPublic;
             package.UpdatedAt = DateTime.UtcNow;
             package.UpdatedBy = CurrentUserId.ToString();
             ApplyPackageFields(package, request.MaxUsers, request.MaxDevices,

@@ -63,6 +63,25 @@ String? joinPosLineNoteParts({
   return (selected: selected, extra: extraParts.join('; '));
 }
 
+/// Gộp chip catalog + ghi chú đã học, tối đa [max] mục.
+List<String> mergePosQuickNotes(
+  Iterable<String> primary,
+  Iterable<String> extra, {
+  int max = 30,
+}) {
+  final out = <String>[];
+  final seen = <String>{};
+  for (final n in [...primary, ...extra]) {
+    final t = n.trim();
+    if (t.isEmpty) continue;
+    final key = t.toLowerCase();
+    if (!seen.add(key)) continue;
+    out.add(t);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 class PosCatalogItem {
   final String id;
   final String name;
@@ -90,7 +109,7 @@ class PosCatalogItem {
   }
 }
 
-enum PosProductType { goods, service, combo }
+enum PosProductType { goods, service, combo, material, topping }
 
 enum PosProductSortBy { name, code, price, stock, createdAt }
 
@@ -98,22 +117,45 @@ enum PosStockFilter { all, belowMin, outOfStock, aboveMax }
 
 enum PosStockoutFilter { all, within7Days, within30Days }
 
+extension PosProductTypeX on PosProductType {
+  int get apiValue => index;
+
+  bool get tracksInventory =>
+      this == PosProductType.goods ||
+      this == PosProductType.material ||
+      this == PosProductType.topping;
+
+  bool get isSellableOnPos =>
+      this == PosProductType.goods ||
+      this == PosProductType.service ||
+      this == PosProductType.combo;
+
+  String get codePrefix => switch (this) {
+        PosProductType.service => 'DV',
+        PosProductType.combo => 'CB',
+        PosProductType.material => 'NVL',
+        PosProductType.topping => 'TP',
+        PosProductType.goods => 'HH',
+      };
+}
+
 PosProductType posProductTypeFromString(String? raw) {
-  final r = raw?.toLowerCase() ?? '';
-  if (r == 'service') return PosProductType.service;
-  if (r == 'combo') return PosProductType.combo;
+  final r = (raw ?? '').trim().toLowerCase();
+  if (r == '1' || r == 'service') return PosProductType.service;
+  if (r == '2' || r == 'combo') return PosProductType.combo;
+  if (r == '3' || r == 'material' || r == 'nvl') return PosProductType.material;
+  if (r == '4' || r == 'topping') return PosProductType.topping;
   return PosProductType.goods;
 }
 
 String posProductTypeLabel(PosProductType t) {
-  switch (t) {
-    case PosProductType.service:
-      return 'Dịch vụ';
-    case PosProductType.combo:
-      return 'Combo';
-    case PosProductType.goods:
-      return 'Hàng hóa';
-  }
+  return switch (t) {
+    PosProductType.service => 'Dịch vụ',
+    PosProductType.combo => 'Combo',
+    PosProductType.material => 'Nguyên vật liệu',
+    PosProductType.topping => 'Topping',
+    PosProductType.goods => 'Hàng hóa',
+  };
 }
 
 class PosProductUnit {
@@ -382,6 +424,8 @@ class PosProduct {
   final List<PosProductAttribute>? attributes;
   final List<String> saleQuickNotes;
   final List<PosComboLine>? comboLines;
+  /// Định lượng NVL (hàng hóa / dịch vụ). Không hiện trên hóa đơn.
+  final List<PosComboLine>? recipeLines;
   final double? sellableQty;
   final int? warrantyMonths;
   final bool requiresSerial;
@@ -402,6 +446,8 @@ class PosProduct {
   final bool allowToppings;
   /// Tự mở popup topping (nhóm) khi thêm món vào giỏ.
   final bool autoOpenToppingPopup;
+  /// Khi b�n combo: hi?n th�nh ph?n du?i t�n (ki?u topping).
+  final bool showComboComponentsOnSell;
   /// Tùy chọn thêm gắn trực tiếp (giống ghi chú nhanh + giá).
   final List<PosProductToppingOption> toppingOptions;
   final List<String> toppingGroupIds;
@@ -449,6 +495,7 @@ class PosProduct {
     this.attributes,
     this.saleQuickNotes = const [],
     this.comboLines,
+    this.recipeLines,
     this.sellableQty,
     this.warrantyMonths,
     this.requiresSerial = false,
@@ -468,6 +515,7 @@ class PosProduct {
     this.isTopping = false,
     this.allowToppings = false,
     this.autoOpenToppingPopup = true,
+    this.showComboComponentsOnSell = false,
     this.toppingOptions = const [],
     this.toppingGroupIds = const [],
     this.toppingGroups = const [],
@@ -490,6 +538,9 @@ class PosProduct {
     }
     return out;
   }
+
+  bool get hasRecipe =>
+      recipeLines != null && recipeLines!.isNotEmpty;
 
   bool get isTimedService {
     final m = serviceBillingMode.toLowerCase();
@@ -578,6 +629,12 @@ class PosProduct {
               .map((e) => PosComboLine.fromJson(Map<String, dynamic>.from(e)))
               .toList()
           : null,
+      recipeLines: json['recipeLines'] != null || json['RecipeLines'] != null
+          ? ((json['recipeLines'] ?? json['RecipeLines']) as List)
+              .whereType<Map>()
+              .map((e) => PosComboLine.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : null,
       sellableQty: json['sellableQty'] != null || json['SellableQty'] != null
           ? numVal(json['sellableQty'] ?? json['SellableQty'])
           : null,
@@ -623,6 +680,9 @@ class PosProduct {
           json['allowToppings'] == true || json['AllowToppings'] == true,
       autoOpenToppingPopup: json['autoOpenToppingPopup'] != false &&
           json['AutoOpenToppingPopup'] != false,
+      showComboComponentsOnSell:
+          json['showComboComponentsOnSell'] == true ||
+              json['ShowComboComponentsOnSell'] == true,
       toppingOptions: () {
         final raw = json['toppingOptions'] ?? json['ToppingOptions'];
         if (raw is! List) return const <PosProductToppingOption>[];
@@ -664,11 +724,7 @@ class PosProduct {
       'brandId': brandId,
       'storageLocationId': storageLocationId,
       'supplierId': supplierId,
-      'productType': productType == PosProductType.service
-          ? 1
-          : productType == PosProductType.combo
-              ? 2
-              : 0,
+      'productType': productType.apiValue,
       'description': description?.trim(),
       if (imageUrl != null && imageUrl.isNotEmpty) 'imageUrl': imageUrl,
       if (imageBase64 != null && imageBase64.isNotEmpty)
@@ -708,6 +764,7 @@ class PosProduct {
       'isTopping': isTopping,
       'allowToppings': allowToppings && !isTopping,
       'autoOpenToppingPopup': autoOpenToppingPopup,
+        'showComboComponentsOnSell': showComboComponentsOnSell,
       if (allowToppings && !isTopping)
         'toppings': toppingOptions.map((t) => t.toInputJson()).toList(),
       'toppingGroupIds': toppingGroupIds,
@@ -751,7 +808,9 @@ class PosProduct {
     List<PosProductVariant>? variants,
     List<PosProductUnit>? units,
     List<PosComboLine>? comboLines,
+    List<PosComboLine>? recipeLines,
     double? sellableQty,
+    List<String>? saleQuickNotes,
   }) {
     return PosProduct(
       id: id ?? this.id,
@@ -791,8 +850,9 @@ class PosProduct {
       units: units ?? this.units,
       variants: variants ?? this.variants,
       comboLines: comboLines ?? this.comboLines,
+      recipeLines: recipeLines ?? this.recipeLines,
       sellableQty: sellableQty ?? this.sellableQty,
-      saleQuickNotes: this.saleQuickNotes,
+      saleQuickNotes: saleQuickNotes ?? this.saleQuickNotes,
       serviceBillingMode: this.serviceBillingMode,
       minBillMinutes: this.minBillMinutes,
       billRoundMinutes: this.billRoundMinutes,
@@ -806,6 +866,7 @@ class PosProduct {
       isTopping: this.isTopping,
       allowToppings: this.allowToppings,
       autoOpenToppingPopup: this.autoOpenToppingPopup,
+      showComboComponentsOnSell: this.showComboComponentsOnSell,
       toppingOptions: this.toppingOptions,
       toppingGroupIds: this.toppingGroupIds,
       toppingGroups: this.toppingGroups,
@@ -842,6 +903,7 @@ class PosProduct {
         'isTopping': isTopping,
         'allowToppings': allowToppings,
         'autoOpenToppingPopup': autoOpenToppingPopup,
+        'showComboComponentsOnSell': showComboComponentsOnSell,
         if (toppingOptions.isNotEmpty)
           'toppingOptions': toppingOptions
               .map((t) => {

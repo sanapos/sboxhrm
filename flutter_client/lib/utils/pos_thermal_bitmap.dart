@@ -114,12 +114,13 @@ class PosThermalBitmapEncoder {
     double totalW,
     double gap,
   }) _saleColWidths(double contentW) {
+    // K80 raster (~1152px @2x): ưu tiên cột tên; SL/tiền hẹp hơn để khỏi tràn xuống hàng.
     final k58 = contentW < 900;
-    final gap = k58 ? 20.0 : 28.0;
-    final qtyW = k58 ? 70.0 : 96.0;
-    final moneyW = k58 ? 160.0 : 200.0;
+    final gap = k58 ? 12.0 : 16.0;
+    final qtyW = k58 ? 56.0 : 72.0;
+    final moneyW = k58 ? 120.0 : 148.0;
     final nameW =
-        (contentW - qtyW - moneyW * 2 - gap * 3).clamp(140.0, contentW);
+        (contentW - qtyW - moneyW * 2 - gap * 3).clamp(160.0, contentW);
     return (
       nameW: nameW,
       qtyW: qtyW,
@@ -193,7 +194,12 @@ class PosThermalBitmapEncoder {
       );
       if (line.hasSaleColumns) {
         final cols = _saleColWidths(contentW);
-        final nameTp = _tp(line.text, style: style, maxWidth: cols.nameW);
+        final nameTp = _tp(
+          line.text,
+          style: style,
+          maxWidth: cols.nameW,
+          maxLines: 2,
+        );
         painters.add(nameTp);
         totalH += nameTp.height + lineGap * scale;
         continue;
@@ -257,7 +263,12 @@ class PosThermalBitmapEncoder {
       );
       if (line.hasSaleColumns) {
         final cols = _saleColWidths(contentW);
-        final nameTp = _tp(line.text, style: style, maxWidth: cols.nameW);
+        final nameTp = _tp(
+          line.text,
+          style: style,
+          maxWidth: cols.nameW,
+          maxLines: 2,
+        );
         final qtyTp = _tp(
           line.colQty ?? '',
           style: style,

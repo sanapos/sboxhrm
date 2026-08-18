@@ -13,6 +13,10 @@ public static class ImageOptimizeHelper
     public const int ProductMaxEdge = 1200;
     public const int ProductJpegQuality = 75;
 
+    /// <summary>Ảnh catalog mẫu Super Admin — đủ nét khi hiển thị lưới POS / thẻ món.</summary>
+    public const int SampleCatalogMaxEdge = 1920;
+    public const int SampleCatalogJpegQuality = 88;
+
     public const int PhotoMaxEdge = 1280;
     public const int PhotoJpegQuality = 72;
 

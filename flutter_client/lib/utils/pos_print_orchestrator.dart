@@ -262,6 +262,7 @@ class PosPrintOrchestrator {
 
   static String _documentLabel(String documentType) => switch (documentType) {
         'SaleInvoice' => 'Hóa đơn',
+        'SaleReturn' => 'Phiếu trả',
         'KitchenSlip' => 'Phiếu bếp',
         'KitchenVoid' => 'Phiếu hủy bếp',
         'KitchenLabel' => 'Tem',
@@ -1719,37 +1720,58 @@ class PosPrintOrchestrator {
     return outcome.ok;
   }
 
-  /// Phiếu ra món KDS: tên món, bàn, khu, giờ gọi, giờ ra.
+  /// Phiếu ra món / trả món KDS — layout kiểu báo chế biến, tối giản giấy.
+  /// [lines] gom nhiều món cùng bàn thành 1 phiếu.
   Future<bool> dispatchKdsReadySlip({
     required PosStorePrinter printer,
-    required String productName,
-    required double qty,
     required String tableName,
     String? areaName,
-    required DateTime calledAt,
-    DateTime? readyAt,
     String? orderNo,
+    DateTime? readyAt,
+    /// Một món (tương thích cũ) — dùng khi [lines] rỗng.
+    String? productName,
+    double qty = 1,
+    DateTime? calledAt,
+    List<({String productName, double qty, DateTime calledAt})> lines = const [],
   }) async {
     final at = readyAt ?? DateTime.now();
+    final items = lines.isNotEmpty
+        ? lines
+        : [
+            if ((productName ?? '').trim().isNotEmpty)
+              (
+                productName: productName!.trim(),
+                qty: qty,
+                calledAt: calledAt ?? at,
+              ),
+          ];
+    if (items.isEmpty) return false;
+
+    DateTime earliest = items.first.calledAt;
+    for (final it in items) {
+      if (it.calledAt.isBefore(earliest)) earliest = it.calledAt;
+    }
+    final first = items.first;
     final payload = jsonEncode({
       'kind': 'kdsReady',
-      'productName': productName,
-      'qty': qty,
+      'productName': first.productName,
+      'qty': first.qty,
       'tableName': tableName,
       'areaName': areaName ?? '',
-      'calledAt': calledAt.toUtc().toIso8601String(),
+      'calledAt': earliest.toUtc().toIso8601String(),
       'readyAt': at.toUtc().toIso8601String(),
       'orderNo': orderNo ?? '',
       'senderName': 'KDS',
       'isCancel': false,
       'sentAt': at.toUtc().toIso8601String(),
       'lines': [
-        {
-          'productName': productName,
-          'qty': qty,
-          'note':
-              'Gọi ${_hhmm(calledAt)} · Ra ${_hhmm(at)}',
-        },
+        for (final it in items)
+          {
+            'productName': it.productName,
+            'qty': it.qty,
+            'calledAt': it.calledAt.toUtc().toIso8601String(),
+            'note': 'Gọi ${_hhmm(it.calledAt)} · Ra ${_hhmm(at)}',
+          },
       ],
     });
     await ensureListening();
@@ -1758,7 +1780,11 @@ class PosPrintOrchestrator {
       payloadFormat: 'KitchenSlipJson',
       payload: payload,
       copies: 1,
-      referenceNo: _kdsCutRef('kds|$tableName|$productName', 0, '${at.millisecondsSinceEpoch}'),
+      referenceNo: _kdsCutRef(
+        'kds|$tableName|${items.map((e) => e.productName).join('+')}',
+        0,
+        '${at.millisecondsSinceEpoch}',
+      ),
       printerId: printer.id,
     );
     if (res['isSuccess'] != true) return false;

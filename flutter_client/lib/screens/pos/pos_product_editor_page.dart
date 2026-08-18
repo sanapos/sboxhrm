@@ -238,6 +238,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _isTopping = false;
   bool _allowToppings = false;
   bool _autoOpenToppingPopup = true;
+  bool _showComboComponentsOnSell = false;
   List<PosProductToppingOption> _toppingOptions = [];
   List<String> _toppingGroupIds = [];
   List<PosProductToppingGroup> _availableToppingGroups = [];
@@ -274,6 +275,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   List<PosProductUnit> _units = [];
   final List<PosProductAttribute> _attributeValues = [];
   List<PosComboLine> _comboLines = [];
+  List<PosComboLine> _recipeLines = [];
   List<PosProductVariant> _variants = [];
   late PosProductType _productType;
   final List<_VariantAttrRow> _variantAttrs = [];
@@ -285,9 +287,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool get _isGoods => _type == PosProductType.goods;
   bool get _isService => _type == PosProductType.service;
   bool get _isCombo => _type == PosProductType.combo;
-  String get _autoCodeHint => _isService
-      ? 'DV00001…'
-      : (_isCombo ? 'CB00001…' : 'HH00001…');
+  bool get _isMaterial => _type == PosProductType.material;
+  bool get _isToppingType => _type == PosProductType.topping;
+  bool get _tracksStock => _type.tracksInventory;
+  bool get _canHaveRecipe =>
+      _isGoods || _isService || _isToppingType;
+  String get _autoCodeHint => '${_type.codePrefix}00001…';
   bool get _isEditing => widget.product != null;
   bool get _hasVariants => _variants.isNotEmpty;
   bool get _usesSharedUnitStock =>
@@ -315,6 +320,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         PosProductType.goods => 'Thêm hàng hóa (sao chép)',
         PosProductType.service => 'Thêm dịch vụ (sao chép)',
         PosProductType.combo => 'Thêm combo (sao chép)',
+        PosProductType.material => 'Thêm nguyên vật liệu (sao chép)',
+        PosProductType.topping => 'Thêm topping (sao chép)',
       };
     }
     if (!_isEditing) {
@@ -322,12 +329,16 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         PosProductType.goods => 'Tạo hàng hóa',
         PosProductType.service => 'Tạo dịch vụ',
         PosProductType.combo => 'Tạo combo - đóng gói',
+        PosProductType.material => 'Tạo nguyên vật liệu',
+        PosProductType.topping => 'Tạo topping',
       };
     }
     return switch (_type) {
       PosProductType.goods => 'Sửa hàng hóa',
       PosProductType.service => 'Sửa dịch vụ',
       PosProductType.combo => 'Sửa combo',
+      PosProductType.material => 'Sửa nguyên vật liệu',
+      PosProductType.topping => 'Sửa topping',
     };
   }
 
@@ -428,9 +439,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     // đọc _descCtrl / _saleQuickNotes.
     _descCtrl = TextEditingController(text: tr(p?.description ?? ''));
     _saleQuickNotes = List<String>.from(p?.saleQuickNotes ?? const []);
-    _isTopping = p?.isTopping ?? false;
+    _isTopping = p?.isTopping ?? _isToppingType;
     _allowToppings = p?.allowToppings ?? false;
     _autoOpenToppingPopup = p?.autoOpenToppingPopup ?? true;
+    _showComboComponentsOnSell = p?.showComboComponentsOnSell ?? false;
     _toppingOptions = List<PosProductToppingOption>.from(p?.toppingOptions ?? const []);
     _toppingGroupIds = List<String>.from(p?.toppingGroupIds ?? const []);
     unawaited(_loadToppingGroups());
@@ -456,15 +468,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _maxStockCtrl = TextEditingController(
         text: tr(p != null
             ? p.maxStockQty.toStringAsFixed(0)
-            : (_isGoods ? '999999999' : '0')));
+            : (_tracksStock ? '999999999' : '0')));
     _weightCtrl = TextEditingController(
         text: tr(p?.weight != null ? p!.weight!.toStringAsFixed(0) : ''));
-    _unitCtrl = TextEditingController(text: tr(p?.baseUnitName ?? 'Cái'));
+    _unitCtrl = TextEditingController(text: p?.baseUnitName ?? 'Cái');
     _categoryId = p?.categoryId;
     _brandId = p?.brandId;
     _locationId = p?.storageLocationId;
     _supplierId = p?.supplierId;
-    _directSale = p?.isDirectSale ?? true;
+    _directSale = p?.isDirectSale ?? (!_isMaterial && !_isToppingType);
     _weightUnit = p?.weightUnit ?? 'g';
     _vatRate = p?.vatExempt == true ? 0 : (p?.vatRate ?? 8);
     _vatExempt = p?.vatExempt ?? false;
@@ -561,6 +573,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               .toList();
         });
       }
+    } else {
+      await _loadRecipeLines(sourceId);
     }
   }
 
@@ -615,9 +629,20 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _syncVariantAttrsFromProductAttributes();
       _supplierId = data.supplierId;
       _saleQuickNotes = List<String>.from(data.saleQuickNotes);
+      _unitCtrl.text =
+          data.baseUnitName.trim().isEmpty ? 'Cái' : data.baseUnitName.trim();
+      final baseFromUnits = data.units
+          ?.where((u) => u.isBaseUnit)
+          .map((u) => u.unitName.trim())
+          .where((n) => n.isNotEmpty)
+          .firstOrNull;
+      if (baseFromUnits != null) {
+        _unitCtrl.text = baseFromUnits;
+      }
       _isTopping = data.isTopping;
       _allowToppings = data.allowToppings;
       _autoOpenToppingPopup = data.autoOpenToppingPopup;
+      _showComboComponentsOnSell = data.showComboComponentsOnSell;
       _toppingOptions =
           List<PosProductToppingOption>.from(data.toppingOptions);
       _toppingGroupIds = List<String>.from(data.toppingGroupIds);
@@ -663,6 +688,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               .toList();
         });
       }
+    } else {
+      await _loadRecipeLines(id);
     }
     if (_isGoods) {
       await _loadVariants(id);
@@ -908,23 +935,24 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final body = <String, dynamic>{
       'productCode':
           _codeCtrl.text.trim().isEmpty ? null : _codeCtrl.text.trim(),
-      if (_isService || _isGoods || _isCombo)
+      if (_isService || _tracksStock || _isCombo)
         'barcode':
             _barcodeCtrl.text.trim().isEmpty ? null : _barcodeCtrl.text.trim(),
       'name': _nameCtrl.text.trim(),
       'categoryId': _guidOrNull(_categoryId),
       'brandId': _guidOrNull(_brandId),
-      if (_isGoods) 'storageLocationId': _guidOrNull(_locationId),
-      if (_isGoods || _isCombo) 'supplierId': _guidOrNull(_supplierId),
-      'productType': _isService ? 1 : (_isCombo ? 2 : 0),
+      if (_tracksStock) 'storageLocationId': _guidOrNull(_locationId),
+      if (_tracksStock || _isCombo) 'supplierId': _guidOrNull(_supplierId),
+      'productType': _type.apiValue,
       'description': _descCtrl.text.trim(),
       'saleQuickNotes': _saleQuickNotes
           .map((n) => n.trim())
           .where((n) => n.isNotEmpty)
           .toList(),
-      'isTopping': _isTopping,
-      'allowToppings': _allowToppings && !_isTopping,
+      'isTopping': _isToppingType || _isTopping,
+      'allowToppings': _allowToppings && !_isTopping && !_isMaterial && !_isToppingType,
       'autoOpenToppingPopup': _autoOpenToppingPopup,
+      'showComboComponentsOnSell': _isCombo && _showComboComponentsOnSell,
       'toppings': (_allowToppings && !_isTopping)
           ? _toppingOptions
               .map((t) => {
@@ -946,16 +974,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'vatRate': _vatExempt ? 0 : _vatRate,
       'vatExempt': _vatExempt,
       if (!_hasVariants || _usesSharedUnitStock)
-        'onHandQty': _isCombo ? 0 : (_isService ? 0 : _parseNum(_stockCtrl.text)),
+        'onHandQty': _isCombo || _isService ? 0 : _parseNum(_stockCtrl.text),
       'reservedQty': widget.product?.reservedQty ?? 0,
-      if (_isGoods) ...{
+      // ĐVT: luôn gửi (hàng/dịch vụ/combo) — không mặc định «Cái» khi user đã nhập.
+      'baseUnitName':
+          _unitCtrl.text.trim().isEmpty ? 'Cái' : _unitCtrl.text.trim(),
+      if (_tracksStock) ...{
         'minStockQty': _parseNum(_minStockCtrl.text),
         'maxStockQty': _parseNum(_maxStockCtrl.text),
         'weight':
             _weightCtrl.text.trim().isEmpty ? null : _parseNum(_weightCtrl.text),
         'weightUnit': _weightUnit,
-        'baseUnitName':
-            _unitCtrl.text.trim().isEmpty ? 'Cái' : _unitCtrl.text.trim(),
       },
       'isDirectSale': _directSale,
       'isFavorite': widget.product?.isFavorite ?? false,
@@ -1060,6 +1089,32 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             title: 'Lưu thành phần combo thất bại',
             message: comboRes['message']?.toString() ??
                 'Hàng hóa đã lưu nhưng thành phần combo chưa được gắn. Vui lòng thử lại.',
+          );
+          return;
+        }
+      }
+    }
+
+    if (res['isSuccess'] == true && _canHaveRecipe) {
+      final productId = widget.product?.id ??
+          (res['data'] as Map<String, dynamic>?)?['id']?.toString();
+      if (productId != null) {
+        final recipeRes = await _api.savePosRecipeLines(
+          productId,
+          _recipeLines
+              .map((c) => {
+                    'componentProductId': c.componentProductId,
+                    'qty': c.qty,
+                  })
+              .toList(),
+        );
+        if (recipeRes['isSuccess'] != true) {
+          if (!mounted) return;
+          setState(() => _saving = false);
+          NotificationOverlayManager().showError(
+            title: 'Lưu định lượng NVL thất bại',
+            message: recipeRes['message']?.toString() ??
+                'Hàng đã lưu nhưng định lượng chưa gắn. Vui lòng thử lại.',
           );
           return;
         }
@@ -1320,9 +1375,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _weightCtrl.clear();
     _descCtrl.clear();
     _saleQuickNotes = [];
-    _isTopping = false;
+    _isTopping = _isToppingType;
     _allowToppings = false;
     _autoOpenToppingPopup = true;
+    _showComboComponentsOnSell = false;
     _toppingOptions = [];
     _toppingGroupIds = [];
     _unitCtrl.text = 'Cái';
@@ -1334,9 +1390,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _brandId = null;
     _locationId = null;
     _supplierId = null;
-    _directSale = true;
+    _directSale = !_isMaterial && !_isToppingType;
     _attributeValues.clear();
     if (_isCombo) _comboLines.clear();
+    _recipeLines.clear();
     _tabs.animateTo(0);
   }
 
@@ -1512,8 +1569,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           value: _directSale,
                           activeColor: PosTheme.kiotBlue,
                           visualDensity: VisualDensity.compact,
-                          onChanged: (v) =>
-                              setState(() => _directSale = v ?? true),
+                          onChanged: (_isMaterial || _isToppingType)
+                              ? null
+                              : (v) =>
+                                  setState(() => _directSale = v ?? true),
                         ),
                         Expanded(
                           child: Text(tr('Bán trực tiếp'),
@@ -1581,7 +1640,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   List<Widget> _buildTabViews() {
-    if (_isGoods) {
+    if (_tracksStock) {
       return [_buildGoodsInfoTab(), _buildDescTab()];
     }
     if (_isService) {
@@ -1596,7 +1655,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Widget _buildTypeInfoTab() {
-    if (_isGoods) return _buildGoodsInfoTab();
+    if (_tracksStock) return _buildGoodsInfoTab();
     if (_isService) return _buildServiceInfoTab();
     return _buildComboInfoTab();
   }
@@ -1758,8 +1817,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 ],
               ),
             ),
-          if (_showSection(PosProductEditorSection.unitsVariants))
+          if (_isGoods && _showSection(PosProductEditorSection.unitsVariants))
             _buildUnitsAttributesExpansion(),
+          if (_canHaveRecipe)
+            _kvSection(
+              title: 'Định lượng nguyên vật liệu',
+              subtitle:
+                  'Chọn NVL (loại Nguyên vật liệu). Khi bán món, kho trừ đúng SL từng NVL — không in lên hóa đơn.',
+              child: _buildRecipeSection(),
+            ),
         ],
       ),
     );
@@ -1788,6 +1854,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 value: PosProductType.combo,
                 child: Text(tr('Combo / Đóng gói')),
               ),
+              DropdownMenuItem(
+                value: PosProductType.material,
+                child: Text(tr('Nguyên vật liệu')),
+              ),
+              DropdownMenuItem(
+                value: PosProductType.topping,
+                child: Text(tr('Topping')),
+              ),
             ],
             onChanged: (v) {
               if (v == null || v == _productType) return;
@@ -1798,9 +1872,25 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   _comboLines.clear();
                 } else if (!wasCombo) {
                   _comboLines.clear();
+                  _recipeLines.clear();
                 }
                 if (v == PosProductType.service || v == PosProductType.combo) {
                   _stockCtrl.text = '0';
+                }
+                if (v == PosProductType.material) {
+                  _directSale = false;
+                  _isTopping = false;
+                  _allowToppings = false;
+                  _recipeLines.clear();
+                } else if (v == PosProductType.topping) {
+                  _directSale = false;
+                  _isTopping = true;
+                  _allowToppings = false;
+                } else if (v == PosProductType.goods) {
+                  _directSale = true;
+                  _isTopping = false;
+                } else {
+                  _isTopping = false;
                 }
               });
             },
@@ -1817,17 +1907,27 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       PosProductType.service => (
           const Color(0xFF0369A1),
           Icons.handyman_outlined,
-          'Dịch vụ không quản lý tồn kho — bán không trừ kho. Dùng cho công, spa, tính giờ, gói buổi.',
+          'Dịch vụ không quản lý tồn thành phẩm — bán không trừ kho món. Khai định lượng NVL nếu muốn trừ nguyên liệu khi bán.',
         ),
       PosProductType.combo => (
           const Color(0xFFB45309),
           Icons.layers_outlined,
-          'Combo không có tồn riêng. Khai định lượng thành phần (SL / 1 combo, được phép lẻ). Khi bán, kho trừ đúng SL từng hàng thành phần.',
+          'Combo không có tồn riêng. Khai thành phần (SL / 1 combo). Khi bán, kho trừ đúng SL từng hàng thành phần.',
+        ),
+      PosProductType.material => (
+          PosTheme.materialColor,
+          Icons.science_outlined,
+          'Nguyên vật liệu quản lý tồn, không hiện lưới bán POS. Dùng trong định lượng món / topping.',
+        ),
+      PosProductType.topping => (
+          PosTheme.toppingColor,
+          Icons.icecream_outlined,
+          'Topping quản lý tồn, không hiện lưới bán chính — chọn khi bán món. Có thể khai định lượng NVL.',
         ),
       PosProductType.goods => (
           PosTheme.kiotBlue,
           Icons.inventory_2_outlined,
-          'Hàng hóa quản lý tồn. Nhập kho rồi bán sẽ trừ đúng số lượng.',
+          'Hàng hóa quản lý tồn, bán trên POS. Muốn trừ nguyên liệu thay vì trừ món thành phẩm: khai Định lượng NVL.',
         ),
     };
     return Container(
@@ -2178,7 +2278,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.04),
+        color: Colors.black.withOpacity(0.04),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -2451,6 +2551,17 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr('Hiện chi tiết thành phần khi bán')),
+          subtitle: Text(
+            tr('Bật: hiện danh sách hàng trong combo dưới tên (giống topping). Tắt: chỉ hiện tên combo.'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          value: _showComboComponentsOnSell,
+          onChanged: (v) => setState(() => _showComboComponentsOnSell = v),
+        ),
+        const SizedBox(height: 8),
         TextField(
           readOnly: true,
           onTap: _addComboComponent,
@@ -2812,15 +2923,16 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'brandId': _guidOrNull(_brandId),
         'storageLocationId': _guidOrNull(_locationId),
         'supplierId': _guidOrNull(_supplierId),
-        'productType': _isService ? 1 : (_isCombo ? 2 : 0),
+        'productType': _type.apiValue,
         'description': _descCtrl.text.trim(),
         'saleQuickNotes': _saleQuickNotes
             .map((n) => n.trim())
             .where((n) => n.isNotEmpty)
             .toList(),
-        'isTopping': _isTopping,
-        'allowToppings': _allowToppings && !_isTopping,
+        'isTopping': _isToppingType || _isTopping,
+        'allowToppings': _allowToppings && !_isTopping && !_isMaterial && !_isToppingType,
         'autoOpenToppingPopup': _autoOpenToppingPopup,
+        'showComboComponentsOnSell': _isCombo && _showComboComponentsOnSell,
         'toppings': (_allowToppings && !_isTopping)
             ? _toppingOptions
                 .map((t) => {
@@ -2849,6 +2961,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         },
         'isDirectSale': _directSale,
         'isFavorite': widget.product?.isFavorite ?? false,
+        'baseUnitName':
+            _unitCtrl.text.trim().isEmpty ? 'Cái' : _unitCtrl.text.trim(),
       };
 
   List<UnitAttributeRowInput> _attributeRowsForSetup() {
@@ -3426,7 +3540,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Checkbox(
                 value: _directSale,
                 activeColor: PosTheme.primary,
-                onChanged: (v) => setState(() => _directSale = v ?? true),
+                onChanged: (_isMaterial || _isToppingType)
+                    ? null
+                    : (v) => setState(() => _directSale = v ?? true),
               ),
               Expanded(
                 child: Text(tr('Bán trực tiếp (hiện trên POS)'),
@@ -3590,6 +3706,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
             manageKind: PosCatalogKind.location,
           ),
+        if (_isService) ...[
+          const SizedBox(height: 16),
+          _buildRecipeSection(),
+        ],
       ],
     );
   }
@@ -3727,7 +3847,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               decoration: BoxDecoration(
                 color: PosTheme.primaryLight,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: PosTheme.primary.withValues(alpha: 0.3)),
+                border: Border.all(color: PosTheme.primary.withOpacity(0.3)),
               ),
               child: Text(tr('Tổng giá thành phần: ${_moneyFmt.format(_comboComponentsSum)}'),
                 style: const TextStyle(
@@ -4107,6 +4227,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
+          if (!_isMaterial && !_isToppingType)
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(tr('Đây là hàng tùy chọn thêm')),
@@ -4123,7 +4244,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               }
             }),
           ),
-          if (!_isTopping) ...[
+          if (!_isTopping && !_isMaterial && !_isToppingType) ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(tr('Cho phép tùy chọn thêm khi bán')),
@@ -4252,6 +4373,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       final res = await _api.getPosProducts(
         page: 1,
         pageSize: 40,
+        productType: PosProductType.topping,
         search: q.trim().isEmpty ? null : q.trim(),
       );
       final items = <PosProduct>[];
@@ -4498,6 +4620,163 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       setState(() => _units.add(
           PosProductUnit.fromJson(res['data'] as Map<String, dynamic>)));
     }
+  }
+
+  Future<void> _loadRecipeLines(String productId) async {
+    final res = await _api.getPosRecipeLines(productId);
+    if (!mounted || res['isSuccess'] != true || res['data'] is! List) return;
+    setState(() {
+      _recipeLines = (res['data'] as List)
+          .map((e) => PosComboLine.fromJson(e as Map<String, dynamic>))
+          .toList();
+    });
+  }
+
+  Widget _buildRecipeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          readOnly: true,
+          onTap: _addRecipeComponent,
+          decoration: InputDecoration(
+            hintText: tr('Thêm nguyên vật liệu'),
+            prefixIcon: const Icon(Icons.search, size: 20),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        if (_recipeLines.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              tr('Không bắt buộc. Để trống = không trừ NVL khi bán.'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ),
+        if (_recipeLines.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Table(
+            columnWidths: const {
+              0: FlexColumnWidth(3),
+              1: FlexColumnWidth(1.2),
+              2: FlexColumnWidth(1.4),
+              3: FixedColumnWidth(40),
+            },
+            children: [
+              TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(tr('NVL'),
+                        style: const TextStyle(
+                            fontSize: 11, fontWeight: FontWeight.w600)),
+                  ),
+                  Text(tr('SL / 1 món'),
+                      style: const TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600)),
+                  Text(tr('ĐVT'),
+                      style: const TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w600)),
+                  const SizedBox(),
+                ],
+              ),
+              ..._recipeLines.asMap().entries.map((e) {
+                final i = e.key;
+                final c = e.value;
+                return TableRow(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Text(
+                        c.componentProductName.isNotEmpty
+                            ? c.componentProductName
+                            : c.componentProductCode,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: TextFormField(
+                        initialValue: c.qty == c.qty.roundToDouble()
+                            ? c.qty.toStringAsFixed(0)
+                            : c.qty.toString(),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                          contentPadding:
+                              EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                        ),
+                        onChanged: (raw) {
+                          final q = double.tryParse(
+                                  raw.replaceAll(',', '.').trim()) ??
+                              c.qty;
+                          setState(() => _recipeLines[i] = c.copyWith(qty: q));
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Text(
+                        c.componentUnitName.isNotEmpty
+                            ? c.componentUnitName
+                            : '—',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () =>
+                          setState(() => _recipeLines.removeAt(i)),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _addRecipeComponent() async {
+    final existingIds =
+        _recipeLines.map((c) => c.componentProductId).toSet();
+    final prod = await PosComboComponentPicker.show(
+      context,
+      api: _api,
+      excludeProductId: widget.product?.id,
+      excludeComponentIds: existingIds,
+      materialsPreferred: true,
+    );
+    if (prod == null || !mounted) return;
+    if (_recipeLines.any((c) => c.componentProductId == prod.id)) {
+      NotificationOverlayManager().showError(
+        title: 'Đã có NVL',
+        message: tr('«${prod.name}» đã nằm trong định lượng'),
+      );
+      return;
+    }
+    final qty = await showComboComponentQtyDialog(context);
+    if (qty == null || !mounted) return;
+    setState(() {
+      _recipeLines.add(PosComboLine(
+        id: '',
+        componentProductId: prod.id,
+        componentProductCode: prod.productCode,
+        componentProductName: prod.name,
+        qty: qty,
+        componentOnHandQty: prod.onHandQty,
+        componentBasePrice: prod.basePrice,
+        componentUnitName: prod.baseUnitName,
+      ));
+    });
   }
 
   Future<void> _addComboComponent() async {

@@ -603,6 +603,25 @@ class _PosSellIndustrySettingsScreenState
                       );
                     }),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('QR: bật xác nhận order')),
+            subtitle: Text(tr(
+                'Mặc định tắt. Bật: món không in thẳng xuống bếp — '
+                'âm thanh + thông báo để thu ngân xác nhận (Báo bếp).')),
+            value: QrOrderLockConfig.fromExtraJson(s.extraJson)
+                .requireOrderConfirmation,
+            onChanged: _saving || !s.enableQrTableOrder
+                ? null
+                : (v) => _patchAndSave((cur) {
+                      final next =
+                          QrOrderLockConfig.fromExtraJson(cur.extraJson)
+                              .copyWith(requireOrderConfirmation: v);
+                      return cur.copyWith(
+                        extraJson: next.mergeIntoExtraJson(cur.extraJson),
+                      );
+                    }),
+          ),
           const Divider(height: 24),
           Text(tr('Báo cáo & cuối ngày'),
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),

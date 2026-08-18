@@ -8,6 +8,7 @@ import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/pos_kiot_time_range.dart';
+import '../../widgets/hkd_book_preview_panel.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_kiot_time_filter.dart';
@@ -32,9 +33,13 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
 
   PosKiotTimeFilterState _time = PosKiotTimeFilterState.thisMonth();
   int _taxGroup = 2;
+  String _selectedBook = 'S2a';
   bool _loading = true;
   bool _saving = false;
   bool _exporting = false;
+  bool _previewLoading = false;
+  String? _previewError;
+  Map<String, dynamic>? _preview;
   List<String> _recommendedBooks = const ['S2a-HKD', 'S2e-HKD'];
 
   @override
@@ -69,7 +74,9 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
         if (books is List) {
           _recommendedBooks = books.map((e) => e.toString()).toList();
         }
+        _selectedBook = _defaultBook(_taxGroup);
       });
+      await _loadPreview();
     } catch (e) {
       if (mounted) {
         appNotification.showError(title: 'Lỗi', message: '$e');
@@ -85,6 +92,102 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
       return v == v.roundToDouble() ? v.toInt().toString() : v.toString();
     }
     return v.toString();
+  }
+
+  String _defaultBook(int group) => switch (group) {
+        1 => 'S1a',
+        3 => 'S2b',
+        _ => 'S2a',
+      };
+
+  List<({String id, String title, String subtitle})> get _visibleBooks {
+    return [
+      if (_taxGroup == 1)
+        (id: 'S1a', title: 'S1a-HKD', subtitle: 'Sổ doanh thu'),
+      if (_taxGroup == 2)
+        (id: 'S2a', title: 'S2a-HKD', subtitle: 'Doanh thu theo %'),
+      if (_taxGroup == 3) ...[
+        (id: 'S2b', title: 'S2b-HKD', subtitle: 'Doanh thu · GTGT %'),
+        (id: 'S2c', title: 'S2c-HKD', subtitle: 'Doanh thu & chi phí'),
+        (id: 'S2d', title: 'S2d-HKD', subtitle: 'Chi tiết hàng hóa'),
+      ],
+      (id: 'S2e', title: 'S2e-HKD', subtitle: 'Sổ chi tiết tiền'),
+    ];
+  }
+
+  Future<void> _loadPreview() async {
+    setState(() {
+      _previewLoading = true;
+      _previewError = null;
+    });
+    try {
+      final res = await _api.getHkdBookPreview(
+        book: _selectedBook,
+        from: _time.from,
+        to: _time.to,
+      );
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        setState(() {
+          _preview = Map<String, dynamic>.from(res['data'] as Map);
+          _previewLoading = false;
+        });
+      } else {
+        setState(() {
+          _preview = null;
+          _previewLoading = false;
+          _previewError = '${res['message'] ?? 'Không tải được sổ'}';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _preview = null;
+        _previewLoading = false;
+        _previewError = '$e';
+      });
+    }
+  }
+
+  Future<void> _selectBook(String book) async {
+    if (_selectedBook == book) {
+      await _loadPreview();
+      return;
+    }
+    setState(() => _selectedBook = book);
+    await _loadPreview();
+  }
+
+  Future<void> _exportSelected() async {
+    switch (_selectedBook) {
+      case 'S2c':
+        await _exportBytes(
+          _api.exportHkdIncomeExpenseBookExcel(from: _time.from, to: _time.to),
+          'SoDoanhThuChiPhi_S2c-HKD_$_stamp.xlsx',
+        );
+        return;
+      case 'S2d':
+        await _exportBytes(
+          _api.exportHkdInventoryBookExcel(from: _time.from, to: _time.to),
+          'SoChiTietHangHoa_S2d-HKD_$_stamp.xlsx',
+        );
+        return;
+      case 'S2e':
+        await _exportBytes(
+          _api.exportHkdCashBookExcel(from: _time.from, to: _time.to),
+          'SoChiTietTien_S2e-HKD_$_stamp.xlsx',
+        );
+        return;
+      default:
+        await _exportBytes(
+          _api.exportHkdRevenueBookExcel(
+            book: _selectedBook,
+            from: _time.from,
+            to: _time.to,
+          ),
+          'SoDoanhThu_${_selectedBook}-HKD_$_stamp.xlsx',
+        );
+    }
   }
 
   void _applyGroup(int v) {
@@ -208,7 +311,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  tr('Theo Thông tư 152/2025/TT-BTC. Chọn nhóm theo doanh thu năm rồi xuất Excel.'),
+                  tr('Theo Thông tư 152/2025/TT-BTC. Xem chi tiết trên màn hình; xuất Excel khi cần nộp cơ quan thuế.'),
                   style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
                 ),
                 const SizedBox(height: 16),
@@ -245,7 +348,14 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
                         onChanged: canEdit
                             ? (v) {
                                 if (v == null) return;
-                                setState(() => _applyGroup(v));
+                                setState(() {
+                                  _applyGroup(v);
+                                  final ids = _visibleBooks.map((b) => b.id).toSet();
+                                  if (!ids.contains(_selectedBook)) {
+                                    _selectedBook = _defaultBook(v);
+                                  }
+                                });
+                                _loadPreview();
                               }
                             : null,
                       ),
@@ -340,18 +450,21 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(tr('Kỳ dữ liệu xuất sổ'),
+                      Text(tr('Kỳ dữ liệu'),
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                       const SizedBox(height: 12),
                       PosKiotTimeFilter(
                         state: _time,
-                        onChanged: (v) => setState(() => _time = v),
+                        onChanged: (v) {
+                          setState(() => _time = v);
+                          _loadPreview();
+                        },
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 16),
-                _card(child: _buildExportCard(canExport)),
+                _card(child: _buildBookCard(canExport)),
                 if (_exporting) ...[
                   const SizedBox(height: 12),
                   const LinearProgressIndicator(),
@@ -373,105 +486,43 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
     );
   }
 
-  Widget _buildExportCard(bool canExport) {
-    final showS1a = _taxGroup == 1;
-    final showS2a = _taxGroup == 2;
-    final showGroup3 = _taxGroup == 3;
+  Widget _buildBookCard(bool canExport) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(tr('Xuất Excel theo mẫu TT152'),
+        Text(tr('Sổ theo mẫu TT152'),
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Text(
-          tr(showGroup3
-              ? 'S2b từ đơn bán; S2c từ bán hàng + phiếu chi + phiếu nhập; S2d từ thẻ kho; S2e từ sổ thu chi.'
-              : 'Dữ liệu lấy từ đơn bán hoàn thành (S1a/S2a) và sổ thu chi đã hoàn tất (S2e).'),
+          tr('Chọn sổ để xem bảng chi tiết ngay trên màn hình. Xuất Excel chỉ khi cần nộp.'),
           style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
         ),
-        const SizedBox(height: 14),
-        if (showS1a)
-          _exportTile(
-            title: 'S1a-HKD — Sổ doanh thu',
-            subtitle: 'Dưới 1 tỷ: ngày · diễn giải · số tiền',
-            enabled: canExport && !_exporting,
-            onTap: () => _exportBytes(
-              _api.exportHkdRevenueBookExcel(book: 'S1a', from: _time.from, to: _time.to),
-              'SoDoanhThu_S1a-HKD_$_stamp.xlsx',
-            ),
-          ),
-        if (showS2a)
-          _exportTile(
-            title: 'S2a-HKD — Sổ doanh thu theo %',
-            subtitle: '1–3 tỷ: số CT · ngày · doanh thu · thuế ước tính',
-            enabled: canExport && !_exporting,
-            onTap: () => _exportBytes(
-              _api.exportHkdRevenueBookExcel(book: 'S2a', from: _time.from, to: _time.to),
-              'SoDoanhThu_S2a-HKD_$_stamp.xlsx',
-            ),
-          ),
-        if (showGroup3) ...[
-          _exportTile(
-            title: 'S2b-HKD — Sổ doanh thu (GTGT %)',
-            subtitle: 'Trên 3 tỷ: doanh thu theo ngành · ước tính GTGT',
-            enabled: canExport && !_exporting,
-            onTap: () => _exportBytes(
-              _api.exportHkdRevenueBookExcel(book: 'S2b', from: _time.from, to: _time.to),
-              'SoDoanhThu_S2b-HKD_$_stamp.xlsx',
-            ),
-          ),
-          _exportTile(
-            title: 'S2c-HKD — Doanh thu & chi phí',
-            subtitle: 'Bán hàng − phiếu chi − nhập hàng → thu nhập tính thuế',
-            enabled: canExport && !_exporting,
-            onTap: () => _exportBytes(
-              _api.exportHkdIncomeExpenseBookExcel(from: _time.from, to: _time.to),
-              'SoDoanhThuChiPhi_S2c-HKD_$_stamp.xlsx',
-            ),
-          ),
-          _exportTile(
-            title: 'S2d-HKD — Chi tiết hàng hóa',
-            subtitle: 'Nhập · xuất · tồn theo thẻ kho từng SKU',
-            enabled: canExport && !_exporting,
-            onTap: () => _exportBytes(
-              _api.exportHkdInventoryBookExcel(from: _time.from, to: _time.to),
-              'SoChiTietHangHoa_S2d-HKD_$_stamp.xlsx',
-            ),
-          ),
-        ],
-        _exportTile(
-          title: 'S2e-HKD — Sổ chi tiết tiền',
-          subtitle: 'Thu / chi tiền mặt & chuyển khoản',
-          enabled: canExport && !_exporting,
-          onTap: () => _exportBytes(
-            _api.exportHkdCashBookExcel(from: _time.from, to: _time.to),
-            'SoChiTietTien_S2e-HKD_$_stamp.xlsx',
-          ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _visibleBooks.map((b) {
+            final selected = _selectedBook == b.id;
+            return FilterChip(
+              selected: selected,
+              label: Text('${b.title} · ${b.subtitle}'),
+              onSelected: (_) => _selectBook(b.id),
+              selectedColor: PosTheme.kiotBlue.withOpacity(0.12),
+              checkmarkColor: PosTheme.kiotBlue,
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+        HkdBookPreviewPanel(
+          preview: _preview,
+          loading: _previewLoading,
+          error: _previewError,
+          accent: PosTheme.kiotBlue,
+          canExport: canExport,
+          exporting: _exporting,
+          onExport: _exportSelected,
         ),
       ],
-    );
-  }
-
-  Widget _exportTile({
-    required String title,
-    required String subtitle,
-    required bool enabled,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: PosTheme.kiotBlue.withOpacity(0.1),
-        child: const Icon(Icons.table_view_outlined, color: PosTheme.kiotBlue, size: 20),
-      ),
-      title: Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(tr(subtitle), style: const TextStyle(fontSize: 12)),
-      trailing: FilledButton.icon(
-        onPressed: enabled ? onTap : null,
-        style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-        icon: const Icon(Icons.download, size: 16),
-        label: Text(tr('Xuất')),
-      ),
     );
   }
 }

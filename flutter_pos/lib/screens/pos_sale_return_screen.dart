@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +10,7 @@ import '../models/pos_sale_order.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../utils/pos_sale_order_print.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../widgets/pos/pos_cancel_return_reason_dialog.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
@@ -282,6 +285,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
       final refund = res['data'] is Map
           ? (res['data'] as Map)['refundTotal']
           : null;
+      final refundAmt = _num(refund);
       final stockLines = bodyLines
           .map(
             (line) => PosSellStockLineDelta(
@@ -296,11 +300,44 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
       NotificationOverlayManager().showSuccess(
         title: 'Trả hàng thành công',
         message: refund != null
-            ? 'Hoàn ${_moneyFmt.format(_num(refund))} · $_refundPaymentMethod'
+            ? 'Hoàn ${_moneyFmt.format(refundAmt)} · $_refundPaymentMethod'
             : 'Đã ghi nhận trả hàng · ${order.orderNo}',
       );
       ScreenRefreshNotifier.refreshPosAfterStockChange(sellStockLines: stockLines);
-      Navigator.of(context).pop(true);
+
+      // In phiếu trả hàng gọn (máy hóa đơn / Print Agent).
+      final printLines = <PosSaleOrderLine>[];
+      for (final rl in _lines) {
+        final qty = _returnQty(rl);
+        if (qty <= 0) continue;
+        final unit = _unitRefund(rl.line);
+        printLines.add(PosSaleOrderLine(
+          id: rl.line.id,
+          productId: rl.line.productId,
+          variantId: rl.line.variantId,
+          productName: rl.line.productName,
+          unitName: rl.line.unitName,
+          qty: qty,
+          unitPrice: unit,
+          lineTotal: unit * qty,
+          lineNote: rl.line.lineNote,
+        ));
+      }
+      if (printLines.isNotEmpty && mounted) {
+        unawaited(printPosSaleReturn(
+          context: context,
+          sourceOrder: order,
+          returnLines: printLines,
+          refundTotal: refundAmt > 0 ? refundAmt : _returnTotal,
+          note: [
+            if (note.isNotEmpty) note,
+            if (reasonResult.reason.isNotEmpty) 'Lý do: ${reasonResult.reason}',
+          ].join(' · '),
+          refundPaymentMethod: _refundPaymentMethod,
+        ));
+      }
+
+      if (mounted) Navigator.of(context).pop(true);
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi trả hàng',

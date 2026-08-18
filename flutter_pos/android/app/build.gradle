@@ -72,6 +72,47 @@ flutter {
     source = "../.."
 }
 
+// Flutter 3.22 + path có space đôi khi chỉ ghi AssetManifest, không copy file
+// (certs/fonts thiếu → A6 CERTIFICATE_VERIFY_FAILED + font lỗi). Ép copy lại.
+// SSL roots đã nhúng trong lib/utils/ssl_trust.dart; task này chủ yếu cho fonts/certs còn lại.
+tasks.configureEach { task ->
+    if (task.name == "mergeReleaseAssets" || task.name == "mergeDebugAssets") {
+        task.doLast {
+            def outProp = task.hasProperty("outputDir") ? task.outputDir : null
+            def out = outProp == null
+                ? null
+                : (outProp instanceof File ? outProp : outProp.get().asFile)
+            if (out == null) {
+                logger.warn("ensureFlutterAssets: no outputDir on ${task.name}")
+                return
+            }
+            def src = file("${project.projectDir}/../../assets")
+            if (!src.exists()) {
+                logger.warn("ensureFlutterAssets: missing ${src}")
+                return
+            }
+            copy {
+                from(src)
+                into(file("${out}/flutter_assets/assets"))
+            }
+            def miCandidates = [
+                file("${project.projectDir}/../../.fvm/flutter_sdk/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf"),
+                file("${System.env.FLUTTER_ROOT}/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf"),
+            ]
+            for (def mi : miCandidates) {
+                if (mi != null && mi.exists()) {
+                    copy {
+                        from(mi)
+                        into(file("${out}/flutter_assets/fonts"))
+                    }
+                    break
+                }
+            }
+            logger.lifecycle("ensureFlutterAssets: synced into ${out}/flutter_assets")
+        }
+    }
+}
+
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
     implementation files("libs/DS_Lib-1.0.16.aar")

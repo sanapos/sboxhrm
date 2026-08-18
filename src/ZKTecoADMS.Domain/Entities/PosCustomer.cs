@@ -39,6 +39,11 @@ public class PosCustomer : AuditableEntity<Guid>
     [MaxLength(50)]
     public string? TaxCode { get; set; }
 
+    public DateTime? Birthday { get; set; }
+
+    [MaxLength(500)]
+    public string? DeliveryAddress { get; set; }
+
     [MaxLength(1000)]
     public string? Note { get; set; }
 

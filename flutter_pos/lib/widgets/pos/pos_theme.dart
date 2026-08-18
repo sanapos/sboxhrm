@@ -23,6 +23,8 @@ abstract final class PosTheme {
   static const Color goodsColor = Color(0xFF2563EB);
   static const Color serviceColor = Color(0xFF7C3AED);
   static const Color comboColor = Color(0xFFEA580C);
+  static const Color materialColor = Color(0xFF0F766E);
+  static const Color toppingColor = Color(0xFFDB2777);
 
   static ButtonStyle filledButtonStyle = FilledButton.styleFrom(
     backgroundColor: primary,

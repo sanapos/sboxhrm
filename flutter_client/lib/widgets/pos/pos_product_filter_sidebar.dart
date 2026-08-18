@@ -128,16 +128,6 @@ class PosProductFilterSidebar extends StatelessWidget {
             onChanged: onLocationChanged,
           ),
           const SizedBox(height: 16),
-          _sectionHeader('Loại hàng'),
-          _typeDropdown(),
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              tr('Hàng hóa trừ kho · Dịch vụ không tồn · Combo trừ định lượng thành phần'),
-              style: TextStyle(fontSize: 11, height: 1.3, color: Colors.grey.shade600),
-            ),
-          ),
-          const SizedBox(height: 16),
           _sectionHeader('Thương hiệu', onManage: onManageBrand),
           _catalogDropdown(
             value: brandId,
@@ -145,9 +135,6 @@ class PosProductFilterSidebar extends StatelessWidget {
             hint: 'Chọn thương hiệu',
             onChanged: onBrandChanged,
           ),
-          const SizedBox(height: 16),
-          _sectionHeader('Bán trực tiếp'),
-          _directSaleDropdown(),
           const SizedBox(height: 12),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -155,7 +142,7 @@ class PosProductFilterSidebar extends StatelessWidget {
             title: Text(tr('Gồm ngừng kinh doanh'),
                 style: TextStyle(fontSize: 13)),
             value: includeInactive,
-            activeThumbColor: PosTheme.kiotBlue,
+            activeColor: PosTheme.kiotBlue,
             onChanged: onIncludeInactiveChanged,
           ),
         ],
@@ -215,7 +202,7 @@ class PosProductFilterSidebar extends StatelessWidget {
   }) {
     final valid = value != null && items.any((c) => c.id == value);
     return DropdownButtonFormField<String?>(
-      initialValue: valid ? value : null,
+      value: valid ? value : null,
       isExpanded: true,
       decoration: _fieldDecoration(hint),
       items: [
@@ -231,7 +218,7 @@ class PosProductFilterSidebar extends StatelessWidget {
 
   Widget _stockDropdown() {
     return DropdownButtonFormField<PosStockFilter>(
-      initialValue: stockFilter,
+      value: stockFilter,
       isExpanded: true,
       decoration: _fieldDecoration('Tất cả'),
       items: [
@@ -322,35 +309,6 @@ class PosProductFilterSidebar extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _typeDropdown() {
-    return DropdownButtonFormField<PosProductType?>(
-      initialValue: productType,
-      isExpanded: true,
-      decoration: _fieldDecoration('Tất cả'),
-      items: [
-        DropdownMenuItem<PosProductType?>(value: null, child: Text(tr('Tất cả'))),
-        DropdownMenuItem(value: PosProductType.goods, child: Text(tr('Hàng hóa'))),
-        DropdownMenuItem(value: PosProductType.service, child: Text(tr('Dịch vụ'))),
-        DropdownMenuItem(value: PosProductType.combo, child: Text(tr('Combo'))),
-      ],
-      onChanged: onProductTypeChanged,
-    );
-  }
-
-  Widget _directSaleDropdown() {
-    return DropdownButtonFormField<bool?>(
-      initialValue: directSaleFilter,
-      isExpanded: true,
-      decoration: _fieldDecoration('Tất cả'),
-      items: [
-        DropdownMenuItem<bool?>(value: null, child: Text(tr('Tất cả'))),
-        DropdownMenuItem(value: true, child: Text(tr('Có bán trực tiếp'))),
-        DropdownMenuItem(value: false, child: Text(tr('Không bán trực tiếp'))),
-      ],
-      onChanged: onDirectSaleFilterChanged,
     );
   }
 

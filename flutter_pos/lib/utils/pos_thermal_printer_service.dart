@@ -271,23 +271,61 @@ class PosThermalPrinterService {
 
 
   /// In từ mẫu V2 đã biên dịch (bitmap Zywell / ESC/POS).
+  ///
+  /// Chế độ ảnh: cùng [compiledStepToImageLine] như A6 Sunmi native —
+  /// 4 cột hàng hóa, không ép chuỗi monospace (Agent/XP-80C hay lệch cột).
   static Future<List<int>> buildCompiledEscPosBytes(
     PosPrintCompiledOutput output, {
     required PosThermalPrinterSettings settings,
   }) async {
     final b = await _EscPosBuilder.create(settings);
     for (final step in output.steps) {
+      if (step is PosPrintCompiledQr) {
+        if (b._useImageBatch) await b.flushImageBatch();
+        b.center();
+        if (step.title != null && step.title!.trim().isNotEmpty) {
+          await b.line(step.title!.trim());
+        }
+        if (b._useImageBatch) await b.flushImageBatch();
+        final raster = await PosThermalBitmapEncoder.networkPngToEscPos(
+          step.imageUrl,
+          maxWidth: step.size,
+        );
+        if (raster != null) {
+          b.appendRaw(raster);
+        }
+        if (step.caption.trim().isNotEmpty) {
+          await b.line(step.caption.trim());
+        }
+        if (step.amountText != null && step.amountText!.trim().isNotEmpty) {
+          await b.line('${step.amountText!.trim()} đ');
+        }
+        continue;
+      }
+      if (step is PosPrintCompiledBarcode) {
+        if (b._useImageBatch) await b.flushImageBatch();
+        b.printCode128(
+          step.data,
+          height: step.height,
+          showText: step.showText,
+        );
+        continue;
+      }
+
+      // Ảnh: pipeline V2 giống A6 (cột SL / Đ.giá / TT).
+      if (b._useImageBatch) {
+        final img = compiledStepToImageLine(step);
+        if (img != null) b.queueReceiptImageLine(img);
+        continue;
+      }
+
       if (step is PosPrintCompiledLine) {
         final line = step;
         if (line.isDivider) {
-          if (b._useImageBatch) {
-            b._queueImageLine('', isDivider: true);
-          } else {
-            b.left();
-            b.appendRaw(PosThermalBitmapEncoder.horizontalRuleEscPos(
-              paperDots: PosThermalBitmapEncoder.paperDots(settings.paperWidthMm),
-            ));
-          }
+          b.left();
+          b.appendRaw(PosThermalBitmapEncoder.horizontalRuleEscPos(
+            paperDots: PosThermalBitmapEncoder.paperDots(settings.paperWidthMm),
+          ));
           continue;
         }
         if (line.center) {
@@ -323,30 +361,6 @@ class PosThermalPrinterService {
         } else {
           await b.pair(step.left, step.right);
         }
-      } else if (step is PosPrintCompiledQr) {
-        b.center();
-        if (step.title != null && step.title!.trim().isNotEmpty) {
-          await b.line(step.title!.trim());
-        }
-        final raster = await PosThermalBitmapEncoder.networkPngToEscPos(
-          step.imageUrl,
-          maxWidth: step.size,
-        );
-        if (raster != null) {
-          b.appendRaw(raster);
-        }
-        if (step.caption.trim().isNotEmpty) {
-          await b.line(step.caption.trim());
-        }
-        if (step.amountText != null && step.amountText!.trim().isNotEmpty) {
-          await b.line('${step.amountText!.trim()} đ');
-        }
-      } else if (step is PosPrintCompiledBarcode) {
-        b.printCode128(
-          step.data,
-          height: step.height,
-          showText: step.showText,
-        );
       }
     }
     await b.finishAsync();
@@ -1029,6 +1043,24 @@ class _EscPosBuilder {
         isDivider: isDivider,
       ),
     );
+  }
+
+  /// Hàng ảnh từ mẫu V2 (có cột sale) — khớp A6 Sunmi.
+  void queueReceiptImageLine(PosReceiptImageLine line) {
+    _imageLines.add(line);
+  }
+
+  /// Đẩy batch ảnh ra ESC/POS trước QR/barcode (giữ đúng thứ tự in).
+  Future<void> flushImageBatch() async {
+    if (!_useImageBatch || _imageLines.isEmpty) return;
+    final raster = await PosThermalBitmapEncoder.receiptToRaster(
+      _imageLines,
+      paperDots: _paperDots,
+    );
+    _imageLines.clear();
+    if (raster != null && PosThermalBitmapEncoder.rasterHasInk(raster)) {
+      _add(raster);
+    }
   }
 
   Future<void> line(String text) async {

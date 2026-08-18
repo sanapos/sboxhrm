@@ -126,6 +126,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   bool get _isHourly => widget.sellProfile == PosSellProfile.roomHourly;
   bool get _isSalon => widget.sellProfile == PosSellProfile.salon;
   String get _bookingChipLabel {
+    if (_isFnB) return 'Đặt hôm nay';
     final p = widget.sellProfile;
     if (p == null) return 'Lịch đặt';
     return p.bookingCalendarTitle;
@@ -676,40 +677,71 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   Future<int?> _promptGuestCount(PosServiceResourceDto r) async {
     final maxGuests = r.capacity > 0 ? r.capacity : 99;
-    final ctrl = TextEditingController(text: tr('2'));
+    var guests = maxGuests < 2 ? 1 : 2;
+    final ctrl = TextEditingController(text: '$guests');
     final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Mở ${r.name}')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              tr(r.capacity > 0 ? 'Số khách (tối đa $maxGuests)' : 'Số khách'),
-              style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
-            ),
-            const SizedBox(height: 8),
-            PosNoSoftKeyboardField(
-              controller: ctrl,
-              allowDecimal: false,
-              autofocus: true,
-              keypadTitle: 'Số khách',
-              decoration: InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: tr('VD: 4'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(tr('Mở ${r.name}')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                tr(r.capacity > 0
+                    ? 'Số khách (tối đa $maxGuests)'
+                    : 'Số khách'),
+                style: const TextStyle(
+                    fontSize: 13, color: PosTheme.textSecondary),
               ),
-            ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final n in const [1, 2, 4, 6, 8])
+                    if (n <= maxGuests)
+                      ChoiceChip(
+                        label: Text('$n'),
+                        selected: guests == n,
+                        onSelected: (_) => setLocal(() {
+                          guests = n;
+                          ctrl.text = '$n';
+                        }),
+                      ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              PosNoSoftKeyboardField(
+                controller: ctrl,
+                allowDecimal: false,
+                keypadTitle: 'Số khách',
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: tr('Số khác'),
+                  isDense: true,
+                ),
+                onChanged: (v) {
+                  final n = int.tryParse(v.trim());
+                  if (n != null) setLocal(() => guests = n.clamp(1, maxGuests));
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(tr('Huỷ'))),
+            FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(tr('Mở bàn'))),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Mở bàn'))),
-        ],
       ),
     );
     if (ok != true) return null;
-    final n = int.tryParse(ctrl.text.trim()) ?? 2;
+    final n = int.tryParse(ctrl.text.trim()) ?? guests;
     return n.clamp(1, maxGuests);
   }
 
@@ -751,62 +783,41 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Future<void> _showReservedActions(PosServiceResourceDto r) async {
     final depositHeld = (r.reservationDepositStatus ?? '').toLowerCase() == 'held' &&
         r.reservationDepositPaid > 0;
-    final action = await showModalBottomSheet<String>(
+    final tableLabel =
+        formatPosTableLabel(areaName: r.areaName, tableName: r.name);
+    final summary = [
+      r.reservationCustomerName ?? 'Khách đặt',
+      if ((r.reservationPhone ?? '').isNotEmpty) r.reservationPhone!,
+      if (r.reservationGuestCount > 0) '${r.reservationGuestCount} khách',
+      if (r.reservationReservedUntil != null)
+        'Đến ${DateFormat('dd/MM HH:mm').format(r.reservationReservedUntil!.toLocal())}',
+      if (r.reservationPreOrderCount > 0)
+        '${r.reservationPreOrderCount} món đặt trước',
+      if (r.reservationDepositPaid > 0)
+        'Cọc ${_moneyFmt.format(r.reservationDepositPaid)}đ'
+            '${r.reservationDepositStatus != null ? ' (${r.reservationDepositStatus})' : ''}',
+    ].join(' · ');
+    final action = await showDialog<String>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(
-                tr(formatPosTableLabel(areaName: r.areaName, tableName: r.name)),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(tr([
-                r.reservationCustomerName ?? 'Khách đặt',
-                if ((r.reservationPhone ?? '').isNotEmpty) r.reservationPhone!,
-                if (r.reservationGuestCount > 0)
-                  '${r.reservationGuestCount} khách',
-                if (r.reservationReservedUntil != null)
-                  'Đến ${DateFormat('dd/MM HH:mm').format(r.reservationReservedUntil!.toLocal())}',
-                if (r.reservationPreOrderCount > 0)
-                  '${r.reservationPreOrderCount} món đặt trước',
-                if (r.reservationDepositPaid > 0)
-                  'Cọc ${_moneyFmt.format(r.reservationDepositPaid)}đ'
-                      '${r.reservationDepositStatus != null ? ' (${r.reservationDepositStatus})' : ''}',
-              ].join(' · '))),
+      builder: (ctx) => AlertDialog(
+        title: Text(tr(tableLabel)),
+        content: Text(tr(summary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'cancel'),
+            child: Text(tr('Hủy đặt'),
+                style: const TextStyle(color: Colors.red)),
+          ),
+          if (!depositHeld)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'deposit'),
+              child: Text(tr('Thu cọc')),
             ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.login, color: PosTheme.kiotBlue),
-              title: Text(tr('Khách đến — nhận bàn')),
-              subtitle: Text(tr(depositHeld
-                  ? 'Mở bàn, đưa món đặt trước, trừ cọc vào đơn'
-                  : 'Mở bàn + đưa món đặt trước vào đơn')),
-              onTap: () => Navigator.pop(ctx, 'seat'),
-            ),
-            if (!depositHeld)
-              ListTile(
-                leading: const Icon(Icons.payments_outlined,
-                    color: Color(0xFF059669)),
-                title: Text(tr('Thu cọc giữ chỗ')),
-                onTap: () => Navigator.pop(ctx, 'deposit'),
-              ),
-            ListTile(
-              leading: const Icon(Icons.cancel_outlined, color: Colors.red),
-              title: Text(tr('Hủy đặt bàn')),
-              subtitle: depositHeld
-                  ? Text(tr('Chọn hoàn cọc hoặc mất cọc'))
-                  : null,
-              onTap: () => Navigator.pop(ctx, 'cancel'),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, 'seat'),
+            child: Text(tr('Nhận bàn')),
+          ),
+        ],
       ),
     );
     if (action == null || !mounted) return;
@@ -1070,8 +1081,15 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             Navigator.pop(ctx);
-                            unawaited(_openAppointmentCalendar(
-                                resourceId: b.resourceId));
+                            final table = _resources
+                                .where((x) => x.id == b.resourceId)
+                                .firstOrNull;
+                            if (table != null && table.isReserved) {
+                              unawaited(_showReservedActions(table));
+                            } else {
+                              unawaited(_openAppointmentCalendar(
+                                  resourceId: b.resourceId));
+                            }
                           },
                         );
                       },
@@ -1086,16 +1104,28 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Future<void> _showReserveDialog(PosServiceResourceDto r) async {
     final nameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
-    final guestCtrl = TextEditingController(text: tr('2'));
+    final guestCtrl = TextEditingController(text: '2');
     final noteCtrl = TextEditingController();
     final depositCtrl = TextEditingController();
     final depositPaidCtrl = TextEditingController();
     String? customerId;
     final preItems = <Map<String, dynamic>>[];
-    // Mặc định: hôm nay, giờ hiện tại làm tròn +1 giờ.
+    var guests = 2;
     final now = DateTime.now();
     var arriveDate = DateTime(now.year, now.month, now.day);
-    var arriveTime = TimeOfDay(hour: (now.hour + 1) % 24, minute: 0);
+    var arriveTime = () {
+      var h = now.hour;
+      var m = now.minute;
+      if (m == 0) {
+        m = 30;
+      } else if (m <= 30) {
+        m = 30;
+      } else {
+        m = 0;
+        h = (h + 1) % 24;
+      }
+      return TimeOfDay(hour: h, minute: m);
+    }();
     final tableLabel = r.areaName.trim().isEmpty
         ? r.name
         : '${r.areaName} · ${r.name}';
@@ -1149,70 +1179,129 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     keyboardType: TextInputType.phone,
                   ),
                   const SizedBox(height: 10),
-                  TextField(
-                    controller: guestCtrl,
-                    decoration: InputDecoration(
-                      labelText: tr('Số khách'),
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(tr('Số khách'),
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final n in const [2, 4, 6, 8])
+                        ChoiceChip(
+                          label: Text('$n'),
+                          selected: guests == n,
+                          onSelected: (_) => setLocal(() {
+                            guests = n;
+                            guestCtrl.text = '$n';
+                          }),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 10),
-                  Row(
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(tr('Ngày đến'),
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final d = await showDatePicker(
-                              context: ctx,
-                              initialDate: arriveDate,
-                              firstDate: DateTime(now.year, now.month, now.day),
-                              lastDate: now.add(const Duration(days: 365)),
-                              locale: appUiLocale(),
-                            );
-                            if (d != null) {
-                              setLocal(() => arriveDate =
-                                  DateTime(d.year, d.month, d.day));
-                            }
-                          },
-                          icon: const Icon(Icons.calendar_today, size: 18),
-                          label: Text(
-                            tr(DateFormat('dd/MM/yyyy').format(arriveDate)),
-                          ),
-                        ),
+                      ChoiceChip(
+                        label: Text(tr('Hôm nay')),
+                        selected: arriveDate ==
+                            DateTime(now.year, now.month, now.day),
+                        onSelected: (_) => setLocal(() => arriveDate =
+                            DateTime(now.year, now.month, now.day)),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () async {
-                            final t = await showTimePicker(
-                              context: ctx,
-                              initialTime: arriveTime,
-                              builder: (c, child) => MediaQuery(
-                                data: MediaQuery.of(c).copyWith(
-                                  alwaysUse24HourFormat: true,
-                                ),
-                                child: child ?? const SizedBox.shrink(),
-                              ),
-                            );
-                            if (t != null) setLocal(() => arriveTime = t);
-                          },
-                          icon: const Icon(Icons.access_time, size: 18),
-                          label: Text(
-                            tr('${arriveTime.hour.toString().padLeft(2, '0')}:'
-                            '${arriveTime.minute.toString().padLeft(2, '0')}'),
-                          ),
+                      ChoiceChip(
+                        label: Text(tr('Ngày mai')),
+                        selected: arriveDate ==
+                            DateTime(now.year, now.month, now.day)
+                                .add(const Duration(days: 1)),
+                        onSelected: (_) => setLocal(() => arriveDate =
+                            DateTime(now.year, now.month, now.day)
+                                .add(const Duration(days: 1))),
+                      ),
+                      ActionChip(
+                        label: Text(
+                          tr(DateFormat('dd/MM').format(arriveDate)),
                         ),
+                        onPressed: () async {
+                          final d = await showDatePicker(
+                            context: ctx,
+                            initialDate: arriveDate,
+                            firstDate: DateTime(now.year, now.month, now.day),
+                            lastDate: now.add(const Duration(days: 365)),
+                            locale: appUiLocale(),
+                          );
+                          if (d != null) {
+                            setLocal(() => arriveDate =
+                                DateTime(d.year, d.month, d.day));
+                          }
+                        },
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 10),
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(tr('Ngày / giờ khách đến'),
-                      style: TextStyle(
-                          fontSize: 12, color: PosTheme.textSecondary),
-                    ),
+                    child: Text(tr('Giờ đến'),
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final t in [
+                        arriveTime,
+                        const TimeOfDay(hour: 18, minute: 0),
+                        const TimeOfDay(hour: 18, minute: 30),
+                        const TimeOfDay(hour: 19, minute: 0),
+                        const TimeOfDay(hour: 19, minute: 30),
+                        const TimeOfDay(hour: 20, minute: 0),
+                      ].fold<List<TimeOfDay>>([], (acc, t) {
+                        if (acc.any(
+                            (x) => x.hour == t.hour && x.minute == t.minute)) {
+                          return acc;
+                        }
+                        acc.add(t);
+                        return acc;
+                      }))
+                        ChoiceChip(
+                          label: Text(
+                            '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}',
+                          ),
+                          selected: arriveTime.hour == t.hour &&
+                              arriveTime.minute == t.minute,
+                          onSelected: (_) =>
+                              setLocal(() => arriveTime = t),
+                        ),
+                      ActionChip(
+                        avatar: const Icon(Icons.schedule, size: 16),
+                        label: Text(tr('Khác')),
+                        onPressed: () async {
+                          final t = await showTimePicker(
+                            context: ctx,
+                            initialTime: arriveTime,
+                            builder: (c, child) => MediaQuery(
+                              data: MediaQuery.of(c).copyWith(
+                                alwaysUse24HourFormat: true,
+                              ),
+                              child: child ?? const SizedBox.shrink(),
+                            ),
+                          );
+                          if (t != null) setLocal(() => arriveTime = t);
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -1347,7 +1436,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       );
       return;
     }
-    final guests = int.tryParse(guestCtrl.text.trim()) ?? 1;
+    guests = int.tryParse(guestCtrl.text.trim()) ?? guests;
+    if (guests < 1) guests = 1;
     final arriveLocal = DateTime(
       arriveDate.year,
       arriveDate.month,
@@ -4409,8 +4499,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                   style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14)),
-                              onPressed: () =>
-                                  unawaited(_openAppointmentCalendar()),
+                              onPressed: () => unawaited(
+                                _isSalon || _isHourly
+                                    ? _openAppointmentCalendar()
+                                    : _showTodayReservations(),
+                              ),
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 10),
                               visualDensity: VisualDensity.standard,
@@ -4608,7 +4701,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 ],
                 IconButton(
                   tooltip: tr(_bookingChipLabel),
-                  onPressed: () => unawaited(_openAppointmentCalendar()),
+                  onPressed: () => unawaited(
+                    _isSalon || _isHourly
+                        ? _openAppointmentCalendar()
+                        : _showTodayReservations(),
+                  ),
                   icon: const Icon(Icons.calendar_month_outlined),
                 ),
                 IconButton(

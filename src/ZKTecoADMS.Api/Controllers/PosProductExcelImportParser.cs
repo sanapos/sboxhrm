@@ -195,18 +195,7 @@ internal static class PosProductExcelImportParser
 
 
             var typeRaw = Cell(ws, r, cols.TypeCol);
-
-            var lower = typeRaw.ToLowerInvariant();
-
-            var productType =
-
-                lower.Contains("combo") ? PosProductType.Combo
-
-                : lower.Contains("dịch vụ") || lower.Contains("dich vu") || lower.Contains("service")
-
-                    ? PosProductType.Service
-
-                    : PosProductType.Goods;
+            var productType = PosProductTypeRules.Parse(typeRaw);
 
 
 
@@ -512,18 +501,22 @@ internal static class PosProductExcelImportParser
 
 
 
-    static string Norm(string s) =>
+    static string Norm(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return string.Empty;
+        var sb = new StringBuilder(s.Length);
+        foreach (var ch in s.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD))
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark)
+                continue;
+            sb.Append(ch);
+        }
 
-        Regex.Replace(Encoding.UTF8.GetString(Encoding.UTF8.GetBytes(
-
-            s.Trim().ToLowerInvariant()
-
-                .Replace("đ", "d").Replace("ă", "a").Replace("â", "a")
-
-                .Replace("ê", "e").Replace("ô", "o").Replace("ơ", "o")
-
-                .Replace("ư", "u"))), @"[^a-z0-9]", "");
-
+        return Regex.Replace(
+            sb.ToString().Replace('đ', 'd').Replace('Đ', 'd'),
+            @"[^a-z0-9]",
+            "");
+    }
 
 
     static decimal ParseDec(string s) =>

@@ -8,6 +8,7 @@ class PosPrintTemplate {
     this.isDefault = false,
     this.isActive = true,
     this.sortOrder = 0,
+    this.sourceCatalogId,
   });
 
   final String id;
@@ -18,6 +19,8 @@ class PosPrintTemplate {
   final bool isDefault;
   final bool isActive;
   final int sortOrder;
+  /// Id mẫu chung đã clone (nếu có).
+  final String? sourceCatalogId;
 
   /// Tên hiển thị rõ loại + khổ (đổi tên cũ «Khổ K80 - Mẫu 1»).
   String get displayTitle {
@@ -57,6 +60,8 @@ class PosPrintTemplate {
         isDefault: json['isDefault'] == true,
         isActive: json['isActive'] != false,
         sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+        sourceCatalogId: (json['sourceCatalogId'] ?? json['SourceCatalogId'])
+            ?.toString(),
       );
 
   Map<String, dynamic> toSaveJson() => {
@@ -77,6 +82,7 @@ class PosPrintTemplate {
     bool? isDefault,
     bool? isActive,
     int? sortOrder,
+    String? sourceCatalogId,
   }) =>
       PosPrintTemplate(
         id: id,
@@ -87,6 +93,42 @@ class PosPrintTemplate {
         isDefault: isDefault ?? this.isDefault,
         isActive: isActive ?? this.isActive,
         sortOrder: sortOrder ?? this.sortOrder,
+        sourceCatalogId: sourceCatalogId ?? this.sourceCatalogId,
+      );
+}
+
+/// Mẫu chung (soạn sẵn) — cửa hàng chọn «Dùng mẫu này» để clone.
+class PosPrintTemplateCatalog {
+  const PosPrintTemplateCatalog({
+    required this.id,
+    required this.name,
+    required this.documentType,
+    required this.paperSize,
+    required this.htmlContent,
+    this.isRecommended = false,
+    this.isActive = true,
+    this.sortOrder = 0,
+  });
+
+  final String id;
+  final String name;
+  final String documentType;
+  final String paperSize;
+  final String htmlContent;
+  final bool isRecommended;
+  final bool isActive;
+  final int sortOrder;
+
+  factory PosPrintTemplateCatalog.fromJson(Map<String, dynamic> json) =>
+      PosPrintTemplateCatalog(
+        id: json['id']?.toString() ?? '',
+        name: json['name']?.toString() ?? '',
+        documentType: json['documentType']?.toString() ?? 'SaleInvoice',
+        paperSize: json['paperSize']?.toString() ?? 'K80',
+        htmlContent: json['htmlContent']?.toString() ?? '',
+        isRecommended: json['isRecommended'] == true,
+        isActive: json['isActive'] != false,
+        sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -330,11 +372,9 @@ abstract final class PosPrintPaperSizes {
       case 'roll_1_100x150':
       case label100x150:
         return (100, 150);
-      case 'roll_2_72x22':
-      case label35x22x2:
+      case label35x22x2: // == roll_2_72x22
         return (36, 22);
-      case 'roll_3_104x22':
-      case label35x22x3:
+      case label35x22x3: // == roll_3_104x22
         return (34.67, 22);
       case 'roll_1_100x50':
         return (100, 50);

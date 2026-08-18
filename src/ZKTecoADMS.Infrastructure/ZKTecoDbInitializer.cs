@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.Authorization;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure.Helpers;
@@ -1373,6 +1374,10 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""DefaultCostPrice"" numeric(18,2) NULL;
                     ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""VatRate"" numeric(9,4) NOT NULL DEFAULT 8;
                     ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""VatExempt"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""SellProfiles"" character varying(200) NULL;
+                    ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""ServiceBillingMode"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""SessionPackCount"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""SessionPackValidDays"" integer NOT NULL DEFAULT 0;
                     CREATE INDEX IF NOT EXISTS ""IX_PosProductSampleCatalog_Barcode""
                         ON ""PosProductSampleCatalog"" (""Barcode"");
                     CREATE INDEX IF NOT EXISTS ""IX_PosProductSampleCatalog_Kind_Sort""
@@ -1382,12 +1387,38 @@ public class ZKTecoDbInitializer(
                     CREATE INDEX IF NOT EXISTS ""IX_PosProductSampleCatalog_Name""
                         ON ""PosProductSampleCatalog"" (""Name"");
 
+                    CREATE TABLE IF NOT EXISTS ""PosProductSampleCategory"" (
+                        ""Id"" uuid NOT NULL,
+                        ""Name"" character varying(200) NOT NULL,
+                        ""ParentId"" uuid NULL,
+                        ""Kind"" integer NULL,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosProductSampleCategory"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductSampleCategory_Name""
+                        ON ""PosProductSampleCategory"" (""Name"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductSampleCategory_Kind_Sort""
+                        ON ""PosProductSampleCategory"" (""Kind"", ""SortOrder"");
+                    ALTER TABLE ""PosProductSampleCatalog"" ADD COLUMN IF NOT EXISTS ""CategoryId"" uuid NULL;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosProductSampleCatalog_CategoryId""
+                        ON ""PosProductSampleCatalog"" (""CategoryId"");
+
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowMobile"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""MaxBranches"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowFcm"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowedFcmCategories"" text NOT NULL DEFAULT '[]';
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""IsPublic"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowMobile"" boolean NOT NULL DEFAULT true;
@@ -2061,87 +2092,8 @@ public class ZKTecoDbInitializer(
         if (await context.PosProductSampleCatalog.AnyAsync(x => x.Deleted == null))
             return;
 
-        void Add(
-            PosProductSampleKind kind,
-            PosProductType type,
-            string name,
-            string unit,
-            string cat,
-            string? barcode = null,
-            decimal? price = null,
-            decimal? cost = null,
-            string? brand = null,
-            decimal vat = 8,
-            bool vatExempt = false,
-            int sort = 0,
-            string? desc = null)
-        {
-            context.PosProductSampleCatalog.Add(new PosProductSampleCatalog
-            {
-                Id = Guid.NewGuid(),
-                Kind = kind,
-                ProductType = type,
-                Name = name,
-                UnitName = unit,
-                CategoryName = cat,
-                BrandName = brand,
-                Barcode = barcode,
-                DefaultPrice = price,
-                DefaultCostPrice = cost,
-                VatRate = vatExempt ? 0 : vat,
-                VatExempt = vatExempt,
-                Description = desc,
-                SortOrder = sort,
-                IsActive = true,
-                CreatedBy = "System",
-            });
-        }
-
-        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Coca Cola 330ml", "Lon", "Nước giải khát",
-            "8934588012013", 10000, 7000, "Coca-Cola", sort: 1);
-        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Pepsi 330ml", "Lon", "Nước giải khát",
-            "8934588012020", 10000, 7000, "Pepsi", sort: 2);
-        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Sting dâu 330ml", "Lon", "Nước giải khát",
-            "8934588012037", 11000, 7500, "Sting", sort: 3);
-        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Aquafina 500ml", "Chai", "Nước suối",
-            "8934588060014", 7000, 4000, "Aquafina", sort: 4);
-
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Cơm tấm sườn", "Phần", "Món chính",
-            price: 45000, cost: 25000, sort: 1);
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Phở bò", "Tô", "Món chính",
-            price: 55000, cost: 30000, sort: 2);
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Bún chả", "Suất", "Món chính",
-            price: 50000, cost: 28000, sort: 3);
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Bánh mì thịt", "Cái", "Ăn nhanh",
-            price: 25000, cost: 12000, sort: 4);
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Gỏi cuốn", "Phần", "Khai vị",
-            price: 35000, cost: 18000, sort: 5);
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Nem rán", "Phần", "Khai vị",
-            price: 30000, cost: 15000, sort: 6);
-
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Trà sữa truyền thống", "Ly", "Trà sữa",
-            price: 30000, cost: 12000, sort: 1);
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Trà đào cam sả", "Ly", "Trà trái cây",
-            price: 35000, cost: 14000, sort: 2);
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Cà phê sữa đá", "Ly", "Cà phê",
-            price: 25000, cost: 8000, sort: 3);
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Cà phê đen", "Ly", "Cà phê",
-            price: 20000, cost: 6000, sort: 4);
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Nước cam ép", "Ly", "Nước ép",
-            price: 35000, cost: 15000, sort: 5);
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Sinh tố bơ", "Ly", "Sinh tố",
-            price: 40000, cost: 18000, sort: 6);
-
-        Add(PosProductSampleKind.Food, PosProductType.Service, "Phí giao hàng", "Lần", "Dịch vụ",
-            price: 15000, cost: 0, sort: 10, desc: "Phí ship nội thành");
-        Add(PosProductSampleKind.Drink, PosProductType.Topping, "Trân châu đen", "Phần", "Topping",
-            price: 5000, cost: 2000, sort: 11);
-        Add(PosProductSampleKind.Drink, PosProductType.Topping, "Thạch rau câu", "Phần", "Topping",
-            price: 5000, cost: 1500, sort: 12);
-        Add(PosProductSampleKind.Food, PosProductType.Material, "Gạo tấm", "Kg", "Nguyên liệu",
-            price: 0, cost: 18000, vatExempt: true, sort: 13, desc: "NVL — không bán trực tiếp");
-        Add(PosProductSampleKind.Food, PosProductType.Combo, "Combo cơm + nước", "Suất", "Combo",
-            price: 59000, cost: 32000, sort: 14, desc: "Combo mẫu");
+        foreach (var row in PosSampleCatalogDefaults.All())
+            context.PosProductSampleCatalog.Add(PosSampleCatalogDefaults.ToEntity(row, "System"));
 
         logger.LogInformation("Seeded default PosProductSampleCatalog rows.");
     }

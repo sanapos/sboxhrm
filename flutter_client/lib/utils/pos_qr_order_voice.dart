@@ -31,6 +31,8 @@ class PosQrOrderVoiceAlert {
   static const _voiceNameKey = 'pos_tts_voice_name';
   static const _voiceLocaleKey = 'pos_tts_voice_locale';
   static const _rateKey = 'pos_tts_rate';
+  /// Một lần: xóa giọng prefs cũ (thường network/server) khiến A7 không đọc được.
+  static const _voiceMigratedKey = 'pos_tts_voice_migrated_v3';
 
   StreamSubscription<Map<String, dynamic>>? _sub;
   FlutterTts? _tts;
@@ -39,8 +41,17 @@ class PosQrOrderVoiceAlert {
   int _kdsForeground = 0;
   String? _voiceName;
   String? _voiceLocale;
-  double _rate = 0.40;
+  double _rate = 0.45;
   bool _prefsLoaded = false;
+  bool _voiceApplied = false;
+  /// true = chỉ setLanguage(vi-VN), không setVoice (ổn định nhất trên C20Lite).
+  bool _languageOnly = false;
+  List<PosTtsVoiceOption>? _cachedVoices;
+  int _speakGen = 0;
+  bool _speaking = false;
+  final List<String> _speakQueue = [];
+  bool _drainingSpeak = false;
+  Completer<void>? _utteranceDone;
 
   double get rate => _rate;
   String? get voiceName => _voiceName;
@@ -63,16 +74,40 @@ class PosQrOrderVoiceAlert {
     _prefsLoaded = true;
     try {
       final p = await SharedPreferences.getInstance();
+      if (!(p.getBool(_voiceMigratedKey) ?? false)) {
+        await p.remove(_voiceNameKey);
+        await p.remove(_voiceLocaleKey);
+        await p.setBool(_voiceMigratedKey, true);
+      }
       _voiceName = p.getString(_voiceNameKey);
       _voiceLocale = p.getString(_voiceLocaleKey);
-      _rate = (p.getDouble(_rateKey) ?? 0.40).clamp(0.25, 0.75);
+      _rate = (p.getDouble(_rateKey) ?? 0.45).clamp(0.25, 0.75);
+      if (_isUnreliableVoice(_voiceName)) {
+        _voiceName = null;
+        _voiceLocale = null;
+        await p.remove(_voiceNameKey);
+        await p.remove(_voiceLocaleKey);
+      }
     } catch (_) {}
+  }
+
+  static bool _isUnreliableVoice(String? name) {
+    if (name == null || name.isEmpty) return false;
+    final n = name.toLowerCase();
+    return n.contains('network') ||
+        n.contains('server') ||
+        n.contains('wavenet') ||
+        n.contains('neural') ||
+        n.contains('-x-gft-');
   }
 
   Future<void> _ensureTts() async {
     await _loadPrefs();
     if (_tts != null) {
-      await _applyVoiceAndRate(_tts!);
+      if (!_voiceApplied) {
+        await _applyVoiceAndRate(_tts!);
+        _voiceApplied = true;
+      }
       return;
     }
     final tts = FlutterTts();
@@ -90,11 +125,15 @@ class PosQrOrderVoiceAlert {
       }
       await tts.setLanguage('vi-VN');
       await tts.setVolume(1.0);
-      await tts.setPitch(1.05);
+      await tts.setPitch(1.0);
       if (!kIsWeb) {
         await tts.awaitSpeakCompletion(false);
+        try {
+          await tts.setSharedInstance(true);
+        } catch (_) {}
       }
       await _applyVoiceAndRate(tts);
+      _voiceApplied = true;
     } catch (e) {
       debugPrint('QR order TTS init: $e');
     }
@@ -106,14 +145,50 @@ class PosQrOrderVoiceAlert {
       await tts.setSpeechRate(_rate);
     } catch (_) {}
     try {
-      if (_voiceName != null &&
-          _voiceName!.isNotEmpty &&
-          _voiceLocale != null &&
-          _voiceLocale!.isNotEmpty) {
-        await tts.setVoice({'name': _voiceName!, 'locale': _voiceLocale!});
-        return;
+      await tts.setLanguage('vi-VN');
+    } catch (_) {}
+
+    // A7: setVoice với giọng không cấp cho app → im tiếng.
+    // Mặc định chỉ dùng locale; chỉ setVoice khi user chọn giọng local ổn.
+    if (_languageOnly ||
+        _voiceName == null ||
+        _voiceName!.isEmpty ||
+        _voiceLocale == null ||
+        _voiceLocale!.isEmpty ||
+        _isUnreliableVoice(_voiceName)) {
+      _languageOnly = true;
+      return;
+    }
+
+    try {
+      final ok = await tts.setVoice({
+        'name': _voiceName!,
+        'locale': _voiceLocale!,
+      });
+      // flutter_tts: 1 = success trên Android.
+      if (ok == 0 || ok == false) {
+        debugPrint('POS TTS setVoice failed → language-only');
+        await _fallbackLanguageOnly(tts);
+      } else {
+        _languageOnly = false;
       }
-      if (!kIsWeb) await _preferNaturalVi(tts);
+    } catch (e) {
+      debugPrint('POS TTS setVoice error: $e');
+      await _fallbackLanguageOnly(tts);
+    }
+  }
+
+  Future<void> _fallbackLanguageOnly(FlutterTts tts) async {
+    _languageOnly = true;
+    _voiceName = null;
+    _voiceLocale = null;
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.remove(_voiceNameKey);
+      await p.remove(_voiceLocaleKey);
+    } catch (_) {}
+    try {
+      await tts.setLanguage('vi-VN');
     } catch (_) {}
   }
 
@@ -122,12 +197,15 @@ class PosQrOrderVoiceAlert {
     final loc = locale.toLowerCase();
     if (!loc.startsWith('vi')) return -100;
     var s = 10;
-    if (n.contains('wavenet') || n.contains('neural') || n.contains('natural')) {
-      s += 12;
-    }
+    // Local ổn định trên A7; network/server dễ «voice not available» / ANR.
+    if (n.contains('local') && !n.contains('server')) s += 25;
     if (n.contains('vif') || n.contains('female')) s += 8;
-    if (n.contains('network')) s += 3;
-    if (n.contains('local')) s += 2;
+    if (n.contains('wavenet') || n.contains('neural') || n.contains('natural')) {
+      s -= 20;
+    }
+    if (n.contains('network') || n.contains('server') || n.contains('-x-gft-')) {
+      s -= 50;
+    }
     if (n.contains('vid') || n.contains('male')) s -= 3;
     return s;
   }
@@ -137,7 +215,7 @@ class PosQrOrderVoiceAlert {
     final tags = <String>[];
     if (n.contains('wavenet') || n.contains('neural') || n.contains('natural')) {
       tags.add('Mượt');
-    } else if (n.contains('network')) {
+    } else if (n.contains('network') || n.contains('server')) {
       tags.add('Mạng');
     } else {
       tags.add('Máy');
@@ -155,14 +233,8 @@ class PosQrOrderVoiceAlert {
     return '${tags.join(' · ')} · $short';
   }
 
-  Future<void> _preferNaturalVi(FlutterTts tts) async {
-    final list = await listVoices();
-    if (list.isEmpty) return;
-    final pick = list.first;
-    await tts.setVoice({'name': pick.name, 'locale': pick.locale});
-  }
-
   Future<List<PosTtsVoiceOption>> listVoices() async {
+    if (_cachedVoices != null) return _cachedVoices!;
     await _ensureTts();
     try {
       final raw = await _tts?.getVoices;
@@ -181,6 +253,7 @@ class PosQrOrderVoiceAlert {
         ));
       }
       out.sort((a, b) => b.score.compareTo(a.score));
+      _cachedVoices = out;
       return out;
     } catch (_) {
       return const [];
@@ -188,6 +261,12 @@ class PosQrOrderVoiceAlert {
   }
 
   Future<void> setVoice(PosTtsVoiceOption voice) async {
+    if (_isUnreliableVoice(voice.name)) {
+      // User chọn giọng mạng → vẫn cho thử, nhưng đánh dấu không language-only.
+      _languageOnly = false;
+    } else {
+      _languageOnly = false;
+    }
     _voiceName = voice.name;
     _voiceLocale = voice.locale;
     try {
@@ -196,6 +275,17 @@ class PosQrOrderVoiceAlert {
       await p.setString(_voiceLocaleKey, voice.locale);
     } catch (_) {}
     await _ensureTts();
+    try {
+      final ok = await _tts?.setVoice({'name': voice.name, 'locale': voice.locale});
+      if (ok == 0 || ok == false) {
+        await _fallbackLanguageOnly(_tts!);
+      } else {
+        _voiceApplied = true;
+        _languageOnly = false;
+      }
+    } catch (_) {
+      if (_tts != null) await _fallbackLanguageOnly(_tts!);
+    }
   }
 
   Future<void> setRate(double rate) async {
@@ -210,8 +300,7 @@ class PosQrOrderVoiceAlert {
   }
 
   Future<void> preview() => speak(
-        'Xin chào. Đây là giọng đọc. Khu vực sảnh, bàn 5, tổng số 2 món. '
-        'Món 1: phở bò, số lượng 1. Món 2: cơm gà, số lượng 2.',
+        'Xin chào. Đây là giọng đọc. Bàn 5, hai món. Phở bò số lượng 1. Cơm gà số lượng 2.',
       );
 
   Future<void> showSettingsSheet(BuildContext context) async {
@@ -243,7 +332,7 @@ class PosQrOrderVoiceAlert {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Chọn giọng mượt (Nữ / Mạng) và chỉnh tốc độ.',
+                    'A7: nên chọn giọng «Máy» (local). Giọng Mạng dễ mất tiếng.',
                     style: TextStyle(color: Colors.white54, fontSize: 13),
                   ),
                   const SizedBox(height: 12),
@@ -263,19 +352,31 @@ class PosQrOrderVoiceAlert {
                     },
                     onChangeEnd: (v) => unawaited(setRate(v)),
                   ),
+                  TextButton(
+                    onPressed: () async {
+                      if (_tts != null) await _fallbackLanguageOnly(_tts!);
+                      _voiceApplied = true;
+                      if (ctx.mounted) setLocal(() {});
+                      unawaited(preview());
+                    },
+                    child: const Text(
+                      'Dùng giọng mặc định (ổn định)',
+                      style: TextStyle(color: Color(0xFFFF8A3D)),
+                    ),
+                  ),
                   if (voices.isEmpty)
                     const Text(
-                      'Máy chưa có giọng tiếng Việt. Cài Google Text-to-Speech.',
+                      'Máy chưa có giọng tiếng Việt. Cài Google Text-to-Speech + gói tiếng Việt offline.',
                       style: TextStyle(color: Colors.white54),
                     )
                   else
                     SizedBox(
-                      height: 280,
+                      height: 240,
                       child: ListView.builder(
                         itemCount: voices.length,
                         itemBuilder: (_, i) {
                           final v = voices[i];
-                          final on = v.name == _voiceName;
+                          final on = !_languageOnly && v.name == _voiceName;
                           return ListTile(
                             dense: true,
                             selected: on,
@@ -337,12 +438,19 @@ class PosQrOrderVoiceAlert {
         (event['orderId'] ?? event['OrderId'] ?? '').toString();
     late final String title;
     late final String spoken;
+    var playAlertSound = false;
     switch (reason) {
       case 'qrorder':
-        title = 'QR order tại bàn';
-        spoken = table.isEmpty
-            ? 'Có khách đặt món tại bàn'
-            : 'Có khách đặt món $table';
+        final needsConfirm = extra.toLowerCase().contains('needsconfirm');
+        playAlertSound = needsConfirm;
+        title = needsConfirm ? 'QR cần xác nhận' : 'QR order tại bàn';
+        spoken = needsConfirm
+            ? (table.isEmpty
+                ? 'Có đơn QR cần xác nhận trước khi in bếp'
+                : 'Có đơn QR cần xác nhận $table trước khi in bếp')
+            : (table.isEmpty
+                ? 'Có khách đặt món tại bàn'
+                : 'Có khách đặt món $table');
         break;
       case 'qrcallpayment':
         title = 'Gọi thanh toán';
@@ -373,27 +481,126 @@ class PosQrOrderVoiceAlert {
     }
     _lastKey = key;
     _lastAt = now;
-    unawaited(_speak(spoken));
+    unawaited(speak(spoken));
     NotificationOverlayManager().show(
       title: title,
       message: spoken,
       type: NotificationType.info,
       duration: const Duration(seconds: 5),
-      playSound: false,
+      playSound: playAlertSound,
     );
   }
 
-  Future<void> speak(String text) => _speak(text);
+  Future<void> speak(String text) => speakSequence([text]);
 
-  Future<void> _speak(String text) async {
-    final t = text.trim();
-    if (t.isEmpty) return;
+  Future<void> stopSpeaking() async {
+    _speakGen++;
+    _speakQueue.clear();
+    _speaking = false;
+    try {
+      if (_utteranceDone != null && !_utteranceDone!.isCompleted) {
+        _utteranceDone!.complete();
+      }
+    } catch (_) {}
+    _utteranceDone = null;
+    try {
+      await _tts?.stop();
+    } catch (_) {}
+  }
+
+  Future<void> speakSequence(List<String> parts) async {
+    final cleaned =
+        parts.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (cleaned.isEmpty) return;
+    _speakGen++;
+    _speakQueue
+      ..clear()
+      ..addAll(cleaned);
+    if (!_drainingSpeak) unawaited(_drainSpeakQueue());
+  }
+
+  Future<void> _drainSpeakQueue() async {
+    _drainingSpeak = true;
+    try {
+      while (_speakQueue.isNotEmpty) {
+        final gen = _speakGen;
+        final t = _speakQueue.removeAt(0);
+        await _speakOne(t, gen);
+        if (gen != _speakGen) break;
+      }
+    } finally {
+      _drainingSpeak = false;
+      if (_speakQueue.isNotEmpty) unawaited(_drainSpeakQueue());
+    }
+  }
+
+  Future<void> _speakOne(String text, int gen) async {
+    var t = text.trim();
+    if (t.isEmpty || gen != _speakGen) return;
     try {
       await _ensureTts();
-      await _tts?.stop();
-      await _tts?.speak(t);
+      if (gen != _speakGen) return;
+      final tts = _tts;
+      if (tts == null) return;
+
+      try {
+        await tts.setLanguage('vi-VN');
+        await tts.setSpeechRate(_rate);
+        await tts.setVolume(1.0);
+      } catch (_) {}
+
+      final done = Completer<void>();
+      _utteranceDone = done;
+      void finish() {
+        if (!done.isCompleted) done.complete();
+      }
+
+      tts.setCompletionHandler(finish);
+      tts.setCancelHandler(finish);
+      tts.setErrorHandler((_) => finish());
+
+      _speaking = true;
+      final result = await tts.speak(t);
+      if (gen != _speakGen) return;
+
+      if (result == 0 || result == false) {
+        debugPrint('POS TTS speak failed ($result) → retry language-only');
+        await _fallbackLanguageOnly(tts);
+        if (gen != _speakGen) return;
+        await tts.setLanguage('vi-VN');
+        await tts.speak(t);
+      }
+
+      final waitMs = (700 + t.length * 90).clamp(900, 14000);
+      await done.future.timeout(
+        Duration(milliseconds: waitMs),
+        onTimeout: () {},
+      );
     } catch (e) {
       debugPrint('POS TTS speak: $e');
+      try {
+        final tts = _tts;
+        if (tts == null || gen != _speakGen) return;
+        await _fallbackLanguageOnly(tts);
+        await tts.setLanguage('vi-VN');
+        await tts.speak(t);
+        await Future<void>.delayed(
+          Duration(milliseconds: (700 + t.length * 90).clamp(900, 8000)),
+        );
+      } catch (e2) {
+        debugPrint('POS TTS retry: $e2');
+      }
+    } finally {
+      if (gen == _speakGen) _speaking = false;
     }
+  }
+
+  Future<void> warmUp() async {
+    try {
+      await _ensureTts();
+      try {
+        await _tts?.setLanguage('vi-VN');
+      } catch (_) {}
+    } catch (_) {}
   }
 }

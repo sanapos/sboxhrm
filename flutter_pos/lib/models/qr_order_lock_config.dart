@@ -5,6 +5,7 @@ class QrOrderLockConfig {
   const QrOrderLockConfig({
     this.requireOpenSession = false,
     this.requireGeofence = false,
+    this.requireOrderConfirmation = false,
   });
 
   /// Chỉ gọi món khi thu ngân đã mở bàn (không tự tạo phiên từ QR).
@@ -12,6 +13,10 @@ class QrOrderLockConfig {
 
   /// Chỉ gọi món khi GPS khách nằm trong geofence cửa hàng.
   final bool requireGeofence;
+
+  /// Bật: không tự in bếp — thu ngân xác nhận (âm thanh + thông báo).
+  /// Mặc định tắt: không cần xác nhận, theo «Tự in phiếu bếp».
+  final bool requireOrderConfirmation;
 
   factory QrOrderLockConfig.fromExtraJson(String? extraJson) {
     if (extraJson == null || extraJson.trim().isEmpty) {
@@ -28,6 +33,8 @@ class QrOrderLockConfig {
             m['RequireOpenSession'] == true,
         requireGeofence:
             m['requireGeofence'] == true || m['RequireGeofence'] == true,
+        requireOrderConfirmation: m['requireOrderConfirmation'] == true ||
+            m['RequireOrderConfirmation'] == true,
       );
     } catch (_) {
       return const QrOrderLockConfig();
@@ -45,6 +52,7 @@ class QrOrderLockConfig {
     root['qrOrder'] = {
       'requireOpenSession': requireOpenSession,
       'requireGeofence': requireGeofence,
+      'requireOrderConfirmation': requireOrderConfirmation,
     };
     return jsonEncode(root);
   }
@@ -52,9 +60,12 @@ class QrOrderLockConfig {
   QrOrderLockConfig copyWith({
     bool? requireOpenSession,
     bool? requireGeofence,
+    bool? requireOrderConfirmation,
   }) =>
       QrOrderLockConfig(
         requireOpenSession: requireOpenSession ?? this.requireOpenSession,
         requireGeofence: requireGeofence ?? this.requireGeofence,
+        requireOrderConfirmation:
+            requireOrderConfirmation ?? this.requireOrderConfirmation,
       );
 }

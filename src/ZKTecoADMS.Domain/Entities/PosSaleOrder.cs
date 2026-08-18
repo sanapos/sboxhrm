@@ -158,6 +158,10 @@ public class PosSaleOrder : AuditableEntity<Guid>
     [MaxLength(200)]
     public string? EInvoiceBuyerName { get; set; }
 
+    /// <summary>Tên doanh nghiệp / đơn vị mua (Easy CusName) — khác Tên người mua hàng.</summary>
+    [MaxLength(200)]
+    public string? EInvoiceBuyerCompanyName { get; set; }
+
     [MaxLength(50)]
     public string? EInvoiceBuyerTaxCode { get; set; }
 

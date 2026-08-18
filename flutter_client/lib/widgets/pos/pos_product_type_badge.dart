@@ -15,6 +15,8 @@ class PosProductTypeBadge extends StatelessWidget {
     final (color, icon) = switch (type) {
       PosProductType.service => (PosTheme.serviceColor, Icons.handyman_outlined),
       PosProductType.combo => (PosTheme.comboColor, Icons.layers_outlined),
+      PosProductType.material => (PosTheme.materialColor, Icons.science_outlined),
+      PosProductType.topping => (PosTheme.toppingColor, Icons.icecream_outlined),
       PosProductType.goods => (PosTheme.goodsColor, Icons.inventory_2_outlined),
     };
     return Container(

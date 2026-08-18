@@ -149,9 +149,19 @@ class SboxPosApp extends StatelessWidget {
           '/customer-display': (_) => const PosCustomerDisplayScreen(),
         },
         builder: (context, child) {
-          return NotificationOverlay(
-            child: child ?? const SizedBox.shrink(),
-          );
+          final mq = MediaQuery.of(context);
+          final maxIme = mq.size.height / 3;
+          Widget body = child ?? const SizedBox.shrink();
+          // A6: IME Sunmi thường >½ màn — clamp inset để UI giữ ~⅔ phía trên.
+          if (mq.viewInsets.bottom > maxIme) {
+            body = MediaQuery(
+              data: mq.copyWith(
+                viewInsets: mq.viewInsets.copyWith(bottom: maxIme),
+              ),
+              child: body,
+            );
+          }
+          return NotificationOverlay(child: body);
         },
         home: Consumer<AuthProvider>(
           builder: (context, auth, _) {

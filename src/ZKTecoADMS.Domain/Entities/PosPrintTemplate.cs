@@ -27,4 +27,9 @@ public class PosPrintTemplate : AuditableEntity<Guid>
     public bool IsActive { get; set; } = true;
 
     public int SortOrder { get; set; }
+
+    /// <summary>
+    /// Id mẫu chung đã clone (nếu có). Sửa bản cửa hàng không đổi catalog.
+    /// </summary>
+    public Guid? SourceCatalogId { get; set; }
 }

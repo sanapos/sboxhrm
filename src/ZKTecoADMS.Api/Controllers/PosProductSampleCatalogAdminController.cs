@@ -5,6 +5,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -14,7 +15,7 @@ namespace ZKTecoADMS.Api.Controllers;
 /// <summary>Super Admin — catalog hàng mẫu / menu món (ảnh dùng chung toàn hệ thống).</summary>
 [Authorize(Roles = nameof(Roles.SuperAdmin))]
 [Route("api/system-admin/pos-sample-catalog")]
-public class PosProductSampleCatalogAdminController(
+public partial class PosProductSampleCatalogAdminController(
     ZKTecoDbContext dbContext,
     IFileStorageService fileStorageService,
     IWebHostEnvironment webHostEnvironment,
@@ -27,7 +28,9 @@ public class PosProductSampleCatalogAdminController(
         string? UnitName,
         string? BrandName,
         string? CategoryName,
+        Guid? CategoryId,
         string? ImageUrl,
+        bool HasImage,
         string? Description,
         string Kind,
         string ProductType,
@@ -35,6 +38,10 @@ public class PosProductSampleCatalogAdminController(
         decimal? DefaultCostPrice,
         decimal VatRate,
         bool VatExempt,
+        string? SellProfiles,
+        string ServiceBillingMode,
+        int SessionPackCount,
+        int SessionPackValidDays,
         int SortOrder,
         bool IsActive);
 
@@ -44,6 +51,7 @@ public class PosProductSampleCatalogAdminController(
         string? UnitName,
         string? BrandName,
         string? CategoryName,
+        Guid? CategoryId = null,
         string? Description = null,
         PosProductSampleKind Kind = PosProductSampleKind.Packaged,
         PosProductType ProductType = PosProductType.Goods,
@@ -51,30 +59,61 @@ public class PosProductSampleCatalogAdminController(
         decimal? DefaultCostPrice = null,
         decimal? VatRate = null,
         bool VatExempt = false,
+        string? SellProfiles = null,
+        PosServiceBillingMode ServiceBillingMode = PosServiceBillingMode.Flat,
+        int SessionPackCount = 0,
+        int SessionPackValidDays = 0,
         int SortOrder = 0,
         bool IsActive = true);
 
     static SampleDto Map(PosProductSampleCatalog x) => new(
-        x.Id, x.Barcode, x.Name, x.UnitName, x.BrandName, x.CategoryName, x.ImageUrl, x.Description,
+        x.Id, x.Barcode, x.Name, x.UnitName, x.BrandName, x.CategoryName, x.CategoryId,
+        x.ImageUrl, !string.IsNullOrWhiteSpace(x.ImageUrl), x.Description,
         x.Kind.ToString(), x.ProductType.ToString(), x.DefaultPrice, x.DefaultCostPrice,
-        x.VatRate, x.VatExempt, x.SortOrder, x.IsActive);
+        x.VatRate, x.VatExempt, x.SellProfiles, x.ServiceBillingMode.ToString(),
+        x.SessionPackCount, x.SessionPackValidDays, x.SortOrder, x.IsActive);
 
     [HttpGet]
     public async Task<ActionResult<AppResponse<object>>> List(
         [FromQuery] string? search = null,
         [FromQuery] PosProductSampleKind? kind = null,
         [FromQuery] PosProductType? productType = null,
+        [FromQuery] string? category = null,
+        [FromQuery] Guid? categoryId = null,
+        [FromQuery] string? brand = null,
+        [FromQuery] string? sellProfile = null,
+        [FromQuery] bool? hasImage = null,
+        [FromQuery] bool? isActive = null,
         [FromQuery] bool includeInactive = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 200);
+        pageSize = Math.Clamp(pageSize, 1, 500);
         var q = dbContext.PosProductSampleCatalog.AsNoTracking()
             .Where(x => x.Deleted == null);
-        if (!includeInactive) q = q.Where(x => x.IsActive);
+        if (isActive.HasValue) q = q.Where(x => x.IsActive == isActive.Value);
+        else if (!includeInactive) q = q.Where(x => x.IsActive);
         if (kind.HasValue) q = q.Where(x => x.Kind == kind);
         if (productType.HasValue) q = q.Where(x => x.ProductType == productType);
+        if (categoryId.HasValue) q = q.Where(x => x.CategoryId == categoryId);
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            var c = category.Trim().ToLower();
+            q = q.Where(x => x.CategoryName != null && x.CategoryName.ToLower() == c);
+        }
+        if (!string.IsNullOrWhiteSpace(brand))
+        {
+            var b = brand.Trim().ToLower();
+            q = q.Where(x => x.BrandName != null && x.BrandName.ToLower() == b);
+        }
+        if (!string.IsNullOrWhiteSpace(sellProfile) &&
+            PosSellProfileDefaults.TryParse(sellProfile, out var profileFilter))
+            q = q.WhereMatches(profileFilter);
+        if (hasImage == true)
+            q = q.Where(x => x.ImageUrl != null && x.ImageUrl != "");
+        else if (hasImage == false)
+            q = q.Where(x => x.ImageUrl == null || x.ImageUrl == "");
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();
@@ -82,7 +121,8 @@ public class PosProductSampleCatalogAdminController(
                 x.Name.ToLower().Contains(s) ||
                 (x.Barcode != null && x.Barcode.ToLower().Contains(s)) ||
                 (x.CategoryName != null && x.CategoryName.ToLower().Contains(s)) ||
-                (x.BrandName != null && x.BrandName.ToLower().Contains(s)));
+                (x.BrandName != null && x.BrandName.ToLower().Contains(s)) ||
+                (x.Description != null && x.Description.ToLower().Contains(s)));
         }
         var total = await q.CountAsync();
         var items = await q.OrderBy(x => x.Kind).ThenBy(x => x.SortOrder).ThenBy(x => x.Name)
@@ -134,8 +174,17 @@ public class PosProductSampleCatalogAdminController(
             VatExempt = vatExempt,
             SortOrder = dto.SortOrder,
             IsActive = dto.IsActive,
+            SellProfiles = PosSampleSellProfileHelper.Normalize(dto.SellProfiles),
+            ServiceBillingMode = Enum.IsDefined(dto.ServiceBillingMode)
+                ? dto.ServiceBillingMode
+                : PosServiceBillingMode.Flat,
+            SessionPackCount = Math.Max(0, dto.SessionPackCount),
+            SessionPackValidDays = Math.Max(0, dto.SessionPackValidDays),
             CreatedBy = CurrentUserEmail,
         };
+        var resolved = await ResolveCategoryAsync(dto.CategoryId, dto.CategoryName, dto.Kind);
+        entity.CategoryId = resolved?.Id;
+        entity.CategoryName = resolved?.Name ?? entity.CategoryName;
         dbContext.PosProductSampleCatalog.Add(entity);
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<SampleDto>.Success(Map(entity)));
@@ -171,7 +220,9 @@ public class PosProductSampleCatalogAdminController(
         entity.Name = name;
         entity.UnitName = EmptyToNull(dto.UnitName) ?? entity.UnitName;
         entity.BrandName = EmptyToNull(dto.BrandName);
-        entity.CategoryName = EmptyToNull(dto.CategoryName);
+        var cat = await ResolveCategoryAsync(dto.CategoryId, dto.CategoryName, dto.Kind);
+        entity.CategoryId = cat?.Id;
+        entity.CategoryName = cat?.Name ?? EmptyToNull(dto.CategoryName);
         entity.Description = EmptyToNull(dto.Description);
         entity.Kind = dto.Kind;
         entity.ProductType = productType;
@@ -181,6 +232,12 @@ public class PosProductSampleCatalogAdminController(
         entity.VatExempt = vatExempt;
         entity.SortOrder = dto.SortOrder;
         entity.IsActive = dto.IsActive;
+        entity.SellProfiles = PosSampleSellProfileHelper.Normalize(dto.SellProfiles);
+        entity.ServiceBillingMode = Enum.IsDefined(dto.ServiceBillingMode)
+            ? dto.ServiceBillingMode
+            : entity.ServiceBillingMode;
+        entity.SessionPackCount = Math.Max(0, dto.SessionPackCount);
+        entity.SessionPackValidDays = Math.Max(0, dto.SessionPackValidDays);
         entity.UpdatedAt = DateTime.UtcNow;
         entity.UpdatedBy = CurrentUserEmail;
         await dbContext.SaveChangesAsync();
@@ -190,19 +247,22 @@ public class PosProductSampleCatalogAdminController(
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult<AppResponse<object>>> Delete(Guid id)
     {
-        var entity = await dbContext.PosProductSampleCatalog
-            .FirstOrDefaultAsync(x => x.Id == id && x.Deleted == null);
-        if (entity == null)
+        var n = await dbContext.PosProductSampleCatalog
+            .IgnoreQueryFilters()
+            .Where(x => x.Id == id && x.Deleted == null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Deleted, DateTime.UtcNow)
+                .SetProperty(x => x.DeletedBy, CurrentUserEmail)
+                .SetProperty(x => x.IsActive, false)
+                .SetProperty(x => x.UpdatedAt, DateTime.UtcNow)
+                .SetProperty(x => x.UpdatedBy, CurrentUserEmail));
+        if (n == 0)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy mẫu"));
-        entity.Deleted = DateTime.UtcNow;
-        entity.DeletedBy = CurrentUserEmail;
-        entity.IsActive = false;
-        await dbContext.SaveChangesAsync();
         return Ok(AppResponse<object>.Success(new { id }));
     }
 
     [HttpPost("{id:guid}/image")]
-    [RequestSizeLimit(10_000_000)]
+    [RequestSizeLimit(15_000_000)]
     [Consumes("multipart/form-data")]
     public async Task<ActionResult<AppResponse<object>>> UploadImage(Guid id, [FromForm] IFormFile? file)
     {
@@ -224,8 +284,8 @@ public class PosProductSampleCatalogAdminController(
             var (optimized, uploadName, _) = await ImageOptimizeHelper.OptimizeAsync(
                 raw,
                 $"{id:N}{ext}",
-                ImageOptimizeHelper.ProductMaxEdge,
-                ImageOptimizeHelper.ProductJpegQuality);
+                ImageOptimizeHelper.SampleCatalogMaxEdge,
+                ImageOptimizeHelper.SampleCatalogJpegQuality);
             await using (optimized)
             {
                 var path = await fileStorageService.UploadAsync(
@@ -281,7 +341,8 @@ public class PosProductSampleCatalogAdminController(
     {
         var created = await SeedDefaultSamplesAsync(dbContext, CurrentUserEmail);
         var enriched = await EnrichExistingSamplesAsync(dbContext, CurrentUserEmail);
-        return Ok(AppResponse<object>.Success(new { created, enriched }));
+        var groups = await SyncCategoriesFromSamplesAsync(dbContext, CurrentUserEmail);
+        return Ok(AppResponse<object>.Success(new { created, enriched, groups }));
     }
 
     /// <summary>Bổ sung brand/cost/vat/description cho mẫu cũ thiếu cột mới.</summary>
@@ -370,37 +431,25 @@ public class PosProductSampleCatalogAdminController(
             }
         }
 
-        // Thêm mẫu loại DV/TP/NVL/CB nếu chưa có
-        async Task EnsureExtra(PosProductSampleKind kind, PosProductType type, string name, string unit, string cat,
-            decimal? price, decimal? cost, bool vatExempt = false, string? desc = null, int sort = 50)
+        foreach (var row in rows)
         {
-            if (await db.PosProductSampleCatalog.AnyAsync(x => x.Deleted == null && x.Name == name))
-                return;
-            db.PosProductSampleCatalog.Add(new PosProductSampleCatalog
-            {
-                Id = Guid.NewGuid(),
-                Kind = kind,
-                ProductType = type,
-                Name = name,
-                UnitName = unit,
-                CategoryName = cat,
-                DefaultPrice = price,
-                DefaultCostPrice = cost,
-                VatRate = vatExempt ? 0 : 8,
-                VatExempt = vatExempt,
-                Description = desc,
-                SortOrder = sort,
-                IsActive = true,
-                CreatedBy = by ?? "enrich",
-            });
+            if (!string.IsNullOrWhiteSpace(row.SellProfiles)) continue;
+            row.SellProfiles = PosSampleSellProfileHelper.Infer(row.Kind, row.ProductType, row.Name);
+            row.UpdatedAt = DateTime.UtcNow;
+            row.UpdatedBy = by ?? "enrich";
             n++;
         }
 
-        await EnsureExtra(PosProductSampleKind.Food, PosProductType.Service, "Phí giao hàng", "Lần", "Dịch vụ", 15000, 0, desc: "Phí ship nội thành", sort: 10);
-        await EnsureExtra(PosProductSampleKind.Drink, PosProductType.Topping, "Trân châu đen", "Phần", "Topping", 5000, 2000, sort: 11);
-        await EnsureExtra(PosProductSampleKind.Drink, PosProductType.Topping, "Thạch rau câu", "Phần", "Topping", 5000, 1500, sort: 12);
-        await EnsureExtra(PosProductSampleKind.Food, PosProductType.Material, "Gạo tấm", "Kg", "Nguyên liệu", 0, 18000, vatExempt: true, desc: "NVL — không bán trực tiếp", sort: 13);
-        await EnsureExtra(PosProductSampleKind.Food, PosProductType.Combo, "Combo cơm + nước", "Suất", "Combo", 59000, 32000, desc: "Combo mẫu", sort: 14);
+        var existingNames = rows
+            .Select(x => x.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var def in PosSampleCatalogDefaults.All())
+        {
+            if (existingNames.Contains(def.Name)) continue;
+            db.PosProductSampleCatalog.Add(PosSampleCatalogDefaults.ToEntity(def, by ?? "enrich"));
+            existingNames.Add(def.Name);
+            n++;
+        }
 
         if (n > 0) await db.SaveChangesAsync();
         return n;
@@ -411,95 +460,12 @@ public class PosProductSampleCatalogAdminController(
         if (await db.PosProductSampleCatalog.AnyAsync(x => x.Deleted == null))
             return 0;
 
-        var rows = new List<PosProductSampleCatalog>();
-        void Add(
-            PosProductSampleKind kind,
-            PosProductType type,
-            string name,
-            string unit,
-            string cat,
-            string? barcode = null,
-            decimal? price = null,
-            decimal? cost = null,
-            string? brand = null,
-            decimal vat = 8,
-            bool vatExempt = false,
-            int sort = 0,
-            string? desc = null)
-        {
-            rows.Add(new PosProductSampleCatalog
-            {
-                Id = Guid.NewGuid(),
-                Kind = kind,
-                ProductType = type,
-                Name = name,
-                UnitName = unit,
-                CategoryName = cat,
-                BrandName = brand,
-                Barcode = barcode,
-                DefaultPrice = price,
-                DefaultCostPrice = cost,
-                VatRate = vatExempt ? 0 : vat,
-                VatExempt = vatExempt,
-                Description = desc,
-                SortOrder = sort,
-                IsActive = true,
-                CreatedBy = by ?? "seed",
-            });
-        }
-
-        // Hàng hóa đóng gói
-        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Coca Cola 330ml", "Lon", "Nước giải khát",
-            "8934588012013", 10000, 7000, "Coca-Cola", sort: 1);
-        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Pepsi 330ml", "Lon", "Nước giải khát",
-            "8934588012020", 10000, 7000, "Pepsi", sort: 2);
-        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Sting dâu 330ml", "Lon", "Nước giải khát",
-            "8934588012037", 11000, 7500, "Sting", sort: 3);
-        Add(PosProductSampleKind.Packaged, PosProductType.Goods, "Aquafina 500ml", "Chai", "Nước suối",
-            "8934588060014", 7000, 4000, "Aquafina", sort: 4);
-
-        // Món / đồ uống F&B
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Cơm tấm sườn", "Phần", "Món chính",
-            price: 45000, cost: 25000, sort: 1);
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Phở bò", "Tô", "Món chính",
-            price: 55000, cost: 30000, sort: 2);
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Bún chả", "Suất", "Món chính",
-            price: 50000, cost: 28000, sort: 3);
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Bánh mì thịt", "Cái", "Ăn nhanh",
-            price: 25000, cost: 12000, sort: 4);
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Gỏi cuốn", "Phần", "Khai vị",
-            price: 35000, cost: 18000, sort: 5);
-        Add(PosProductSampleKind.Food, PosProductType.Goods, "Nem rán", "Phần", "Khai vị",
-            price: 30000, cost: 15000, sort: 6);
-
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Trà sữa truyền thống", "Ly", "Trà sữa",
-            price: 30000, cost: 12000, sort: 1);
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Trà đào cam sả", "Ly", "Trà trái cây",
-            price: 35000, cost: 14000, sort: 2);
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Cà phê sữa đá", "Ly", "Cà phê",
-            price: 25000, cost: 8000, sort: 3);
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Cà phê đen", "Ly", "Cà phê",
-            price: 20000, cost: 6000, sort: 4);
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Nước cam ép", "Ly", "Nước ép",
-            price: 35000, cost: 15000, sort: 5);
-        Add(PosProductSampleKind.Drink, PosProductType.Goods, "Sinh tố bơ", "Ly", "Sinh tố",
-            price: 40000, cost: 18000, sort: 6);
-
-        // Dịch vụ / topping / NVL / combo mẫu
-        Add(PosProductSampleKind.Food, PosProductType.Service, "Phí giao hàng", "Lần", "Dịch vụ",
-            price: 15000, cost: 0, vat: 8, sort: 10, desc: "Phí ship nội thành");
-        Add(PosProductSampleKind.Drink, PosProductType.Topping, "Trân châu đen", "Phần", "Topping",
-            price: 5000, cost: 2000, sort: 11);
-        Add(PosProductSampleKind.Drink, PosProductType.Topping, "Thạch rau câu", "Phần", "Topping",
-            price: 5000, cost: 1500, sort: 12);
-        Add(PosProductSampleKind.Food, PosProductType.Material, "Gạo tấm", "Kg", "Nguyên liệu",
-            price: 0, cost: 18000, vatExempt: true, sort: 13, desc: "NVL — không bán trực tiếp");
-        Add(PosProductSampleKind.Food, PosProductType.Combo, "Combo cơm + nước", "Suất", "Combo",
-            price: 59000, cost: 32000, sort: 14, desc: "Combo mẫu");
-
-        db.PosProductSampleCatalog.AddRange(rows);
+        var entities = PosSampleCatalogDefaults.All()
+            .Select(r => PosSampleCatalogDefaults.ToEntity(r, by ?? "seed"))
+            .ToList();
+        db.PosProductSampleCatalog.AddRange(entities);
         await db.SaveChangesAsync();
-        return rows.Count;
+        return entities.Count;
     }
 
     static string? EmptyToNull(string? s)

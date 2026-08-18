@@ -144,10 +144,15 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Tự mở popup chọn topping ngay khi thêm món vào giỏ.</summary>
     public bool AutoOpenToppingPopup { get; set; } = true;
 
+    /// <summary>Khi bán combo: hiện danh sách thành phần dưới tên (kiểu topping). Tắt = chỉ hiện tên combo.</summary>
+    public bool ShowComboComponentsOnSell { get; set; }
+
     public virtual ICollection<PosProductUnit> Units { get; set; } = [];
     public virtual ICollection<PosProductAttributeValue> AttributeValues { get; set; } = [];
     public virtual ICollection<PosStockTransaction> StockTransactions { get; set; } = [];
     public virtual ICollection<PosProductComboLine> ComboLines { get; set; } = [];
+    /// <summary>Định lượng NVL (hàng hóa / dịch vụ). Combo dùng ComboLines.</summary>
+    public virtual ICollection<PosProductRecipeLine> RecipeLines { get; set; } = [];
     public virtual ICollection<PosProductVariant> Variants { get; set; } = [];
     /// <summary>Tùy chọn thêm gắn trực tiếp vào món (giống ghi chú nhanh nhưng có giá / SP).</summary>
     public virtual ICollection<PosProductToppingOption> ToppingOptions { get; set; } = [];

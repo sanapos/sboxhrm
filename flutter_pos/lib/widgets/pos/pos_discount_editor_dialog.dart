@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'pos_form_keyboard.dart';
 import 'pos_numeric_keypad.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -213,7 +214,7 @@ Future<PosDiscountEditResult?> showPosDiscountEditorSheet({
     isScrollControlled: true,
     useSafeArea: true,
     builder: (ctx) => Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+      padding: EdgeInsets.only(bottom: posImeBottomPad(ctx)),
       child: _PosDiscountEditorBody(
         title: title,
         baseAmount: baseAmount,

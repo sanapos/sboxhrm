@@ -236,6 +236,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     {
         var storeId = RequiredStoreId;
         var count = await dbContext.PosStockCounts
+            .AsTracking()
             .Include(c => c.Lines)
             .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null);
         if (count == null)
@@ -243,18 +244,37 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         if (count.Status != PosStockCountStatus.InProgress)
             return BadRequest(AppResponse<StockCountDto>.Fail("Phiếu đã hoàn thành hoặc hủy"));
 
-        var lineMap = count.Lines.ToDictionary(l => l.Id);
+        var applied = 0;
         foreach (var upd in dto.Lines ?? new List<UpdateCountLineDto>())
         {
-            if (!lineMap.TryGetValue(upd.LineId, out var line)) continue;
-            if (upd.CountedQty.HasValue) line.CountedQty = upd.CountedQty;
-            if (upd.IsChecked.HasValue) line.IsChecked = upd.IsChecked.Value;
-            else if (upd.CountedQty.HasValue) line.IsChecked = true;
-            line.UpdatedAt = DateTime.UtcNow;
-            line.UpdatedBy = CurrentUserEmail;
+            var line = count.Lines.FirstOrDefault(l => l.Id == upd.LineId);
+            if (line == null) continue;
+
+            var counted = upd.CountedQty ?? (upd.IsChecked == true ? line.SystemQty : line.CountedQty);
+            var isChecked = upd.IsChecked ?? (counted.HasValue ? true : line.IsChecked);
+            if (isChecked && !counted.HasValue)
+                counted = line.SystemQty;
+
+            var n = await dbContext.PosStockCountLines
+                .Where(l => l.Id == line.Id && l.CountId == count.Id && l.StoreId == storeId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(l => l.CountedQty, counted)
+                    .SetProperty(l => l.IsChecked, isChecked)
+                    .SetProperty(l => l.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(l => l.UpdatedBy, CurrentUserEmail));
+            if (n > 0)
+            {
+                line.CountedQty = counted;
+                line.IsChecked = isChecked;
+                applied++;
+            }
         }
 
-        await dbContext.SaveChangesAsync();
+        if ((dto.Lines?.Count ?? 0) > 0 && applied == 0)
+            return BadRequest(AppResponse<StockCountDto>.Fail("Không khớp dòng hàng cần cập nhật"));
+
+        // Reload lines for response accuracy
+        await dbContext.Entry(count).Collection(c => c.Lines).LoadAsync();
         return Ok(AppResponse<StockCountDto>.Success(MapCount(count, count.Lines.ToList())));
     }
 
@@ -264,6 +284,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     {
         var storeId = RequiredStoreId;
         var count = await dbContext.PosStockCounts
+            .AsTracking()
             .Include(c => c.Lines)
             .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null);
         if (count == null)
@@ -272,6 +293,9 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
             return BadRequest(AppResponse<StockCountDto>.Fail("Phiếu không ở trạng thái tạm"));
         if (count.Lines.Count == 0)
             return BadRequest(AppResponse<StockCountDto>.Fail("Phiếu trống"));
+
+        foreach (var line in count.Lines.Where(l => l.IsChecked && !l.CountedQty.HasValue))
+            line.CountedQty = line.SystemQty;
 
         var uncheckedLines = count.Lines.Count(l => !l.CountedQty.HasValue);
         if (uncheckedLines > 0)

@@ -231,6 +231,7 @@ class GatewayCard extends StatelessWidget {
                         [
                           if (info.ip.isNotEmpty) info.ip,
                           if (info.deviceIp.isNotEmpty) 'ZK ${info.deviceIp}',
+                          if (info.gatewayTag.isNotEmpty) '#${info.gatewayTag}',
                         ].join(' · '),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -264,12 +265,19 @@ class GatewayCard extends StatelessWidget {
                 ),
                 if (!info.provisioned)
                   const GatewayStatusChip(label: 'Chưa cấu hình', ok: false),
+                if (info.apSsid.isNotEmpty)
+                  GatewayStatusChip(
+                    label: info.apSsid,
+                    ok: true,
+                    okColor: HrmPageChrome.primaryNavy,
+                  ),
               ],
             ),
             if (info.serial.isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(
-                '${tr('Số seri máy')}: ${info.serial}',
+                '${tr('Số seri máy')}: ${info.serial}'
+                '${info.host.isNotEmpty && info.host != 'sboxadms' ? ' · ${info.host}.local' : ''}',
                 style: const TextStyle(
                   fontSize: 11.8,
                   color: HrmPageChrome.textMuted,

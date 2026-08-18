@@ -61,6 +61,16 @@ internal static class PosKitchenKdsHelper
         line.KitchenPrepStatus = Done;
     }
 
+    /// <summary>Thanh toán xong: đóng phiếu KDS còn treo (không chờ bếp bấm Xong).</summary>
+    public static void CloseOpenOnPaid(IEnumerable<PosSaleOrderLine> lines)
+    {
+        foreach (var line in lines)
+        {
+            if (line.Deleted != null) continue;
+            Bump(line);
+        }
+    }
+
     public static void Recall(PosSaleOrderLine line)
     {
         if (line.KitchenSentQty <= 0) return;

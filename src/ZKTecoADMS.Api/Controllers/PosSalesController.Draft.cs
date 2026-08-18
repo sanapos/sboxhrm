@@ -188,6 +188,7 @@ public partial class PosSalesController
                         await tx.RollbackAsync();
                         return BadRequest(AppResponse<SaleOrderDto>.Fail("Không cập nhật được đơn"));
                     }
+                    PosKitchenKdsHelper.CloseOpenOnPaid(builtLines);
                     dbContext.PosSaleOrderLines.AddRange(builtLines);
                     await SaveSaleChangesWithUniqueRetriesAsync(order, storeId);
                     await tx.CommitAsync();
@@ -281,6 +282,7 @@ public partial class PosSalesController
             .Where(l => l.SaleOrderId == order.Id && l.Deleted == null)
             .Select(l => new
             {
+                l.Id,
                 l.ProductId,
                 l.VariantId,
                 l.KitchenSentQty,
@@ -461,6 +463,20 @@ public partial class PosSalesController
                 : PosKitchenKdsHelper.MergeStatus(st ?? [], hasOpen);
             PosKitchenKdsHelper.Clamp(line);
         }
+
+        // Giữ Id dòng cũ — autosave chọn món không được tạo Guid mới (KDS sẽ đọc lại cả bàn).
+        var priorIdQ = priorRows
+            .GroupBy(l => KitchenMergeKey(l.ProductId, l.VariantId, l.ToppingsJson, l.LineNote))
+            .ToDictionary(g => g.Key, g => new Queue<Guid>(g.Select(x => x.Id)));
+        foreach (var line in lines)
+        {
+            var key = KitchenMergeKey(line.ProductId, line.VariantId, line.ToppingsJson, line.LineNote);
+            if (priorIdQ.TryGetValue(key, out var q) && q.Count > 0)
+                line.Id = q.Dequeue();
+        }
+
+        if (order.Status == PosSaleOrderStatus.Completed)
+            PosKitchenKdsHelper.CloseOpenOnPaid(lines);
 
         if (order.Status == PosSaleOrderStatus.Draft)
         {
@@ -836,6 +852,7 @@ public partial class PosSalesController
                 order.UpdatedAt = DateTime.UtcNow;
                 order.UpdatedBy = CurrentUserEmail;
                 await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(dbContext, order, CurrentUserId);
+                PosKitchenKdsHelper.CloseOpenOnPaid(order.Lines);
                 await SaveSaleChangesWithUniqueRetriesAsync(order, storeId);
                 await tx.CommitAsync();
                 savedComplete = true;

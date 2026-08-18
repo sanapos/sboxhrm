@@ -39,6 +39,7 @@ class PosQrOrderVoiceAlert {
   String? _voiceName;
   double _rate = 0.40;
   bool _prefsLoaded = false;
+  int _speakSeq = 0;
 
   double get rate => _rate;
   String? get voiceName => _voiceName;
@@ -250,12 +251,19 @@ class PosQrOrderVoiceAlert {
         (event['orderId'] ?? event['OrderId'] ?? '').toString();
     late final String title;
     late final String spoken;
+    var playAlertSound = false;
     switch (reason) {
       case 'qrorder':
-        title = 'QR order tại bàn';
-        spoken = table.isEmpty
-            ? 'Có khách đặt món tại bàn'
-            : 'Có khách đặt món $table';
+        final needsConfirm = extra.toLowerCase().contains('needsconfirm');
+        playAlertSound = needsConfirm;
+        title = needsConfirm ? 'QR cần xác nhận' : 'QR order tại bàn';
+        spoken = needsConfirm
+            ? (table.isEmpty
+                ? 'Có đơn QR cần xác nhận trước khi in bếp'
+                : 'Có đơn QR cần xác nhận $table trước khi in bếp')
+            : (table.isEmpty
+                ? 'Có khách đặt món tại bàn'
+                : 'Có khách đặt món $table');
         break;
       case 'qrcallpayment':
         title = 'Gọi thanh toán';
@@ -286,20 +294,46 @@ class PosQrOrderVoiceAlert {
     }
     _lastKey = key;
     _lastAt = now;
-    unawaited(_speak(spoken));
+    unawaited(speak(spoken));
     NotificationOverlayManager().show(
       title: title,
       message: spoken,
       type: NotificationType.info,
       duration: const Duration(seconds: 5),
-      playSound: false,
+      playSound: playAlertSound,
     );
   }
 
-  Future<void> speak(String text) => _speak(text);
+  Future<void> speak(String text) => speakSequence([text]);
 
-  Future<void> _speak(String text) async {
-    final t = text.trim();
+  Future<void> speakSequence(List<String> parts) async {
+    final cleaned =
+        parts.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (cleaned.isEmpty) return;
+    _speakSeq++;
+    final seq = _speakSeq;
+    for (final raw in cleaned) {
+      if (seq != _speakSeq) return;
+      await _speakOne(raw);
+      if (seq != _speakSeq) return;
+      final wait = (500 + raw.length * 70).clamp(600, 10000);
+      await Future<void>.delayed(Duration(milliseconds: wait));
+    }
+  }
+
+  Future<void> stopSpeaking() async {
+    _speakSeq++;
+    try {
+      await _ch.invokeMethod('stop');
+    } catch (_) {}
+  }
+
+  Future<void> warmUp() async {
+    await _loadPrefs();
+  }
+
+  Future<void> _speakOne(String text) async {
+    var t = text.trim();
     if (t.isEmpty) return;
     await _loadPrefs();
     try {

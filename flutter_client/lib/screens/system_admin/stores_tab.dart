@@ -1939,6 +1939,7 @@ class StoresTabState extends State<StoresTab> {
                     final maxU = p['maxUsers'];
                     final maxD = p['maxDevices'];
                     final dur = p['defaultDurationDays'];
+                    final public = p is! Map || p['isPublic'] != false;
                     return DropdownMenuItem<String>(
                       value: pid,
                       child: Column(
@@ -1947,7 +1948,7 @@ class StoresTabState extends State<StoresTab> {
                         children: [
                           Text(tr(pname), style: const TextStyle(fontWeight: FontWeight.w600)),
                           Text(
-                            tr('Users: $maxU | Devices: $maxD | ${dur ?? '?'} ngày'),
+                            tr('${public ? 'Công khai' : 'Nội bộ'} · Users: $maxU | Devices: $maxD | ${dur ?? '?'} ngày'),
                             style: const TextStyle(fontSize: 11, color: Colors.grey),
                           ),
                         ],

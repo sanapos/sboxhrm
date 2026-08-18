@@ -211,6 +211,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
     final p = _product;
     final isGoods = p.productType == PosProductType.goods;
     final isCombo = p.productType == PosProductType.combo;
+    final tracksStock = p.productType.tracksInventory;
 
     return Scaffold(
       backgroundColor: PosTheme.background,
@@ -417,16 +418,16 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
 
   Widget _buildInfoRows(PosProduct p) {
     final isService = p.productType == PosProductType.service;
-    final isGoods = p.productType == PosProductType.goods;
+    final tracksStock = p.productType.tracksInventory;
     return Column(
       children: [
         _detailRow('Mã hàng', p.productCode),
         if (!isService) _detailRow('Mã vạch', p.barcode ?? 'Chưa có'),
         _detailRow('Giá vốn', _moneyFmt.format(p.costPrice)),
         _detailRow('Giá bán', _moneyFmt.format(p.basePrice)),
-        if (isGoods)
+        if (tracksStock)
           _detailRow('Tồn kho', _moneyFmt.format(p.onHandQty)),
-        if (isGoods) ...[
+        if (tracksStock) ...[
           _detailRow('Khách đặt', _moneyFmt.format(p.reservedQty)),
           _detailRow(
             'Định mức tồn',
@@ -434,9 +435,9 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
           ),
         ],
         _detailRow('Thương hiệu', p.brandName ?? 'Chưa có'),
-        if (isGoods) _detailRow('Nhà cung cấp', p.supplierName ?? 'Chưa có'),
-        if (isGoods) _detailRow('Vị trí', p.storageLocationName ?? 'Chưa có'),
-        if (isGoods && p.baseUnitName.isNotEmpty)
+        if (tracksStock) _detailRow('Nhà cung cấp', p.supplierName ?? 'Chưa có'),
+        if (tracksStock) _detailRow('Vị trí', p.storageLocationName ?? 'Chưa có'),
+        if (tracksStock && p.baseUnitName.isNotEmpty)
           _detailRow('Đơn vị', p.baseUnitName),
         if (p.estimatedStockoutDate != null)
           _detailRow(
@@ -566,7 +567,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
   }
 
   Widget _buildActions(PermissionProvider perm) {
-    final isGoods = _product.productType == PosProductType.goods;
+    final isGoods = _product.productType.tracksInventory;
     return Wrap(
       spacing: 8,
       runSpacing: 8,

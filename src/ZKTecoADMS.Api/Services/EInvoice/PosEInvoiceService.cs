@@ -59,13 +59,27 @@ public class PosEInvoiceService(
         row.SupplierTaxCode = (incoming.SupplierTaxCode ?? "").Trim();
         row.TemplateCode = string.IsNullOrWhiteSpace(incoming.TemplateCode) ? "1/001" : incoming.TemplateCode.Trim();
         row.InvoiceSeries = (incoming.InvoiceSeries ?? "").Trim();
+        if (row.Provider == "Easy")
+        {
+            var (pattern, serial) = ResolveEasyPatternSerial(row);
+            row.TemplateCode = pattern;
+            row.InvoiceSeries = serial;
+        }
         row.InvoiceType = string.IsNullOrWhiteSpace(incoming.InvoiceType) ? "1" : incoming.InvoiceType.Trim();
         row.AskAtCheckout = incoming.AskAtCheckout;
         row.DefaultIssueAtCheckout = incoming.DefaultIssueAtCheckout;
         row.TaxMode = string.IsNullOrWhiteSpace(incoming.TaxMode) ? "included" : incoming.TaxMode.Trim().ToLowerInvariant();
         row.DefaultTaxPercent = incoming.DefaultTaxPercent;
         row.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+        row.LastModified = DateTime.UtcNow;
+        row.IsActive = true;
+
+        // Force write — tránh change-tracker bỏ qua update trên một số host.
+        db.Entry(row).State = EntityState.Modified;
+        var written = await db.SaveChangesAsync(ct);
+        logger.LogInformation(
+            "EInvoice SaveSettings store={StoreId} written={Written} template={Template} provider={Provider}",
+            storeId, written, row.TemplateCode, row.Provider);
         viettel.InvalidateToken(storeId);
     }
 
@@ -146,16 +160,19 @@ public class PosEInvoiceService(
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(settings.Username) ||
+        var missingCreds =
+            string.IsNullOrWhiteSpace(settings.Username) ||
             string.IsNullOrWhiteSpace(settings.Password) ||
             string.IsNullOrWhiteSpace(settings.SupplierTaxCode) ||
-            string.IsNullOrWhiteSpace(settings.InvoiceSeries) ||
-            string.IsNullOrWhiteSpace(settings.TemplateCode))
+            string.IsNullOrWhiteSpace(settings.TemplateCode);
+        // Easy SoftDreams: Serial (InvoiceSeries) có thể trống khi Pattern = cả chuỗi 1C26MAA
+        var missingSeries = provider != "Easy" && string.IsNullOrWhiteSpace(settings.InvoiceSeries);
+        if (missingCreds || missingSeries)
         {
             order.EInvoiceStatus = "Failed";
             order.EInvoiceProvider = provider;
             order.EInvoiceError = provider == "Easy"
-                ? "Thiếu cấu hình Easy Invoice (tài khoản, MST, mẫu số Serial, ký hiệu Pattern)"
+                ? "Thiếu cấu hình Easy Invoice (tài khoản, MST, mẫu số Pattern)"
                 : "Thiếu cấu hình Viettel (tài khoản, MST, mẫu, ký hiệu hóa đơn)";
             await db.SaveChangesAsync(ct);
             return;
@@ -213,6 +230,26 @@ public class PosEInvoiceService(
                 order.EInvoiceTransactionUuid, ct);
         }
 
+        // Tài khoản chưa gắn CKS / HSM → tạo nháp chờ ký trên portal Viettel.
+        if (!created.Ok && IsSignatureMissing(created))
+        {
+            created = await viettel.CreateInvoiceDraftAsync(
+                settings.ApiBaseUrl, token, settings.SupplierTaxCode, payload, ct);
+            if (created.Ok)
+            {
+                order.EInvoiceStatus = "Pending";
+                order.EInvoiceNo = created.InvoiceNo;
+                order.EInvoiceSeries = settings.InvoiceSeries;
+                order.EInvoiceReservationCode = created.ReservationCode;
+                order.EInvoiceCode = created.CodeOfTax;
+                order.EInvoiceIssuedAt = DateTime.UtcNow;
+                order.EInvoiceError =
+                    "Đã tạo nháp Viettel — chờ ký số trên portal (chưa có chứng thư số gắn API)";
+                await db.SaveChangesAsync(ct);
+                return;
+            }
+        }
+
         if (!created.Ok)
         {
             order.EInvoiceStatus = "Failed";
@@ -233,14 +270,23 @@ public class PosEInvoiceService(
         await db.SaveChangesAsync(ct);
     }
 
+    static bool IsSignatureMissing(ViettelCreateResult created)
+    {
+        var blob = $"{created.ErrorCode} {created.Error}".ToUpperInvariant();
+        return blob.Contains("SIGNATURE_NOT_FOUND", StringComparison.Ordinal) ||
+               blob.Contains("CHỨNG THƯ", StringComparison.Ordinal) ||
+               blob.Contains("CHUNG THU", StringComparison.Ordinal);
+    }
+
     async Task IssueEasyAsync(
         PosSaleOrder order, List<PosSaleOrderLine> lines, PosEInvoiceSetting settings, CancellationToken ct)
     {
         var xml = BuildEasyXml(order, lines, settings);
-        // Easy: Pattern = ký hiệu HĐ (InvoiceSeries), Serial = mẫu số (TemplateCode)
+        // SoftDreams: Pattern = Mẫu số, Serial = Ký hiệu (vd. 1C26MAA → Pattern=1, Serial=C26MAA)
+        var (pattern, serial) = ResolveEasyPatternSerial(settings);
         var created = await easy.ImportAndIssueAsync(
             settings.ApiBaseUrl, settings.Username, settings.Password, settings.SupplierTaxCode,
-            xml, settings.InvoiceSeries, settings.TemplateCode, ct);
+            xml, pattern, serial, ct);
 
         if (!created.Ok && created.ErrorCode == "TIMEOUT" &&
             !string.IsNullOrWhiteSpace(order.EInvoiceTransactionUuid))
@@ -311,10 +357,11 @@ public class PosEInvoiceService(
     static void ApplyBuyerSnapshot(PosSaleOrder order, EInvoiceBuyerInput? buyer)
     {
         if (buyer == null) return;
+        // Tách rõ: Name = người mua hàng; CompanyName = tên doanh nghiệp / đơn vị.
         if (!string.IsNullOrWhiteSpace(buyer.Name))
             order.EInvoiceBuyerName = buyer.Name.Trim();
-        else if (!string.IsNullOrWhiteSpace(buyer.CompanyName))
-            order.EInvoiceBuyerName = buyer.CompanyName.Trim();
+        if (!string.IsNullOrWhiteSpace(buyer.CompanyName))
+            order.EInvoiceBuyerCompanyName = buyer.CompanyName.Trim();
         if (!string.IsNullOrWhiteSpace(buyer.TaxCode))
             order.EInvoiceBuyerTaxCode = buyer.TaxCode.Trim();
         if (!string.IsNullOrWhiteSpace(buyer.Address))
@@ -328,25 +375,39 @@ public class PosEInvoiceService(
     object BuildViettelPayload(PosSaleOrder order, List<PosSaleOrderLine> lines, PosEInvoiceSetting s)
     {
         var calc = ComputeInvoice(order, lines, s);
-        var items = calc.Lines.Select(l => (object)new Dictionary<string, object?>
+        // Viettel API (TT78): dùng *WithoutTax/*WithTax — *WithoutVat gây IVI_TOTAL_A_…_NOT_COMPARED.
+        var items = calc.Lines.Select(l =>
         {
-            ["lineNumber"] = l.No,
-            ["itemName"] = Trim(l.Name, 500),
-            ["unitName"] = l.Unit,
-            ["unitPrice"] = l.UnitPrice,
-            ["quantity"] = l.Qty,
-            ["itemTotalAmountWithoutVat"] = l.Without,
-            ["taxPercentage"] = calc.VatRate,
-            ["taxAmount"] = l.Vat,
-            ["itemTotalAmountWithVat"] = l.With,
-            ["discount"] = 0,
-            ["itemDiscount"] = l.LineDiscount,
-            ["itemNote"] = l.Note,
+            var row = new Dictionary<string, object?>
+            {
+                ["lineNumber"] = l.No,
+                ["itemName"] = Trim(l.Name, 500),
+                ["unitPrice"] = (double)l.UnitPrice,
+                ["quantity"] = (double)l.Qty,
+                ["itemTotalAmountWithoutTax"] = (double)l.Without,
+                ["taxPercentage"] = (double)calc.VatRate,
+                ["taxAmount"] = (double)l.Vat,
+                ["itemTotalAmountWithTax"] = (double)l.With,
+                ["discount"] = 0.0,
+                ["itemDiscount"] = (double)l.LineDiscount,
+                ["itemNote"] = l.Note,
+            };
+            var unit = ResolveInvoiceUnit(l.Unit);
+            if (unit != null) row["unitName"] = unit;
+            return (object)row;
         }).ToList();
 
-        var buyerName = FirstNonEmpty(order.EInvoiceBuyerName, order.CustomerName, "Khách lẻ");
-        var buyerLegal = FirstNonEmpty(order.EInvoiceBuyerName, order.CustomerName);
-        var paymentName = MapPaymentMethod(order.PaymentMethod);
+        var hasTax = !string.IsNullOrWhiteSpace(order.EInvoiceBuyerTaxCode);
+        var personName = FirstNonEmpty(order.EInvoiceBuyerName, order.CustomerName);
+        var companyName = FirstNonEmpty(order.EInvoiceBuyerCompanyName);
+        // Không MST → NTD. Có MST: buyerName = người mua; buyerLegalName = doanh nghiệp.
+        var buyerName = hasTax
+            ? FirstNonEmpty(personName, companyName, ConsumerBuyerLabel)
+            : ConsumerBuyerLabel;
+        var buyerLegal = hasTax
+            ? FirstNonEmpty(companyName, personName)
+            : null;
+        var (payCode, payName) = MapPaymentMethod(order.PaymentMethod);
         var issuedMs = new DateTimeOffset(DateTime.SpecifyKind(
             order.SaleDate ?? DateTime.UtcNow, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
 
@@ -368,55 +429,66 @@ public class PosEInvoiceService(
             buyerInfo = new Dictionary<string, object?>
             {
                 ["buyerName"] = Trim(buyerName, 100),
-                ["buyerLegalName"] = string.IsNullOrWhiteSpace(order.EInvoiceBuyerTaxCode)
-                    ? null
-                    : Trim(buyerLegal, 200),
-                ["buyerTaxCode"] = string.IsNullOrWhiteSpace(order.EInvoiceBuyerTaxCode)
-                    ? null
-                    : order.EInvoiceBuyerTaxCode,
-                ["buyerAddressLine"] = Trim(order.EInvoiceBuyerAddress, 400),
-                ["buyerPhoneNumber"] = Trim(order.EInvoiceBuyerPhone, 20),
-                ["buyerEmail"] = Trim(order.EInvoiceBuyerEmail, 50),
-                ["buyerNotGetInvoice"] = false,
+                ["buyerLegalName"] = hasTax ? Trim(buyerLegal, 200) : null,
+                ["buyerTaxCode"] = hasTax ? order.EInvoiceBuyerTaxCode : null,
+                ["buyerAddressLine"] = hasTax ? Trim(order.EInvoiceBuyerAddress, 400) : null,
+                ["buyerPhoneNumber"] = hasTax ? Trim(order.EInvoiceBuyerPhone, 20) : null,
+                ["buyerEmail"] = hasTax ? Trim(order.EInvoiceBuyerEmail, 50) : null,
             },
             payments = new object[]
             {
                 new Dictionary<string, object?>
                 {
-                    ["paymentMethodName"] = paymentName,
-                    ["paymentMethod"] = paymentName,
+                    ["paymentMethod"] = payCode,
+                    // Tên hiển thị trên HĐ Viettel (đồng bộ Easy): Tiền mặt / Chuyển khoản / hỗn hợp
+                    ["paymentMethodName"] = MapEasyPayment(order.PaymentMethod),
                 },
             },
             itemInfo = items,
             summarizeInfo = new Dictionary<string, object?>
             {
-                ["sumOfTotalLineAmountWithoutVat"] = calc.SumWithout,
-                ["totalAmountWithoutVat"] = calc.SumWithout,
-                ["totalVatAmount"] = calc.SumVat,
-                ["totalAmountWithVat"] = calc.SumWith,
-                ["discountAmount"] = calc.ExtraDiscount,
+                ["sumOfTotalLineAmountWithoutTax"] = (double)calc.SumWithout,
+                ["totalAmountWithoutTax"] = (double)calc.SumWithout,
+                ["totalTaxAmount"] = (double)calc.SumVat,
+                ["totalAmountWithTax"] = (double)calc.SumWith,
+                ["discountAmount"] = (double)calc.ExtraDiscount,
             },
             taxBreakdowns = new object[]
             {
                 new Dictionary<string, object?>
                 {
-                    ["taxPercentage"] = calc.VatRate,
-                    ["taxableAmount"] = calc.SumWithout,
-                    ["taxAmount"] = calc.SumVat,
+                    ["taxPercentage"] = (double)calc.VatRate,
+                    ["taxableAmount"] = (double)calc.SumWithout,
+                    ["taxAmount"] = (double)calc.SumVat,
                 },
             },
         };
     }
 
+    const string ConsumerBuyerLabel = "Bán cho người tiêu dùng";
+
     string BuildEasyXml(PosSaleOrder order, List<PosSaleOrderLine> lines, PosEInvoiceSetting s)
     {
         var calc = ComputeInvoice(order, lines, s);
-        var buyer = FirstNonEmpty(order.EInvoiceBuyerName, order.CustomerName, "Khách lẻ");
-        var company = FirstNonEmpty(order.EInvoiceBuyerName, order.CustomerName);
         var hasTax = !string.IsNullOrWhiteSpace(order.EInvoiceBuyerTaxCode);
+        var personName = FirstNonEmpty(order.EInvoiceBuyerName, order.CustomerName);
+        var companyName = FirstNonEmpty(order.EInvoiceBuyerCompanyName);
+        // SoftDreams: Buyer = tên người mua hàng; CusName = tên doanh nghiệp / đơn vị.
+        string buyer;
+        string cusName;
+        if (!hasTax)
+        {
+            buyer = ConsumerBuyerLabel;
+            cusName = ConsumerBuyerLabel;
+        }
+        else
+        {
+            cusName = FirstNonEmpty(companyName, personName, ConsumerBuyerLabel);
+            buyer = FirstNonEmpty(personName, companyName, ConsumerBuyerLabel);
+        }
         var cusCode = hasTax
             ? order.EInvoiceBuyerTaxCode!.Trim()
-            : SanitizeCode(FirstNonEmpty(order.CustomerName, order.OrderNo, "KL"));
+            : "NTD";
         var arising = DateTime.SpecifyKind(order.SaleDate ?? DateTime.UtcNow, DateTimeKind.Utc)
             .AddHours(7)
             .ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
@@ -425,32 +497,38 @@ public class PosEInvoiceService(
         var products = new XElement("Products");
         foreach (var l in calc.Lines)
         {
-            products.Add(new XElement("Product",
+            var product = new XElement("Product",
                 new XElement("No", l.No),
                 new XElement("Feature", "1"),
-                new XElement("ProdName", l.Name),
-                new XElement("ProdUnit", l.Unit),
+                new XElement("ProdName", l.Name));
+            var unit = ResolveInvoiceUnit(l.Unit);
+            if (unit != null) product.Add(new XElement("ProdUnit", unit));
+            product.Add(
                 new XElement("ProdQuantity", Num(l.Qty, 4)),
                 new XElement("ProdPrice", Num(l.UnitPrice, 4)),
                 new XElement("DiscountAmount", Num(l.LineDiscount, 0)),
                 new XElement("Total", Num(l.Without, 0)),
                 new XElement("VATRate", vatRateStr),
                 new XElement("VATAmount", Num(l.Vat, 0)),
-                new XElement("Amount", Num(l.With, 0))));
+                new XElement("Amount", Num(l.With, 0)));
+            products.Add(product);
         }
 
         var invoice = new XElement("Invoice",
             new XElement("Ikey", order.EInvoiceTransactionUuid),
-            new XElement("CusCode", Trim(cusCode, 50) ?? "KL"),
-            new XElement("Buyer", Trim(buyer, 100) ?? "Khách lẻ"),
-            new XElement("CusName", Trim(hasTax ? company : buyer, 200) ?? "Khách lẻ"));
-        var addr = Trim(order.EInvoiceBuyerAddress, 400);
-        if (addr != null) invoice.Add(new XElement("CusAddress", addr));
-        var phone = Trim(order.EInvoiceBuyerPhone, 20);
-        if (phone != null) invoice.Add(new XElement("CusPhone", phone));
-        if (hasTax) invoice.Add(new XElement("CusTaxCode", order.EInvoiceBuyerTaxCode!.Trim()));
-        var email = Trim(order.EInvoiceBuyerEmail, 50);
-        if (email != null) invoice.Add(new XElement("Email", email));
+            new XElement("CusCode", Trim(cusCode, 50) ?? "NTD"),
+            new XElement("Buyer", Trim(buyer, 100) ?? ConsumerBuyerLabel),
+            new XElement("CusName", Trim(cusName, 200) ?? ConsumerBuyerLabel));
+        if (hasTax)
+        {
+            var addr = Trim(order.EInvoiceBuyerAddress, 400);
+            if (addr != null) invoice.Add(new XElement("CusAddress", addr));
+            var phone = Trim(order.EInvoiceBuyerPhone, 20);
+            if (phone != null) invoice.Add(new XElement("CusPhone", phone));
+            invoice.Add(new XElement("CusTaxCode", order.EInvoiceBuyerTaxCode!.Trim()));
+            var email = Trim(order.EInvoiceBuyerEmail, 50);
+            if (email != null) invoice.Add(new XElement("Email", email));
+        }
         invoice.Add(
             new XElement("PaymentMethod", MapEasyPayment(order.PaymentMethod)),
             new XElement("ArisingDate", arising),
@@ -468,6 +546,10 @@ public class PosEInvoiceService(
         var xml = new XElement("Invoices", new XElement("Inv", invoice));
         return xml.ToString(SaveOptions.DisableFormatting);
     }
+
+    /// <summary>ĐVT trên HĐ: chỉ lấy từ hàng hóa/dòng bán; không có thì bỏ (không ghi mặc định).</summary>
+    static string? ResolveInvoiceUnit(string? unitName) =>
+        string.IsNullOrWhiteSpace(unitName) ? null : unitName.Trim();
 
     static void AppendEasyTaxBuckets(XElement invoice, InvoiceCalc calc)
     {
@@ -551,7 +633,7 @@ public class PosEInvoiceService(
             calcLines.Add(new LineCalc(
                 i + 1,
                 LineName(line),
-                string.IsNullOrWhiteSpace(line.UnitName) ? "Lần" : line.UnitName!,
+                ResolveInvoiceUnit(line.UnitName) ?? "",
                 qty,
                 RoundMoney(without / qty, 4),
                 without,
@@ -618,20 +700,55 @@ public class PosEInvoiceService(
         return result;
     }
 
-    static string MapPaymentMethod(string? method)
+    /// <summary>
+    /// Viettel: paymentMethod = 1/2/3; Name = TM / CK / TM/CK.
+    /// POS lưu nhãn thực tế: «Tiền mặt», «VietQR», «Vietcombank 1234», hoặc «Tiền mặt + …».
+    /// </summary>
+    static (string Code, string Name) MapPaymentMethod(string? method)
     {
-        var m = (method ?? "").ToLowerInvariant();
-        if (m.Contains('+') || (m.Contains("tiền mặt") && (m.Contains("ck") || m.Contains("chuyển"))))
-            return "TM/CK";
-        if (m.Contains("chuyển") || m.Contains("vietqr") || m.Contains("ck") || m.Contains("ngân hàng") || m.Contains("bank"))
+        var raw = (method ?? "").Trim();
+        if (string.IsNullOrEmpty(raw))
+            return ("1", "TM");
+
+        var parts = raw.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var kinds = parts.Select(ClassifyPaymentPart).Distinct().ToList();
+        var hasCash = kinds.Contains("TM");
+        var hasTransfer = kinds.Contains("CK");
+        if (hasCash && hasTransfer)
+            return ("3", "TM/CK");
+        if (hasTransfer && !hasCash)
+            return ("2", "CK");
+        return ("1", "TM");
+    }
+
+    static string ClassifyPaymentPart(string part)
+    {
+        var lower = part.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(lower)) return "TM";
+        if (lower is "tiền mặt" or "tm" or "cash")
+            return "TM";
+        if (lower.StartsWith("tiền mặt", StringComparison.Ordinal))
+            return "TM";
+        if (lower.Contains("chuyển", StringComparison.Ordinal) ||
+            lower.Contains("vietqr", StringComparison.Ordinal) ||
+            lower.Contains("ngân hàng", StringComparison.Ordinal) ||
+            lower.Contains("bank", StringComparison.Ordinal) ||
+            lower == "ck" ||
+            lower.Contains("thẻ", StringComparison.Ordinal) ||
+            lower.Contains("card", StringComparison.Ordinal) ||
+            lower.Contains("ví điện", StringComparison.Ordinal) ||
+            lower.Contains("ewallet", StringComparison.Ordinal) ||
+            // Nhãn CK từ POS: «Vietcombank 0123456789» (có số TK, không phải tiền mặt)
+            lower.Any(char.IsDigit))
             return "CK";
         return "TM";
     }
 
-    static string MapEasyPayment(string? method) => MapPaymentMethod(method) switch
+    /// <summary>Easy SoftDreams: Tiền mặt | Chuyển khoản | Chuyển khoản/Tiền mặt.</summary>
+    static string MapEasyPayment(string? method) => MapPaymentMethod(method).Name switch
     {
         "CK" => "Chuyển khoản",
-        "TM/CK" => "Tiền mặt/Chuyển khoản",
+        "TM/CK" => "Chuyển khoản/Tiền mặt",
         _ => "Tiền mặt",
     };
 
@@ -647,6 +764,46 @@ public class PosEInvoiceService(
             return "Misa";
         return "Viettel";
     }
+
+    /// <summary>
+    /// SoftDreams (portal Sen Garden): cột «Mẫu số» = cả chuỗi Pattern (vd. 1C26MAA),
+    /// cột «Ký hiệu» thường trống. API nhận Pattern đầy đủ + Serial rỗng.
+    /// Vẫn hỗ trợ nhập tách 1 + C26MAA → ghép thành 1C26MAA.
+    /// TemplateCode = Pattern; InvoiceSeries = Serial (có thể rỗng).
+    /// </summary>
+    internal static (string Pattern, string Serial) ResolveEasyPatternSerial(PosEInvoiceSetting s)
+    {
+        var a = (s.TemplateCode ?? "").Trim().Replace(" ", "");
+        var b = (s.InvoiceSeries ?? "").Trim().Replace(" ", "");
+
+        if (LooksLikeEasyCombinedPattern(a))
+            return (a.ToUpperInvariant(), "");
+        if (LooksLikeEasyCombinedPattern(b))
+            return (b.ToUpperInvariant(), "");
+
+        // Nhập tách: mẫu số + ký hiệu → ghép kiểu portal SoftDreams
+        if (LooksLikeEasyPattern(a) && LooksLikeEasySerial(b))
+            return (($"{a}{b}").ToUpperInvariant(), "");
+        if (LooksLikeEasyPattern(b) && LooksLikeEasySerial(a))
+            return (($"{b}{a}").ToUpperInvariant(), "");
+
+        // Fallback: giữ nguyên (Pattern / Serial riêng nếu SoftDreams yêu cầu)
+        return (a, b);
+    }
+
+    static bool LooksLikeEasyCombinedPattern(string v)
+    {
+        if (string.IsNullOrWhiteSpace(v) || v.Length < 4) return false;
+        var i = 0;
+        while (i < v.Length && char.IsDigit(v[i])) i++;
+        return i is >= 1 and <= 2 && i < v.Length && char.IsLetter(v[i]);
+    }
+
+    static bool LooksLikeEasyPattern(string v) =>
+        !string.IsNullOrWhiteSpace(v) && v.All(char.IsDigit) && v.Length <= 2;
+
+    static bool LooksLikeEasySerial(string v) =>
+        !string.IsNullOrWhiteSpace(v) && char.IsLetter(v[0]) && v.Length >= 3;
 
     static string NormalizeBaseUrl(string provider, string? raw)
     {

@@ -12,8 +12,10 @@ import '../../services/api_service.dart';
 import '../../utils/pos_floor_realtime.dart';
 import '../../utils/pos_print_orchestrator.dart';
 import '../../utils/pos_qr_order_voice.dart';
+import '../../utils/navigation_notifier.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
+import '../settings_hub_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// KDS bếp: mặc định gộp món (quán đông), chạm Đang làm / Xong hàng loạt.
@@ -45,6 +47,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   bool _loading = true;
   bool _busy = false;
+  bool _ticketsLoading = false;
+  bool _ticketsReloadQueued = false;
+  bool _ticketsReloadPing = false;
+  DateTime? _lastSpeakTap;
   String? _error;
   String? _stationId;
   _KdsView _view = _KdsView.dish;
@@ -53,7 +59,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   bool _printOnDone = false;
   bool _voiceOn = true;
   bool _voiceSeeded = false;
-  final Map<String, double> _seenQty = {};
+  /// SL đã đọc theo line id — chỉ tăng, không xóa khi API nháy thiếu (tránh đọc lại cả bàn).
+  final Map<String, double> _announcedMaxQty = {};
   String? _kdsPrinterId;
   List<PosStorePrinter> _kdsPrinters = [];
   List<_KdsStation> _stations = [];
@@ -68,6 +75,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   void initState() {
     super.initState();
     PosQrOrderVoiceAlert.instance.enterKds();
+    unawaited(PosQrOrderVoiceAlert.instance.warmUp());
     unawaited(_bootstrap());
     _floor.start((event) {
       if (!mounted) return;
@@ -84,6 +92,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   @override
   void dispose() {
     PosQrOrderVoiceAlert.instance.leaveKds();
+    unawaited(PosQrOrderVoiceAlert.instance.stopSpeaking());
     _floor.dispose();
     _poll?.cancel();
     _clock?.cancel();
@@ -215,16 +224,28 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     printer ??= _kdsPrinters.isEmpty ? null : _kdsPrinters.first;
     if (printer == null) return;
     final now = DateTime.now();
+    // Gom theo bàn/đơn → 1 phiếu trả món (tiết kiệm giấy).
+    final groups = <String, List<_KdsHit>>{};
     for (final h in hits) {
+      final key = '${h.ticket.orderId}|${h.ticket.shortTable}';
+      groups.putIfAbsent(key, () => []).add(h);
+    }
+    for (final group in groups.values) {
+      final first = group.first;
       unawaited(PosPrintOrchestrator.instance.dispatchKdsReadySlip(
         printer: printer,
-        productName: h.item.productName,
-        qty: h.item.qty,
-        tableName: h.ticket.shortTable,
-        areaName: h.ticket.areaName,
-        calledAt: h.item.sentAt ?? h.ticket.sentAt,
+        tableName: first.ticket.shortTable,
+        areaName: first.ticket.areaName,
+        orderNo: first.ticket.orderNo,
         readyAt: now,
-        orderNo: h.ticket.orderNo,
+        lines: [
+          for (final h in group)
+            (
+              productName: h.item.productName,
+              qty: h.item.qty,
+              calledAt: h.item.sentAt ?? h.ticket.sentAt,
+            ),
+        ],
       ));
     }
   }
@@ -256,20 +277,42 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final prep = _prepHitsOf(tickets);
     final first = !_voiceSeeded;
     _voiceSeeded = true;
-    final next = <String, double>{};
-    final newcomers = <_KdsHit>[];
+
+    // Gộp theo SP + topping + đơn — không theo Id dòng (autosave tạo Guid mới).
+    final qtyByKey = <String, double>{};
+    final hitByKey = <String, _KdsHit>{};
     for (final h in prep) {
-      next[h.item.id] = h.item.qty;
-      final prev = _seenQty[h.item.id];
-      if (prev == null || h.item.qty > prev + 0.0001) {
-        newcomers.add(h);
-      }
+      final key = _announceKey(h);
+      if (key.isEmpty) continue;
+      final sent = h.item.sentQty > 0 ? h.item.sentQty : h.item.qty;
+      qtyByKey[key] = (qtyByKey[key] ?? 0) + sent;
+      hitByKey[key] = h;
     }
-    _seenQty
-      ..clear()
-      ..addAll(next);
+
+    final newcomers = <_KdsHit>[];
+    for (final e in qtyByKey.entries) {
+      final prev = _announcedMaxQty[e.key] ?? 0;
+      if (!first && e.value > prev + 0.0001) {
+        final h = hitByKey[e.key]!;
+        newcomers.add(_KdsHit(
+          ticket: h.ticket,
+          item: h.item,
+          speakQty: e.value - prev,
+        ));
+      }
+      if (e.value > prev) _announcedMaxQty[e.key] = e.value;
+    }
     if (first) return const [];
     return newcomers;
+  }
+
+  String _announceKey(_KdsHit h) {
+    final pid = h.item.productId.trim();
+    final name = h.item.productName.trim().toLowerCase();
+    final note = (h.item.note ?? '').trim().toLowerCase();
+    final id = pid.isNotEmpty ? pid : name;
+    if (id.isEmpty) return '';
+    return '${h.ticket.orderId}|$id|$note';
   }
 
   String _qtyWords(double q) {
@@ -277,46 +320,122 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     return _qtyFmt.format(q);
   }
 
-  String _itemSpeakNumbered(int index, _KdsItem i) {
-    final note = (i.note ?? '').trim();
-    var s = 'Món $index: ${i.productName}, số lượng ${_qtyWords(i.qty)}';
-    if (note.isNotEmpty) s += ', $note';
+  /// Bỏ tiền tố trùng «Bàn/Ban» để không đọc «bàn bàn 05».
+  String _speakTableCore(String raw) {
+    var t = raw.trim();
+    t = t.replaceFirst(RegExp(r'^(bàn|ban)\s*', caseSensitive: false), '');
+    t = t.trim();
+    return t.isEmpty ? raw.trim() : t;
+  }
+
+  /// Bỏ tiền tố trùng «Khu / Khu vực».
+  String _speakAreaCore(String raw) {
+    var t = raw.trim();
+    t = t.replaceFirst(
+        RegExp(r'^(khu\s*vực|khu\s*vuc|khu)\s*', caseSensitive: false), '');
+    t = t.trim();
+    return t.isEmpty ? raw.trim() : t;
+  }
+
+  String _tablePlaceSpeak(_KdsTicket t) {
+    final table = _speakTableCore(t.shortTable);
+    final area = (t.areaName ?? '').trim();
+    if (area.isEmpty) return 'bàn $table';
+    return 'bàn $table - Khu ${_speakAreaCore(area)}';
+  }
+
+  /// Sau SL món: «thêm topping A số lượng 1, B số lượng 1. Khách hàng báo: …».
+  String _extrasSpeak(String? note) {
+    final raw = (note ?? '').trim();
+    if (raw.isEmpty) return '';
+    final tops = <String>[];
+    final notes = <String>[];
+    for (final line in raw
+        .split(RegExp(r'[\n\r]+'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)) {
+      if (line.startsWith('+')) {
+        var t = line.replaceFirst(RegExp(r'^\+\s*'), '').trim();
+        t = t.replaceFirst(
+          RegExp(r'^(topping|thêm topping)\s*[:\-–]?\s*', caseSensitive: false),
+          '',
+        );
+        final m = RegExp(
+          r'^(.*?)(?:\s*[x×]\s*(\d+(?:[.,]\d+)?))\s*$',
+          caseSensitive: false,
+        ).firstMatch(t);
+        final name = ((m?.group(1) ?? t)).trim();
+        if (name.isEmpty) continue;
+        final qRaw = (m?.group(2) ?? '1').replaceAll(',', '.');
+        final q = double.tryParse(qRaw) ?? 1;
+        tops.add('$name số lượng ${_qtyWords(q)}');
+      } else {
+        var n = line.replaceFirst(
+          RegExp(r'^(khách hàng báo|ghi chú)\s*[:\-–]?\s*', caseSensitive: false),
+          '',
+        );
+        if (n.isNotEmpty) notes.add(n);
+      }
+    }
+    final parts = <String>[];
+    if (tops.isNotEmpty) parts.add('thêm topping ${tops.join(', ')}');
+    if (notes.isNotEmpty) parts.add('Khách hàng báo: ${notes.join(', ')}');
+    return parts.join('. ');
+  }
+
+  /// Tên món → số lượng → topping → ghi chú khách.
+  String _itemSpeak(_KdsHit h) {
+    final qty = h.speakQty ?? h.item.qty;
+    var s = '${h.item.productName.trim()}, số lượng ${_qtyWords(qty)}';
+    final extras = _extrasSpeak(h.item.note);
+    if (extras.isNotEmpty) s += '. $extras';
     return s;
   }
 
-  String _ticketSpeak(_KdsTicket t, List<_KdsItem> items) {
-    final area = (t.areaName ?? '').trim();
-    final table = t.shortTable;
-    final head = [
-      if (area.isNotEmpty) 'Khu vực $area',
-      'Bàn $table',
-      'Tổng số ${items.length} món',
-    ].join(', ');
-    final body = [
-      for (var i = 0; i < items.length; i++) _itemSpeakNumbered(i + 1, items[i]),
-    ].join('. ');
-    return '$head. $body';
-  }
-
-  String _kdsSpeakPhrase(List<_KdsHit> hits, {required bool fresh}) {
-    if (hits.isEmpty) return '';
+  /// [fresh]=true → món mới; false → đọc lại. [fullTable]=true không cắt số món.
+  List<String> _kdsSpeakChunks(
+    List<_KdsHit> hits, {
+    required bool fresh,
+    bool fullTable = false,
+  }) {
+    if (hits.isEmpty) return const [];
     final byTicket = <String, List<_KdsHit>>{};
     for (final h in hits) {
       byTicket.putIfAbsent(h.ticket.orderId, () => []).add(h);
     }
-    final parts = <String>[];
-    var extra = 0;
+    final chunks = <String>[];
+    var extraTables = 0;
+    var extraItems = 0;
+    var tables = 0;
+    var items = 0;
+    const maxTables = 4;
+    const maxItems = 12;
     for (final group in byTicket.values) {
-      if (parts.length >= 8) {
-        extra += group.length;
+      if (!fullTable && tables >= maxTables) {
+        extraTables++;
+        extraItems += group.length;
         continue;
       }
+      tables++;
       final t = group.first.ticket;
-      parts.add(_ticketSpeak(t, [for (final h in group) h.item]));
+      chunks.add(fresh
+          ? 'Món mới ${_tablePlaceSpeak(t)}'
+          : 'Đọc lại ${_tablePlaceSpeak(t)}');
+      for (var i = 0; i < group.length; i++) {
+        if (!fullTable && items >= maxItems) {
+          extraItems += group.length - i;
+          break;
+        }
+        items++;
+        chunks.add(_itemSpeak(group[i]));
+      }
     }
-    final prefix = fresh ? 'Món mới. ' : '';
-    final tail = extra > 0 ? '. Và $extra món khác' : '';
-    return '$prefix${parts.join('. ')}$tail';
+    if (extraTables > 0) {
+      chunks.add('còn $extraTables bàn khác');
+    } else if (extraItems > 0) {
+      chunks.add('còn $extraItems món khác');
+    }
+    return chunks;
   }
 
   void _speakHits(List<_KdsHit> hits, {String? empty}) {
@@ -326,8 +445,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           .speak(empty ?? 'Không còn món cần chế biến'));
       return;
     }
-    unawaited(PosQrOrderVoiceAlert.instance.speak(
-      _kdsSpeakPhrase(prep, fresh: false),
+    unawaited(PosQrOrderVoiceAlert.instance.speakSequence(
+      _kdsSpeakChunks(prep, fresh: false),
     ));
   }
 
@@ -339,23 +458,51 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       return;
     }
     final qty = prep.fold<double>(0, (s, h) => s + h.item.qty);
+    // Tên → số lượng.
     unawaited(PosQrOrderVoiceAlert.instance.speak(
       '${a.name}, số lượng ${_qtyWords(qty)}',
     ));
   }
 
   void _speakTicket(_KdsTicket t) {
-    final prep = t.items.where(_needsPrep).toList();
-    if (prep.isEmpty) {
-      unawaited(PosQrOrderVoiceAlert.instance
-          .speak('Bàn ${t.shortTable} không còn món cần chế biến'));
+    final all = t.items;
+    if (all.isEmpty) {
+      unawaited(PosQrOrderVoiceAlert.instance.speak(
+        'Đọc lại ${_tablePlaceSpeak(t)}. Không còn món cần chế biến',
+      ));
       return;
     }
-    unawaited(PosQrOrderVoiceAlert.instance.speak(_ticketSpeak(t, prep)));
+    final hits = [for (final i in all) _KdsHit(ticket: t, item: i)];
+    unawaited(PosQrOrderVoiceAlert.instance.speakSequence(
+      _kdsSpeakChunks(hits, fresh: false, fullTable: true),
+    ));
   }
 
   Future<void> _speakPending() async {
-    _speakHits(_prepHitsOf(_tickets));
+    final now = DateTime.now();
+    if (_lastSpeakTap != null &&
+        now.difference(_lastSpeakTap!) < const Duration(milliseconds: 900)) {
+      return;
+    }
+    _lastSpeakTap = now;
+    final prep = _prepHitsOf(_tickets).where((h) => _needsPrep(h.item)).toList();
+    if (prep.isEmpty) {
+      unawaited(PosQrOrderVoiceAlert.instance
+          .speak('Không còn món cần chế biến'));
+      return;
+    }
+    // Nút loa: ưu tiên tóm tắt ngắn — không đọc cả hàng đợi.
+    if (prep.length > 8) {
+      final tables = <String>{};
+      for (final h in prep) {
+        tables.add(h.ticket.shortTable);
+      }
+      unawaited(PosQrOrderVoiceAlert.instance.speak(
+        'Có ${prep.length} món cần chế biến trên ${tables.length} bàn',
+      ));
+      return;
+    }
+    _speakHits(prep);
   }
 
   Future<void> _setTicketCooking(_KdsTicket t) async {
@@ -369,16 +516,30 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   void _toggleVoice() {
     setState(() => _voiceOn = !_voiceOn);
     unawaited(_saveKdsPrintPrefs());
-    if (_voiceOn) unawaited(_speakPending());
+    if (_voiceOn) {
+      final n = _prepHitsOf(_tickets).where((h) => _needsPrep(h.item)).length;
+      unawaited(PosQrOrderVoiceAlert.instance.speak(
+        n == 0
+            ? 'Đã bật loa bếp'
+            : 'Đã bật loa. Có $n món cần chế biến',
+      ));
+    }
   }
 
   Future<void> _loadTickets({bool silent = false, bool pingNew = false}) async {
+    if (_ticketsLoading) {
+      _ticketsReloadQueued = true;
+      _ticketsReloadPing = _ticketsReloadPing || pingNew;
+      return;
+    }
+    _ticketsLoading = true;
     if (!silent && mounted) {
       setState(() {
         _loading = true;
         _error = null;
       });
     }
+    try {
     final res = await _api.getPosKdsTickets(printerId: _stationId);
     if (!mounted) return;
     if (res['isSuccess'] != true) {
@@ -407,8 +568,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     }
     final open = tickets.fold<int>(0, (s, t) => s + t.items.length);
     if (newcomers.isNotEmpty && _voiceOn) {
-      unawaited(PosQrOrderVoiceAlert.instance.speak(
-        _kdsSpeakPhrase(newcomers, fresh: true),
+      unawaited(PosQrOrderVoiceAlert.instance.speakSequence(
+        _kdsSpeakChunks(newcomers, fresh: true, fullTable: true),
       ));
     } else if (pingNew && open > _lastOpenCount) {
       unawaited(SystemSound.play(SystemSoundType.alert));
@@ -419,6 +580,17 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       _loading = false;
       _error = null;
     });
+    } finally {
+      _ticketsLoading = false;
+      if (_ticketsReloadQueued) {
+        final ping = _ticketsReloadPing;
+        _ticketsReloadQueued = false;
+        _ticketsReloadPing = false;
+        if (mounted) {
+          unawaited(_loadTickets(silent: true, pingNew: ping));
+        }
+      }
+    }
   }
 
   Future<void> _setLines(List<String> ids, String status) async {
@@ -683,6 +855,38 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       )
                     : const Icon(Icons.refresh, color: Colors.white70),
               ),
+              PopupMenuButton<String>(
+                tooltip: tr('Thêm'),
+                icon: const Icon(Icons.more_vert, color: Colors.white70),
+                onSelected: (v) async {
+                  if (v == 'pos_settings') {
+                    SettingsHubScreen.pendingSubIndex.value = null;
+                    if (NavigationNotifier.mainLayoutReady.value) {
+                      NavigationNotifier.navigateToModule.value =
+                          'SettingsHub';
+                    } else if (mounted) {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const SettingsHubScreen()),
+                      );
+                    }
+                  } else if (v == 'voice_toggle') {
+                    _toggleVoice();
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'voice_toggle',
+                    child: Text(tr(_voiceOn
+                        ? 'Tắt loa tự đọc'
+                        : 'Bật loa tự đọc')),
+                  ),
+                  PopupMenuItem(
+                    value: 'pos_settings',
+                    child: Text(tr('Thiết lập POS')),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -802,7 +1006,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             setState(() {
               _stationId = id;
               _voiceSeeded = false;
-              _seenQty.clear();
+              _announcedMaxQty.clear();
             });
             unawaited(_loadTickets());
           },
@@ -1009,7 +1213,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           crossAxisCount: n,
           mainAxisSpacing: 6,
           crossAxisSpacing: 6,
-          mainAxisExtent: 100,
+          mainAxisExtent: 118,
         ),
         itemCount: aggs.length,
         itemBuilder: (_, i) => _dishCard(aggs[i]),
@@ -1021,6 +1225,12 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final c = _waitColor(a.oldest, status: a.hottest);
     final tables = a.tableLabels;
     final ids = a.hits.map((h) => h.item.id).toList();
+    final noteSample = a.hits
+        .map((h) => (h.item.note ?? '').trim())
+        .where((n) => n.isNotEmpty)
+        .toSet()
+        .take(2)
+        .join(' · ');
     return Material(
       color: _card,
       borderRadius: BorderRadius.circular(14),
@@ -1028,6 +1238,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       child: InkWell(
         onTap: () => _openAggSheet(a),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Container(width: 5, color: c),
             Expanded(
@@ -1037,6 +1248,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           _qtyFmt.format(a.qty),
@@ -1052,18 +1264,30 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                         Expanded(
                           child: Text(
                             a.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
                               fontSize: 16,
-                              height: 1.15,
+                              height: 1.2,
                             ),
                           ),
                         ),
                       ],
                     ),
+                    if (noteSample.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        noteSample,
+                        softWrap: true,
+                        style: const TextStyle(
+                          color: Color(0xFFFFB86B),
+                          fontSize: 12,
+                          height: 1.25,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                     const Spacer(),
                     Row(
                       children: [
@@ -1081,8 +1305,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                         Expanded(
                           child: Text(
                             tables.join(' · '),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            softWrap: true,
+                            maxLines: 2,
                             style: const TextStyle(
                                 color: Colors.white54, fontSize: 12),
                           ),
@@ -1350,7 +1574,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           crossAxisCount: n,
           mainAxisSpacing: 6,
           crossAxisSpacing: 6,
-          mainAxisExtent: 168,
+          mainAxisExtent: 220,
         ),
         itemCount: _tickets.length,
         itemBuilder: (_, i) => _ticketCard(_tickets[i]),
@@ -1382,8 +1606,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       Expanded(
                         child: Text(
                           t.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          softWrap: true,
+                          maxLines: 2,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,
@@ -1452,6 +1676,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   Widget _itemRow(_KdsItem item, _KdsTicket ticket) {
     final sent = item.sentAt ?? ticket.sentAt;
     final c = _waitColor(sent, status: item.status);
+    final note = (item.note ?? '').trim();
     return InkWell(
       onTap: () {
         final next = switch (item.status) {
@@ -1463,8 +1688,9 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         unawaited(_setLine(item, next));
       },
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
               width: 28,
@@ -1478,17 +1704,36 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               ),
             ),
             Expanded(
-              child: Text(
-                item.productName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.productName,
+                    softWrap: true,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      height: 1.25,
+                    ),
+                  ),
+                  if (note.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      note,
+                      softWrap: true,
+                      style: const TextStyle(
+                        color: Color(0xFFFFB86B),
+                        fontSize: 11,
+                        height: 1.25,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
+            const SizedBox(width: 6),
             _KdsTickText(
               tick: _nowTick,
               style: TextStyle(
@@ -1533,9 +1778,15 @@ class _KdsTickText extends StatelessWidget {
 }
 
 class _KdsHit {
-  const _KdsHit({required this.ticket, required this.item});
+  const _KdsHit({
+    required this.ticket,
+    required this.item,
+    this.speakQty,
+  });
   final _KdsTicket ticket;
   final _KdsItem item;
+  /// SL đọc TTS (phần tăng); null → dùng item.qty.
+  final double? speakQty;
 }
 
 class _KdsAgg {
@@ -1674,23 +1925,30 @@ class _KdsItem {
     required this.productName,
     required this.qty,
     required this.status,
+    this.productId = '',
+    this.sentQty = 0,
     this.note,
     this.sentAt,
   });
   final String id;
+  final String productId;
   final String productName;
   final double qty;
+  final double sentQty;
   final String status;
   final String? note;
   final DateTime? sentAt;
 
   factory _KdsItem.fromJson(Map<String, dynamic> j) {
     final q = j['qty'] ?? j['Qty'] ?? 0;
+    final sentQ = j['sentQty'] ?? j['SentQty'] ?? q;
     final sentRaw = j['sentAt'] ?? j['SentAt'];
     return _KdsItem(
       id: (j['id'] ?? j['Id'] ?? '').toString(),
+      productId: (j['productId'] ?? j['ProductId'] ?? '').toString(),
       productName: (j['productName'] ?? j['ProductName'] ?? '').toString(),
       qty: q is num ? q.toDouble() : double.tryParse('$q') ?? 0,
+      sentQty: sentQ is num ? sentQ.toDouble() : double.tryParse('$sentQ') ?? 0,
       status: (j['status'] ?? j['Status'] ?? 'queued').toString(),
       note: (j['note'] ?? j['Note'])?.toString(),
       sentAt: sentRaw == null ? null : _parseUtc(sentRaw),

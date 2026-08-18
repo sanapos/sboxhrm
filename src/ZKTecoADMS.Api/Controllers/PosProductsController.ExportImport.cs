@@ -17,7 +17,8 @@ public partial class PosProductsController
     public async Task<IActionResult> ExportExcel(
         [FromQuery] string? search,
         [FromQuery] Guid? categoryId,
-        [FromQuery] Guid? supplierId)
+        [FromQuery] Guid? supplierId,
+        [FromQuery] PosProductType? productType)
     {
         var storeId = RequiredStoreId;
         var query = dbContext.PosProducts
@@ -39,6 +40,7 @@ public partial class PosProductsController
         }
         if (categoryId.HasValue) query = query.Where(p => p.CategoryId == categoryId);
         if (supplierId.HasValue) query = query.Where(p => p.SupplierId == supplierId);
+        if (productType.HasValue) query = query.Where(p => p.ProductType == productType);
 
         var products = await query.OrderBy(p => p.Name).Take(10000).ToListAsync();
 
@@ -74,12 +76,7 @@ public partial class PosProductsController
             ws.Cell(row, 11).Value = p.MinStockQty;
             ws.Cell(row, 12).Value = p.MaxStockQty;
             ws.Cell(row, 13).Value = p.BaseUnitName;
-            ws.Cell(row, 14).Value = p.ProductType switch
-            {
-                PosProductType.Service => "Dịch vụ",
-                PosProductType.Combo => "Combo",
-                _ => "Hàng hóa",
-            };
+            ws.Cell(row, 14).Value = PosProductTypeRules.DisplayName(p.ProductType);
             ws.Cell(row, 15).Value = p.IsDirectSale ? "Có" : "Không";
             ws.Cell(row, 16).Value = p.Weight.HasValue ? p.Weight.Value : "";
             ws.Cell(row, 17).Value = p.StorageLocation?.Name ?? "";
@@ -133,10 +130,92 @@ public partial class PosProductsController
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
+    [HttpGet("excel-template")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
+    public IActionResult ExcelTemplate([FromQuery] PosProductType productType = PosProductType.Goods)
+    {
+        using var workbook = new XLWorkbook();
+        var typeName = PosProductTypeRules.DisplayName(productType);
+        var prefix = PosProductTypeRules.CodePrefix(productType);
+        var ws = workbook.Worksheets.Add("Hàng hóa");
+        var headers = new[]
+        {
+            "STT", "Mã hàng", "Mã vạch", "Tên hàng", "Nhóm hàng", "Thương hiệu", "Nhà cung cấp",
+            "Giá vốn", "Giá bán", "Tồn kho", "Tồn thấp nhất", "Tồn cao nhất",
+            "Đơn vị", "Loại hàng", "Bán trực tiếp", "Trọng lượng", "Vị trí", "Mô tả", "Máy in"
+        };
+        for (var i = 0; i < headers.Length; i++)
+        {
+            ws.Cell(1, i + 1).Value = headers[i];
+            ws.Cell(1, i + 1).Style.Font.Bold = true;
+        }
+
+        var direct = productType is PosProductType.Material or PosProductType.Topping ? "Không" : "Có";
+        var stock = PosProductTypeRules.TracksInventory(productType) ? 0 : 0;
+        ws.Cell(2, 1).Value = 1;
+        ws.Cell(2, 2).Value = $"{prefix}00001";
+        ws.Cell(2, 3).Value = "";
+        ws.Cell(2, 4).Value = $"Tên {typeName.ToLowerInvariant()} mẫu";
+        ws.Cell(2, 5).Value = "";
+        ws.Cell(2, 6).Value = "";
+        ws.Cell(2, 7).Value = "";
+        ws.Cell(2, 8).Value = 0;
+        ws.Cell(2, 9).Value = 0;
+        ws.Cell(2, 10).Value = stock;
+        ws.Cell(2, 11).Value = 0;
+        ws.Cell(2, 12).Value = PosProductTypeRules.TracksInventory(productType) ? 999999999 : 0;
+        ws.Cell(2, 13).Value = "Cái";
+        ws.Cell(2, 14).Value = typeName;
+        ws.Cell(2, 15).Value = direct;
+        ws.Cell(2, 16).Value = "";
+        ws.Cell(2, 17).Value = "";
+        ws.Cell(2, 18).Value = "";
+        ws.Cell(2, 19).Value = "";
+        ws.Columns(1, headers.Length).AdjustToContents();
+
+        if (productType == PosProductType.Combo)
+        {
+            var comboWs = workbook.Worksheets.Add("Combo");
+            comboWs.Cell(1, 1).Value = "Mã combo";
+            comboWs.Cell(1, 2).Value = "Mã thành phần";
+            comboWs.Cell(1, 3).Value = "Số lượng";
+            comboWs.Row(1).Style.Font.Bold = true;
+            comboWs.Cell(2, 1).Value = "CB00001";
+            comboWs.Cell(2, 2).Value = "HH00001";
+            comboWs.Cell(2, 3).Value = 1;
+            comboWs.Columns(1, 3).AdjustToContents();
+        }
+
+        var help = workbook.Worksheets.Add("HuongDan");
+        help.Cell(1, 1).Value = $"Mẫu nhập {typeName}";
+        help.Cell(1, 1).Style.Font.Bold = true;
+        help.Cell(2, 1).Value = "Cột «Tên hàng» bắt buộc. Để trống «Mã hàng» để hệ thống tự cấp.";
+        help.Cell(3, 1).Value = "Loại hàng: Hàng hóa | Dịch vụ | Combo | Nguyên vật liệu | Topping";
+        help.Cell(4, 1).Value = "NVL và Topping không hiện trên lưới bán POS (ẩn bán trực tiếp).";
+        help.Cell(5, 1).Value = "Combo: khai thành phần ở sheet Combo (Mã combo, Mã thành phần, Số lượng).";
+        help.Column(1).AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var safe = productType switch
+        {
+            PosProductType.Service => "DichVu",
+            PosProductType.Combo => "Combo",
+            PosProductType.Material => "NVL",
+            PosProductType.Topping => "Topping",
+            _ => "HangHoa",
+        };
+        return File(stream.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"Mau_{safe}_POS.xlsx");
+    }
+
     [HttpPost("import/excel/file")]
     [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
     [RequestSizeLimit(20_000_000)]
-    public async Task<ActionResult<AppResponse<object>>> ImportExcelFile(IFormFile file)
+    public async Task<ActionResult<AppResponse<object>>> ImportExcelFile(
+        IFormFile file,
+        [FromQuery] PosProductType? forceProductType)
     {
         if (file == null || file.Length == 0)
             return BadRequest(AppResponse<object>.Fail("File không hợp lệ"));
@@ -155,6 +234,8 @@ public partial class PosProductsController
         }
 
         var rows = parsed.Products;
+        if (forceProductType.HasValue)
+            rows = rows.Select(r => r with { ProductType = forceProductType.Value }).ToList();
         var comboImportRows = parsed.ComboLines;
 
         if (rows.Count == 0 && comboImportRows.Count == 0)
@@ -162,19 +243,24 @@ public partial class PosProductsController
 
         var categories = await dbContext.PosProductCategories
             .Where(x => x.StoreId == storeId && x.Deleted == null)
-            .ToDictionaryAsync(x => x.Name.ToLower(), x => x.Id);
+            .GroupBy(x => x.Name.ToLower())
+            .ToDictionaryAsync(g => g.Key, g => g.OrderBy(x => x.CreatedAt).First().Id);
         var brands = await dbContext.PosProductBrands
             .Where(x => x.StoreId == storeId && x.Deleted == null)
-            .ToDictionaryAsync(x => x.Name.ToLower(), x => x.Id);
+            .GroupBy(x => x.Name.ToLower())
+            .ToDictionaryAsync(g => g.Key, g => g.OrderBy(x => x.CreatedAt).First().Id);
         var suppliers = await dbContext.PosSuppliers
             .Where(x => x.StoreId == storeId && x.Deleted == null)
-            .ToDictionaryAsync(x => x.Name.ToLower(), x => x.Id);
+            .GroupBy(x => x.Name.ToLower())
+            .ToDictionaryAsync(g => g.Key, g => g.OrderBy(x => x.CreatedAt).First().Id);
         var locations = await dbContext.PosStorageLocations
             .Where(x => x.StoreId == storeId && x.Deleted == null)
-            .ToDictionaryAsync(x => x.Name.ToLower(), x => x.Id);
+            .GroupBy(x => x.Name.ToLower())
+            .ToDictionaryAsync(g => g.Key, g => g.OrderBy(x => x.CreatedAt).First().Id);
         var printers = await dbContext.PosStorePrinters
             .Where(x => x.StoreId == storeId && x.Deleted == null && x.IsActive)
-            .ToDictionaryAsync(x => x.Name.ToLower(), x => x.Id);
+            .GroupBy(x => x.Name.ToLower())
+            .ToDictionaryAsync(g => g.Key, g => g.OrderBy(x => x.CreatedAt).First().Id);
 
         var created = 0;
         var updated = 0;
@@ -194,15 +280,20 @@ public partial class PosProductsController
                 byBarcode[p.Barcode] = p;
         }
 
-        var nextHh = NextCodeNumber(existingProducts, "HH");
-        var nextDv = NextCodeNumber(existingProducts, "DV");
-        var nextCb = NextCodeNumber(existingProducts, "CB");
+        var nextByPrefix = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["HH"] = NextCodeNumber(existingProducts, "HH"),
+            ["DV"] = NextCodeNumber(existingProducts, "DV"),
+            ["CB"] = NextCodeNumber(existingProducts, "CB"),
+            ["NVL"] = NextCodeNumber(existingProducts, "NVL"),
+            ["TP"] = NextCodeNumber(existingProducts, "TP"),
+        };
         var usedCodes = new HashSet<string>(existingProducts.Select(p => p.ProductCode), StringComparer.OrdinalIgnoreCase);
 
         string NextTypedCode(PosProductType type)
         {
-            var prefix = type == PosProductType.Service ? "DV" : type == PosProductType.Combo ? "CB" : "HH";
-            var n = type == PosProductType.Service ? nextDv : type == PosProductType.Combo ? nextCb : nextHh;
+            var prefix = PosProductTypeRules.CodePrefix(type);
+            var n = nextByPrefix[prefix];
             string candidate;
             do
             {
@@ -210,16 +301,19 @@ public partial class PosProductsController
                 n++;
             } while (usedCodes.Contains(candidate));
             usedCodes.Add(candidate);
-            if (type == PosProductType.Service) nextDv = n;
-            else if (type == PosProductType.Combo) nextCb = n;
-            else nextHh = n;
+            nextByPrefix[prefix] = n;
             return candidate;
         }
 
-        var catalogCache = await dbContext.PosBarcodeCatalog
+        var catalogRows = await dbContext.PosBarcodeCatalog
             .AsTracking()
             .Where(x => x.StoreId == storeId && x.Deleted == null)
-            .ToDictionaryAsync(x => x.Barcode.ToLower(), x => x, StringComparer.OrdinalIgnoreCase);
+            .ToListAsync();
+        var catalogCache = catalogRows
+            .Where(x => !string.IsNullOrWhiteSpace(x.Barcode))
+            .GroupBy(x => x.Barcode.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key.ToLowerInvariant(), g => g.OrderBy(x => x.CreatedAt).First(),
+                StringComparer.OrdinalIgnoreCase);
 
         foreach (var (row, i) in rows.Select((r, idx) => (r, idx + 1)))
         {
@@ -272,6 +366,7 @@ public partial class PosProductsController
                          byBarcode.TryGetValue(row.Barcode.Trim(), out var byBcHit))
                     entity = byBcHit;
 
+                var isNew = entity == null;
                 if (entity == null)
                 {
                     var code = row.ProductCode?.Trim();
@@ -316,7 +411,9 @@ public partial class PosProductsController
                 entity.ProductType = row.ProductType;
                 entity.CostPrice = row.CostPrice;
                 entity.BasePrice = row.BasePrice;
-                entity.OnHandQty = row.OnHandQty;
+                // Tồn kho chỉ đổi khi tạo mới — cập nhật Excel không ghi đè phiếu nhập/bán/kiểm.
+                if (isNew)
+                    entity.OnHandQty = row.OnHandQty;
                 entity.MinStockQty = row.MinStockQty;
                 entity.MaxStockQty = row.MaxStockQty;
                 entity.BaseUnitName = row.BaseUnitName;
@@ -376,8 +473,16 @@ public partial class PosProductsController
         var comboErrors = new List<string>();
         if (comboImportRows.Count > 0)
         {
-            (comboApplied, comboErrors) = await ApplyImportedComboLinesAsync(
-                storeId, comboImportRows);
+            try
+            {
+                (comboApplied, comboErrors) = await ApplyImportedComboLinesAsync(
+                    storeId, comboImportRows);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "POS combo sheet import failed after product import");
+                comboErrors.Add($"Không áp dụng được sheet Combo: {ex.Message}");
+            }
         }
 
         return Ok(AppResponse<object>.Success(new
@@ -398,10 +503,14 @@ public partial class PosProductsController
         var errors = new List<string>();
         var applied = 0;
 
-        var productsByCode = await dbContext.PosProducts
+        var productsList = await dbContext.PosProducts
             .AsTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null)
-            .ToDictionaryAsync(p => p.ProductCode.ToLower(), p => p);
+            .ToListAsync();
+        var productsByCode = productsList
+            .Where(p => !string.IsNullOrWhiteSpace(p.ProductCode))
+            .GroupBy(p => p.ProductCode.ToLowerInvariant())
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.CreatedAt).First());
 
         var grouped = comboImportRows
             .GroupBy(r => r.ComboProductCode.Trim().ToLower())
@@ -457,29 +566,8 @@ public partial class PosProductsController
                 continue;
             }
 
-            var existing = await dbContext.PosProductComboLines
-                .Where(x => x.ComboProductId == comboProduct.Id && x.Deleted == null)
-                .ToListAsync();
-            foreach (var e in existing)
-            {
-                e.IsActive = false;
-                e.Deleted = DateTime.UtcNow;
-                e.DeletedBy = CurrentUserEmail;
-            }
-
-            foreach (var (componentId, qty) in lineInputs)
-            {
-                dbContext.PosProductComboLines.Add(new PosProductComboLine
-                {
-                    Id = Guid.NewGuid(),
-                    StoreId = storeId,
-                    ComboProductId = comboProduct.Id,
-                    ComponentProductId = componentId,
-                    Qty = qty,
-                    IsActive = true,
-                    CreatedBy = CurrentUserEmail,
-                });
-            }
+            await PosProductComboLinePersistHelper.ReplaceLinesAsync(
+                dbContext, storeId, comboProduct.Id, lineInputs, CurrentUserEmail);
 
             comboProduct.ProductType = PosProductType.Combo;
             comboProduct.UpdatedAt = DateTime.UtcNow;

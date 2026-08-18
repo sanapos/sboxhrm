@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using ZKTecoADMS.Api.Services;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -29,20 +32,39 @@ public class SampleDataController(
     {
         try
         {
-            // 1. Tìm store
-            var store = await db.Stores
-                .FirstOrDefaultAsync(s => s.Code.ToLower() == storeCode.ToLower(), ct);
+            var store = await FindStoreAsync(storeCode, ct);
             if (store == null)
                 return NotFound(AppResponse<SampleDataResult>.Error("Không tìm thấy cửa hàng."));
 
             var storeId = store.Id;
+            var authError = AuthorizeStoreAccess(storeId, allowAnonymousIfEmpty: true);
+            if (authError != null)
+                return authError;
 
-            // Kiểm tra đã có dữ liệu mẫu chưa
             var hasEmployees = await db.Employees
                 .IgnoreQueryFilters()
                 .AnyAsync(e => e.StoreId == storeId, ct);
+
+            var isAuth = User.Identity?.IsAuthenticated == true;
+            if (hasEmployees && !isAuth)
+                return BadRequest(AppResponse<SampleDataResult>.Error(
+                    "Cửa hàng đã có nhân viên. Đăng nhập rồi cài mẫu POS trong Cài đặt."));
+
             if (hasEmployees)
-                return BadRequest(AppResponse<SampleDataResult>.Error("Cửa hàng đã có dữ liệu. Không thể cài mẫu."));
+            {
+                var posOnly = await PosSampleStoreSeeder.SeedAsync(db, storeId, ct);
+                var posResult = new SampleDataResult
+                {
+                    PosProductsCreated = posOnly.Products,
+                    PosAreasCreated = posOnly.Areas,
+                    PosResourcesCreated = posOnly.Resources,
+                    Message = posOnly.Products + posOnly.Areas + posOnly.Resources == 0
+                        ? "Cửa hàng đã có hàng. Không thêm mẫu POS trùng tên."
+                        : $"Đã thêm mẫu POS theo ngành: {posOnly.Products} hàng, {posOnly.Resources} bàn/ghế/phòng.",
+                };
+                logger.LogInformation("POS sample seeded for store {Store}: {Msg}", store.Code, posResult.Message);
+                return Ok(AppResponse<SampleDataResult>.Success(posResult));
+            }
 
             // Tìm owner user
             var ownerUser = await db.Users
@@ -98,8 +120,8 @@ public class SampleDataController(
                 var empId = Guid.NewGuid();
                 userIds.Add(userId);
 
-                var email = $"{emailBase}-{storeCode}@demo.local";
-                var empCode = $"{code}-{storeCode}";
+                var email = $"{emailBase}-{store.Code}@demo.local";
+                var empCode = $"{code}-{store.Code}";
                 // Tạo user account
                 var user = new ApplicationUser
                 {
@@ -643,6 +665,8 @@ public class SampleDataController(
             }
             db.RolePermissions.AddRange(rolePerms);
 
+            var posSeed = await PosSampleStoreSeeder.SeedAsync(db, storeId, ct);
+
             // ══════════════════════════════════════════════
             // SAVE ALL
             // ══════════════════════════════════════════════
@@ -661,7 +685,10 @@ public class SampleDataController(
                 TransactionsCreated = transactions.Count,
                 TasksCreated = tasks.Count,
                 ProductionEntries = prodEntries.Count,
-                Message = "Đã cài đặt dữ liệu mẫu thành công! 10 nhân viên, 15 ngày dữ liệu đầy đủ."
+                PosProductsCreated = posSeed.Products,
+                PosAreasCreated = posSeed.Areas,
+                PosResourcesCreated = posSeed.Resources,
+                Message = $"Đã cài dữ liệu mẫu: 10 nhân viên, 15 ngày HRM, {posSeed.Products} hàng POS, {posSeed.Resources} bàn/ghế/phòng.",
             };
 
             logger.LogInformation("Sample data seeded for store {StoreCode}: {Result}", storeCode, result.Message);
@@ -685,30 +712,31 @@ public class SampleDataController(
     /// Xóa toàn bộ dữ liệu mẫu (CreatedBy = "SampleData") của cửa hàng
     /// </summary>
     [HttpDelete("delete/{storeCode}")]
-    [AllowAnonymous]
+    [Authorize]
     public async Task<ActionResult<AppResponse<SampleDataDeleteResult>>> DeleteSampleData(
         string storeCode, CancellationToken ct)
     {
         try
         {
-            // Support both storeCode and storeId (GUID)
-            Store? store;
-            if (Guid.TryParse(storeCode, out var storeGuid))
-                store = await db.Stores.FirstOrDefaultAsync(s => s.Id == storeGuid, ct);
-            else
-                store = await db.Stores.FirstOrDefaultAsync(s => s.Code.ToLower() == storeCode.ToLower(), ct);
-
+            var store = await FindStoreAsync(storeCode, ct);
             if (store == null)
                 return NotFound(AppResponse<SampleDataDeleteResult>.Error("Không tìm thấy cửa hàng."));
+
+            var authError = AuthorizeStoreAccess(store.Id, allowAnonymousIfEmpty: false);
+            if (authError != null)
+                return authError;
 
             var storeId = store.Id;
             var marker = "SampleData";
 
-            // Kiểm tra có dữ liệu mẫu không
-            var hasSampleData = await db.Employees
+            var hasHrm = await db.Employees
                 .IgnoreQueryFilters()
                 .AnyAsync(e => e.StoreId == storeId && e.CreatedBy == marker, ct);
-            if (!hasSampleData)
+            var hasPos = await db.PosProducts.IgnoreQueryFilters()
+                .AnyAsync(p => p.StoreId == storeId && p.CreatedBy == marker, ct)
+                || await db.PosServiceAreas.IgnoreQueryFilters()
+                    .AnyAsync(a => a.StoreId == storeId && a.CreatedBy == marker, ct);
+            if (!hasHrm && !hasPos)
                 return BadRequest(AppResponse<SampleDataDeleteResult>.Error("Cửa hàng không có dữ liệu mẫu."));
 
             // Xóa theo thứ tự FK (con trước, cha sau)
@@ -881,6 +909,9 @@ public class SampleDataController(
                 }
             }
 
+            var posDeleted = await PosSampleStoreSeeder.DeleteAsync(db, storeId, ct);
+            await db.SaveChangesAsync(ct);
+
             var result = new SampleDataDeleteResult
             {
                 EmployeesDeleted = sampleEmployees.Count,
@@ -888,7 +919,10 @@ public class SampleDataController(
                 DepartmentsDeleted = departments.Count,
                 ShiftsDeleted = shifts.Count,
                 AttendanceRecordsDeleted = attendances.Count,
-                Message = $"Đã xóa toàn bộ dữ liệu mẫu thành công! ({sampleEmployees.Count} nhân viên, {departments.Count} phòng ban)"
+                PosProductsDeleted = posDeleted.Products,
+                PosAreasDeleted = posDeleted.Areas,
+                PosResourcesDeleted = posDeleted.Resources,
+                Message = $"Đã xóa dữ liệu mẫu ({sampleEmployees.Count} NV, {posDeleted.Products} hàng POS, {posDeleted.Resources} bàn/ghế/phòng).",
             };
 
             logger.LogInformation("Sample data deleted for store {StoreCode}: {Msg}", storeCode, result.Message);
@@ -899,6 +933,36 @@ public class SampleDataController(
             logger.LogError(ex, "Error deleting sample data for store {StoreCode}", storeCode);
             return StatusCode(500, AppResponse<SampleDataDeleteResult>.Error($"Lỗi xóa dữ liệu mẫu: {ex.Message}"));
         }
+    }
+
+    async Task<Store?> FindStoreAsync(string storeCode, CancellationToken ct)
+    {
+        if (Guid.TryParse(storeCode, out var storeGuid))
+            return await db.Stores.FirstOrDefaultAsync(s => s.Id == storeGuid, ct);
+        var code = (storeCode ?? "").Trim().ToLower();
+        if (string.IsNullOrEmpty(code)) return null;
+        return await db.Stores.FirstOrDefaultAsync(s => s.Code.ToLower() == code, ct);
+    }
+
+    ActionResult? AuthorizeStoreAccess(Guid storeId, bool allowAnonymousIfEmpty)
+    {
+        var isAuth = User.Identity?.IsAuthenticated == true;
+        if (!isAuth)
+            return allowAnonymousIfEmpty ? null : Unauthorized(AppResponse<object>.Error("Cần đăng nhập."));
+
+        var role = User.FindFirst(ClaimTypes.Role)?.Value
+            ?? User.FindFirst("role")?.Value
+            ?? "";
+        var isSuper = User.IsInRole(nameof(Roles.SuperAdmin))
+            || role.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+        if (isSuper) return null;
+
+        var raw = User.FindFirst(ClaimTypeNames.StoreId)?.Value;
+        if (Guid.TryParse(raw, out var callerStore) && callerStore == storeId)
+            return null;
+
+        return StatusCode(StatusCodes.Status403Forbidden,
+            AppResponse<object>.Error("Không được thao tác dữ liệu mẫu cửa hàng khác."));
     }
 }
 
@@ -914,6 +978,9 @@ public class SampleDataResult
     public int TransactionsCreated { get; set; }
     public int TasksCreated { get; set; }
     public int ProductionEntries { get; set; }
+    public int PosProductsCreated { get; set; }
+    public int PosAreasCreated { get; set; }
+    public int PosResourcesCreated { get; set; }
     public string Message { get; set; } = string.Empty;
 }
 
@@ -924,5 +991,8 @@ public class SampleDataDeleteResult
     public int DepartmentsDeleted { get; set; }
     public int ShiftsDeleted { get; set; }
     public int AttendanceRecordsDeleted { get; set; }
+    public int PosProductsDeleted { get; set; }
+    public int PosAreasDeleted { get; set; }
+    public int PosResourcesDeleted { get; set; }
     public string Message { get; set; } = string.Empty;
 }

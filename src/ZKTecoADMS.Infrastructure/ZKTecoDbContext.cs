@@ -216,6 +216,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosProduct> PosProducts => Set<PosProduct>();
     public DbSet<PosBarcodeCatalog> PosBarcodeCatalog => Set<PosBarcodeCatalog>();
     public DbSet<PosProductSampleCatalog> PosProductSampleCatalog => Set<PosProductSampleCatalog>();
+    public DbSet<PosProductSampleCategory> PosProductSampleCategory => Set<PosProductSampleCategory>();
     public DbSet<StoreAccessDevice> StoreAccessDevices => Set<StoreAccessDevice>();
     public DbSet<ServerMetricSample> ServerMetricSamples => Set<ServerMetricSample>();
     public DbSet<PosProductToppingOption> PosProductToppingOptions => Set<PosProductToppingOption>();

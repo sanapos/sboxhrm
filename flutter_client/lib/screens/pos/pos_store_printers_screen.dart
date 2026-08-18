@@ -780,8 +780,12 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Text(
-                        tr('Máy in cửa hàng = Print Agent / máy dùng chung cửa hàng.\n'
-                            'Máy in nhiệt & tem gắn trực tiếp máy POS này → nút «Máy in nội bộ» (biểu tượng điện thoại).'),
+                        tr('Hướng dẫn nhanh\n'
+                            '• Máy in cửa hàng: dùng chung (web / A7 / PC Agent). Job qua server → Print Agent → USB/LAN.\n'
+                            '• Máy gắn trực tiếp máy POS này (Sunmi / USB / LAN) → nút «Máy in nội bộ» (biểu tượng điện thoại).\n'
+                            '• Gán «Hóa đơn» ở bảng dưới: cả cửa hàng dùng chung; hóa đơn chỉ in 1 máy (máy mặc định / máy chọn đầu).\n'
+                            '• Máy POS có máy nội bộ + vai trò Hóa đơn: in nội bộ trước; thành công thì không gửi thêm máy cửa hàng.\n'
+                            '• Chữ tiếng Việt lỗi / rác trên XP-80C, Zywell…: sửa máy → Hãng = Xprinter (hoặc Zywell) + Chế độ chữ = «In ảnh» hoặc «Tự động».'),
                         style: const TextStyle(fontSize: 12.5, height: 1.35),
                       ),
                     ),
@@ -1626,8 +1630,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 4),
             Text(
-              tr('Chọn máy in Agent cho từng loại chứng từ (hóa đơn, bếp, tem, kho…). '
-                  'Bấm in sẽ gửi tới mọi máy đã chọn cho loại đó.'),
+              tr('Chọn máy in cho từng loại chứng từ. '
+                  'Bếp / tem / kho: in tất cả máy đã chọn. '
+                  'Hóa đơn: chỉ 1 máy (mặc định hoặc máy đầu).'),
               style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
             ),
             const SizedBox(height: 6),
@@ -1640,8 +1645,9 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 border: Border.all(color: const Color(0xFFBAE6FD)),
               ),
               child: Text(
-                tr('Nút «Lưu phân loại» chỉ lưu bảng gán máy in ↔ chứng từ trên máy chủ. '
-                    'Không lưu công tắc Agent, chip máy in, hay danh sách máy.'),
+                tr('«Lưu phân loại» chỉ lưu bảng gán máy ↔ chứng từ trên máy chủ (chung cả cửa hàng).\n'
+                    'Không lưu công tắc Agent hay danh sách máy.\n'
+                    'Web in hóa đơn → server → Agent PC/POS → máy đã gán (vd. XP-80C).'),
                 style: const TextStyle(
                   fontSize: 11.5,
                   height: 1.35,
@@ -1750,6 +1756,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
   String _printerKind = 'receipt';
   String _connection = 'Lan';
   String _brand = 'zywell';
+  String _textMode = 'auto';
   String _paper = 'K80';
   String _templateId = 'roll_1_50x30';
   String _protocol = 'tspl';
@@ -1782,7 +1789,22 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
         _protocol = e.textMode ?? 'tspl';
         _gapMm = e.feedBeforeCut.clamp(1, 10);
       } else {
-        _brand = e.printerBrand ?? 'zywell';
+        final rawBrand = (e.printerBrand ?? 'zywell').toLowerCase();
+        _brand = (rawBrand == 'windows' || rawBrand == 'auto')
+            ? 'xprinter'
+            : rawBrand;
+        final rawMode = (e.textMode ?? 'auto').toLowerCase();
+        // Agent cũ: Windows+Utf8 → chọn auto để UI khớp hành vi in ảnh.
+        _textMode = (rawBrand == 'windows' || rawBrand == 'auto') &&
+                rawMode == 'utf8'
+            ? 'auto'
+            : rawMode;
+        if (!PosThermalTextMode.values.any((m) => m.key == _textMode)) {
+          _textMode = 'auto';
+        }
+        if (!PosThermalPrinterBrand.values.any((b) => b.key == _brand)) {
+          _brand = 'xprinter';
+        }
         _paper = e.paperSize;
         _feedBeforeCut = e.feedBeforeCut <= 0 ? 1 : e.feedBeforeCut;
       }
@@ -1891,7 +1913,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
         'paperSize': _isLabel ? _templateId : _paper,
         'textMode': _isLabel
             ? _protocol
-            : (_connection == 'Sunmi' ? 'utf8' : 'auto'),
+            : (_connection == 'Sunmi' ? 'utf8' : _textMode),
         'bluetoothAddress': _connection == 'Bluetooth' ? _btAddr : null,
         'bluetoothName': _connection == 'Bluetooth' ? _btName : null,
         'lanHost': _connection == 'Lan' && _lanHostCtrl.text.trim().isNotEmpty
@@ -2125,6 +2147,23 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
                           ))
                       .toList(),
                   onChanged: (v) => setState(() => _brand = v ?? 'zywell'),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  value: _textMode,
+                  decoration: InputDecoration(
+                    labelText: tr('Chế độ chữ'),
+                    helperText: tr(
+                        'XP-80C / Zywell: chọn «In ảnh» hoặc «Tự động» — UTF-8 hay lỗi font tiếng Việt'),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: PosThermalTextMode.values
+                      .map((m) => DropdownMenuItem(
+                            value: m.key,
+                            child: Text(tr(m.label)),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _textMode = v ?? 'auto'),
                 ),
               ],
               const SizedBox(height: 10),

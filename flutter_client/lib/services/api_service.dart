@@ -538,9 +538,9 @@ class ApiService {
     try {
       debugPrint('🌱 Seeding sample data for store: $storeCode');
       final response = await http.post(
-        Uri.parse('$baseUrl/api/sampledata/seed/$storeCode'),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 30));
+        Uri.parse('$baseUrl/api/sampledata/seed/${Uri.encodeComponent(storeCode)}'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 90));
       debugPrint('📥 Seed response: ${response.statusCode}');
       return _handleResponse(response);
     } catch (e) {
@@ -558,10 +558,10 @@ class ApiService {
       debugPrint('🗑️ Deleting sample data for store: $storeCode');
       final response = await http
           .delete(
-            Uri.parse('$baseUrl/api/sampledata/delete/$storeCode'),
+            Uri.parse('$baseUrl/api/sampledata/delete/${Uri.encodeComponent(storeCode)}'),
             headers: _headers,
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 90));
       debugPrint('📥 Delete sample response: ${response.statusCode}');
       return _handleResponse(response);
     } catch (e) {
@@ -14780,6 +14780,9 @@ class ApiService {
   Future<Map<String, dynamic>> getPosSampleCatalog({
     String? search,
     String? kind,
+    String? productType,
+    String? category,
+    String? categoryId,
     int page = 1,
     int pageSize = 60,
   }) async {
@@ -14792,6 +14795,15 @@ class ApiService {
         q['search'] = search.trim();
       }
       if (kind != null && kind.trim().isNotEmpty) q['kind'] = kind.trim();
+      if (productType != null && productType.trim().isNotEmpty) {
+        q['productType'] = productType.trim();
+      }
+      if (category != null && category.trim().isNotEmpty) {
+        q['category'] = category.trim();
+      }
+      if (categoryId != null && categoryId.trim().isNotEmpty) {
+        q['categoryId'] = categoryId.trim();
+      }
       final uri = Uri.parse('$baseUrl/api/pos/products/sample-catalog')
           .replace(queryParameters: q);
       final response =
@@ -14820,6 +14832,13 @@ class ApiService {
   Future<Map<String, dynamic>> getSystemPosSampleCatalog({
     String? search,
     String? kind,
+    String? productType,
+    String? category,
+    String? categoryId,
+    String? brand,
+    String? sellProfile,
+    bool? hasImage,
+    bool? isActive,
     bool includeInactive = false,
     int page = 1,
     int pageSize = 50,
@@ -14834,6 +14853,21 @@ class ApiService {
         q['search'] = search.trim();
       }
       if (kind != null && kind.trim().isNotEmpty) q['kind'] = kind.trim();
+      if (productType != null && productType.trim().isNotEmpty) {
+        q['productType'] = productType.trim();
+      }
+      if (category != null && category.trim().isNotEmpty) {
+        q['category'] = category.trim();
+      }
+      if (categoryId != null && categoryId.trim().isNotEmpty) {
+        q['categoryId'] = categoryId.trim();
+      }
+      if (brand != null && brand.trim().isNotEmpty) q['brand'] = brand.trim();
+      if (sellProfile != null && sellProfile.trim().isNotEmpty) {
+        q['sellProfile'] = sellProfile.trim();
+      }
+      if (hasImage != null) q['hasImage'] = '$hasImage';
+      if (isActive != null) q['isActive'] = '$isActive';
       final uri = Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog')
           .replace(queryParameters: q);
       final response =
@@ -14921,6 +14955,135 @@ class ApiService {
             headers: _headers,
           )
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getSystemPosSampleCatalogFacets() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/facets'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getSystemPosSampleCategories({
+    bool includeInactive = true,
+  }) async {
+    try {
+      final uri = Uri.parse(
+              '$baseUrl/api/system-admin/pos-sample-catalog/categories')
+          .replace(queryParameters: {'includeInactive': '$includeInactive'});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createSystemPosSampleCategory(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/categories'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSystemPosSampleCategory(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse(
+                '$baseUrl/api/system-admin/pos-sample-catalog/categories/$id'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteSystemPosSampleCategory(String id) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse(
+                '$baseUrl/api/system-admin/pos-sample-catalog/categories/$id'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> exportSystemPosSampleCatalogExcel({
+    String? search,
+    String? kind,
+    String? productType,
+    String? category,
+    String? brand,
+    bool? hasImage,
+    bool includeInactive = true,
+  }) async {
+    final q = <String, String>{'includeInactive': '$includeInactive'};
+    if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+    if (kind != null && kind.trim().isNotEmpty) q['kind'] = kind.trim();
+    if (productType != null && productType.trim().isNotEmpty) {
+      q['productType'] = productType.trim();
+    }
+    if (category != null && category.trim().isNotEmpty) {
+      q['category'] = category.trim();
+    }
+    if (brand != null && brand.trim().isNotEmpty) q['brand'] = brand.trim();
+    if (hasImage != null) q['hasImage'] = '$hasImage';
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/export/excel')
+          .replace(queryParameters: q),
+    );
+  }
+
+  Future<Map<String, dynamic>> exportSystemPosSampleCatalogExcelTemplate() {
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/excel-template'),
+    );
+  }
+
+  Future<Map<String, dynamic>> importSystemPosSampleCatalogExcel(
+      List<int> fileBytes, String fileName) async {
+    try {
+      final uri =
+          Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/import/excel');
+      final request = http.MultipartRequest('POST', uri);
+      final authHeaders = _headers;
+      if (authHeaders.containsKey('Authorization')) {
+        request.headers['Authorization'] = authHeaders['Authorization']!;
+      }
+      request.files.add(
+          http.MultipartFile.fromBytes('file', fileBytes, filename: fileName));
+      final streamed = await request.send().timeout(const Duration(seconds: 180));
+      final response = await http.Response.fromStream(streamed);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -15877,6 +16040,28 @@ class ApiService {
     } catch (e) {
       debugPrint('Error saveHkdSettings: $e');
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getHkdBookPreview({
+    required String book,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{'book': book};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/hkd/books/preview')
+                .replace(queryParameters: q),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
     }
   }
 

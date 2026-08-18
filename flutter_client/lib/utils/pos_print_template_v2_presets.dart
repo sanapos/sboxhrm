@@ -105,105 +105,105 @@ abstract final class PosPrintTemplateV2Presets {
       );
     }
 
-    // Hóa đơn / đặt hàng / giao hàng / trả hàng — layout giống Sunmi V2S K58 hiện tại.
+    // Hóa đơn / trả hàng — layout gọn (ít dòng, chữ vừa, không QR mặc định).
+    final isReturn = documentType == PosPrintDocumentTypes.saleReturn;
+    final compactTitle = k58 ? 28.0 : 32.0;
+    final compactBody = k58 ? 20.0 : 22.0;
+    final compactSmall = k58 ? 16.0 : 18.0;
+    final compactTotal = k58 ? 24.0 : 28.0;
     return PosPrintTemplateV2(
       paperSize: paperSize,
       printerProfile: printerProfile,
       documentType: documentType,
       name: name ??
-          '${PosPrintDocumentTypes.all[documentType] ?? 'Mẫu in'} — ${PosPrintPrinterProfiles.labels[printerProfile] ?? printerProfile}',
+          '${PosPrintDocumentTypes.all[documentType] ?? 'Mẫu in'} gọn — ${PosPrintPrinterProfiles.labels[printerProfile] ?? printerProfile}',
       blocks: [
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Ten_Cua_Hang',
-          style: PosPrintTextStyle(fontSize: titleSize, bold: true, align: PosPrintTextAlign.center),
+          style: PosPrintTextStyle(
+              fontSize: compactTitle, bold: true, align: PosPrintTextAlign.center),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Dia_Chi_Chi_Nhanh',
-          style: PosPrintTextStyle(fontSize: smallSize, align: PosPrintTextAlign.center),
-        ),
-        PosPrintBlock(
-          type: PosPrintBlockType.field,
-          field: 'Dien_Thoai_Chi_Nhanh',
-          style: PosPrintTextStyle(fontSize: smallSize, align: PosPrintTextAlign.center),
+          style: PosPrintTextStyle(
+              fontSize: compactSmall, align: PosPrintTextAlign.center),
         ),
         const PosPrintBlock(type: PosPrintBlockType.divider),
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Tieu_De_In',
-          style: PosPrintTextStyle(fontSize: bodySize + 2, bold: true, align: PosPrintTextAlign.center),
+          style: PosPrintTextStyle(
+              fontSize: compactBody + 2,
+              bold: true,
+              align: PosPrintTextAlign.center),
         ),
         PosPrintBlock(
-          type: PosPrintBlockType.field,
-          field: 'Ma_Don_Hang',
-          label: 'Số HĐ:',
-          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+          type: PosPrintBlockType.pair,
+          leftField: 'Ma_Don_Hang',
+          rightField: 'Ngay',
+          fieldLabels: const {
+            'Ma_Don_Hang': 'HĐ:',
+            'Ngay': '',
+          },
+          style: PosPrintTextStyle(fontSize: compactBody, bold: true),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Ten_Ban',
-          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
-        ),
-        PosPrintBlock(
-          type: PosPrintBlockType.field,
-          field: 'Ngay',
-          label: 'Ngày:',
-          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+          style: PosPrintTextStyle(fontSize: compactBody, bold: true),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Khach_Hang',
           label: 'KH:',
-          style: PosPrintTextStyle(fontSize: bodySize),
-        ),
-        PosPrintBlock(
-          type: PosPrintBlockType.field,
-          field: 'SDT',
-          label: 'ĐT:',
-          style: PosPrintTextStyle(fontSize: smallSize),
+          style: PosPrintTextStyle(fontSize: compactSmall),
         ),
         const PosPrintBlock(type: PosPrintBlockType.divider),
         PosPrintBlock(
           type: PosPrintBlockType.lineItems,
-          showColumnHeader: true,
-          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+          showColumnHeader: false,
+          style: PosPrintTextStyle(fontSize: compactBody, bold: true),
         ),
         const PosPrintBlock(type: PosPrintBlockType.divider),
         PosPrintBlock(
           type: PosPrintBlockType.totals,
-          fields: const [
-            'Tong_Tien_Hang',
-            'Chiet_Khau_Hoa_Don',
-            'Tong_Cong',
-            'Khach_Thanh_Toan',
-            'Tien_Thua',
-          ],
-          fieldLabels: const {
-            'Tong_Tien_Hang': 'Tổng tiền hàng',
-            'Chiet_Khau_Hoa_Don': 'Chiết khấu',
-            'Tong_Cong': 'TỔNG CỘNG',
-            'Khach_Thanh_Toan': 'Đã thanh toán',
-            'Tien_Thua': 'Tiền thừa',
-          },
-          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
-          rightStyle: PosPrintTextStyle(fontSize: totalSize, bold: true, align: PosPrintTextAlign.right),
-        ),
-        const PosPrintBlock(type: PosPrintBlockType.vietQr),
-        PosPrintBlock(
-          type: PosPrintBlockType.field,
-          field: 'Tong_Cong_Bang_Chu',
-          style: PosPrintTextStyle(fontSize: smallSize, align: PosPrintTextAlign.center),
+          fields: isReturn
+              ? const ['Tong_Cong']
+              : const [
+                  'Tong_Tien_Hang',
+                  'Chiet_Khau_Hoa_Don',
+                  'Tong_Cong',
+                  'Khach_Thanh_Toan',
+                ],
+          fieldLabels: isReturn
+              ? const {'Tong_Cong': 'HOÀN TIỀN'}
+              : const {
+                  'Tong_Tien_Hang': 'Tiền hàng',
+                  'Chiet_Khau_Hoa_Don': 'CK',
+                  'Tong_Cong': 'TỔNG',
+                  'Khach_Thanh_Toan': 'Đã thu',
+                },
+          style: PosPrintTextStyle(fontSize: compactBody, bold: true),
+          rightStyle: PosPrintTextStyle(
+              fontSize: compactTotal,
+              bold: true,
+              align: PosPrintTextAlign.right),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.text,
-          text: tr('Cảm ơn quý khách!'),
-          style: PosPrintTextStyle(fontSize: smallSize, bold: true, align: PosPrintTextAlign.center),
+          text: tr(isReturn ? 'Phiếu trả hàng' : 'Cảm ơn quý khách!'),
+          style: PosPrintTextStyle(
+              fontSize: compactSmall,
+              bold: true,
+              align: PosPrintTextAlign.center),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Ghi_Chu',
-          style: PosPrintTextStyle(fontSize: smallSize - 2, align: PosPrintTextAlign.center),
+          style: PosPrintTextStyle(
+              fontSize: compactSmall - 2, align: PosPrintTextAlign.center),
         ),
       ],
     );

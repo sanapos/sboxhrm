@@ -58,6 +58,7 @@ import '../widgets/pos/pos_sell_mobile_print_settings_screen.dart';
 import '../widgets/pos/pos_barcode_keyboard_scope.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import '../widgets/pos/pos_sell_product_grid.dart';
+import '../widgets/pos/pos_sell_cart_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../screens/pos/pos_product_editor_page.dart';
@@ -6380,7 +6381,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   /// Chọn món/hàng từ catalog mẫu Super Admin → sửa giá + nhóm → thêm vào giỏ.
   Future<void> _openSampleCatalog() async {
-    final created = await showPosSampleCatalogPicker(context, _api);
+    final created = await showPosSampleCatalogPicker(
+      context,
+      _api,
+      initialKind: _sellProfile.sampleCatalogKind,
+    );
     if (created == null || !mounted) return;
     ScreenRefreshNotifier.refreshPosProducts();
     ScreenRefreshNotifier.refreshPosSellProductGrid();
@@ -9992,29 +9997,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Widget _buildMissingTimedServiceBanner() {
     if (!_missingTimedServiceWarning) return const SizedBox.shrink();
-    return Material(
-      color: const Color(0xFFFFF7ED),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            const Icon(Icons.timer_off_outlined,
-                size: 18, color: Color(0xFFC2410C)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                tr('Chưa có dịch vụ tính giờ trên đơn — thêm SP theo giờ hoặc cấu hình SP mặc định khi mở bàn.'),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF9A3412),
-                  height: 1.25,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const PosSellMissingTimedServiceBanner();
   }
 
   Widget _buildDraftReadOnlyBanner() {
@@ -10023,17 +10006,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Widget _buildDraftSyncStatusBar() {
-    final no = _tab.draftOrderNo;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      color: const Color(0xFFEFF6FF),
-      child: Text(
-        tr(no != null && no.isNotEmpty
-            ? 'Đồng bộ server · $no · tự lưu khi sửa hàng'
-            : 'Đồng bộ server · tự lưu khi sửa hàng'),
-        style: const TextStyle(fontSize: 11, color: Color(0xFF1D4ED8)),
-      ),
-    );
+    return PosSellDraftSyncBar(draftOrderNo: _tab.draftOrderNo);
   }
 
   Widget _buildCartFooter() {
@@ -10086,40 +10059,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   Widget _buildCartHeader() {
-    const hdr = TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w600,
-      color: PosTheme.textSecondary,
-    );
-    return Container(
+    return PosSellKiotCartHeader(
+      catalogColumnLabel: _sellProfile.catalogColumnLabel,
       height: _KiotLayout.cartHeaderHeight,
-      padding: const EdgeInsets.symmetric(horizontal: _KiotLayout.sidePadding),
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        border: Border(bottom: BorderSide(color: PosTheme.border)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(width: _KiotLayout.wDel),
-          Expanded(child: Text(tr(_sellProfile.catalogColumnLabel), style: hdr)),
-          SizedBox(
-            width: _KiotLayout.wQty,
-            child: Text(tr('SL'), style: hdr, textAlign: TextAlign.center),
-          ),
-          SizedBox(
-            width: _KiotLayout.wUnit,
-            child: Text(tr('ĐVT'), style: hdr, textAlign: TextAlign.center),
-          ),
-          SizedBox(
-            width: _KiotLayout.wPrice,
-            child: Text(tr('Đơn giá'), style: hdr, textAlign: TextAlign.right),
-          ),
-          SizedBox(
-            width: _KiotLayout.wTotal,
-            child: Text(tr('Thành tiền'), style: hdr, textAlign: TextAlign.right),
-          ),
-        ],
-      ),
+      sidePadding: _KiotLayout.sidePadding,
+      wDel: _KiotLayout.wDel,
+      wQty: _KiotLayout.wQty,
+      wUnit: _KiotLayout.wUnit,
+      wPrice: _KiotLayout.wPrice,
+      wTotal: _KiotLayout.wTotal,
     );
   }
 
@@ -10175,7 +10123,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
                       const Divider(height: 1, indent: 12, endIndent: 12, color: PosTheme.border),
                   itemBuilder: (ctx, i) {
                     final line = _tab.cart[_tab.cart.length - 1 - i];
-                    return _buildKiotCartRow(line, _tab.cart.length - 1 - i);
+                    return RepaintBoundary(
+                      key: ValueKey(line.rowId),
+                      child: _buildKiotCartRow(line, _tab.cart.length - 1 - i),
+                    );
                   },
                 ),
               ),

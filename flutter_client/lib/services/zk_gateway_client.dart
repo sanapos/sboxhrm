@@ -489,24 +489,37 @@ class ZkGatewayClient {
 
     final byKey = <String, ZkGatewayInfo>{};
 
-    // mDNS thường trả stub chỉ có IP (không serial); UDP/HTTP có serial.
-    // Key cũ `s:SN` vs `ip:x.x.x.x` không gộp → một mạch hiện 2 thẻ.
-    // Gộp theo cùng serial HOẶC cùng IP, rồi khóa lại theo serial nếu có.
+    // Gộp an toàn khi nhiều mạch:
+    // - Cùng IP LAN → cùng một mạch (mDNS stub + UDP/HTTP).
+    // - Cùng serial nhưng IP LAN khác → GIỮ CẢ HAI (hai mạch cấu hình nhầm cùng máy).
+    // - Serial chỉ dùng để nâng stub thiếu IP, không nuốt mạch thứ hai.
     void merge(ZkGatewayInfo info) {
       if (info.ip.isEmpty && info.host.isEmpty && info.serial.isEmpty) return;
 
       String? matchKey;
       for (final e in byKey.entries) {
         final prev = e.value;
-        final sameSerial = info.serial.isNotEmpty &&
-            prev.serial.isNotEmpty &&
-            info.serial == prev.serial;
-        final sameIp =
-            info.ip.isNotEmpty && prev.ip.isNotEmpty && info.ip == prev.ip;
-        if (sameSerial || sameIp) {
+        final sameIp = info.ip.isNotEmpty &&
+            prev.ip.isNotEmpty &&
+            info.ip == prev.ip;
+        if (sameIp) {
           matchKey = e.key;
           break;
         }
+
+        final sameSerial = info.serial.isNotEmpty &&
+            prev.serial.isNotEmpty &&
+            info.serial == prev.serial;
+        if (!sameSerial) continue;
+
+        final infoLan = _usableLanIp(info.ip);
+        final prevLan = _usableLanIp(prev.ip);
+        // Một bên chưa có IP LAN (stub) → gộp để bổ sung serial/status.
+        if (!infoLan || !prevLan) {
+          matchKey = e.key;
+          break;
+        }
+        // Hai IP LAN khác + cùng serial → xung đột cấu hình, không gộp.
       }
 
       ZkGatewayInfo next = info;
@@ -514,9 +527,12 @@ class ZkGatewayClient {
         next = _richerGateway(byKey.remove(matchKey)!, info);
       }
 
-      final key = next.serial.isNotEmpty
-          ? 's:${next.serial}'
-          : (next.ip.isNotEmpty ? 'ip:${next.ip}' : 'h:${next.host}');
+      // Khóa theo IP khi có LAN; serial chỉ khi chưa biết IP (tránh che mạch khác).
+      final key = _usableLanIp(next.ip)
+          ? 'ip:${next.ip}'
+          : (next.serial.isNotEmpty
+              ? 's:${next.serial}'
+              : (next.ip.isNotEmpty ? 'ip:${next.ip}' : 'h:${next.host}'));
       byKey[key] = next;
     }
 
@@ -567,6 +583,48 @@ class ZkGatewayClient {
     return list;
   }
 
+  /// Phát hiện cấu hình xung đột khi nhiều mạch cùng chỗ.
+  static List<String> conflictMessages(List<ZkGatewayInfo> list) {
+    final msgs = <String>[];
+    final bySerial = <String, List<ZkGatewayInfo>>{};
+    final byDeviceIp = <String, List<ZkGatewayInfo>>{};
+
+    for (final g in list) {
+      if (_isSoftApIp(g.ip)) continue;
+      if (g.serial.isNotEmpty) {
+        bySerial.putIfAbsent(g.serial, () => []).add(g);
+      }
+      if (g.deviceIp.isNotEmpty) {
+        byDeviceIp.putIfAbsent(g.deviceIp, () => []).add(g);
+      }
+    }
+
+    for (final e in bySerial.entries) {
+      final ips = e.value.map((g) => g.ip).where((ip) => ip.isNotEmpty).toSet();
+      if (ips.length > 1) {
+        msgs.add(
+          'Cùng số seri máy ${e.key} trên ${ips.length} gateway '
+          '(${ips.join(", ")}). Mỗi máy ZK chỉ nên gắn một mạch.',
+        );
+      }
+    }
+    for (final e in byDeviceIp.entries) {
+      final gateways = e.value;
+      if (gateways.length < 2) continue;
+      // Tránh trùng message nếu đã báo cùng serial.
+      final serials = gateways.map((g) => g.serial).where((s) => s.isNotEmpty).toSet();
+      if (serials.length == 1 &&
+          msgs.any((m) => m.contains('số seri máy ${serials.first}'))) {
+        continue;
+      }
+      msgs.add(
+        'Cùng IP máy chấm công ${e.key} trên ${gateways.length} gateway. '
+        'Kiểm tra lại cấu hình IP máy.',
+      );
+    }
+    return msgs;
+  }
+
   /// IP SoftAP cấu hình — không phải địa chỉ quản lý trên WiFi nhà.
   static bool _isSoftApIp(String ip) {
     final t = ip.trim();
@@ -584,11 +642,15 @@ class ZkGatewayClient {
     final aScore = (a.serial.isNotEmpty ? 4 : 0) +
         (a.version.isNotEmpty ? 2 : 0) +
         (a.name.isNotEmpty ? 1 : 0) +
-        (_usableLanIp(a.ip) ? 2 : 0);
+        (_usableLanIp(a.ip) ? 2 : 0) +
+        (a.apSsid.isNotEmpty ? 1 : 0) +
+        (a.host.isNotEmpty ? 1 : 0);
     final bScore = (b.serial.isNotEmpty ? 4 : 0) +
         (b.version.isNotEmpty ? 2 : 0) +
         (b.name.isNotEmpty ? 1 : 0) +
-        (_usableLanIp(b.ip) ? 2 : 0);
+        (_usableLanIp(b.ip) ? 2 : 0) +
+        (b.apSsid.isNotEmpty ? 1 : 0) +
+        (b.host.isNotEmpty ? 1 : 0);
     final rich = bScore >= aScore ? b : a;
     final other = identical(rich, b) ? a : b;
     final preferredIp = _usableLanIp(rich.ip)
@@ -615,15 +677,16 @@ class ZkGatewayClient {
     required Duration scanFor,
   }) async {
     // Không luôn dò SoftAP: chỉ khi chưa nhớ host LAN (lúc đang cấu hình).
+    // Không phụ thuộc sboxadms.local (trùng khi nhiều mạch) — chỉ fallback cuối.
     final remembered = await loadRememberedHosts();
     final hosts = <String>{
       ...remembered.where((h) => !_isSoftApIp(h)),
       if (remembered.isEmpty) apAddress,
     };
 
-    // Trên iOS: resolve sboxadms.local bằng Bonjour trước, rồi HTTP theo IP.
-    // Gọi thẳng hostname `.local` qua package:http thường thất bại.
-    if (!kIsWeb) {
+    // Chỉ resolve legacy sboxadms.local khi chưa nhớ IP nào (máy cũ / một mạch).
+    // Nhiều mạch cùng LAN làm sboxadms.local không xác định.
+    if (!kIsWeb && remembered.isEmpty) {
       try {
         final resolved = await resolveMdnsHost(
           portalHost,
@@ -633,10 +696,8 @@ class ZkGatewayClient {
         );
         hosts.addAll(resolved);
       } catch (_) {}
+      hosts.add(portalHost);
     }
-
-    // Vẫn thử hostname (Android / desktop đôi khi resolve được).
-    hosts.add(portalHost);
 
     final found = <ZkGatewayInfo>[];
     await Future.wait(hosts.map((host) async {
@@ -686,25 +747,7 @@ class ZkGatewayClient {
   }) async {
     final deadline = DateTime.now().add(duration);
     while (DateTime.now().isBefore(deadline)) {
-      try {
-        final resolved = await resolveMdnsHost(
-          portalHost,
-          timeout: const Duration(seconds: 2),
-        );
-        for (final ip in [...resolved, portalHost]) {
-          try {
-            final viaHost =
-                await fetchInfo(ip).timeout(const Duration(seconds: 2));
-            final matches =
-                serial == null || serial.isEmpty || viaHost.serial == serial;
-            if (matches && viaHost.wifiConnected) {
-              if (viaHost.ip.isNotEmpty) await rememberHost(viaHost.ip);
-              return viaHost;
-            }
-          } catch (_) {}
-        }
-      } catch (_) {}
-
+      // Ưu tiên UDP/mDNS service — không phụ thuộc hostname trùng sboxadms.local.
       final list = await discover(duration: const Duration(seconds: 4));
       for (final info in list) {
         final matches =
@@ -713,6 +756,20 @@ class ZkGatewayClient {
           await rememberHost(info.ip);
           return info;
         }
+      }
+
+      // Fallback: host đã nhớ + SoftAP.
+      for (final host in [...await loadRememberedHosts(), apAddress]) {
+        try {
+          final viaHost =
+              await fetchInfo(host).timeout(const Duration(seconds: 2));
+          final matches =
+              serial == null || serial.isEmpty || viaHost.serial == serial;
+          if (matches && viaHost.wifiConnected) {
+            if (viaHost.ip.isNotEmpty) await rememberHost(viaHost.ip);
+            return viaHost;
+          }
+        } catch (_) {}
       }
       await Future.delayed(const Duration(seconds: 2));
     }

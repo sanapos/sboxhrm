@@ -37,6 +37,9 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   double _taxPercent = 10;
   bool _hasPassword = false;
   bool _obscurePass = true;
+  /// Kết quả «Kiểm tra kết nối» — hiện ngay trên form (không chỉ toast).
+  String? _testBanner;
+  bool _testBannerOk = false;
 
   @override
   void initState() {
@@ -117,23 +120,54 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   }
 
   Future<void> _test() async {
-    setState(() => _testing = true);
-    final res = await _api.testPosEInvoiceConnection();
-    if (!mounted) return;
-    setState(() => _testing = false);
-    final ok = res['isSuccess'] == true;
-    final msg = res['data'] is Map
-        ? (res['data']['message'] ?? res['message'])?.toString()
-        : res['message']?.toString();
-    if (ok) {
-      NotificationOverlayManager().showSuccess(
-        title: 'Kết nối OK',
-        message: tr(msg ?? 'Kết nối nhà cung cấp HĐĐT thành công'),
-      );
-    } else {
+    setState(() {
+      _testing = true;
+      _testBanner = null;
+    });
+    try {
+      final res = await _api.testPosEInvoiceConnection();
+      if (!mounted) return;
+      final ok = res['isSuccess'] == true;
+      String? msg;
+      final data = res['data'];
+      if (data is Map) {
+        msg = (data['message'] ?? data['Message'])?.toString();
+      }
+      msg ??= res['message']?.toString();
+      if (msg != null && msg.trim().isEmpty) msg = null;
+      final text = ok
+          ? (msg ?? 'Kết nối nhà cung cấp HĐĐT thành công')
+          : (msg ?? 'Không kết nối được nhà cung cấp HĐĐT');
+      setState(() {
+        _testing = false;
+        _testBannerOk = ok;
+        _testBanner = text;
+      });
+      if (ok) {
+        NotificationOverlayManager().showSuccess(
+          title: 'Kết nối OK',
+          message: tr(text),
+          duration: const Duration(seconds: 5),
+        );
+      } else {
+        NotificationOverlayManager().showError(
+          title: 'Kết nối thất bại',
+          message: tr(text),
+          duration: const Duration(seconds: 6),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final text = e.toString();
+      setState(() {
+        _testing = false;
+        _testBannerOk = false;
+        _testBanner = text;
+      });
       NotificationOverlayManager().showError(
         title: 'Kết nối thất bại',
-        message: msg ?? 'Không kết nối được nhà cung cấp HĐĐT',
+        message: text,
+        duration: const Duration(seconds: 6),
       );
     }
   }
@@ -276,9 +310,9 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
             controller: _templateCtrl,
             decoration: _dec(
                 easy
-                    ? 'Ký hiệu mẫu số (Serial)'
+                    ? 'Mẫu số SoftDreams (Pattern)'
                     : 'Ký hiệu mẫu (templateCode)',
-                hint: '1/001'),
+                hint: easy ? '1C26MAA  (đúng như trên portal)' : '1/001'),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -286,10 +320,20 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
             textCapitalization: TextCapitalization.characters,
             decoration: _dec(
                 easy
-                    ? 'Ký hiệu hóa đơn (Pattern)'
+                    ? 'Ký hiệu (Serial) — thường để trống'
                     : 'Ký hiệu hóa đơn (invoiceSeries)',
-                hint: 'C24AAA'),
+                hint: easy ? 'Để trống nếu portal để trống cột Ký hiệu' : 'C24AAA'),
           ),
+          if (easy) ...[
+            const SizedBox(height: 8),
+            Text(
+              tr('Sen Garden: trên portal Pattern = «1C26MAA» (HĐ máy tính tiền), '
+                  'cột Ký hiệu trống. Điền Pattern=1C26MAA, Serial để trống. '
+                  '«Kiểm tra kết nối» chỉ auth — không tạo HĐ. '
+                  'Nếu portal báo Còn lại (MTT)=0 phải Gia hạn gói trước.'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+          ],
           if (viettel) ...[
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -356,6 +400,46 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
                 ? 'Kiểm tra kết nối Easy Invoice'
                 : 'Kiểm tra kết nối Viettel')),
           ),
+          if (_testBanner != null) ...[
+            const SizedBox(height: 12),
+            Material(
+              color: _testBannerOk
+                  ? const Color(0xFFECFDF5)
+                  : const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      _testBannerOk
+                          ? Icons.check_circle_outline
+                          : Icons.error_outline,
+                      color: _testBannerOk
+                          ? const Color(0xFF059669)
+                          : const Color(0xFFDC2626),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        tr(_testBanner!),
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                          color: _testBannerOk
+                              ? const Color(0xFF065F46)
+                              : const Color(0xFF991B1B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           FilledButton(
             style: FilledButton.styleFrom(

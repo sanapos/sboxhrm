@@ -55,7 +55,9 @@ public class EasyInvoiceClient(IHttpClientFactory httpFactory, ILogger<EasyInvoi
         var ping = await GetInvoicesByIkeysAsync(
             baseUrl, username, password, taxCode, ["sbox-ping"], ct);
         if (ping.AuthOk)
-            return (true, "Xác thực Easy Invoice thành công");
+            return (true,
+                "Xác thực Easy Invoice thành công. Lưu ý: kiểm tra kết nối không tạo hóa đơn — " +
+                "cần thanh toán đơn có chọn xuất HĐĐT. Pattern=mẫu số, Serial=ký hiệu (vd. 1 + C26MAA).");
         return (false, ping.Error ?? "Không xác thực được Easy Invoice");
     }
 
@@ -141,18 +143,16 @@ public class EasyInvoiceClient(IHttpClientFactory httpFactory, ILogger<EasyInvoi
             var message = ReadString(rootEl, "Message") ?? ReadString(rootEl, "message");
             var errorCode = ReadString(rootEl, "ErrorCode") ?? ReadString(rootEl, "errorCode");
 
-            if (!res.IsSuccessStatusCode && status != 2)
-            {
-                if (LooksLikeAuthError(message, errorCode, body))
-                    return (false, message ?? TrimErr(body), []);
-                return (false, message ?? $"HTTP {(int)res.StatusCode}: {TrimErr(body)}", []);
-            }
+            // SoftDreams hay trả HTTP 404 kèm JSON Status/ErrorCode khi ikey không có —
+            // miễn không phải lỗi xác thực thì coi token hợp lệ.
+            if (LooksLikeAuthError(message, errorCode, body))
+                return (false, message ?? errorCode ?? TrimErr(body), []);
 
             if (status == 2)
                 return (true, null, ReadInvoices(rootEl));
 
-            if (LooksLikeAuthError(message, errorCode, body))
-                return (false, message ?? errorCode ?? TrimErr(body), []);
+            if (!res.IsSuccessStatusCode && status == 0 && string.IsNullOrWhiteSpace(message))
+                return (false, $"HTTP {(int)res.StatusCode}: {TrimErr(body)}", []);
 
             // Lỗi nghiệp vụ (ikey không tồn tại…) — token vẫn hợp lệ.
             return (true, message, ReadInvoices(rootEl));
@@ -184,6 +184,16 @@ public class EasyInvoiceClient(IHttpClientFactory httpFactory, ILogger<EasyInvoi
             if (status != 2)
             {
                 var detail = ReadKeyInvoiceMsg(root) ?? message ?? TrimErr(body);
+                if ((errorCode ?? "").Trim() == "117" ||
+                    (detail?.Contains("không khả dụng", StringComparison.OrdinalIgnoreCase) ?? false))
+                {
+                    detail =
+                        "Easy Invoice từ chối mẫu (Error 117). " +
+                        "Với mẫu MTT kiểu «1C26MAA» (hóa đơn máy tính tiền): API publish SoftDreams thường không nhận — " +
+                        "dù portal còn số MTT. Cần SoftDreams bật tích hợp API cho mẫu MTT, hoặc đăng ký thêm mẫu HĐ thường cho API. " +
+                        "Kiểm tra portal: Còn lại MTT/HĐ thường; Pattern đúng cột Mẫu số; Serial để trống nếu portal trống. " +
+                        $"Chi tiết: {detail}";
+                }
                 return new(false, null, null, null, null, null, errorCode ?? "FAIL", detail);
             }
 
@@ -291,11 +301,18 @@ public class EasyInvoiceClient(IHttpClientFactory httpFactory, ILogger<EasyInvoi
 
     static bool LooksLikeAuthError(string? message, string? errorCode, string body)
     {
+        var code = (errorCode ?? "").Trim();
+        // SoftDreams: 177 tài khoản/MK sai; 176 hệ thống demo chưa khởi tạo; 175…
+        if (code is "177" or "176" or "175") return true;
+
         var t = $"{message} {errorCode} {body}".ToLowerInvariant();
         return t.Contains("xác thực") || t.Contains("xac thuc") ||
                t.Contains("authentication") || t.Contains("unauthorized") ||
                t.Contains("sai mật khẩu") || t.Contains("sai mat khau") ||
-               t.Contains("invalid user") || t.Contains("unauthor");
+               t.Contains("invalid user") || t.Contains("unauthor") ||
+               t.Contains("không hợp lệ") || t.Contains("khong hop le") ||
+               t.Contains("chưa được kích hoạt") || t.Contains("chua duoc kich hoat") ||
+               t.Contains("hệ thống chưa được khởi tạo") || t.Contains("he thong chua");
     }
 
     static string TrimErr(string body)
