@@ -15,6 +15,10 @@ double computeComboSellableQty(List<PosComboLine> lines) {
 
 /// Tồn hiển thị trên lưới bán cho combo/dịch vụ/hàng hóa.
 double resolveProductSellableQty(PosProduct product) {
+  if (product.hasRecipe) {
+    if (product.sellableQty != null) return product.sellableQty!;
+    return computeComboSellableQty(product.recipeLines!);
+  }
   if (product.productType == PosProductType.service) {
     return double.infinity;
   }
@@ -38,7 +42,12 @@ Map<String, double> buildComponentReservation(Iterable<CartLineForStock> cartLin
         map[cl.componentProductId] =
             (map[cl.componentProductId] ?? 0) + cl.qty * line.qty;
       }
-    } else if (line.productType == PosProductType.goods) {
+    } else if (line.recipeLines.isNotEmpty) {
+      for (final cl in line.recipeLines) {
+        map[cl.componentProductId] =
+            (map[cl.componentProductId] ?? 0) + cl.qty * line.qty;
+      }
+    } else if (line.productType.tracksInventory) {
       map[line.productId] = (map[line.productId] ?? 0) + line.qty;
     }
   }
@@ -64,12 +73,14 @@ class CartLineForStock {
     required this.productType,
     required this.qty,
     this.comboLines = const [],
+    this.recipeLines = const [],
   });
 
   final String productId;
   final PosProductType productType;
   final double qty;
   final List<PosComboLine> comboLines;
+  final List<PosComboLine> recipeLines;
 }
 
 /// Kiểm tra đủ tồn khi thêm/tăng SL combo (tính cả thành phần đã dùng trong giỏ).
@@ -92,10 +103,11 @@ String? comboStockErrorMessage({
   required PosProduct combo,
   required double requiredComboQty,
   required Map<String, double> componentReserved,
+  String kindLabel = 'Combo',
 }) {
   final lines = combo.comboLines;
   if (lines == null || lines.isEmpty) {
-    return 'Combo «${combo.name}» chưa có thành phần';
+    return '$kindLabel «${combo.name}» chưa có thành phần';
   }
   for (final cl in lines) {
     final need = cl.qty * requiredComboQty;
@@ -105,10 +117,30 @@ String? comboStockErrorMessage({
       final name = cl.componentProductName.isNotEmpty
           ? cl.componentProductName
           : 'thành phần';
-      return 'Combo «${combo.name}»: «$name» không đủ (cần ${need.toStringAsFixed(need == need.roundToDouble() ? 0 : 2)}, còn ${avail.clamp(0, double.infinity).toStringAsFixed(0)})';
+      return '$kindLabel «${combo.name}»: «$name» không đủ (cần ${need.toStringAsFixed(need == need.roundToDouble() ? 0 : 2)}, còn ${avail.clamp(0, double.infinity).toStringAsFixed(0)})';
     }
   }
   return null;
+}
+
+/// Dòng phụ dưới tên combo trên giỏ (giống topping).
+String formatComboComponentsSubtitle(
+  List<PosComboLine> lines, {
+  double comboQty = 1,
+}) {
+  if (lines.isEmpty) return '';
+  return lines.map((cl) {
+    final q = cl.qty * comboQty;
+    final qStr = q == q.roundToDouble()
+        ? q.toStringAsFixed(0)
+        : q.toStringAsFixed(2);
+    final name = cl.componentProductName.isNotEmpty
+        ? cl.componentProductName
+        : (cl.componentProductCode.isNotEmpty
+            ? cl.componentProductCode
+            : 'thành phần');
+    return '$name ×$qStr';
+  }).join(', ');
 }
 
 /// Bung combo thành dòng phiếu xuất kho / trừ tồn cục bộ.
@@ -157,6 +189,11 @@ List<PosComboLine> parseComboLinesFromJson(dynamic raw) {
 }
 
 PosProduct applyComboSellableToProduct(PosProduct product) {
+  if (product.hasRecipe) {
+    final sellable = product.sellableQty ??
+        computeComboSellableQty(product.recipeLines!);
+    return product.copyWith(onHandQty: sellable, sellableQty: sellable);
+  }
   if (product.productType != PosProductType.combo) return product;
   final sellable = product.sellableQty ??
       (product.comboLines != null
