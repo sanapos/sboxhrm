@@ -469,6 +469,15 @@ class PosQrOrderVoiceAlert {
                 ? 'Khách xác nhận đã thanh toán QR. Thu ngân kiểm tra giao dịch.'
                 : '$table xác nhận đã thanh toán QR. Thu ngân kiểm tra giao dịch.');
         break;
+      case 'tingeepaymentconfirmed':
+        playAlertSound = true;
+        title = 'Đã nhận chuyển khoản';
+        spoken = extra.isNotEmpty
+            ? extra
+            : (table.isEmpty
+                ? 'Đã nhận chuyển khoản thành công'
+                : 'Đã nhận chuyển khoản $table');
+        break;
       default:
         return;
     }

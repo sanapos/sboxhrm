@@ -9,6 +9,7 @@ import '../utils/pending_notification_launch.dart';
 import '../utils/store_role_helper.dart';
 import '../services/global_location_reporter.dart';
 import '../services/notification_preferences_cache.dart';
+import '../services/session_reset.dart';
 import '../models/user.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -88,8 +89,11 @@ class AuthProvider extends ChangeNotifier {
           }
           // JWT không chứa gói module — giữ allowedModules cũ rồi tải lại nền.
           final previousModules = _user?.allowedModules;
+          final previousUserId = _user?.id;
           final decoded = _decodeUserFromToken(_token!);
           if (decoded != null &&
+              previousUserId != null &&
+              previousUserId == decoded.id &&
               previousModules != null &&
               previousModules.isNotEmpty) {
             _user = decoded.copyWith(allowedModules: previousModules);
@@ -268,6 +272,8 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await SessionReset.clearForAccountSwitch();
+
       debugPrint('🔐 AuthProvider: Attempting login for $storeCode / $email');
 
       // SuperAdmin/Agent login: no storeCode required
@@ -303,7 +309,7 @@ class AuthProvider extends ChangeNotifier {
               '✅ AuthProvider: User decoded - ${_user?.fullName} (${_user?.role})');
 
           // Fetch allowed modules cho store user
-          await _fetchAllowedModules();
+          await _fetchAllowedModules(freshSession: true);
 
           // Start global location reporting for employees/managers so the
           // manager map can see real-time positions.
@@ -378,7 +384,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Lấy danh sách module được phép từ gói dịch vụ cửa hàng
-  Future<void> _fetchAllowedModules() async {
+  Future<void> _fetchAllowedModules({bool freshSession = false}) async {
     try {
       if (_user == null) return;
       if (StoreRoleHelper.bypassesPackageFilter(_user!.role)) return;
@@ -388,7 +394,10 @@ class AuthProvider extends ChangeNotifier {
       if (modules == null) {
         debugPrint(
             '⚠️ AuthProvider: getMyModules failed — keeping existing allowedModules');
-        ensurePosPackageDefaults();
+        if (freshSession) {
+          _user = _user!.copyWith(allowedModules: const []);
+          ensurePosPackageDefaults();
+        }
         return;
       }
       _user = _user!.copyWith(allowedModules: modules);
@@ -426,6 +435,7 @@ class AuthProvider extends ChangeNotifier {
       debugPrint('FCM unregister error: $e');
     }
 
+    await SessionReset.clearForAccountSwitch();
     await _apiService.clearToken();
     NotificationPreferencesCache.instance.clear();
 

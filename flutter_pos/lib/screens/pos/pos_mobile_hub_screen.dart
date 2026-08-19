@@ -28,9 +28,12 @@ class PosMobileHubScreen extends StatefulWidget {
   const PosMobileHubScreen({
     super.key,
     this.initialTab = 2,
+    this.restoreLastTab = true,
   });
 
   final int initialTab;
+  /// App POS độc lập: nhớ tab lần trước. HRM trang chủ: false — tôn trọng module đã chọn.
+  final bool restoreLastTab;
 
   @override
   State<PosMobileHubScreen> createState() => PosMobileHubScreenState();
@@ -52,7 +55,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
       _labelForTab(_tab),
       moduleCode: _moduleForTab(_tab),
     );
-    unawaited(_restoreLastTab());
+    if (widget.restoreLastTab) unawaited(_restoreLastTab());
   }
 
   Future<void> _restoreLastTab() async {

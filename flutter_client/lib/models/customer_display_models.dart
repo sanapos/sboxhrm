@@ -95,6 +95,9 @@ class CustomerDisplayState {
     this.storeName,
     this.idleSeconds = 8,
     this.updatedAtMs = 0,
+    this.paymentQrUrl,
+    this.paymentStatus,
+    this.paymentConfirmedMessage,
   });
 
   final CustomerDisplayMode mode;
@@ -111,6 +114,13 @@ class CustomerDisplayState {
   /// Đồng bộ từ POS — engine phụ không có sell-settings.
   final int idleSeconds;
   final int updatedAtMs;
+  /// URL ảnh VietQR (img.vietqr.io…) — T1 native tải bitmap.
+  final String? paymentQrUrl;
+
+  /// waiting | confirmed — Tingee xác nhận CK.
+  final String? paymentStatus;
+
+  final String? paymentConfirmedMessage;
 
   bool get isActive =>
       mode == CustomerDisplayMode.active &&
@@ -130,7 +140,12 @@ class CustomerDisplayState {
     String? storeName,
     int? idleSeconds,
     int? updatedAtMs,
+    String? paymentQrUrl,
+    String? paymentStatus,
+    String? paymentConfirmedMessage,
     bool clearTable = false,
+    bool clearPaymentQr = false,
+    bool clearPaymentStatus = false,
   }) {
     return CustomerDisplayState(
       mode: mode ?? this.mode,
@@ -146,6 +161,14 @@ class CustomerDisplayState {
       storeName: storeName ?? this.storeName,
       idleSeconds: idleSeconds ?? this.idleSeconds,
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
+      paymentQrUrl:
+          clearPaymentQr ? null : (paymentQrUrl ?? this.paymentQrUrl),
+      paymentStatus: clearPaymentStatus
+          ? null
+          : (paymentStatus ?? this.paymentStatus),
+      paymentConfirmedMessage: clearPaymentStatus
+          ? null
+          : (paymentConfirmedMessage ?? this.paymentConfirmedMessage),
     );
   }
 
@@ -163,6 +186,13 @@ class CustomerDisplayState {
         'storeName': storeName,
         'idleSeconds': idleSeconds,
         'updatedAtMs': updatedAtMs,
+        if (paymentQrUrl != null && paymentQrUrl!.isNotEmpty)
+          'paymentQrUrl': paymentQrUrl,
+        if (paymentStatus != null && paymentStatus!.isNotEmpty)
+          'paymentStatus': paymentStatus,
+        if (paymentConfirmedMessage != null &&
+            paymentConfirmedMessage!.isNotEmpty)
+          'paymentConfirmedMessage': paymentConfirmedMessage,
       };
 
   factory CustomerDisplayState.fromJson(Map<String, dynamic> j) {
@@ -170,6 +200,14 @@ class CustomerDisplayState {
     final mode = modeRaw == 'active'
         ? CustomerDisplayMode.active
         : CustomerDisplayMode.idle;
+    final qr = (j['paymentQrUrl'] ?? j['PaymentQrUrl'] ?? '').toString().trim();
+    final paySt =
+        (j['paymentStatus'] ?? j['PaymentStatus'] ?? '').toString().trim();
+    final payMsg = (j['paymentConfirmedMessage'] ??
+            j['PaymentConfirmedMessage'] ??
+            '')
+        .toString()
+        .trim();
     return CustomerDisplayState(
       mode: mode,
       tableLabel: j['tableLabel']?.toString(),
@@ -191,6 +229,9 @@ class CustomerDisplayState {
       storeName: j['storeName']?.toString(),
       idleSeconds: (j['idleSeconds'] as num?)?.toInt().clamp(3, 60) ?? 8,
       updatedAtMs: (j['updatedAtMs'] as num?)?.toInt() ?? 0,
+      paymentQrUrl: qr.isEmpty ? null : qr,
+      paymentStatus: paySt.isEmpty ? null : paySt,
+      paymentConfirmedMessage: payMsg.isEmpty ? null : payMsg,
     );
   }
 

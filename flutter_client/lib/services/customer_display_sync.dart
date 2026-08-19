@@ -238,6 +238,9 @@ class CustomerDisplaySync extends ChangeNotifier {
     required double total,
     String? storeName,
     List<CustomerDisplayPromoItem>? promoItems,
+    String? paymentQrUrl,
+    String? paymentStatus,
+    String? paymentConfirmedMessage,
     bool Function()? stillValid,
   }) {
     return publish(
@@ -254,8 +257,25 @@ class CustomerDisplaySync extends ChangeNotifier {
         storeName: storeName ?? _state.storeName,
         promoItems: promoItems ?? _state.promoItems,
         idleSeconds: _config.idleSeconds,
+        paymentQrUrl: paymentQrUrl,
+        paymentStatus: paymentStatus,
+        paymentConfirmedMessage: paymentConfirmedMessage,
       ),
       stillValid: stillValid,
+    );
+  }
+
+  Future<void> publishPaymentConfirmed({
+    required String message,
+    String? orderNo,
+  }) {
+    return publish(
+      _state.copyWith(
+        paymentStatus: 'confirmed',
+        paymentConfirmedMessage: message,
+        orderNo: orderNo ?? _state.orderNo,
+        clearPaymentQr: true,
+      ),
     );
   }
 

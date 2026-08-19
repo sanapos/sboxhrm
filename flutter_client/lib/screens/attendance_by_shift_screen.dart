@@ -65,6 +65,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   Map<String, double> _travelHoursByEmployeeKey = {};
   Map<String, double> _travelHoursByEmployeeDateKey = {};
   Set<String> _travelEligibleEmployeeKeys = {};
+  Map<String, dynamic>? _salarySettings;
 
   _AttendanceByShiftScreenState() {
     final range = AttendanceDateRangePresets.resolve('month');
@@ -307,6 +308,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
           _minHoursForWorkDay = minHoursForWorkDay;
           _decimalWorkDayEnabled = decimalWorkDayEnabled;
           _standardWorkHours = standardWorkHours;
+          _salarySettings = salarySettings;
           _allowManualCorrection = allowManual;
           _travelHoursByEmployeeKey = travelMaps.byEmployeeKey;
           _travelHoursByEmployeeDateKey = travelMaps.byEmployeeDateKey;
@@ -477,6 +479,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     shiftTemplates: _shiftTemplates,
                     shiftSalaryLevels: _shiftSalaryLevels,
                     salaryProfiles: _salaryProfiles,
+                    storeSalarySettings: _salarySettings,
                     holidays: _holidays,
                     approvedLeaves: _approvedLeaves,
                     employeesList: _branchFilter.employees,

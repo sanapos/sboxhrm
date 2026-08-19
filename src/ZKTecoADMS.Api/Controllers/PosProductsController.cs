@@ -1608,6 +1608,46 @@ public partial class PosProductsController(
         return subfolder;
     }
 
+    /// <summary>
+    /// Catalog mẫu lưu ở catalog/pos-samples — kho/bán hàng không serve folder đó.
+    /// Copy sang stores/{code}/uploads/pos-products khi thêm từ catalog.
+    /// </summary>
+    private async Task<string?> CopyCatalogImageToStoreAsync(Guid storeId, string? sourceImageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(sourceImageUrl)) return null;
+        var normalized = NormalizeStoredImageUrl(sourceImageUrl);
+        if (string.IsNullOrWhiteSpace(normalized)) return null;
+
+        var alreadyStoreProduct = normalized.Contains("uploads/pos-products", StringComparison.OrdinalIgnoreCase);
+        if (alreadyStoreProduct)
+            return normalized;
+
+        var src = ResolveProductImagePath(normalized);
+        if (src == null || !System.IO.File.Exists(src))
+            return normalized;
+
+        try
+        {
+            await using var fs = System.IO.File.OpenRead(src);
+            var (optimized, uploadName, _) = await ImageOptimizeHelper.OptimizeAsync(
+                fs,
+                Path.GetFileName(src),
+                ImageOptimizeHelper.ProductMaxEdge,
+                ImageOptimizeHelper.ProductJpegQuality);
+            await using (optimized)
+            {
+                var folder = await GetStoreFolderAsync("uploads/pos-products");
+                var path = await fileStorageService.UploadAsync(optimized, uploadName, folder);
+                return path.TrimStart('/');
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Copy catalog image to store failed: {Path}", normalized);
+            return normalized;
+        }
+    }
+
     private string? ResolveProductImagePath(string? imageUrl)
     {
         if (string.IsNullOrWhiteSpace(imageUrl)) return null;

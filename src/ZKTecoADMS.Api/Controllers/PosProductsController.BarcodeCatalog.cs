@@ -21,22 +21,25 @@ public partial class PosProductsController
         string? CategoryName,
         string? ImageUrl);
 
-    public record ProductQuickCreateDto(
-        string? Barcode,
-        string Name,
-        decimal BasePrice,
-        decimal CostPrice = 0,
-        string? BaseUnitName = null,
-        string? CategoryName = null,
-        Guid? CategoryId = null,
-        string? BrandName = null,
-        Guid? BrandId = null,
-        string? ImageUrl = null,
-        string? Description = null,
-        Guid? SampleCatalogId = null,
-        PosProductType? ProductType = null,
-        decimal? VatRate = null,
-        bool? VatExempt = null);
+    public class ProductQuickCreateDto
+    {
+        public string? Barcode { get; set; }
+        public string Name { get; set; } = "";
+        public decimal BasePrice { get; set; }
+        public decimal CostPrice { get; set; }
+        public decimal OnHandQty { get; set; }
+        public string? BaseUnitName { get; set; }
+        public string? CategoryName { get; set; }
+        public Guid? CategoryId { get; set; }
+        public string? BrandName { get; set; }
+        public Guid? BrandId { get; set; }
+        public string? ImageUrl { get; set; }
+        public string? Description { get; set; }
+        public Guid? SampleCatalogId { get; set; }
+        public PosProductType? ProductType { get; set; }
+        public decimal? VatRate { get; set; }
+        public bool? VatExempt { get; set; }
+    }
 
     /// <summary>Tạo hàng hóa nhanh từ mã vạch / catalog mẫu (quét bán / menu mẫu).</summary>
     [HttpPost("quick")]
@@ -140,7 +143,7 @@ public partial class PosProductsController
             : dto.BaseUnitName.Trim();
         if (string.IsNullOrWhiteSpace(unit)) unit = "Cái";
 
-        // Ảnh dùng chung từ catalog mẫu — không upload lại lên store.
+        // Dùng chung ảnh catalog: không copy theo từng cửa hàng để giảm dữ liệu lưu trữ.
         var imageUrl = !string.IsNullOrWhiteSpace(dto.ImageUrl)
             ? NormalizeStoredImageUrl(dto.ImageUrl!)
             : sample?.ImageUrl;
@@ -203,6 +206,9 @@ public partial class PosProductsController
             if (entity.ProductType != PosProductType.Service)
                 entity.ServiceBillingMode = PosServiceBillingMode.Flat;
         }
+        if (PosProductTypeRules.TracksInventory(productType) && dto.OnHandQty > 0)
+            entity.OnHandQty = dto.OnHandQty;
+
         dbContext.PosProducts.Add(entity);
         if (barcode != null)
         {
@@ -210,6 +216,26 @@ public partial class PosProductsController
                 storeId, barcode, name, unit, brandName, categoryName, entity.ImageUrl);
         }
         await dbContext.SaveChangesAsync();
+
+        if (!string.IsNullOrWhiteSpace(entity.ImageUrl))
+        {
+            await dbContext.PosProducts
+                .Where(p => p.Id == entity.Id && p.StoreId == storeId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.ImageUrl, entity.ImageUrl)
+                    .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+        }
+
+        if (entity.OnHandQty > 0 && PosProductTypeRules.TracksInventory(entity.ProductType))
+        {
+            await dbContext.PosProducts
+                .Where(p => p.Id == entity.Id && p.StoreId == storeId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.OnHandQty, entity.OnHandQty));
+            PosStockRecording.RecordAdjustIfChanged(
+                dbContext, storeId, entity.Id, null, 0, entity.OnHandQty, CurrentUserEmail);
+            await dbContext.SaveChangesAsync();
+        }
         await EnsureBaseUnitAsync(entity);
 
         var mapped = await MapProductAsync(entity.Id, storeId);

@@ -269,6 +269,13 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosCancelReturnAudit> PosCancelReturnAudits => Set<PosCancelReturnAudit>();
     public DbSet<PosCustomerSessionBalance> PosCustomerSessionBalances => Set<PosCustomerSessionBalance>();
     public DbSet<PosCustomerSessionTransaction> PosCustomerSessionTransactions => Set<PosCustomerSessionTransaction>();
+    public DbSet<PosPaymentGatewaySetting> PosPaymentGatewaySettings => Set<PosPaymentGatewaySetting>();
+    public DbSet<PosStoreNotificationCredit> PosStoreNotificationCredits => Set<PosStoreNotificationCredit>();
+    public DbSet<PosNotificationCreditPackage> PosNotificationCreditPackages => Set<PosNotificationCreditPackage>();
+    public DbSet<PosNotificationCreditPurchase> PosNotificationCreditPurchases => Set<PosNotificationCreditPurchase>();
+    public DbSet<PosNotificationCreditLedger> PosNotificationCreditLedgers => Set<PosNotificationCreditLedger>();
+    public DbSet<PosTransferPaymentIntent> PosTransferPaymentIntents => Set<PosTransferPaymentIntent>();
+    public DbSet<PosPaymentWebhookEvent> PosPaymentWebhookEvents => Set<PosPaymentWebhookEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

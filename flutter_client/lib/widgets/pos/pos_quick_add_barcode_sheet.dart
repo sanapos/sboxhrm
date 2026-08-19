@@ -142,6 +142,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
   late final TextEditingController _categoryCtrl;
   late final TextEditingController _brandCtrl;
   late final TextEditingController _descCtrl;
+  late final TextEditingController _stockCtrl;
   String? _categoryId;
   String? _brandId;
   List<PosCatalogItem> _categories = [];
@@ -180,6 +181,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
     _categoryCtrl = TextEditingController(text: (h.categoryName ?? '').trim());
     _brandCtrl = TextEditingController(text: (h.brandName ?? '').trim());
     _descCtrl = TextEditingController(text: (h.description ?? '').trim());
+    _stockCtrl = TextEditingController();
     _categories = List.of(widget.categories);
     _loadCatalogs();
   }
@@ -246,6 +248,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
     _categoryCtrl.dispose();
     _brandCtrl.dispose();
     _descCtrl.dispose();
+    _stockCtrl.dispose();
     super.dispose();
   }
 
@@ -286,13 +289,23 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
     setState(() => _saving = true);
     final barcode = widget.hint.barcode.trim();
     final brandName = _brandCtrl.text.trim();
+    final stockQty = _productType.tracksInventory
+        ? (parseFormattedNumber(_stockCtrl.text)?.toDouble() ?? 0)
+        : 0;
     final res = await widget.api.createPosProductQuick({
       if (barcode.isNotEmpty) 'barcode': barcode,
       'name': name,
       'basePrice': price,
       'costPrice': parseFormattedNumber(_costCtrl.text)?.toDouble() ?? 0,
+      'onHandQty': stockQty,
       'baseUnitName': unit,
-      'productType': _productType.apiValue,
+      'productType': switch (_productType) {
+        PosProductType.goods => 'Goods',
+        PosProductType.service => 'Service',
+        PosProductType.combo => 'Combo',
+        PosProductType.material => 'Material',
+        PosProductType.topping => 'Topping',
+      },
       'vatRate': _vatExempt ? 0 : _vatRate,
       'vatExempt': _vatExempt,
       if (_categoryId != null) 'categoryId': _categoryId,
@@ -308,7 +321,9 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] == true && res['data'] is Map) {
-      final p = PosProduct.fromJson(res['data'] as Map<String, dynamic>);
+      var p = PosProduct.fromJson(res['data'] as Map<String, dynamic>);
+      p = await _attachCatalogImage(p);
+      if (!mounted) return;
       Navigator.pop(context, p);
       return;
     }
@@ -319,31 +334,48 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
     );
   }
 
+  // Không upload/copy ảnh catalog về `uploads/pos-products` nữa.
+  // API giờ hỗ trợ dùng chung ảnh catalog để giảm dữ liệu lưu trữ.
+  Future<PosProduct> _attachCatalogImage(PosProduct p) async => p;
+
   Widget _imagePreview() {
     final sampleId = widget.hint.sampleCatalogId?.trim();
     if (sampleId != null && sampleId.isNotEmpty) {
       return FutureBuilder<List<int>?>(
         future: widget.api.getPosSampleCatalogImageBytes(sampleId),
         builder: (ctx, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          }
           if (snap.hasData && snap.data != null && snap.data!.isNotEmpty) {
             return Image.memory(
               Uint8List.fromList(snap.data!),
               height: 88,
               width: 88,
               fit: BoxFit.cover,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined),
             );
           }
           final url = widget.hint.imageUrl?.trim();
-          if (url != null &&
-              url.isNotEmpty &&
-              (url.startsWith('http://') || url.startsWith('https://'))) {
-            return Image.network(
-              url,
-              height: 88,
-              width: 88,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined),
-            );
+          if (url != null && url.isNotEmpty) {
+            final full = widget.api.getFileUrl(url);
+            if (full.isNotEmpty) {
+              return Image.network(
+                full,
+                height: 88,
+                width: 88,
+                fit: BoxFit.cover,
+                headers: widget.api.imageAuthHeaders,
+                errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined),
+              );
+            }
           }
           return const Icon(Icons.image_outlined, size: 40);
         },
@@ -439,6 +471,18 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
               decoration: PosTheme.inputDecoration(label: 'Tên hàng *'),
             ),
             const SizedBox(height: 10),
+            if (_productType.tracksInventory) ...[
+              TextField(
+                controller: _stockCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [ThousandSeparatorFormatter()],
+                decoration: PosTheme.inputDecoration(
+                  label: 'Tồn kho ban đầu',
+                  hint: 'VD: 100',
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             Row(
               children: [
                 Expanded(

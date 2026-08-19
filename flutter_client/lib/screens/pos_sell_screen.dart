@@ -27,6 +27,7 @@ import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
 import '../services/api_service.dart';
 import '../services/customer_display_sync.dart';
+import '../services/pos_product_printer_service.dart';
 import '../services/pos_sell_catalog_cache.dart';
 import '../services/signalr_service.dart';
 import '../utils/pos_purchase_product_lookup.dart';
@@ -48,6 +49,7 @@ import '../utils/pos_sell_store_settings.dart';
 import '../utils/pos_sell_tax.dart';
 import '../utils/pos_sell_unit_views.dart';
 import '../utils/pos_vietqr_helper.dart';
+import '../utils/pos_payment_gateway_listener.dart';
 import '../widgets/pos/pos_vietqr_payment_panel.dart';
 import '../utils/pos_thermal_printer_settings.dart';
 import '../utils/pos_price_list_resolver.dart';
@@ -183,6 +185,15 @@ class _PosPaymentSource {
       methodLabel: '${account.bankName} ${account.accountNumber}',
       methodType: PaymentMethodType.bankTransfer,
       bankAccountId: account.id,
+    );
+  }
+
+  factory _PosPaymentSource.fromTingee() {
+    return const _PosPaymentSource(
+      key: 'tingee',
+      label: 'Tingee QR',
+      methodLabel: 'Tingee',
+      methodType: PaymentMethodType.vietQR,
     );
   }
 
@@ -441,6 +452,8 @@ class _SellInvoiceTab {
   double pointsDiscount = 0;
   String? draftOrderId;
   String? draftOrderNo;
+  /// Mã đơn gửi Tingee webhook (nội dung CK / ExternalOrderId).
+  String? tingeeTransferExternalId;
   /// Optimistic lock version từ server (Gửi kèm khi Giữ đơn / TT).
   int lockVersion = 0;
   /// Slot cố định trên server (= id tab: Hóa đơn 1..N).
@@ -453,6 +466,8 @@ class _SellInvoiceTab {
   double serverTotal = 0;
   /// Có thay đổi giỏ chưa đẩy lên server — cấm poll đè lại hàng đã xóa.
   bool localDirty = false;
+  /// Tăng mỗi lần user sửa giỏ — hydrate/GET chậm không được đè món vừa chọn.
+  int cartEpoch = 0;
   String? serviceResourceId;
   String? resourceSessionId;
   DateTime? serviceStartedAt;
@@ -550,6 +565,7 @@ class _SellInvoiceTab {
     serverLineCount = 0;
     serverTotal = 0;
     localDirty = false;
+    cartEpoch = 0;
     serviceResourceId = null;
     resourceSessionId = null;
     serviceStartedAt = null;
@@ -664,6 +680,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
   final List<KitchenTicketLine> _pendingKitchenCancels = [];
   /// Bàn vừa báo bếp — sơ đồ ép ẩn «chờ bếp» đến khi server khớp.
   Set<String> _kitchenClearedResourceIds = {};
+  /// Bàn máy này vừa TT / trả trống — sơ đồ tô Free ngay.
+  Set<String> _floorFreedResourceIds = {};
+  Timer? _floorQuietRefreshTimer;
   /// Bàn vừa in tạm tính — sơ đồ ép màu vàng cam đến khi server khớp.
   /// Luôn tạo Set mới khi đổi để floor remount/didUpdateWidget nhận thay đổi.
   Set<String> _billRequestedResourceIds = {};
@@ -676,6 +695,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   List<PosCustomer> _customerSuggestions = [];
   List<_PosPaymentSource> _paymentSources = const [_PosPaymentSource.cash];
   List<BankAccount> _bankAccounts = [];
+  Map<String, dynamic>? _paymentGatewaySettings;
   int _nextCartRowId = 1;
   int? _expandedCartRowId;
   _CartRowExpand? _expandedCartMode;
@@ -839,6 +859,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (scheduleSave) _scheduleDraftAutosave();
   }
 
+  void _onTingeePaymentConfirmed(Map<String, dynamic> _) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(tr('Đã nhận chuyển khoản — xem tab Xác nhận CK')),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -853,6 +882,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
       if (!mounted) return;
       unawaited(_syncHeldDraftTabs());
     });
+    PosPaymentGatewayListener.instance
+        .addListener(_onTingeePaymentConfirmed);
     unawaited(_bootstrapSellScreen());
   }
 
@@ -860,6 +891,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
   Future<void> _bootstrapSellScreen() async {
     await _ensurePosDeviceIdentity();
     if (!mounted) return;
+    unawaited(PosPrintOrchestrator.instance.refreshConfig());
+    unawaited(PosProductPrinterService.instance.preload());
 
     final storeFut = PosSellStoreSettings.load();
     final printFut = PosSellPrintSettings.load();
@@ -869,21 +902,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final priceListsFut = _api.getPosPriceLists();
     var banksFut = _api.getPosBankAccounts();
     final eInvFut = _api.getPosEInvoiceSettings();
+    final gatewayFut = _api.getPosPaymentGatewaySettings();
 
     var store = await storeFut;
     final printS = await printFut;
     final thermal = await thermalFut;
     final industryRes = await industryFut;
-    final sellersRes = await sellersFut;
-    final priceListsRes = await priceListsFut;
-    var banksRes = await banksFut;
-    if (banksRes['isSuccess'] != true) {
-      banksRes = await _api.getBankAccounts();
-    }
-    final eInvRes = await eInvFut;
     if (!mounted) return;
 
-    // Industry → sell mode
     PosStoreSellSettingsDto? industry;
     var sellMode = _SellMode.quick;
     if (industryRes['isSuccess'] == true && industryRes['data'] is Map) {
@@ -898,6 +924,37 @@ class _PosSellScreenState extends State<PosSellScreen> {
           sellMode = _SellMode.quick;
       }
     }
+    store = store.withServerTax(industry?.extraJson);
+    if (!PosSellStoreSettings.hasServerTax(industry?.extraJson)) {
+      store.persistSellTax(_api);
+    }
+
+    setState(() {
+      _storeSettings = store;
+      _applyPrintSettings(printS);
+      _thermalPrintSettings = thermal;
+      _industrySettings = industry;
+      _sellMode = sellMode;
+      for (final t in _tabs) {
+        t.vatRate = store.defaultVatRate;
+      }
+      _sellReady = true;
+    });
+    _scheduleCatalogPrefetch();
+    final warmupStoreId = _storeId;
+    if (warmupStoreId != null && warmupStoreId.isNotEmpty) {
+      unawaited(PosSellCatalogCache.instance.warmup(warmupStoreId));
+    }
+
+    final sellersRes = await sellersFut;
+    final priceListsRes = await priceListsFut;
+    var banksRes = await banksFut;
+    if (banksRes['isSuccess'] != true) {
+      banksRes = await _api.getBankAccounts();
+    }
+    final eInvRes = await eInvFut;
+    final gatewayRes = await gatewayFut;
+    if (!mounted) return;
 
     // Sellers
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -926,7 +983,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
         if (account.isActive) accounts.add(account);
       }
     }
+    Map<String, dynamic>? gatewaySettings;
+    if (gatewayRes['isSuccess'] == true && gatewayRes['data'] is Map) {
+      gatewaySettings =
+          Map<String, dynamic>.from(gatewayRes['data'] as Map);
+    }
     final sources = <_PosPaymentSource>[_PosPaymentSource.cash];
+    if (PosPaymentGatewayApi.isTingeeEnabled(gatewaySettings)) {
+      sources.add(_PosPaymentSource.fromTingee());
+    }
     if (accounts.isNotEmpty) {
       final qrAccount = PosVietQrHelper.resolveAccount(
         accounts,
@@ -950,11 +1015,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
       defaultPriceList = pickDefaultPosPriceList(priceLists);
     }
 
-    store = store.withServerTax(industry?.extraJson);
-    if (!PosSellStoreSettings.hasServerTax(industry?.extraJson)) {
-      store.persistSellTax(_api);
-    }
-
     setState(() {
       _storeSettings = store;
       _applyPrintSettings(printS);
@@ -971,6 +1031,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _defaultSellerEmployeeId = defaultSellerId;
       _bankAccounts = accounts;
       _paymentSources = sources;
+      _paymentGatewaySettings = gatewaySettings;
       _priceLists = priceLists;
       for (final t in _tabs) {
         t.vatRate = store.defaultVatRate;
@@ -982,8 +1043,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
         _ensureDefaultPaymentLines(t);
       }
       _syncPaidAmount();
-      // Mở UI sớm — hydrate slot/giỏ chạy nền (tránh spinner dài).
-      _sellReady = true;
     });
 
     PosPrintConfigSession.instance.invalidate(warehouseTemplateOnly: false);
@@ -1042,6 +1101,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (res['isSuccess'] != true) {
       res = await _api.getBankAccounts();
     }
+    final gatewayRes = await _api.getPosPaymentGatewaySettings();
     if (!mounted) return;
 
     final accounts = <BankAccount>[];
@@ -1053,6 +1113,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
 
     final sources = <_PosPaymentSource>[_PosPaymentSource.cash];
+    Map<String, dynamic>? gatewaySettings;
+    if (gatewayRes['isSuccess'] == true && gatewayRes['data'] is Map) {
+      gatewaySettings =
+          Map<String, dynamic>.from(gatewayRes['data'] as Map);
+    }
+    if (PosPaymentGatewayApi.isTingeeEnabled(gatewaySettings)) {
+      sources.add(_PosPaymentSource.fromTingee());
+    }
     if (accounts.isNotEmpty) {
       final qrAccount = PosVietQrHelper.resolveAccount(
         accounts,
@@ -1069,6 +1137,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     setState(() {
       _bankAccounts = accounts;
       _paymentSources = sources;
+      _paymentGatewaySettings = gatewaySettings;
     });
   }
 
@@ -1230,6 +1299,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   @override
   void dispose() {
+    PosPaymentGatewayListener.instance
+        .removeListener(_onTingeePaymentConfirmed);
     if (identical(NavigationNotifier.posHandleSystemBack, _onSystemBack)) {
       NavigationNotifier.posHandleSystemBack = null;
     }
@@ -1244,6 +1315,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     _draftAutosaveTimer?.cancel();
     _customerSearchDebounce?.cancel();
     _customerDisplayPublishTimer?.cancel();
+    _floorQuietRefreshTimer?.cancel();
     final deviceId = _posDeviceId;
     final deviceName = _posDeviceName;
     if (deviceId != null && deviceName != null) {
@@ -1448,7 +1520,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   /// Dựng lưới món Offstage khi đang xem sơ đồ — lần nhấn bàn không mount lần đầu.
   void _scheduleCatalogPrefetch() {
     if (!_useFloorAsPrimary || _catalogPaneKept) return;
-    Future<void>.delayed(const Duration(milliseconds: 400), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _catalogPaneKept || !_useFloorAsPrimary) return;
       setState(() => _catalogPaneKept = true);
     });
@@ -1624,7 +1696,123 @@ class _PosSellScreenState extends State<PosSellScreen> {
       total: _grandTotal,
       storeName: _warehouseBranchName,
       promoItems: _customerDisplayPromos,
+      paymentQrUrl: _customerDisplayPaymentQrUrl(),
+      paymentStatus: _hasTingeePaymentSelected() ? 'waiting' : null,
       stillValid: stillValid,
+    );
+  }
+
+  static bool _isTingeeSourceKey(String key) => key == 'tingee';
+
+  bool _hasTingeePaymentSelected() {
+    for (final pay in _tab.paymentLines) {
+      if (_isTingeeSourceKey(pay.sourceKey)) return true;
+    }
+    return false;
+  }
+
+  String _tingeeExternalOrderId() {
+    final existing = (_tab.tingeeTransferExternalId ?? '').trim();
+    if (existing.isNotEmpty) return existing;
+    final no = (_tab.draftOrderNo ?? '').trim();
+    if (no.isNotEmpty) {
+      _tab.tingeeTransferExternalId = no;
+      return no;
+    }
+    final gen = 'POS${_tab.id}-${DateTime.now().millisecondsSinceEpoch}';
+    _tab.tingeeTransferExternalId = gen;
+    return gen;
+  }
+
+  Future<void> _ensureTingeeTransferIntent() async {
+    if (!PosPaymentGatewayApi.isTingeeEnabled(_paymentGatewaySettings)) {
+      return;
+    }
+    if (!_hasTingeePaymentSelected()) return;
+    if (_useFloorAsPrimary && !_tabletPaymentStage) return;
+    if (_grandTotal <= 0) return;
+
+    final externalId = _tingeeExternalOrderId();
+    final tableLabel = formatPosTableLabel(
+      areaName: _tab.serviceAreaName,
+      tableName: _tab.serviceResourceName,
+    );
+    var amount = _grandTotal;
+    for (final pay in _tab.paymentLines) {
+      if (_isTingeeSourceKey(pay.sourceKey) && pay.amount > 0) {
+        amount = pay.amount;
+        break;
+      }
+    }
+
+    await PosPaymentGatewayApi(_api).createIntent(
+      externalOrderId: externalId,
+      orderNo: _tab.draftOrderNo,
+      amountExpected: amount,
+      tableName: tableLabel.isEmpty ? null : tableLabel,
+      saleOrderId: _tab.draftOrderId,
+    );
+  }
+
+  /// VietQR màn phụ: chỉ khi đã vào bước thanh toán + chọn CK/VietQR/Tingee.
+  String? _customerDisplayPaymentQrUrl() {
+    if (_useFloorAsPrimary && !_tabletPaymentStage) return null;
+    if (_grandTotal <= 0 || _bankAccounts.isEmpty) return null;
+
+    _SellPaymentLine? bankLine;
+    String? preferredAccountId;
+    var tingeeLine = false;
+    for (final pay in _tab.paymentLines) {
+      final src = _sourceByKey(pay.sourceKey);
+      if (_isTingeeSourceKey(pay.sourceKey)) {
+        bankLine = pay;
+        tingeeLine = true;
+        break;
+      }
+      if (src.methodType == PaymentMethodType.bankTransfer ||
+          src.methodType == PaymentMethodType.vietQR) {
+        bankLine = pay;
+        preferredAccountId = src.bankAccountId;
+        break;
+      }
+    }
+    if (bankLine == null) return null;
+    if (_bankAccounts.isEmpty) return null;
+
+    String? preferredForTingee;
+    if (tingeeLine) {
+      final va = (_paymentGatewaySettings?['tingeeVaAccountNumber'] ?? '')
+          .toString()
+          .trim();
+      if (va.isNotEmpty) {
+        for (final a in _bankAccounts) {
+          if (a.accountNumber.trim() == va) {
+            preferredForTingee = a.id;
+            break;
+          }
+        }
+      }
+    }
+
+    final account = PosVietQrHelper.resolveAccount(
+      _bankAccounts,
+      preferredId: preferredAccountId ??
+          preferredForTingee ??
+          _storeSettings.vietQrBankAccountId,
+    );
+    if (account == null) return null;
+
+    final amount = bankLine.amount > 0 ? bankLine.amount : _grandTotal;
+    final description = tingeeLine
+        ? _tingeeExternalOrderId()
+        : PosVietQrHelper.transferNote(
+            orderNo: _tab.draftOrderNo,
+            prefix: 'POS',
+          );
+    return PosVietQrHelper.qrImageUrl(
+      account: account,
+      amount: amount,
+      description: description,
     );
   }
 
@@ -1824,6 +2012,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
     if (orderId != null && orderId.isNotEmpty) {
       _floorReleasedOrderIds.remove(orderId);
+      if (resourceId != null && resourceId.isNotEmpty) {
+        _floorFreedResourceIds = {
+          for (final e in _floorFreedResourceIds)
+            if (e.toLowerCase() != resourceId.toLowerCase()) e,
+        };
+      }
       _suspendDraftAutosave = true;
       final forceClaim = result['forceClaim'] == true;
       final isSplitBill = result['isSplitBill'] == true;
@@ -1896,6 +2090,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         _suspendDraftAutosave = false;
         _tabletPaymentStage = isSplitBill && _tab.cart.isNotEmpty;
       });
+      if (_tab.localDirty) _scheduleDraftAutosave();
       if (isSplitBill && _tab.cart.isEmpty) {
         NotificationOverlayManager().showWarning(
           title: 'Hóa đơn tách trống',
@@ -2026,6 +2221,24 @@ class _PosSellScreenState extends State<PosSellScreen> {
     }
   }
 
+  void _scheduleFloorQuietRefresh([
+    Duration delay = const Duration(milliseconds: 1600),
+  ]) {
+    _floorQuietRefreshTimer?.cancel();
+    _floorQuietRefreshTimer = Timer(delay, () {
+      if (!mounted) return;
+      _floorPaneKey.currentState?.refreshQuiet();
+    });
+  }
+
+  void _markFloorResourceFreed(String? resourceId) {
+    final id = (resourceId ?? '').trim();
+    if (id.isEmpty) return;
+    setState(() {
+      _floorFreedResourceIds = {..._floorFreedResourceIds, id};
+    });
+  }
+
   /// Về sơ đồ: hiện floor ngay (optimistic), unlock/autosave chạy nền.
   /// Chỉ xem (draftReadOnly) → không unlock / không «tạm rời» — giữ «Máy khác» của máy đang sửa.
   Future<void> _returnToFloorMap() async {
@@ -2062,7 +2275,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _mobileProductPickerOpen = false;
       // Giữ suspend đến khi nền xong unlock — tránh autosave gắn lại khóa.
     });
-    _floorPaneKey.currentState?.refreshQuiet();
+    _scheduleFloorQuietRefresh();
     _scheduleCustomerDisplayPublish();
 
     unawaited(_finishLeaveTableInBackground(
@@ -2137,6 +2350,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           zeroPendingKitchenResourceIds: _kitchenClearedResourceIds,
           billRequestedResourceIds: _billRequestedResourceIds,
           releasedOrderIds: Set<String>.from(_floorReleasedOrderIds),
+          freedResourceIds: Set<String>.from(_floorFreedResourceIds),
         ),
       ),
     );
@@ -2148,6 +2362,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   void _onFloorResourceFreed(String resourceId) {
     _draftAutosaveTimer?.cancel();
     _suspendDraftAutosave = true;
+    _markFloorResourceFreed(resourceId);
     final key = resourceId.toLowerCase();
     if (_billRequestedResourceIds.any((e) => e.toLowerCase() == key) ||
         _kitchenClearedResourceIds.any((e) => e.toLowerCase() == key)) {
@@ -2382,117 +2597,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
           _tab.localDirty = true;
         });
       }
-      await _persistDraftAutosave(forTab: _tab, retryOnConflict: true);
-      if (!mounted) return;
+      unawaited(_persistDraftAutosave(forTab: _tab, retryOnConflict: true));
 
-      // Mở lại nút Thông báo / Thanh toán ngay sau khi server nhận món —
-      // không treo UI chờ máy in (LAN/USB có thể lâu).
+      // Mở lại nút ngay khi server đã nhận món — in chạy nền (A7 không đơ).
       if (_kitchenSending && mounted) {
         setState(() => _kitchenSending = false);
       }
-
-      var kitchenOk = true;
-      if (shouldPrint) {
-        var enqueuedPerPrinterFail = false;
-        kitchenOk = await printKitchenCompactSlip(
-          tableName: formatPosTableLabel(
-            areaName: _tab.serviceAreaName,
-            tableName: _tab.serviceResourceName,
-          ),
-          isCancel: false,
-          lines: sendTicketLines,
-          senderName: _kitchenSenderName(),
-          orderNo: _tab.draftOrderNo,
-          waitForCompletion: false,
-          onCloudHang: ({
-            required String jobId,
-            required String printerId,
-            required String printerName,
-            required List<KitchenTicketLine> lines,
-            String? referenceNo,
-          }) {
-            if (!mounted) return;
-            _enqueueFailedKitchenPrint(
-              PendingKitchenPrintJob(
-                id: 'kitchen_hang_$jobId',
-                isCancel: false,
-                tableName: formatPosTableLabel(
-                  areaName: _tab.serviceAreaName,
-                  tableName: _tab.serviceResourceName,
-                ),
-                senderName: _kitchenSenderName(),
-                orderNo: _tab.draftOrderNo,
-                lines: lines,
-                printerId: printerId,
-                printerName: printerName,
-                errorMessage:
-                    'Chưa in sau 60s ($printerName) — chọn máy khác hoặc in lại',
-              ),
-            );
-            NotificationOverlayManager().showWarning(
-              title: 'Phiếu bếp treo',
-              message: tr(
-                'Máy $printerName chưa in (${lines.length} món) — mở hàng chờ để in lại',
-              ),
-              relatedEntityType: kPosPrintNotifyKind,
-              duration: const Duration(seconds: 5),
-              onTap: () {
-                if (mounted) unawaited(_openPendingPrintQueue());
-              },
-            );
-          },
-          onPrinterFailed: ({
-            required String printerId,
-            required String printerName,
-            required List<KitchenTicketLine> lines,
-            required String errorMessage,
-          }) {
-            enqueuedPerPrinterFail = true;
-            if (!mounted) return;
-            _enqueueFailedKitchenPrint(
-              PendingKitchenPrintJob(
-                id:
-                    'kitchen_fail_${printerId}_${DateTime.now().millisecondsSinceEpoch}',
-                isCancel: false,
-                tableName: formatPosTableLabel(
-                  areaName: _tab.serviceAreaName,
-                  tableName: _tab.serviceResourceName,
-                ),
-                senderName: _kitchenSenderName(),
-                orderNo: _tab.draftOrderNo,
-                lines: lines,
-                printerId: printerId,
-                printerName: printerName,
-                errorMessage: errorMessage,
-              ),
-            );
-          },
-        );
-        // Không có lỗi từng máy (vd. chưa gán máy / local fail) → vẫn giữ 1 phiếu chờ.
-        if (!kitchenOk && !enqueuedPerPrinterFail) {
-          _enqueueFailedKitchenPrint(
-            PendingKitchenPrintJob(
-              id: 'kitchen_${DateTime.now().millisecondsSinceEpoch}',
-              isCancel: false,
-              tableName: formatPosTableLabel(
-                areaName: _tab.serviceAreaName,
-                tableName: _tab.serviceResourceName,
-              ),
-              senderName: _kitchenSenderName(),
-              orderNo: _tab.draftOrderNo,
-              lines: sendTicketLines,
-              errorMessage: 'Gửi lệnh in thất bại — kiểm tra máy in / giấy',
-            ),
-          );
-        }
-      }
-      if (_printSettings.shouldPrintCupOnKitchenSend) {
-        await _printCupLabelsForLines(pendingLines, showFeedback: false);
-      }
-
-      if (!mounted) return;
       final rid = _tab.serviceResourceId;
-      if (rid != null && rid.isNotEmpty) {
+      if (rid != null && rid.isNotEmpty && mounted) {
         setState(() {
           _kitchenClearedResourceIds = {
             ..._kitchenClearedResourceIds,
@@ -2500,26 +2612,18 @@ class _PosSellScreenState extends State<PosSellScreen> {
           };
         });
       }
-      if (!shouldPrint) {
-        debugPrint('POS kitchen send OK (no print mode): ${_tab.serviceResourceName}');
-      } else if (kitchenOk) {
-        NotificationOverlayManager().showSuccess(
-          title: 'Đã gửi báo bếp',
-          message: tr(
-            '${sendTicketLines.length} món · ${_tab.serviceResourceName ?? ''} — chờ máy in',
-          ),
-          relatedEntityType: kPosPrintNotifyKind,
-        );
-      } else {
-        NotificationOverlayManager().showWarning(
-          title: 'Đã báo bếp — chưa in phiếu',
-          message: tr('Mở biểu tượng chờ in để in lại'),
-          relatedEntityType: kPosPrintNotifyKind,
-          onTap: () {
-            if (mounted) unawaited(_openPendingPrintQueue());
-          },
-        );
-      }
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã gửi báo bếp',
+        message: tr(
+          '${sendTicketLines.length} món · ${_tab.serviceResourceName ?? ''}',
+        ),
+        relatedEntityType: kPosPrintNotifyKind,
+      );
+      unawaited(_dispatchKitchenNotifyPrint(
+        shouldPrint: shouldPrint,
+        sendTicketLines: sendTicketLines,
+        pendingLines: List<_SellCartLine>.from(pendingLines),
+      ));
       return;
     }
 
@@ -2560,6 +2664,122 @@ class _PosSellScreenState extends State<PosSellScreen> {
       if (mounted && _kitchenSending) {
         setState(() => _kitchenSending = false);
       }
+    }
+  }
+
+  /// In phiếu bếp / tem ly sau khi server đã nhận món — không chặn nút Thông báo.
+  Future<void> _dispatchKitchenNotifyPrint({
+    required bool shouldPrint,
+    required List<KitchenTicketLine> sendTicketLines,
+    required List<_SellCartLine> pendingLines,
+  }) async {
+    var kitchenOk = true;
+    if (shouldPrint) {
+      var enqueuedPerPrinterFail = false;
+      kitchenOk = await printKitchenCompactSlip(
+        tableName: formatPosTableLabel(
+          areaName: _tab.serviceAreaName,
+          tableName: _tab.serviceResourceName,
+        ),
+        isCancel: false,
+        lines: sendTicketLines,
+        senderName: _kitchenSenderName(),
+        orderNo: _tab.draftOrderNo,
+        waitForCompletion: false,
+        showFeedback: false,
+        onCloudHang: ({
+          required String jobId,
+          required String printerId,
+          required String printerName,
+          required List<KitchenTicketLine> lines,
+          String? referenceNo,
+        }) {
+          if (!mounted) return;
+          _enqueueFailedKitchenPrint(
+            PendingKitchenPrintJob(
+              id: 'kitchen_hang_$jobId',
+              isCancel: false,
+              tableName: formatPosTableLabel(
+                areaName: _tab.serviceAreaName,
+                tableName: _tab.serviceResourceName,
+              ),
+              senderName: _kitchenSenderName(),
+              orderNo: _tab.draftOrderNo,
+              lines: lines,
+              printerId: printerId,
+              printerName: printerName,
+              errorMessage:
+                  'Chưa in sau 60s ($printerName) — chọn máy khác hoặc in lại',
+            ),
+          );
+          NotificationOverlayManager().showWarning(
+            title: 'Phiếu bếp treo',
+            message: tr(
+              'Máy $printerName chưa in (${lines.length} món) — mở hàng chờ để in lại',
+            ),
+            relatedEntityType: kPosPrintNotifyKind,
+            duration: const Duration(seconds: 5),
+            onTap: () {
+              if (mounted) unawaited(_openPendingPrintQueue());
+            },
+          );
+        },
+        onPrinterFailed: ({
+          required String printerId,
+          required String printerName,
+          required List<KitchenTicketLine> lines,
+          required String errorMessage,
+        }) {
+          enqueuedPerPrinterFail = true;
+          if (!mounted) return;
+          _enqueueFailedKitchenPrint(
+            PendingKitchenPrintJob(
+              id:
+                  'kitchen_fail_${printerId}_${DateTime.now().millisecondsSinceEpoch}',
+              isCancel: false,
+              tableName: formatPosTableLabel(
+                areaName: _tab.serviceAreaName,
+                tableName: _tab.serviceResourceName,
+              ),
+              senderName: _kitchenSenderName(),
+              orderNo: _tab.draftOrderNo,
+              lines: lines,
+              printerId: printerId,
+              printerName: printerName,
+              errorMessage: errorMessage,
+            ),
+          );
+        },
+      );
+      if (!kitchenOk && !enqueuedPerPrinterFail) {
+        _enqueueFailedKitchenPrint(
+          PendingKitchenPrintJob(
+            id: 'kitchen_${DateTime.now().millisecondsSinceEpoch}',
+            isCancel: false,
+            tableName: formatPosTableLabel(
+              areaName: _tab.serviceAreaName,
+              tableName: _tab.serviceResourceName,
+            ),
+            senderName: _kitchenSenderName(),
+            orderNo: _tab.draftOrderNo,
+            lines: sendTicketLines,
+            errorMessage: 'Gửi lệnh in thất bại — kiểm tra máy in / giấy',
+          ),
+        );
+      }
+      if (!kitchenOk && mounted) {
+        NotificationOverlayManager().showWarning(
+          title: 'Đã báo bếp — chưa in phiếu',
+          message: tr('Mở biểu tượng chờ in để in lại'),
+          relatedEntityType: kPosPrintNotifyKind,
+          onTap: () {
+            if (mounted) unawaited(_openPendingPrintQueue());
+          },
+        );
+      }
+    }
+    if (_printSettings.shouldPrintCupOnKitchenSend) {
+      await _printCupLabelsForLines(pendingLines, showFeedback: false);
     }
   }
 
@@ -2816,13 +3036,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
   Future<CancelReturnReasonResult?> _promptKitchenVoidReason() async {
     final reasonCfg =
         CancelReturnReasonConfig.fromExtraJson(_industrySettings?.extraJson);
-    if (!reasonCfg.enabled) {
-      return const CancelReturnReasonResult(reason: '');
-    }
     return showPosCancelReturnReasonDialog(
       context,
       config: reasonCfg,
       title: 'Lý do hủy món bếp',
+      force: true,
+      allowCustom: true,
     );
   }
 
@@ -3697,6 +3916,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
     } else if (mounted) {
       setState(() {});
     }
+    // Đổi CK/VietQR/Tingee/số tiền → cập nhật QR trên màn phụ.
+    _scheduleCustomerDisplayPublish();
+    if (_hasTingeePaymentSelected()) {
+      unawaited(_ensureTingeeTransferIntent());
+    }
   }
 
   double _cartQtyFor({
@@ -4015,6 +4239,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     double addQty = 1,
   }) async {
     if (addQty <= 0) return;
+    _playSellPickClick();
     if (!await _ensureCanEditActiveDraft()) return;
     // Đánh dirty sớm — chặn sync/pull đè giỏ về 0 trong lúc load đơn vị.
     _markTabDirty(_tab);
@@ -4382,7 +4607,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
     final existing = _tabs.indexWhere((t) => t.draftOrderId == orderId);
     if (existing >= 0) {
       _suspendDraftAutosave = true;
-      setState(() => _tabs[existing].localDirty = false);
+      if (!_tabs[existing].localDirty || _tabs[existing].cart.isEmpty) {
+        setState(() => _tabs[existing].localDirty = false);
+      }
       final cleared = await _reconcileDraftTabAgainstServer(_tabs[existing]);
       if (!mounted) return;
       if (cleared) {
@@ -4398,7 +4625,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
           setState(() {
             _tab.serverLineCount = pre.lines.length;
             _tab.serverTotal = pre.total;
-            _tab.localDirty = false;
           });
         }
         final ok = await _forceClaimActiveDraft(
@@ -4454,7 +4680,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
           setState(() {
             _tab.serverLineCount = order.lines.length;
             _tab.serverTotal = order.total;
-            _tab.localDirty = false;
           });
           await _hydrateTabCartFromOrder(
             _tabs[existing],
@@ -4467,7 +4692,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
         }
       }
       if (mounted) {
-        setState(() => _tab.localDirty = false);
         _restartDraftLockHeartbeat();
         if (!silent) {
           _suspendDraftAutosave = false;
@@ -4476,7 +4700,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
       // Silent chuyển tab / mở đơn tạm — không toast che sơ đồ/POS.
       return;
     }
-    if (_tab.cart.isNotEmpty) {
+    // Đơn bàn: món vừa chọn thuộc bàn đang mở — không tách tab mới (mất món).
+    if (_tab.cart.isNotEmpty && (_tab.serviceResourceId ?? '').isEmpty) {
       _newTab();
     }
     await _loadDraftIntoActiveTab(
@@ -5115,6 +5340,11 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   void _markTabDirty(_SellInvoiceTab tab) {
     tab.localDirty = true;
+    tab.cartEpoch++;
+  }
+
+  void _playSellPickClick() {
+    unawaited(SystemSound.play(SystemSoundType.click));
   }
 
   /// Hủy timer autosave và đợi lần đang chạy xong — dùng trước thanh toán / giữ đơn /
@@ -5385,9 +5615,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
     bool notify = false,
     bool force = false,
   }) async {
-    // User đang sửa (dirty) — KHÔNG rebuild giỏ để tránh mất món/số lượng vừa nhập.
-    // Chỉ cập nhật meta (lockVersion / serverLineCount) qua caller.
-    if (tab.localDirty && tab.cart.isNotEmpty) {
+    // Món user vừa chọn khi mở bàn (GET/hydrate chậm) — giữ rồi merge sau snapshot server.
+    final preserve = (tab.localDirty && tab.cart.isNotEmpty)
+        ? List<_SellCartLine>.from(tab.cart)
+        : <_SellCartLine>[];
+    if (preserve.isNotEmpty) {
+      tab.cart.clear();
       if (orderJson != null) {
         _applyLockMetaFromMap(orderJson, tab: tab);
       }
@@ -5396,8 +5629,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
       if (order.lockVersion > tab.lockVersion) {
         tab.lockVersion = order.lockVersion;
       }
-      return;
     }
+    final originalRemainingIds = {for (final l in tab.cart) l.rowId};
     // Khôi phục bảng giá trước khi build view/giá dòng.
     final plId = order.priceListId;
     if (plId != null && plId.isNotEmpty) {
@@ -5484,18 +5717,23 @@ class _PosSellScreenState extends State<PosSellScreen> {
       cartLines.add(cartLine);
     }
 
-    if (!mounted) return;
-    if (tab.localDirty && tab.cart.isNotEmpty) {
-      tab.serverLineCount = order.lines.length;
-      tab.serverTotal = order.total;
+    if (!mounted) {
+      tab.cart.addAll(preserve);
       return;
     }
+    final extra = tab.cart
+        .where((l) => !originalRemainingIds.contains(l.rowId))
+        .toList();
+    final keepLocal = preserve.isNotEmpty || extra.isNotEmpty;
     setState(() {
-      for (final c in tab.cart) {
-        c.dispose();
+      for (final c in List<_SellCartLine>.from(tab.cart)) {
+        if (!extra.contains(c)) c.dispose();
       }
-      tab.cart.clear();
-      tab.cart.addAll(cartLines);
+      tab.cart
+        ..clear()
+        ..addAll(cartLines)
+        ..addAll(preserve)
+        ..addAll(extra);
       tab.draftOrderId = order.id;
       tab.draftOrderNo = order.orderNo;
       if (order.lockVersion > tab.lockVersion) {
@@ -5503,7 +5741,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       }
       tab.serverLineCount = order.lines.length;
       tab.serverTotal = order.total;
-      tab.localDirty = false;
+      tab.localDirty = keepLocal;
       tab.draftReadOnly = readOnly;
       if (order.priceListId != null && order.priceListId!.isNotEmpty) {
         tab.priceListId = order.priceListId;
@@ -5600,7 +5838,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     setState(() {
       _tab.serverLineCount = remoteLines;
       _tab.serverTotal = remoteTotal;
-      _tab.localDirty = false;
+      if (!_tab.localDirty) _tab.localDirty = false;
     });
     if (_tab.cart.length < remoteLines) {
       NotificationOverlayManager().showWarning(
@@ -6273,7 +6511,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     var readOnly = false;
     Map<String, dynamic>? lockData;
     setState(() {
-      if (switchingOrder) {
+      final keepLocalCart = _tab.localDirty && _tab.cart.isNotEmpty;
+      if (switchingOrder && !keepLocalCart) {
         _tab.reset(defaultVatRate: _storeSettings.defaultVatRate);
       }
       _tab.draftOrderId = order.id;
@@ -6282,7 +6521,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _tab.lockVersion = order.lockVersion;
       _tab.serverLineCount = order.lines.length;
       _tab.serverTotal = order.total;
-      _tab.localDirty = false;
+      if (!keepLocalCart) {
+        _tab.localDirty = false;
+      }
     });
     if (forceClaim) {
       final ok = await _forceClaimActiveDraft(
@@ -6338,7 +6579,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _tab.draftReadOnly = readOnly;
       _tab.serverLineCount = freshOrder.lines.length;
       _tab.serverTotal = freshOrder.total;
-      _tab.localDirty = false;
+      if (!_tab.localDirty) {
+        _tab.localDirty = false;
+      }
       if (lockData != null) {
         _applyLockMetaFromMap(lockData);
         if (readOnly || _isLockedByAnotherDevice(lockData)) {
@@ -6365,7 +6608,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
     );
 
     if (!mounted) return;
-    setState(() => _tab.localDirty = false);
+    if (!_tab.localDirty) {
+      setState(() => _tab.localDirty = false);
+    }
     _restartDraftLockHeartbeat();
     await _verifyTableCartHydrated(orderId);
     if (!mounted) return;
@@ -7689,7 +7934,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _tabletPaymentStage = false;
       _mobileProductPickerOpen = false;
     });
-    _floorPaneKey.currentState?.refreshQuiet();
+    _scheduleFloorQuietRefresh();
     _scheduleCustomerDisplayPublish();
     Future<void>.delayed(const Duration(milliseconds: 400), () {
       _suspendDraftAutosave = false;
@@ -7794,7 +8039,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         _mobileProductPickerOpen = false;
       });
     }
-    _floorPaneKey.currentState?.refreshQuiet();
+    _scheduleFloorQuietRefresh();
     _scheduleCustomerDisplayPublish();
     Future<void>.delayed(const Duration(milliseconds: 400), () {
       _suspendDraftAutosave = false;
@@ -7989,6 +8234,10 @@ class _PosSellScreenState extends State<PosSellScreen> {
           // Không bump epoch — tránh remount sơ đồ chậm; poll/flags đủ cập nhật Free.
         }
       });
+      if (useFloor) {
+        _markFloorResourceFreed(printResourceId);
+        _scheduleFloorQuietRefresh();
+      }
       _scheduleCustomerDisplayPublish();
       // Patch qua notifier + cache catalog (không chỉ GlobalKey — F&B/tablet
       // dispose lưới khi về sơ đồ / màn TT nên currentState thường null).
@@ -9454,6 +9703,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   zeroPendingKitchenResourceIds: _kitchenClearedResourceIds,
                   billRequestedResourceIds: _billRequestedResourceIds,
                   releasedOrderIds: Set<String>.from(_floorReleasedOrderIds),
+                  freedResourceIds: Set<String>.from(_floorFreedResourceIds),
                 ),
               ),
             ],
@@ -11480,6 +11730,17 @@ class _PosSellScreenState extends State<PosSellScreen> {
   }
 
   String? get _transferSourceKey {
+    final preferTingee =
+        PosPaymentGatewayApi.preferTingee(_paymentGatewaySettings);
+    if (preferTingee) {
+      for (final s in _paymentSources) {
+        if (s.key == 'tingee') return s.key;
+      }
+    } else {
+      for (final s in _paymentSources) {
+        if (s.key.startsWith('vietqr_')) return s.key;
+      }
+    }
     for (final s in _paymentSources) {
       if (s.key != _PosPaymentSource.cashKey) return s.key;
     }
@@ -12389,6 +12650,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 onDecrement: (product) {
                   _pickerDraftDecrement(product);
                 },
+                onSetQty: (product, qty) {
+                  unawaited(_pickerDraftSetQty(product, qty));
+                },
               ),
             ),
             Material(
@@ -12478,7 +12742,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _pickerDraftQty[id] = draftNext;
       _pickerDraftPicks[id] = pick;
     });
-    HapticFeedback.lightImpact();
+    _playSellPickClick();
   }
 
   void _pickerDraftDecrement(PosProduct product) {
@@ -12493,6 +12757,39 @@ class _PosSellScreenState extends State<PosSellScreen> {
       } else {
         _pickerDraftQty[id] = next;
       }
+    });
+  }
+
+  Future<void> _pickerDraftSetQty(PosProduct product, double qty) async {
+    final id = product.id;
+    if (qty <= 0) {
+      setState(() {
+        _pickerDraftQty.remove(id);
+        _pickerDraftPicks.remove(id);
+      });
+      return;
+    }
+    final pick = _pickerDraftPicks[id];
+    if (pick == null) return;
+    final err = PosQtyRules.validate(pick.product, qty, action: 'Đổi SL');
+    if (err != null) {
+      NotificationOverlayManager().showError(title: 'Số lượng', message: tr(err));
+      return;
+    }
+    var views = await loadPosSellUnitViews(_api, pick.product);
+    views = applyPosPriceListToViews(
+        views, pick.product, _currentPriceOverrides);
+    if (!mounted || views.isEmpty) return;
+    final view = pickUnitView(
+          views,
+          variantId: pick.variantId,
+          unitId: pick.unitId,
+          unitLabel: pick.unitLabel,
+        ) ??
+        views.first;
+    if (!_validateStockForAdd(pick.product, view, addQty: qty)) return;
+    setState(() {
+      _pickerDraftQty[id] = qty;
     });
   }
 
@@ -12637,6 +12934,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _kitchenClearedResourceIds.join(','),
       _billRequestedResourceIds.join(','),
       _floorReleasedOrderIds.join(','),
+      _floorFreedResourceIds.join(','),
     ].join('|');
     if (_cachedDesktopFloorPane != null && _cachedFloorPaneSig == sig) {
       return _cachedDesktopFloorPane!;
@@ -12662,6 +12960,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       zeroPendingKitchenResourceIds: _kitchenClearedResourceIds,
       billRequestedResourceIds: _billRequestedResourceIds,
       releasedOrderIds: Set<String>.from(_floorReleasedOrderIds),
+      freedResourceIds: Set<String>.from(_floorFreedResourceIds),
     );
     return _cachedDesktopFloorPane!;
   }

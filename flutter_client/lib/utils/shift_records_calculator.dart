@@ -255,6 +255,8 @@ class DailyShiftRecord {
   final String status;
   final Color statusColor;
   final double workCount;
+  /// Giờ công theo tên ca trong ngày (cùng nguồn với [workHours]).
+  final Map<String, double> hoursByShiftName;
 
   DailyShiftRecord({
     required this.employeeId,
@@ -274,7 +276,32 @@ class DailyShiftRecord {
     required this.status,
     required this.statusColor,
     required this.workCount,
+    this.hoursByShiftName = const {},
   }) : baseWorkHours = baseWorkHours ?? workHours;
+}
+
+void _addHoursByShiftName(
+  Map<String, double> map,
+  String? rawName,
+  double hours,
+) {
+  if (hours <= 0) return;
+  final name = rawName?.trim() ?? '';
+  final key = name.isEmpty ? 'Ca khác' : name;
+  map[key] = (map[key] ?? 0) + hours;
+}
+
+Map<String, double> _scaleHoursByShiftName(
+  Map<String, double> map,
+  double fromTotal,
+  double toTotal,
+) {
+  if (map.isEmpty || toTotal <= 0) return <String, double>{};
+  if (fromTotal <= 0 || fromTotal == toTotal) {
+    return Map<String, double>.from(map);
+  }
+  final factor = toTotal / fromTotal;
+  return {for (final e in map.entries) e.key: e.value * factor};
 }
 
 int _parseTimeSpanToMinutes(String? timeStr) {
@@ -1748,6 +1775,14 @@ List<DailyShiftRecord> _computeFullDayRecordsForEmployee({
       status: status,
       statusColor: statusColor,
       workCount: workCount,
+      hoursByShiftName: workHours > 0
+          ? {
+              (shiftNames.isNotEmpty && shiftNames.first.trim().isNotEmpty
+                      ? shiftNames.first.trim()
+                      : 'Ca khác'):
+                  workHours,
+            }
+          : const {},
     ));
   }
   return out;
@@ -1961,6 +1996,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       double totalWorkHours = 0;
       bool hasMissingPunch = false;
       final shiftNames = <String>[];
+      final hoursByShiftName = <String, double>{};
       final missingOutShiftNames = <String>[];
       final usedShiftIds = <String>{};
       final dayPairs = isOnceShift
@@ -2125,7 +2161,13 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         if (matchedShift != null && isOtShift) {
           if (actualWorkedMinutes > 0) {
             totalOT += actualWorkedMinutes;
-            totalWorkHours += actualWorkedMinutes / 60.0;
+            final otHours = actualWorkedMinutes / 60.0;
+            totalWorkHours += otHours;
+            _addHoursByShiftName(
+              hoursByShiftName,
+              matchedShift['name']?.toString(),
+              otHours,
+            );
           }
           continue;
         }
@@ -2202,17 +2244,37 @@ List<DailyShiftRecord> computeDailyShiftRecords({
             }
             lateCalc = 0;
             earlyCalc = 0;
-            totalWorkHours += netWorkedMin / 60.0;
+            final restHours = netWorkedMin / 60.0;
+            totalWorkHours += restHours;
+            _addHoursByShiftName(
+              hoursByShiftName,
+              matchedShift['name']?.toString(),
+              restHours,
+            );
           } else if (lateCalc <= 0 && earlyCalc <= 0 && extraMin <= 0) {
             // Đủ ca hợp lệ → giờ công chuẩn (đã trừ nghỉ giữa ca).
-            totalWorkHours += shiftDurationMin / 60.0;
+            final hours = shiftDurationMin / 60.0;
+            totalWorkHours += hours;
+            _addHoursByShiftName(
+              hoursByShiftName,
+              matchedShift['name']?.toString(),
+              hours,
+            );
           } else {
             // Có đi trễ / về sớm / OT sau ca → giờ thực tế vẫn phải trừ nghỉ giữa ca.
-            totalWorkHours += netWorkedMin / 60.0;
+            final hours = netWorkedMin / 60.0;
+            totalWorkHours += hours;
+            _addHoursByShiftName(
+              hoursByShiftName,
+              matchedShift['name']?.toString(),
+              hours,
+            );
           }
           // Giờ thập phân = cùng nguồn với tổng giờ (đổi đơn vị hiển thị, không tính lại).
         } else {
-          totalWorkHours += actualWorkedMinutes / 60.0;
+          final hours = actualWorkedMinutes / 60.0;
+          totalWorkHours += hours;
+          _addHoursByShiftName(hoursByShiftName, null, hours);
         }
       }
 
@@ -2259,6 +2321,14 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           totalWorkHours *= holidayMultiplier;
         }
       }
+      final scaledHours = _scaleHoursByShiftName(
+        hoursByShiftName,
+        baseWorkHours,
+        totalWorkHours,
+      );
+      hoursByShiftName
+        ..clear()
+        ..addAll(scaledHours);
 
       String status;
       Color statusColor;
@@ -2278,6 +2348,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           // Đưa giờ làm ngày nghỉ vào cột Tăng ca — không hiện ở Tổng giờ/Công.
           totalOT += _hoursToOtMinutes(baseWorkHours);
           totalWorkHours = 0;
+          hoursByShiftName.clear();
         }
         if (totalLate > 0) status = 'Đi trễ - $status';
         if (totalEarly > 0) status = '$status - Về sớm';
@@ -2334,6 +2405,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         status: status,
         statusColor: statusColor,
         workCount: totalWorkCount,
+        hoursByShiftName: Map<String, double>.from(hoursByShiftName),
       ));
     });
   });

@@ -40,11 +40,12 @@ String attendanceVerticalDayTitle(DateTime d) {
   return '${attendanceVerticalWeekdayShort(d)}, $dd/$mm/${d.year}';
 }
 
-/// Một dòng bảng dọc: Ngày | Thứ | Chấm công | Tổng giờ | Đi đường | Tổng công
+/// Một dòng bảng dọc: Ngày | Thứ | Chấm công | Giờ ca… | Tổng giờ | [Đi đường] | Tổng công
 class MobileAttendanceVerticalRow {
   final String day;
   final String weekday;
   final Widget attendance;
+  final List<String> shiftHours;
   final String totalHours;
   final String travelHours;
   final String totalWork;
@@ -55,6 +56,7 @@ class MobileAttendanceVerticalRow {
     required this.day,
     required this.weekday,
     required this.attendance,
+    this.shiftHours = const [],
     required this.totalHours,
     this.travelHours = '—',
     required this.totalWork,
@@ -63,26 +65,21 @@ class MobileAttendanceVerticalRow {
   });
 }
 
-/// Bảng dọc mobile với 5 cột cố định.
+/// Bảng dọc mobile — cuộn ngang khi có cột giờ từng ca.
 class MobileAttendanceVerticalTable extends StatelessWidget {
-  static const headers = [
-    'Ngày',
-    'Thứ',
-    'Chấm công',
-    'Tổng giờ',
-    'Đi đường',
-    'Tổng công',
-  ];
-
   final String? title;
   final List<MobileAttendanceVerticalRow> rows;
   final MobileAttendanceVerticalRow? totalRow;
+  final int maxShifts;
+  final bool showTravel;
 
   const MobileAttendanceVerticalTable({
     super.key,
     this.title,
     required this.rows,
     this.totalRow,
+    this.maxShifts = 0,
+    this.showTravel = true,
   });
 
   static const _headerBg = Color(0xFFF4F6F8);
@@ -92,7 +89,29 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
   static const _totalBg = Color(0xFFEFF6FF);
   static const _totalBorder = Color(0xFF93C5FD);
 
-  static const _colFlex = [2, 2, 4, 2, 2, 2];
+  List<String> get _headers {
+    final h = <String>['Ngày', 'Thứ', 'Chấm công'];
+    for (var i = 1; i <= maxShifts; i++) {
+      h.add('Giờ ca $i');
+    }
+    h.add('Tổng giờ');
+    if (showTravel) h.add('Đi đường');
+    h.add('Tổng công');
+    return h;
+  }
+
+  List<double> get _colWidths {
+    final w = <double>[54, 42, 96];
+    for (var i = 0; i < maxShifts; i++) {
+      w.add(56);
+    }
+    w.add(58);
+    if (showTravel) w.add(54);
+    w.add(52);
+    return w;
+  }
+
+  double get _tableWidth => _colWidths.fold<double>(0, (s, w) => s + w);
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +135,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
         children: [
           if (title != null && title!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
               child: Row(
                 children: [
                   const Icon(Icons.table_rows_outlined,
@@ -135,42 +154,68 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
                 ],
               ),
             ),
-          _buildHeaderRow(),
-          if (rows.isEmpty)
+          if (maxShifts > 0)
             Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(
-                child: Text(tr('Không có dữ liệu trong khoảng ngày đã chọn'),
-                  style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
-                ),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+              child: Text(
+                tr('Vuốt ngang để xem giờ từng ca'),
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               ),
-            )
-          else ...[
-            ...List.generate(rows.length, (i) => _buildDataRow(rows[i], i)),
-            if (totalRow != null) _buildTotalRow(totalRow!),
-          ],
+            ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: _tableWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeaderRow(),
+                  if (rows.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Center(
+                        child: Text(
+                          tr('Không có dữ liệu trong khoảng ngày đã chọn'),
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF71717A)),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    ...List.generate(rows.length, (i) => _buildDataRow(rows[i], i)),
+                    if (totalRow != null) _buildTotalRow(totalRow!),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildHeaderRow() {
+    final headers = _headers;
+    final widths = _colWidths;
     return Container(
       color: _headerBg,
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: List.generate(headers.length, (i) {
-          return Expanded(
-            flex: _colFlex[i],
+          return SizedBox(
+            width: widths[i],
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
                 tr(headers[i]),
-                textAlign: i >= 2 ? TextAlign.center : TextAlign.center,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0xFF374151),
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
+                  height: 1.15,
                 ),
               ),
             ),
@@ -180,64 +225,78 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
     );
   }
 
+  List<String?> _textCells(MobileAttendanceVerticalRow row) {
+    final cells = <String?>[row.day, row.weekday];
+    for (var i = 0; i < maxShifts; i++) {
+      cells.add(i < row.shiftHours.length ? row.shiftHours[i] : '—');
+    }
+    cells.add(row.totalHours);
+    if (showTravel) cells.add(row.travelHours);
+    cells.add(row.totalWork);
+    return cells;
+  }
+
+  Color _cellColor(int textIndex, String? value, {required bool total}) {
+    if (value == null || value == '—') {
+      return total ? const Color(0xFF1E40AF) : const Color(0xFF18181B);
+    }
+    final shiftEnd = maxShifts;
+    if (textIndex >= 0 && textIndex < shiftEnd) {
+      return const Color(0xFF0F766E);
+    }
+    if (textIndex == shiftEnd) {
+      return total ? const Color(0xFF15803D) : const Color(0xFF16A34A);
+    }
+    var idx = shiftEnd + 1;
+    if (showTravel) {
+      if (textIndex == idx) return const Color(0xFFEA580C);
+      idx++;
+    }
+    if (textIndex == idx) {
+      return total ? const Color(0xFF1D4ED8) : const Color(0xFF2563EB);
+    }
+    return total ? const Color(0xFF1E40AF) : const Color(0xFF18181B);
+  }
+
   Widget _buildDataRow(MobileAttendanceVerticalRow row, int index) {
     final bg = row.isToday
         ? _todayBg
         : (index.isEven ? const Color(0xFFF9FAFB) : Colors.white);
-    final cells = [
-      row.day,
-      row.weekday,
-      null,
-      row.totalHours,
-      row.travelHours,
-      row.totalWork,
-    ];
-
+    final texts = _textCells(row);
+    final widths = _colWidths;
     Widget rowBody = Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
         color: bg,
         border: Border(
-          bottom: BorderSide(
-            color: _border.withValues(alpha: 0.8),
-            width: 0.5,
-          ),
+          bottom: BorderSide(color: _border.withValues(alpha: 0.8), width: 0.5),
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
-        children: List.generate(cells.length, (i) {
-          return Expanded(
-            flex: _colFlex[i],
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: i == 2
-                  ? row.attendance
-                  : Text(
-                      tr(cells[i] ?? '—'),
-                      textAlign: TextAlign.center,
-                      maxLines: i == 2 ? 4 : 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight:
-                            row.isToday ? FontWeight.w700 : FontWeight.w500,
-                        color: i == 3 && cells[i] != '—'
-                            ? const Color(0xFF16A34A)
-                            : i == 4 && cells[i] != '—'
-                                ? const Color(0xFFEA580C)
-                                : i == 5 && cells[i] != '—'
-                                    ? const Color(0xFF2563EB)
-                                    : const Color(0xFF18181B),
-                        height: 1.2,
-                      ),
-                    ),
+        children: [
+          SizedBox(
+            width: widths[0],
+            child: _plainCell(texts[0], row.isToday),
+          ),
+          SizedBox(
+            width: widths[1],
+            child: _plainCell(texts[1], row.isToday),
+          ),
+          SizedBox(width: widths[2], child: row.attendance),
+          for (var i = 3; i < widths.length; i++)
+            SizedBox(
+              width: widths[i],
+              child: _plainCell(
+                texts[i - 1],
+                row.isToday,
+                color: _cellColor(i - 3, texts[i - 1], total: false),
+                bold: row.isToday,
+              ),
             ),
-          );
-        }),
+        ],
       ),
     );
-
     if (row.onTap != null) {
       return Material(
         color: Colors.transparent,
@@ -248,15 +307,8 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
   }
 
   Widget _buildTotalRow(MobileAttendanceVerticalRow row) {
-    final cells = [
-      row.day,
-      row.weekday,
-      null,
-      row.totalHours,
-      row.travelHours,
-      row.totalWork,
-    ];
-
+    final texts = _textCells(row);
+    final widths = _colWidths;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: const BoxDecoration(
@@ -268,34 +320,46 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
-        children: List.generate(cells.length, (i) {
-          return Expanded(
-            flex: _colFlex[i],
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: i == 2
-                  ? row.attendance
-                  : Text(
-                      tr(cells[i] ?? '—'),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: i == 3 && cells[i] != '—'
-                            ? const Color(0xFF15803D)
-                            : i == 4 && cells[i] != '—'
-                                ? const Color(0xFFEA580C)
-                                : i == 5 && cells[i] != '—'
-                                    ? const Color(0xFF1D4ED8)
-                                    : const Color(0xFF1E40AF),
-                        height: 1.2,
-                      ),
-                    ),
+        children: [
+          SizedBox(
+            width: widths[0],
+            child: _plainCell(texts[0], true, color: const Color(0xFF1E40AF)),
+          ),
+          SizedBox(
+            width: widths[1],
+            child: _plainCell(texts[1], true, color: const Color(0xFF1E40AF)),
+          ),
+          SizedBox(width: widths[2], child: row.attendance),
+          for (var i = 3; i < widths.length; i++)
+            SizedBox(
+              width: widths[i],
+              child: _plainCell(
+                texts[i - 1],
+                true,
+                color: _cellColor(i - 3, texts[i - 1], total: true),
+                bold: true,
+              ),
             ),
-          );
-        }),
+        ],
+      ),
+    );
+  }
+
+  Widget _plainCell(String? text, bool emphasize,
+      {Color? color, bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(
+        tr(text ?? '—'),
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: (emphasize || bold) ? FontWeight.w800 : FontWeight.w500,
+          color: color ?? const Color(0xFF18181B),
+          height: 1.2,
+        ),
       ),
     );
   }
@@ -319,11 +383,12 @@ Widget mobileAttendancePunchText(String text) {
   );
 }
 
-/// Một dòng bảng dọc theo ca (8 cột, cuộn ngang).
+/// Một dòng bảng dọc theo ca — cột giờ từng ca + ẩn đi đường khi tắt.
 class MobileAttendanceShiftVerticalRow {
   final String day;
   final String weekday;
   final Widget attendance;
+  final List<String> shiftHours;
   final String totalWork;
   final String totalHours;
   final String travelHours;
@@ -337,6 +402,7 @@ class MobileAttendanceShiftVerticalRow {
     required this.day,
     required this.weekday,
     required this.attendance,
+    this.shiftHours = const [],
     required this.totalWork,
     required this.totalHours,
     this.travelHours = '—',
@@ -348,41 +414,21 @@ class MobileAttendanceShiftVerticalRow {
   });
 }
 
-/// Bảng dọc tổng hợp theo ca — cuộn ngang khi nhiều cột.
+/// Bảng dọc tổng hợp theo ca — cuộn ngang khi có cột giờ từng ca.
 class MobileAttendanceShiftVerticalTable extends StatelessWidget {
-  static const headers = [
-    'Ngày',
-    'Thứ',
-    'Chấm công',
-    'Tổng công',
-    'Tổng giờ',
-    'Đi đường',
-    'Đi trễ',
-    'Về sớm',
-    'Tăng ca',
-  ];
-
-  static const _colWidths = [
-    54.0,
-    42.0,
-    96.0,
-    58.0,
-    58.0,
-    54.0,
-    54.0,
-    54.0,
-    54.0,
-  ];
-
   final String? title;
   final List<MobileAttendanceShiftVerticalRow> rows;
   final MobileAttendanceShiftVerticalRow? totalRow;
+  final List<String> shiftHourLabels;
+  final bool showTravel;
 
   const MobileAttendanceShiftVerticalTable({
     super.key,
     this.title,
     required this.rows,
     this.totalRow,
+    this.shiftHourLabels = const [],
+    this.showTravel = true,
   });
 
   static const _headerBg = Color(0xFFF4F6F8);
@@ -392,8 +438,29 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
   static const _totalBg = Color(0xFFEFF6FF);
   static const _totalBorder = Color(0xFF93C5FD);
 
-  double get _tableWidth =>
-      _colWidths.fold<double>(0, (sum, w) => sum + w);
+  List<String> get _headers {
+    final h = <String>['Ngày', 'Thứ', 'Chấm công'];
+    for (final name in shiftHourLabels) {
+      h.add(name.startsWith('Giờ ') ? name : 'Giờ $name');
+    }
+    h.addAll(['Tổng công', 'Tổng giờ']);
+    if (showTravel) h.add('Đi đường');
+    h.addAll(['Đi trễ', 'Về sớm', 'Tăng ca']);
+    return h;
+  }
+
+  List<double> get _colWidths {
+    final w = <double>[54, 42, 96];
+    for (var i = 0; i < shiftHourLabels.length; i++) {
+      w.add(64);
+    }
+    w.addAll([58, 58]);
+    if (showTravel) w.add(54);
+    w.addAll([54, 54, 54]);
+    return w;
+  }
+
+  double get _tableWidth => _colWidths.fold<double>(0, (sum, w) => sum + w);
 
   @override
   Widget build(BuildContext context) {
@@ -439,7 +506,10 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(tr('Vuốt ngang để xem đủ cột'),
+                  Text(
+                    tr(shiftHourLabels.isNotEmpty
+                        ? 'Vuốt ngang để xem giờ từng ca'
+                        : 'Vuốt ngang để xem đủ cột'),
                     style: TextStyle(
                       fontSize: 10,
                       color: Colors.grey.shade600,
@@ -458,10 +528,11 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                   _buildHeaderRow(),
                   if (rows.isEmpty)
                     Padding(
-                      padding: EdgeInsets.all(20),
+                      padding: const EdgeInsets.all(20),
                       child: Center(
-                        child: Text(tr('Không có dữ liệu trong khoảng ngày đã chọn'),
-                          style: TextStyle(
+                        child: Text(
+                          tr('Không có dữ liệu trong khoảng ngày đã chọn'),
+                          style: const TextStyle(
                               fontSize: 12, color: Color(0xFF71717A)),
                         ),
                       ),
@@ -481,13 +552,15 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
   }
 
   Widget _buildHeaderRow() {
+    final headers = _headers;
+    final widths = _colWidths;
     return Container(
       color: _headerBg,
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: List.generate(headers.length, (i) {
           return SizedBox(
-            width: _colWidths[i],
+            width: widths[i],
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
@@ -509,21 +582,53 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
     );
   }
 
+  List<String> _textCells(MobileAttendanceShiftVerticalRow row) {
+    final cells = <String>[row.day, row.weekday];
+    for (var i = 0; i < shiftHourLabels.length; i++) {
+      cells.add(i < row.shiftHours.length ? row.shiftHours[i] : '—');
+    }
+    cells.add(row.totalWork);
+    cells.add(row.totalHours);
+    if (showTravel) cells.add(row.travelHours);
+    cells.addAll([row.late, row.early, row.overtime]);
+    return cells;
+  }
+
+  Color _cellColor(int textIndex, String value, {required bool total}) {
+    if (value == '—') {
+      return total ? const Color(0xFF1E40AF) : const Color(0xFF18181B);
+    }
+    final n = shiftHourLabels.length;
+    if (textIndex >= 0 && textIndex < n) {
+      return const Color(0xFF0F766E);
+    }
+    var idx = n;
+    if (textIndex == idx) {
+      return total ? const Color(0xFF1D4ED8) : const Color(0xFF2563EB);
+    }
+    idx++;
+    if (textIndex == idx) {
+      return total ? const Color(0xFF15803D) : const Color(0xFF16A34A);
+    }
+    idx++;
+    if (showTravel) {
+      if (textIndex == idx) return const Color(0xFFEA580C);
+      idx++;
+    }
+    if (textIndex == idx) return const Color(0xFFF59E0B);
+    idx++;
+    if (textIndex == idx) return const Color(0xFFEF4444);
+    idx++;
+    if (textIndex == idx) return const Color(0xFF8B5CF6);
+    return total ? const Color(0xFF1E40AF) : const Color(0xFF18181B);
+  }
+
   Widget _buildDataRow(MobileAttendanceShiftVerticalRow row, int index) {
     final bg = row.isToday
         ? _todayBg
         : (index.isEven ? const Color(0xFFF9FAFB) : Colors.white);
-    final textCells = [
-      row.day,
-      row.weekday,
-      row.totalWork,
-      row.totalHours,
-      row.travelHours,
-      row.late,
-      row.early,
-      row.overtime,
-    ];
-
+    final texts = _textCells(row);
+    final widths = _colWidths;
     Widget rowBody = Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
@@ -539,24 +644,22 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: _colWidths[0],
-            child: _textCell(textCells[0], row.isToday),
+            width: widths[0],
+            child: _textCell(texts[0], row.isToday),
           ),
           SizedBox(
-            width: _colWidths[1],
-            child: _textCell(textCells[1], row.isToday),
+            width: widths[1],
+            child: _textCell(texts[1], row.isToday),
           ),
-          SizedBox(
-            width: _colWidths[2],
-            child: row.attendance,
-          ),
-          for (var i = 3; i < 9; i++)
+          SizedBox(width: widths[2], child: row.attendance),
+          for (var i = 3; i < widths.length; i++)
             SizedBox(
-              width: _colWidths[i],
+              width: widths[i],
               child: _textCell(
-                textCells[i - 1],
+                texts[i - 1],
                 row.isToday,
-                color: _cellColor(i - 1, textCells[i - 1]),
+                color: _cellColor(i - 3, texts[i - 1], total: false),
+                bold: row.isToday,
               ),
             ),
         ],
@@ -573,17 +676,8 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
   }
 
   Widget _buildTotalRow(MobileAttendanceShiftVerticalRow row) {
-    final textCells = [
-      row.day,
-      row.weekday,
-      row.totalWork,
-      row.totalHours,
-      row.travelHours,
-      row.late,
-      row.early,
-      row.overtime,
-    ];
-
+    final texts = _textCells(row);
+    final widths = _colWidths;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: const BoxDecoration(
@@ -597,26 +691,22 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: _colWidths[0],
-            child: _textCell(textCells[0], false, bold: true),
+            width: widths[0],
+            child: _textCell(texts[0], false, bold: true),
           ),
           SizedBox(
-            width: _colWidths[1],
-            child: _textCell(textCells[1], false, bold: true),
+            width: widths[1],
+            child: _textCell(texts[1], false, bold: true),
           ),
-          SizedBox(
-            width: _colWidths[2],
-            child: row.attendance,
-          ),
-          for (var i = 3; i < 9; i++)
+          SizedBox(width: widths[2], child: row.attendance),
+          for (var i = 3; i < widths.length; i++)
             SizedBox(
-              width: _colWidths[i],
+              width: widths[i],
               child: _textCell(
-                textCells[i - 1],
+                texts[i - 1],
                 false,
                 bold: true,
-                color: _cellColor(i - 1, textCells[i - 1]) ??
-                    const Color(0xFF1E40AF),
+                color: _cellColor(i - 3, texts[i - 1], total: true),
               ),
             ),
         ],
@@ -641,26 +731,6 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color? _cellColor(int colIndex, String value) {
-    if (value == '—') return null;
-    switch (colIndex) {
-      case 2:
-        return const Color(0xFF2563EB);
-      case 3:
-        return const Color(0xFF16A34A);
-      case 4:
-        return const Color(0xFFEA580C);
-      case 5:
-        return const Color(0xFFF59E0B);
-      case 6:
-        return const Color(0xFFEF4444);
-      case 7:
-        return const Color(0xFF8B5CF6);
-      default:
-        return null;
-    }
   }
 }
 

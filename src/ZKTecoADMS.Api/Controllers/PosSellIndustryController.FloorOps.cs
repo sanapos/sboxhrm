@@ -1172,6 +1172,20 @@ public partial class PosSellIndustryController
             });
         }
         await db.SaveChangesAsync();
+        var tableLabel = (dto.ResourceName ?? "").Trim();
+        var voice = string.Join(". ", rows.Select(r =>
+        {
+            var q = r.Qty == decimal.Truncate(r.Qty)
+                ? ((long)r.Qty).ToString()
+                : r.Qty.ToString("0.###");
+            return $"Thông báo hủy {q} món {tableLabel} {r.ProductName}".Trim();
+        }));
+        NotifyFloorChanged(storeId, "kitchenVoid",
+            orderId: dto.SaleOrderId,
+            resourceId: dto.ServiceResourceId,
+            sessionId: dto.ResourceSessionId,
+            tableName: tableLabel,
+            message: voice);
         return Ok(AppResponse<object>.Success(new
         {
             created = rows.Count,

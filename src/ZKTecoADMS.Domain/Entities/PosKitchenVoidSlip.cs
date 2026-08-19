@@ -39,6 +39,8 @@ public class PosKitchenVoidSlip : AuditableEntity<Guid>
 
     public bool Printed { get; set; }
     public DateTime VoidedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>Bếp đã bấm Đồng ý / xong bàn — không hiện trên KDS nữa.</summary>
+    public DateTime? KdsAckedAt { get; set; }
     [MaxLength(200)]
     public string? VoidedBy { get; set; }
     [MaxLength(120)]

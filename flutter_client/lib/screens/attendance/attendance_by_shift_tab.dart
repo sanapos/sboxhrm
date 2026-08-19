@@ -33,6 +33,7 @@ import '../../utils/attendance_viewport_preserve.dart';
 import '../../utils/shift_records_calculator.dart';
 import '../../utils/paid_leave_schedule_utils.dart';
 import '../../utils/travel_hours_load_utils.dart';
+import '../../utils/travel_salary_utils.dart';
 import '../../widgets/travel_day_slips_sheet.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../../widgets/synced_scroll_list_view.dart'
@@ -47,6 +48,7 @@ class AttendanceByShiftTab extends StatefulWidget {
   final List<Map<String, dynamic>> shiftTemplates;
   final List<Map<String, dynamic>> shiftSalaryLevels;
   final List<Map<String, dynamic>> salaryProfiles;
+  final Map<String, dynamic>? storeSalarySettings;
   final List<dynamic> holidays;
   final int dayEndHour;
   final int dayEndMinute;
@@ -84,6 +86,7 @@ class AttendanceByShiftTab extends StatefulWidget {
     this.shiftTemplates = const [],
     this.shiftSalaryLevels = const [],
     this.salaryProfiles = const [],
+    this.storeSalarySettings,
     this.holidays = const [],
     this.dayEndHour = 0,
     this.dayEndMinute = 0,
@@ -180,6 +183,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   Set<String> _scheduleDayOffKeys = {};
   Set<String> _scheduleWorkDayKeys = {};
   Set<String> _employeesWithSchedule = {};
+
+  bool get _showTravelColumns => isTravelFeatureVisible(
+        storeSalarySettings: widget.storeSalarySettings,
+        salaryProfiles: widget.salaryProfiles,
+      );
 
   @override
   void initState() {
@@ -864,6 +872,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             status: r.status,
             statusColor: r.statusColor,
             workCount: r.workCount,
+            hoursByShiftName: Map<String, double>.from(r.hoursByShiftName),
           ),
         )
         .toList();
@@ -1957,7 +1966,47 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return '${h}h${m > 0 ? '${m}p' : ''}';
   }
 
+  String _shiftHoursDetailLabel(_DailyShiftRecord r) {
+    if (r.hoursByShiftName.isEmpty && r.shiftNames.isEmpty) return '';
+    final seen = <String>{};
+    final parts = <String>[];
+    for (final name in r.shiftNames) {
+      if (name.isEmpty || !seen.add(name)) continue;
+      final h = r.hoursByShiftName[name] ?? 0;
+      parts.add(h > 0 ? '$name ${_formatHoursMinutes(h)}' : name);
+    }
+    r.hoursByShiftName.forEach((name, h) {
+      if (!seen.add(name) || h <= 0) return;
+      parts.add('$name ${_formatHoursMinutes(h)}');
+    });
+    return parts.join(', ');
+  }
+
+  List<String> _orderedShiftHourLabels(Iterable<_DailyShiftRecord> records) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final r in records) {
+      for (final name in r.shiftNames) {
+        if (name.isNotEmpty && seen.add(name)) out.add(name);
+      }
+      for (final name in r.hoursByShiftName.keys) {
+        if (name.isNotEmpty && seen.add(name)) out.add(name);
+      }
+    }
+    return out;
+  }
+
+  List<String> _shiftHourCells(_DailyShiftRecord? r, List<String> labels) {
+    return [
+      for (final name in labels)
+        (r != null && (r.hoursByShiftName[name] ?? 0) > 0)
+            ? _formatHoursMinutes(r.hoursByShiftName[name]!)
+            : '—',
+    ];
+  }
+
   double _travelHoursForShiftRecord(_DailyShiftRecord r) {
+    if (!_showTravelColumns) return 0;
     final emp = _employeeMapForShiftRecord(r);
     return lookupTravelHoursForDay(
       widget.travelHoursByEmployeeDateKey,
@@ -1974,6 +2023,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     required String employeeId,
     required String employeeCode,
   }) {
+    if (!_showTravelColumns) return 0;
     final emp = _employeeMapForKeys(employeeId, employeeCode);
     return lookupTravelHoursTotal(
       widget.travelHoursByEmployeeKey,
@@ -2310,8 +2360,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               const Divider(height: 1),
               const SizedBox(height: 16),
               // Shift names
-              if (record.shiftNames.isNotEmpty) ...[
-                _detailRow('Ca làm việc', record.shiftNames.join(', ')),
+              if (record.shiftNames.isNotEmpty ||
+                  record.hoursByShiftName.isNotEmpty) ...[
+                _detailRow(
+                  'Ca làm việc',
+                  _shiftHoursDetailLabel(record).isNotEmpty
+                      ? _shiftHoursDetailLabel(record)
+                      : record.shiftNames.join(', '),
+                ),
                 const SizedBox(height: 10),
               ],
               // Punch times
@@ -3153,7 +3209,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       'Về sớm',
       'Tăng ca',
       'Tổng giờ',
-      'Đi đường',
+    ]);
+    if (_showTravelColumns) headers.add('Đi đường');
+    headers.addAll([
       'Giờ thập phân',
       'Công',
       'Tên ca',
@@ -3237,8 +3295,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final earlyCol = lateCol + 1;
     final otCol = earlyCol + 1;
     final totalHoursCol = otCol + 1;
-    final travelCol = totalHoursCol + 1;
-    final decimalCol = travelCol + 1;
+    final travelCol = _showTravelColumns ? totalHoursCol + 1 : -1;
+    final decimalCol = totalHoursCol + (_showTravelColumns ? 2 : 1);
     final workCol = decimalCol + 1;
     final shiftNameCol = workCol + 1;
 
@@ -3359,15 +3417,17 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         style: dataStyle,
       );
       final travelH = _travelHoursForShiftRecord(r);
-      _excelSetCell(
-        sheet,
-        row,
-        col++,
-        travelH > 0
-            ? excel_lib.TextCellValue(_formatHoursMinutes(travelH))
-            : excel_lib.TextCellValue(''),
-        style: dataStyle,
-      );
+      if (_showTravelColumns) {
+        _excelSetCell(
+          sheet,
+          row,
+          col++,
+          travelH > 0
+              ? excel_lib.TextCellValue(_formatHoursMinutes(travelH))
+              : excel_lib.TextCellValue(''),
+          style: dataStyle,
+        );
+      }
       _excelSetCell(
         sheet,
         row,
@@ -3387,7 +3447,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         sheet,
         row,
         col++,
-        excel_lib.TextCellValue(r.shiftNames.join(', ')),
+        excel_lib.TextCellValue(_shiftHoursDetailLabel(r)),
         style: _excelLeftStyle(),
       );
       _excelSetCell(
@@ -3420,7 +3480,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         style: totalStyle,
       );
 
-      for (final c in [lateCol, earlyCol, otCol, travelCol, decimalCol, workCol]) {
+      for (final c in [
+        lateCol,
+        earlyCol,
+        otCol,
+        if (_showTravelColumns) travelCol,
+        decimalCol,
+        workCol,
+      ]) {
         final refStart = _excelRef(c, firstDataRow);
         final refEnd = _excelRef(c, lastDataRow);
         _excelSetCell(
@@ -3444,15 +3511,17 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         employeeId: totals.employeeId,
         employeeCode: totals.employeeCode,
       );
-      _excelSetCell(
-        sheet,
-        totalRow,
-        travelCol,
-        excel_lib.TextCellValue(
-          travelTotal > 0 ? _formatHoursMinutes(travelTotal) : '',
-        ),
-        style: totalStyle,
-      );
+      if (_showTravelColumns) {
+        _excelSetCell(
+          sheet,
+          totalRow,
+          travelCol,
+          excel_lib.TextCellValue(
+            travelTotal > 0 ? _formatHoursMinutes(travelTotal) : '',
+          ),
+          style: totalStyle,
+        );
+      }
     } else {
       _excelSetCell(sheet, totalRow, 2,
           excel_lib.TextCellValue('${totals.presentDays} ngày'),
@@ -3547,12 +3616,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       r.earlyMinutes > 0 ? '${r.earlyMinutes}P' : '',
       r.overtimeMinutes > 0 ? '${r.overtimeMinutes}P' : '',
       r.workHours > 0 ? _formatHoursMinutes(r.workHours) : '',
-      _travelHoursForShiftRecord(r) > 0
-          ? _formatHoursMinutes(_travelHoursForShiftRecord(r))
-          : '',
+      if (_showTravelColumns)
+        _travelHoursForShiftRecord(r) > 0
+            ? _formatHoursMinutes(_travelHoursForShiftRecord(r))
+            : '',
       r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '',
       r.workCount > 0 ? r.workCount.toStringAsFixed(2) : '',
-      r.shiftNames.join(', '),
+      _shiftHoursDetailLabel(r),
       r.status,
     ]);
     return cells;
@@ -3569,13 +3639,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       totals.earlyMinutes > 0 ? '${totals.earlyMinutes}P' : '',
       totals.overtimeMinutes > 0 ? '${totals.overtimeMinutes}P' : '',
       totals.workHours > 0 ? _formatHoursMinutes(totals.workHours) : '',
-      _travelHoursTotalForShiftEmployee(
-                employeeId: totals.employeeId,
-                employeeCode: totals.employeeCode) >
-            0
-        ? _formatHoursMinutes(_travelHoursTotalForShiftEmployee(
-            employeeId: totals.employeeId, employeeCode: totals.employeeCode))
-        : '',
+      if (_showTravelColumns)
+        _travelHoursTotalForShiftEmployee(
+                  employeeId: totals.employeeId,
+                  employeeCode: totals.employeeCode) >
+              0
+            ? _formatHoursMinutes(_travelHoursTotalForShiftEmployee(
+                employeeId: totals.employeeId, employeeCode: totals.employeeCode))
+            : '',
       totals.decimalHours > 0 ? totals.decimalHours.toStringAsFixed(2) : '',
       totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '',
       '',
@@ -4111,7 +4182,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return maxPunches.isEven ? maxPunches : maxPunches + 1;
   }
 
-  int _shiftTableColumnCount(int punchCols) => 5 + punchCols + 9;
+  int _shiftTableColumnCount(int punchCols) =>
+      5 + punchCols + (_showTravelColumns ? 9 : 8);
 
   Map<int, TableColumnWidth> _shiftDesktopColumnWidths(int punchCols) {
     final widths = <int, TableColumnWidth>{
@@ -4129,17 +4201,21 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     widths[base + 1] = const FixedColumnWidth(64);
     widths[base + 2] = const FixedColumnWidth(64);
     widths[base + 3] = const FixedColumnWidth(72);
-    widths[base + 4] = const FixedColumnWidth(68);
-    widths[base + 5] = const FixedColumnWidth(68);
-    widths[base + 6] = const FixedColumnWidth(56);
-    widths[base + 7] = const FixedColumnWidth(120);
-    widths[base + 8] = const FixedColumnWidth(140);
+    var idx = base + 4;
+    if (_showTravelColumns) {
+      widths[idx++] = const FixedColumnWidth(68);
+    }
+    widths[idx++] = const FixedColumnWidth(68);
+    widths[idx++] = const FixedColumnWidth(56);
+    widths[idx++] = const FixedColumnWidth(120);
+    widths[idx] = const FixedColumnWidth(140);
     return widths;
   }
 
   double _shiftDesktopTableMinWidth(int punchCols) {
     var w = 44.0 + 150 + 90 + 56 + 96 + punchCols * 64.0;
-    w += 64 * 3 + 72 + 68 * 2 + 56 + 120 + 140;
+    w += 64 * 3 + 72 + 68 + 56 + 120 + 140;
+    if (_showTravelColumns) w += 68;
     return w;
   }
 
@@ -4190,7 +4266,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       'Về sớm',
       'Tăng ca',
       'Tổng giờ',
-      'Đi đường',
+    ]);
+    if (_showTravelColumns) headers.add('Đi đường');
+    headers.addAll([
       'Giờ thập phân',
       'Công',
       'Tên ca',
@@ -4413,13 +4491,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: totals.workHours > 0 ? Colors.green : const Color(0xFFA1A1AA)))),
-      _shiftTableCell(_buildTravelHoursCell(
-        _travelHoursTotalForShiftEmployee(
-          employeeId: totals.employeeId,
-          employeeCode: totals.employeeCode,
-        ),
-        bold: true,
-      )),
+      if (_showTravelColumns)
+        _shiftTableCell(_buildTravelHoursCell(
+          _travelHoursTotalForShiftEmployee(
+            employeeId: totals.employeeId,
+            employeeCode: totals.employeeCode,
+          ),
+          bold: true,
+        )),
       _shiftTableCell(Text(
           tr(totals.decimalHours > 0 ? totals.decimalHours.toStringAsFixed(2) : '—'),
           textAlign: TextAlign.center,
@@ -4501,8 +4580,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: r.workHours > 0 ? Colors.green : Colors.grey))),
-        _shiftTableCell(_buildTravelHoursCell(_travelHoursForShiftRecord(r),
-            record: r)),
+        if (_showTravelColumns)
+          _shiftTableCell(_buildTravelHoursCell(_travelHoursForShiftRecord(r),
+              record: r)),
         _shiftTableCell(Text(
             tr(r.decimalHours > 0 ? r.decimalHours.toStringAsFixed(2) : '—'),
             textAlign: TextAlign.center,
@@ -4519,7 +4599,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 fontWeight: FontWeight.w600,
                 color: r.workCount > 0 ? Colors.blue.shade700 : Colors.grey))),
         _shiftTableCell(
-          Text(tr(r.shiftNames.join(', ')),
+          Text(tr(_shiftHoursDetailLabel(r)),
               textAlign: TextAlign.left,
               style: const TextStyle(fontSize: 10)),
           alignment: Alignment.centerLeft,
@@ -4904,6 +4984,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         lookup[DateFormat('yyyy-MM-dd').format(r.date)] = r;
       }
     }
+    final empRecords = records.where((r) => r.employeeId == empId);
+    final shiftLabels = _orderedShiftHourLabels(empRecords);
     final leaveCtx = _verticalShiftLeaveContext();
     final today = DateTime.now();
 
@@ -4926,6 +5008,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 hrEmpIdMap: leaveCtx.hrEmpIdMap,
               )
             : mobileAttendancePunchText(_verticalShiftPunchText(record)),
+        shiftHours: _shiftHourCells(record, shiftLabels),
         totalWork: record != null
             ? _verticalShiftWorkCountLabel(record.workCount)
             : '—',
@@ -4958,6 +5041,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     var earlyMinutes = 0;
     var overtimeMinutes = 0;
     var presentDays = 0;
+    final shiftTotals = <String, double>{};
     for (final r in records) {
       if (r.employeeId != empId) continue;
       totalWork += r.workCount;
@@ -4967,6 +5051,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       earlyMinutes += r.earlyMinutes;
       overtimeMinutes += r.overtimeMinutes;
       if (r.displayPunchTimes.isNotEmpty) presentDays++;
+      r.hoursByShiftName.forEach((name, hours) {
+        shiftTotals[name] = (shiftTotals[name] ?? 0) + hours;
+      });
     }
 
     final totalRow = rows.isEmpty
@@ -4984,6 +5071,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 ),
               ),
             ),
+            shiftHours: [
+              for (final name in shiftLabels)
+                (shiftTotals[name] ?? 0) > 0
+                    ? _formatHoursMinutes(shiftTotals[name]!)
+                    : '—',
+            ],
             totalWork:
                 totalWork > 0 ? _verticalShiftWorkCountLabel(totalWork) : '—',
             totalHours: totalHours > 0
@@ -5001,6 +5094,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       title: title ?? 'Bảng dọc · $empName',
       rows: rows,
       totalRow: totalRow,
+      shiftHourLabels: shiftLabels,
+      showTravel: _showTravelColumns,
     );
   }
 
@@ -5120,6 +5215,29 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     );
   }
 
+  Widget _mobileShiftHourChip({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        tr('$label $value'),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   List<_DailyShiftRecord> _shiftRecordsForEmployee(
     List<_DailyShiftRecord> records,
     String empId,
@@ -5232,6 +5350,20 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final lateDays = lateDaysFor(empId);
       final expected = expectedDaysFor(empId);
       final shifts = shiftNamesFor(empId);
+      final shiftHourMap = <String, double>{};
+      for (final r in _shiftRecordsForEmployee(records, empId)) {
+        r.hoursByShiftName.forEach((name, hours) {
+          shiftHourMap[name] = (shiftHourMap[name] ?? 0) + hours;
+        });
+      }
+      final shiftHourChips = shiftHourMap.entries
+          .where((e) => e.value > 0)
+          .map((e) => _mobileShiftHourChip(
+                label: e.key,
+                value: _formatHoursMinutes(e.value),
+                color: const Color(0xFF0F766E),
+              ))
+          .toList();
       final workRatio = expected > 0 ? (work / expected).clamp(0.0, 1.0) : 0.0;
       final workColor = work <= 0
           ? const Color(0xFFA1A1AA)
@@ -5333,7 +5465,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           color: Color(0xFF94A3B8), size: 22),
                     ],
                   ),
-                  if (shifts.isNotEmpty) ...[
+                  if (shiftHourChips.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: shiftHourChips,
+                    ),
+                  ] else if (shifts.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -5364,13 +5503,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         value: hours > 0 ? _formatHoursMinutes(hours) : '—',
                         color: HrmPageChrome.chipMid,
                       ),
-                      const SizedBox(width: 6),
-                      _mobileShiftMetricChip(
-                        icon: Icons.directions_car_rounded,
-                        label: 'Đi đường',
-                        value: travel > 0 ? _formatHoursMinutes(travel) : '—',
-                        color: HrmPageChrome.chipMid,
-                      ),
+                      if (_showTravelColumns) ...[
+                        const SizedBox(width: 6),
+                        _mobileShiftMetricChip(
+                          icon: Icons.directions_car_rounded,
+                          label: 'Đi đường',
+                          value: travel > 0 ? _formatHoursMinutes(travel) : '—',
+                          color: HrmPageChrome.chipMid,
+                        ),
+                      ],
                       const SizedBox(width: 6),
                       _mobileShiftMetricChip(
                         icon: Icons.calendar_today_rounded,
@@ -5844,6 +5985,7 @@ class _ShiftEmployeePeriodTotals {
   double decimalHours = 0;
   double totalWork = 0;
   int presentDays = 0;
+  final Map<String, double> hoursByShiftName = {};
 
   _ShiftEmployeePeriodTotals({
     required this.employeeId,
@@ -5859,6 +6001,9 @@ class _ShiftEmployeePeriodTotals {
     decimalHours += r.decimalHours;
     totalWork += r.workCount;
     if (r.punchTimes.isNotEmpty) presentDays++;
+    r.hoursByShiftName.forEach((name, hours) {
+      hoursByShiftName[name] = (hoursByShiftName[name] ?? 0) + hours;
+    });
   }
 }
 
@@ -5880,6 +6025,7 @@ class _DailyShiftRecord {
   final String status;
   final Color statusColor;
   final double workCount;
+  final Map<String, double> hoursByShiftName;
   final List<_MissingPunchHint> missingPunchHints;
 
   _DailyShiftRecord({
@@ -5900,6 +6046,7 @@ class _DailyShiftRecord {
     required this.status,
     required this.statusColor,
     required this.workCount,
+    this.hoursByShiftName = const {},
     this.missingPunchHints = const [],
   });
 }

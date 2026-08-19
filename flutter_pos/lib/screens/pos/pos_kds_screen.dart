@@ -18,7 +18,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../settings_hub_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-/// KDS bếp: mặc định gộp món (quán đông), chạm Đang làm / Xong hàng loạt.
+/// KDS bếp: món mới = chờ làm. Đang làm → Làm xong (in + rời bảng). Hủy: Đồng ý từng món.
 class PosKdsScreen extends StatefulWidget {
   const PosKdsScreen({super.key});
 
@@ -28,15 +28,23 @@ class PosKdsScreen extends StatefulWidget {
 
 enum _KdsView { dish, table }
 
+class _KdsTone {
+  const _KdsTone(this.bg, this.fg);
+  final Color bg;
+  final Color fg;
+}
+
 class _PosKdsScreenState extends State<PosKdsScreen> {
   static const _bg = Color(0xFF070B14);
   static const _bar = Color(0xFF0C1222);
   static const _card = Color(0xFF141C2E);
   static const _line = Color(0xFF243049);
-  static const _queued = Color(0xFFFF8A3D);
-  static const _cooking = Color(0xFF3DBBFF);
-  static const _ready = Color(0xFF34D399);
-  static const _late = Color(0xFFFF4D6A);
+  static const _queued = Color(0xFFFBBF24);
+  static const _cooking = Color(0xFF2563EB);
+  static const _ready = Color(0xFF059669);
+  static const _late = Color(0xFFBE123C);
+  static const _voided = Color(0xFFDC2626);
+  static const _inkOnLight = Color(0xFF1A1200);
 
   final _api = ApiService();
   final _floor = PosFloorRealtimeSubscription(
@@ -50,6 +58,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   bool _ticketsLoading = false;
   bool _ticketsReloadQueued = false;
   bool _ticketsReloadPing = false;
+  String? _ticketsReloadVoidMessage;
   DateTime? _lastSpeakTap;
   String? _error;
   String? _stationId;
@@ -59,8 +68,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   bool _printOnDone = false;
   bool _voiceOn = true;
   bool _voiceSeeded = false;
+  bool _voidSeeded = false;
   /// SL đã đọc theo line id — chỉ tăng, không xóa khi API nháy thiếu (tránh đọc lại cả bàn).
   final Map<String, double> _announcedMaxQty = {};
+  final Set<String> _announcedVoidIds = {};
   String? _kdsPrinterId;
   List<PosStorePrinter> _kdsPrinters = [];
   List<_KdsStation> _stations = [];
@@ -79,7 +90,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     unawaited(_bootstrap());
     _floor.start((event) {
       if (!mounted) return;
-      unawaited(_loadTickets(silent: true, pingNew: true));
+      final reason =
+          (event['reason'] ?? event['Reason'] ?? '').toString().toLowerCase();
+      final msg = (event['message'] ?? event['Message'])?.toString();
+      unawaited(_loadTickets(
+        silent: true,
+        pingNew: _kdsShouldAnnounce(event),
+        voidMessage: reason == 'kitchenvoid' ? msg : null,
+      ));
     });
     _poll = Timer.periodic(const Duration(seconds: 8), (_) {
       if (mounted) unawaited(_loadTickets(silent: true));
@@ -261,7 +279,19 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     return out;
   }
 
-  bool _needsPrep(_KdsItem i) => i.status != 'ready' && i.status != 'done';
+  bool _isVoided(_KdsItem i) => i.status == 'voided';
+
+  bool _needsPrep(_KdsItem i) =>
+      i.status != 'ready' && i.status != 'done' && i.status != 'voided';
+
+  /// Loa khi món mới báo bếp hoặc khi hủy món đã báo.
+  bool _kdsShouldAnnounce(Map<String, dynamic> event) {
+    final reason =
+        (event['reason'] ?? event['Reason'] ?? '').toString().toLowerCase();
+    return reason == 'kitchensend' ||
+        reason == 'qrorder' ||
+        reason == 'kitchenvoid';
+  }
 
   List<_KdsHit> _prepHitsOf(List<_KdsTicket> tickets) {
     final out = <_KdsHit>[];
@@ -302,7 +332,31 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       }
       if (e.value > prev) _announcedMaxQty[e.key] = e.value;
     }
+    // Hủy món đã báo bếp: hạ mốc để lần báo mới sau này vẫn đọc loa.
+    for (final key in _announcedMaxQty.keys.toList()) {
+      final nowQty = qtyByKey[key];
+      if (nowQty == null) {
+        _announcedMaxQty.remove(key);
+      } else if (nowQty < _announcedMaxQty[key]!) {
+        _announcedMaxQty[key] = nowQty;
+      }
+    }
     if (first) return const [];
+    return newcomers;
+  }
+
+  List<_KdsHit> _collectNewVoidHits(List<_KdsTicket> tickets) {
+    final first = !_voidSeeded;
+    _voidSeeded = true;
+    final newcomers = <_KdsHit>[];
+    for (final t in tickets) {
+      for (final i in t.items) {
+        if (!_isVoided(i) || i.id.isEmpty) continue;
+        if (_announcedVoidIds.contains(i.id)) continue;
+        _announcedVoidIds.add(i.id);
+        if (!first) newcomers.add(_KdsHit(ticket: t, item: i));
+      }
+    }
     return newcomers;
   }
 
@@ -438,6 +492,19 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     return chunks;
   }
 
+  /// VD: «Thông báo hủy 1 món Bàn 03 Khoai tây chiên».
+  List<String> _voidSpeakChunks(List<_KdsHit> hits) {
+    final out = <String>[];
+    for (final h in hits) {
+      final table = h.ticket.shortTable.trim();
+      final name = h.item.productName.trim();
+      if (name.isEmpty) continue;
+      final place = table.isEmpty ? '' : ' $table';
+      out.add('Thông báo hủy ${_qtyWords(h.item.qty)} món$place $name');
+    }
+    return out;
+  }
+
   void _speakHits(List<_KdsHit> hits, {String? empty}) {
     final prep = hits.where((h) => _needsPrep(h.item)).toList();
     if (prep.isEmpty) {
@@ -451,6 +518,13 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   }
 
   void _speakAgg(_KdsAgg a) {
+    final voids = a.hits.where((h) => _isVoided(h.item)).toList();
+    if (voids.isNotEmpty && voids.length == a.hits.length) {
+      unawaited(PosQrOrderVoiceAlert.instance.speakSequence(
+        _voidSpeakChunks(voids),
+      ));
+      return;
+    }
     final prep = a.hits.where((h) => _needsPrep(h.item)).toList();
     if (prep.isEmpty) {
       unawaited(PosQrOrderVoiceAlert.instance
@@ -465,17 +539,25 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   }
 
   void _speakTicket(_KdsTicket t) {
-    final all = t.items;
-    if (all.isEmpty) {
+    final voids = [
+      for (final i in t.items)
+        if (_isVoided(i)) _KdsHit(ticket: t, item: i),
+    ];
+    final live = [
+      for (final i in t.items)
+        if (!_isVoided(i)) _KdsHit(ticket: t, item: i),
+    ];
+    if (live.isEmpty && voids.isEmpty) {
       unawaited(PosQrOrderVoiceAlert.instance.speak(
         'Đọc lại ${_tablePlaceSpeak(t)}. Không còn món cần chế biến',
       ));
       return;
     }
-    final hits = [for (final i in all) _KdsHit(ticket: t, item: i)];
-    unawaited(PosQrOrderVoiceAlert.instance.speakSequence(
-      _kdsSpeakChunks(hits, fresh: false, fullTable: true),
-    ));
+    unawaited(PosQrOrderVoiceAlert.instance.speakSequence([
+      ..._voidSpeakChunks(voids),
+      if (live.isNotEmpty)
+        ..._kdsSpeakChunks(live, fresh: false, fullTable: true),
+    ]));
   }
 
   Future<void> _speakPending() async {
@@ -508,9 +590,82 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   Future<void> _setTicketCooking(_KdsTicket t) async {
     final ids = [
       for (final i in t.items)
-        if (i.status != 'done') i.id,
+        if (i.status == 'queued') i.id,
     ];
+    if (ids.isEmpty) return;
     await _setLines(ids, 'cooking');
+  }
+
+  Future<void> _setTicketDone(_KdsTicket t) async {
+    final ids = [
+      for (final i in t.items)
+        if (!_isVoided(i) && i.status != 'done') i.id,
+    ];
+    if (ids.isEmpty) return;
+    await _setLines(ids, 'done');
+    _lastBumpedOrderId = t.orderId;
+  }
+
+  List<String> _hitIds(Iterable<_KdsHit> hits, bool Function(_KdsItem) where) =>
+      [for (final h in hits) if (where(h.item)) h.item.id];
+
+  Future<void> _aggCook(_KdsAgg a) async {
+    final ids = _hitIds(a.hits, (i) => i.status == 'queued');
+    if (ids.isEmpty) return;
+    await _setLines(ids, 'cooking');
+  }
+
+  Future<void> _aggDone(_KdsAgg a) async {
+    final ids = _hitIds(
+      a.hits,
+      (i) => !_isVoided(i) && i.status != 'done',
+    );
+    if (ids.isEmpty) return;
+    await _setLines(ids, 'done');
+  }
+
+  Color _aggAccent(_KdsAgg a) {
+    if (a.hits.every((h) => _isVoided(h.item))) return _voided;
+    if (a.hits.any((h) => h.item.status == 'queued')) {
+      return _waitColor(a.oldest, status: 'queued');
+    }
+    if (a.hits.any((h) => h.item.status == 'cooking')) return _cooking;
+    if (a.hits.any((h) => h.item.status == 'ready')) return _ready;
+    return _voided;
+  }
+
+  Widget _statusPillsFromHits(List<_KdsHit> hits) {
+    double qtyOf(String status) => hits
+        .where((h) => h.item.status == status)
+        .fold(0.0, (s, h) => s + h.item.qty);
+    Widget pill(double qty, String label, Color bg, Color fg) {
+      if (qty <= 0) return const SizedBox.shrink();
+      return Container(
+        margin: const EdgeInsets.only(right: 4, bottom: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          '${_qtyFmt.format(qty)} $label',
+          style: TextStyle(
+            color: fg,
+            fontWeight: FontWeight.w800,
+            fontSize: 11,
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      children: [
+        pill(qtyOf('queued'), tr('chờ'), _queued, _inkOnLight),
+        pill(qtyOf('cooking'), tr('làm'), _cooking, Colors.white),
+        pill(qtyOf('ready'), tr('xong'), _ready, Colors.white),
+        pill(qtyOf('voided'), tr('hủy'), _voided, Colors.white),
+      ],
+    );
   }
 
   void _toggleVoice() {
@@ -526,10 +681,17 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     }
   }
 
-  Future<void> _loadTickets({bool silent = false, bool pingNew = false}) async {
+  Future<void> _loadTickets({
+    bool silent = false,
+    bool pingNew = false,
+    String? voidMessage,
+  }) async {
     if (_ticketsLoading) {
       _ticketsReloadQueued = true;
       _ticketsReloadPing = _ticketsReloadPing || pingNew;
+      if ((voidMessage ?? '').trim().isNotEmpty) {
+        _ticketsReloadVoidMessage = voidMessage;
+      }
       return;
     }
     _ticketsLoading = true;
@@ -563,14 +725,26 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         ? b.oldest.compareTo(a.oldest)
         : a.oldest.compareTo(b.oldest));
     final newcomers = _collectNewPrepHits(tickets);
+    final voidHits = _collectNewVoidHits(tickets);
     if (_onlyUnfinished) {
       tickets.removeWhere((t) => !_ticketUnfinished(t));
     }
-    final open = tickets.fold<int>(0, (s, t) => s + t.items.length);
-    if (newcomers.isNotEmpty && _voiceOn) {
-      unawaited(PosQrOrderVoiceAlert.instance.speakSequence(
-        _kdsSpeakChunks(newcomers, fresh: true, fullTable: true),
-      ));
+    final open = tickets.fold<int>(
+        0,
+        (s, t) =>
+            s + t.items.where((i) => !_isVoided(i)).length);
+    final voiceChunks = <String>[
+      ..._voidSpeakChunks(voidHits),
+      if (newcomers.isNotEmpty)
+        ..._kdsSpeakChunks(newcomers, fresh: true, fullTable: true),
+    ];
+    if (voiceChunks.isEmpty &&
+        _voiceOn &&
+        (voidMessage ?? '').trim().isNotEmpty) {
+      voiceChunks.add(voidMessage!.trim());
+    }
+    if (voiceChunks.isNotEmpty && _voiceOn) {
+      unawaited(PosQrOrderVoiceAlert.instance.speakSequence(voiceChunks));
     } else if (pingNew && open > _lastOpenCount) {
       unawaited(SystemSound.play(SystemSoundType.alert));
     }
@@ -584,18 +758,31 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       _ticketsLoading = false;
       if (_ticketsReloadQueued) {
         final ping = _ticketsReloadPing;
+        final queuedVoid = _ticketsReloadVoidMessage;
         _ticketsReloadQueued = false;
         _ticketsReloadPing = false;
+        _ticketsReloadVoidMessage = null;
         if (mounted) {
-          unawaited(_loadTickets(silent: true, pingNew: ping));
+          unawaited(_loadTickets(
+            silent: true,
+            pingNew: ping,
+            voidMessage: queuedVoid,
+          ));
         }
       }
     }
   }
 
   Future<void> _setLines(List<String> ids, String status) async {
+    ids = [
+      for (final id in ids)
+        if (id.isNotEmpty &&
+            !_tickets.any((t) => t.items.any((i) => i.id == id && _isVoided(i))))
+          id,
+    ];
     if (ids.isEmpty || _busy) return;
-    final snapshot = status == 'done' ? _hitsForIds(ids) : const <_KdsHit>[];
+    final snapshot =
+        status == 'done' ? _hitsForIds(ids) : const <_KdsHit>[];
     setState(() => _busy = true);
     HapticFeedback.mediumImpact();
     final res = ids.length == 1
@@ -637,6 +824,24 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final hits = [for (final i in t.items) _KdsHit(ticket: t, item: i)];
     await _loadTickets(silent: true);
     unawaited(_printReadyHits(hits));
+  }
+
+  Future<void> _ackVoids(List<String> ids) async {
+    final want = ids.where((e) => e.trim().isNotEmpty).toList();
+    if (want.isEmpty || _busy) return;
+    setState(() => _busy = true);
+    HapticFeedback.mediumImpact();
+    final res = await _api.ackPosKdsVoids(want);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager().showError(
+        title: 'KDS',
+        message: res['message']?.toString() ?? 'Không xác nhận hủy được',
+      );
+      return;
+    }
+    await _loadTickets(silent: true);
   }
 
   Future<void> _recall() async {
@@ -709,22 +914,34 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     return m == 0 ? '${h}h' : '${h}h${m.toString().padLeft(2, '0')}';
   }
 
-  Color _waitColor(DateTime sent, {String? status}) {
-    if (status == 'ready') return _ready;
-    if (status == 'cooking') return _cooking;
-    final mins = _waitAt(sent, DateTime.now()).inMinutes;
-    if (mins >= 10) return _late;
-    if (mins >= 5) return const Color(0xFFEAB308);
-    return _queued;
+  Color _waitColor(DateTime sent, {String? status}) =>
+      _toneFor(status, sent).bg;
+
+  _KdsTone _toneFor(String? status, [DateTime? sent]) {
+    if (status == 'voided') return const _KdsTone(_voided, Colors.white);
+    if (status == 'ready' || status == 'done') {
+      return const _KdsTone(_ready, Colors.white);
+    }
+    if (status == 'cooking') return const _KdsTone(_cooking, Colors.white);
+    if (sent != null && _waitAt(sent, DateTime.now()).inMinutes >= 10) {
+      return const _KdsTone(_late, Colors.white);
+    }
+    return const _KdsTone(_queued, _inkOnLight);
   }
 
-  int get _itemCount =>
-      _tickets.fold(0, (s, t) => s + t.items.fold(0, (a, i) => a + i.qty.round()));
+  int get _itemCount => _tickets.fold(
+      0,
+      (s, t) =>
+          s +
+          t.items
+              .where((i) => !_isVoided(i))
+              .fold(0, (a, i) => a + i.qty.round()));
 
   int get _lateCount {
     var n = 0;
     for (final t in _tickets) {
       for (final i in t.items) {
+        if (_isVoided(i) || i.status == 'done') continue;
         if (_waitAt(i.sentAt ?? t.sentAt, DateTime.now()).inMinutes >= 10) n++;
       }
     }
@@ -741,8 +958,46 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         children: [
           _buildHeader(pushed, aggs),
           _buildStations(),
+          _buildLegend(),
           Expanded(child: _buildBody(aggs)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLegend() {
+    Widget chip(String label, Color bg, Color fg) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: fg,
+            fontWeight: FontWeight.w800,
+            fontSize: 11,
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: _bar,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+        child: Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            chip(tr('Chờ làm'), _queued, _inkOnLight),
+            chip(tr('Đang làm'), _cooking, Colors.white),
+            chip(tr('Làm xong — in và rời bảng'), _ready, Colors.white),
+            chip(tr('Hủy — Đồng ý từng món'), _voided, Colors.white),
+          ],
+        ),
       ),
     );
   }
@@ -1103,10 +1358,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(tr('In phiếu khi món xong'),
+                    title: Text(tr('In phiếu khi bấm Làm xong'),
                         style: const TextStyle(color: Colors.white)),
                     subtitle: Text(
-                      tr('Tên món, bàn, khu, giờ gọi, giờ ra món'),
+                      tr('In rồi tự gỡ món khỏi bảng bếp'),
                       style: const TextStyle(color: Colors.white54),
                     ),
                     value: _printOnDone,
@@ -1210,7 +1465,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           crossAxisCount: n,
           mainAxisSpacing: 6,
           crossAxisSpacing: 6,
-          mainAxisExtent: 118,
+          mainAxisExtent: 128,
         ),
         itemCount: aggs.length,
         itemBuilder: (_, i) => _dishCard(aggs[i]),
@@ -1219,9 +1474,9 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   }
 
   Widget _dishCard(_KdsAgg a) {
-    final c = _waitColor(a.oldest, status: a.hottest);
+    final voided = a.hits.every((h) => _isVoided(h.item));
+    final c = _aggAccent(a);
     final tables = a.tableLabels;
-    final ids = a.hits.map((h) => h.item.id).toList();
     final noteSample = a.hits
         .map((h) => (h.item.note ?? '').trim())
         .where((n) => n.isNotEmpty)
@@ -1240,7 +1495,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             Container(width: 5, color: c),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1250,10 +1505,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                         Text(
                           _qtyFmt.format(a.qty),
                           style: TextStyle(
-                            color: c,
+                            color: Colors.white,
                             fontWeight: FontWeight.w900,
                             fontSize: 28,
                             height: 1,
+                            decoration:
+                                voided ? TextDecoration.lineThrough : null,
+                            decorationColor: _voided,
+                            decorationThickness: 2.4,
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
@@ -1262,21 +1521,29 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                           child: Text(
                             a.name,
                             softWrap: true,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: voided ? _voided : Colors.white,
                               fontWeight: FontWeight.w800,
                               fontSize: 16,
                               height: 1.2,
+                              decoration:
+                                  voided ? TextDecoration.lineThrough : null,
+                              decorationColor: _voided,
+                              decorationThickness: 2.4,
                             ),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 6),
+                    _statusPillsFromHits(a.hits),
                     if (noteSample.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         noteSample,
                         softWrap: true,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Color(0xFFFFB86B),
                           fontSize: 12,
@@ -1303,15 +1570,11 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                           child: Text(
                             tables.join(' · '),
                             softWrap: true,
-                            maxLines: 2,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 color: Colors.white54, fontSize: 12),
                           ),
-                        ),
-                        Text(
-                          a.statusSummary(tr),
-                          style: const TextStyle(
-                              color: Colors.white38, fontSize: 11),
                         ),
                       ],
                     ),
@@ -1327,21 +1590,23 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     tooltip: tr('Đọc nhóm này'),
                     onTap: () => _speakAgg(a),
                   ),
-                  Expanded(
-                    child: _sideBtn(
-                      tr('Đang làm'),
-                      _cooking,
-                      () => _setLines(ids, 'cooking'),
+                  if (!voided) ...[
+                    Expanded(
+                      child: _sideBtn(
+                        tr('Đang làm'),
+                        _cooking,
+                        () => _aggCook(a),
+                      ),
                     ),
-                  ),
-                  Container(height: 1, color: _line),
-                  Expanded(
-                    child: _sideBtn(
-                      tr('Xong'),
-                      _ready,
-                      () => _setLines(ids, 'done'),
+                    Container(height: 1, color: _line),
+                    Expanded(
+                      child: _sideBtn(
+                        tr('Làm xong'),
+                        _ready,
+                        () => _aggDone(a),
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -1368,16 +1633,17 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   }
 
   Widget _sideBtn(String label, Color color, VoidCallback onTap) {
+    final fg = color == _queued ? _inkOnLight : Colors.white;
     return InkWell(
       onTap: _busy ? null : onTap,
       child: ColoredBox(
-        color: color.withOpacity(0.12),
+        color: color,
         child: Center(
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: color,
+              color: fg,
               fontWeight: FontWeight.w900,
               fontSize: 13,
             ),
@@ -1388,7 +1654,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   }
 
   void _openAggSheet(_KdsAgg a) {
-    final ids = a.hits.map((h) => h.item.id).toList();
+    final hasLive = a.hits.any((h) => !_isVoided(h.item));
+    final hasVoid = a.hits.any((h) => _isVoided(h.item));
     if (_voiceOn) _speakAgg(a);
     showModalBottomSheet<void>(
       context: context,
@@ -1398,7 +1665,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (ctx) {
-        final c = _waitColor(a.oldest, status: a.hottest);
+        final c = _aggAccent(a);
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -1421,8 +1688,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   children: [
                     Text(
                       _qtyFmt.format(a.qty),
-                      style: TextStyle(
-                        color: c,
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontWeight: FontWeight.w900,
                         fontSize: 36,
                       ),
@@ -1444,8 +1711,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             tick: _nowTick,
                             style: TextStyle(color: c, fontWeight: FontWeight.w700),
                             builder: (now) =>
-                                '${tr('Chờ')} ${_waitShortAt(a.oldest, now)} · ${a.statusSummary(tr)}',
+                                '${tr('Chờ')} ${_waitShortAt(a.oldest, now)}',
                           ),
+                          const SizedBox(height: 6),
+                          _statusPillsFromHits(a.hits),
                         ],
                       ),
                     ),
@@ -1456,41 +1725,48 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          unawaited(_setLines(ids, 'cooking'));
-                        },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _cooking,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                if (hasLive)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            unawaited(_aggCook(a));
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _cooking,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(tr('Đang làm'),
+                              style: const TextStyle(fontWeight: FontWeight.w900)),
                         ),
-                        child: Text(tr('Đang làm tất cả'),
-                            style: const TextStyle(fontWeight: FontWeight.w900)),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          unawaited(_setLines(ids, 'done'));
-                        },
-                        style: FilledButton.styleFrom(
-                          backgroundColor: _ready,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            unawaited(_aggDone(a));
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _ready,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: Text(tr('Làm xong'),
+                              style: const TextStyle(fontWeight: FontWeight.w900)),
                         ),
-                        child: Text(tr('Xong tất cả'),
-                            style: const TextStyle(fontWeight: FontWeight.w900)),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                if (hasVoid) ...[
+                  if (hasLive) const SizedBox(height: 8),
+                  Text(tr('Món hủy — Đồng ý từng dòng'),
+                      style: const TextStyle(
+                          color: Colors.white54, fontWeight: FontWeight.w700)),
+                ],
                 const SizedBox(height: 12),
                 Text(tr('Theo bàn'),
                     style: const TextStyle(
@@ -1508,33 +1784,47 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     itemBuilder: (_, i) {
                       final h = a.hits[i];
                       final sent = h.item.sentAt ?? h.ticket.sentAt;
+                      final voided = _isVoided(h.item);
                       final hc = _waitColor(sent, status: h.item.status);
                       return ListTile(
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         title: Text(
                           '${_qtyFmt.format(h.item.qty)}×  ${h.ticket.title}',
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            color: voided ? _voided : Colors.white,
+                            fontWeight: FontWeight.w700,
+                            decoration:
+                                voided ? TextDecoration.lineThrough : null,
+                            decorationColor: _voided,
+                          ),
                         ),
                         subtitle: _KdsTickText(
                           tick: _nowTick,
                           style: TextStyle(color: hc),
                           builder: (now) => [
-                            _waitShortAt(sent, now),
+                            if (!voided) _waitShortAt(sent, now),
                             _statusLabel(h.item.status),
                             if ((h.item.note ?? '').isNotEmpty) h.item.note!,
                           ].join(' · '),
                         ),
-                        trailing: Wrap(
-                          spacing: 6,
-                          children: [
-                            _miniAct(tr('Làm'), _cooking,
-                                () => _setLine(h.item, 'cooking')),
-                            _miniAct(tr('Xong'), _ready,
-                                () => _setLine(h.item, 'done')),
-                          ],
-                        ),
+                        trailing: voided
+                            ? _miniAct(
+                                tr('Đồng ý'),
+                                _voided,
+                                () => _ackVoids([h.item.id]),
+                              )
+                            : Wrap(
+                                spacing: 6,
+                                children: [
+                                  if (h.item.status == 'queued')
+                                    _miniAct(tr('Đang làm'), _cooking,
+                                        () => _setLine(h.item, 'cooking')),
+                                  if (h.item.status != 'done')
+                                    _miniAct(tr('Làm xong'), _ready,
+                                        () => _setLine(h.item, 'done')),
+                                ],
+                              ),
                       );
                     },
                   ),
@@ -1548,16 +1838,17 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   }
 
   Widget _miniAct(String label, Color color, VoidCallback onTap) {
+    final fg = color == _queued ? _inkOnLight : Colors.white;
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.15),
+          color: color,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(label,
-            style: TextStyle(color: color, fontWeight: FontWeight.w800)),
+            style: TextStyle(color: fg, fontWeight: FontWeight.w800)),
       ),
     );
   }
@@ -1581,7 +1872,16 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   Widget _ticketCard(_KdsTicket t) {
     final oldest = t.oldest;
-    final color = _waitColor(oldest, status: t.status);
+    final allVoided = t.items.isNotEmpty && t.items.every(_isVoided);
+    final accent = allVoided
+        ? _voided
+        : t.items.any((i) => i.status == 'queued')
+            ? _waitColor(oldest, status: 'queued')
+            : t.items.any((i) => i.status == 'cooking')
+                ? _cooking
+                : t.items.any((i) => i.status == 'ready')
+                    ? _ready
+                    : _voided;
     final extra = t.items.length > 5 ? t.items.length - 5 : 0;
     final shown = extra > 0 ? t.items.take(5).toList() : t.items;
     return Material(
@@ -1590,13 +1890,13 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       clipBehavior: Clip.antiAlias,
       child: Row(
         children: [
-          Container(width: 5, color: color),
+          Container(width: 5, color: accent),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  color: color.withOpacity(0.16),
+                  color: const Color(0xFF0F1724),
                   padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
                   child: Row(
                     children: [
@@ -1615,7 +1915,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       _KdsTickText(
                         tick: _nowTick,
                         style: TextStyle(
-                          color: color,
+                          color: accent,
                           fontWeight: FontWeight.w900,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
@@ -1647,21 +1947,23 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   tooltip: tr('Đọc bàn này'),
                   onTap: () => _speakTicket(t),
                 ),
-                Expanded(
-                  child: _sideBtn(
-                    tr('Đang làm'),
-                    _cooking,
-                    () => _setTicketCooking(t),
+                if (!allVoided) ...[
+                  Expanded(
+                    child: _sideBtn(
+                      tr('Đang làm'),
+                      _cooking,
+                      () => _setTicketCooking(t),
+                    ),
                   ),
-                ),
-                Container(height: 1, color: _line),
-                Expanded(
-                  child: _sideBtn(
-                    tr('Xong'),
-                    _ready,
-                    () => _bump(t),
+                  Container(height: 1, color: _line),
+                  Expanded(
+                    child: _sideBtn(
+                      tr('Làm xong'),
+                      _ready,
+                      () => _setTicketDone(t),
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -1672,20 +1974,28 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   Widget _itemRow(_KdsItem item, _KdsTicket ticket) {
     final sent = item.sentAt ?? ticket.sentAt;
-    final c = _waitColor(sent, status: item.status);
+    final voided = _isVoided(item);
+    final tone = _toneFor(item.status, sent);
     final note = (item.note ?? '').trim();
     return InkWell(
-      onTap: () {
-        final next = switch (item.status) {
-          'queued' => 'cooking',
-          'cooking' => 'ready',
-          'ready' => 'done',
-          _ => 'cooking',
-        };
-        unawaited(_setLine(item, next));
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+      onTap: voided
+          ? null
+          : () {
+              final next = switch (item.status) {
+                'queued' => 'cooking',
+                'cooking' => 'done',
+                'ready' => 'done',
+                _ => 'cooking',
+              };
+              unawaited(_setLine(item, next));
+            },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+        decoration: BoxDecoration(
+          color: tone.bg,
+          borderRadius: BorderRadius.circular(8),
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1694,9 +2004,12 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               child: Text(
                 _qtyFmt.format(item.qty),
                 style: TextStyle(
-                  color: c,
+                  color: tone.fg,
                   fontWeight: FontWeight.w900,
                   fontSize: 15,
+                  decoration: voided ? TextDecoration.lineThrough : null,
+                  decorationColor: tone.fg,
+                  decorationThickness: 2.2,
                 ),
               ),
             ),
@@ -1707,11 +2020,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   Text(
                     item.productName,
                     softWrap: true,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
+                    style: TextStyle(
+                      color: tone.fg,
+                      fontWeight: FontWeight.w700,
                       fontSize: 13,
                       height: 1.25,
+                      decoration: voided ? TextDecoration.lineThrough : null,
+                      decorationColor: tone.fg,
+                      decorationThickness: 2.2,
                     ),
                   ),
                   if (note.isNotEmpty) ...[
@@ -1719,11 +2035,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     Text(
                       note,
                       softWrap: true,
-                      style: const TextStyle(
-                        color: Color(0xFFFFB86B),
+                      style: TextStyle(
+                        color: tone.fg.withOpacity(0.9),
                         fontSize: 11,
                         height: 1.25,
                         fontWeight: FontWeight.w600,
+                        decoration:
+                            voided ? TextDecoration.lineThrough : null,
+                        decorationColor: tone.fg,
                       ),
                     ),
                   ],
@@ -1731,16 +2050,23 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               ),
             ),
             const SizedBox(width: 6),
-            _KdsTickText(
-              tick: _nowTick,
-              style: TextStyle(
-                color: c,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                fontFeatures: const [FontFeature.tabularFigures()],
+            if (voided)
+              _miniAct(
+                tr('Đồng ý'),
+                _voided,
+                () => _ackVoids([item.id]),
+              )
+            else
+              _KdsTickText(
+                tick: _nowTick,
+                style: TextStyle(
+                  color: tone.fg,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+                builder: (now) => _waitShortAt(sent, now),
               ),
-              builder: (now) => _waitShortAt(sent, now),
-            ),
           ],
         ),
       ),
@@ -1748,10 +2074,11 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   }
 
   String _statusLabel(String s) => switch (s) {
-        'cooking' => tr('Làm'),
-        'ready' => tr('Xong'),
-        'done' => tr('Bump'),
-        _ => tr('Mới'),
+        'cooking' => tr('Đang làm'),
+        'ready' => tr('Làm xong'),
+        'done' => tr('Làm xong'),
+        'voided' => tr('Hủy'),
+        _ => tr('Chờ làm'),
       };
 }
 
@@ -1815,10 +2142,12 @@ class _KdsAgg {
   int get ready => hits.where((h) => h.item.status == 'ready').length;
 
   String statusSummary(String Function(String) t) {
+    final voids = hits.where((h) => h.item.status == 'voided').length;
     final parts = <String>[];
     if (queued > 0) parts.add('$queued ${t('mới')}');
     if (cooking > 0) parts.add('$cooking ${t('làm')}');
     if (ready > 0) parts.add('$ready ${t('xong')}');
+    if (voids > 0) parts.add('$voids ${t('hủy')}');
     return parts.join(' · ');
   }
 }

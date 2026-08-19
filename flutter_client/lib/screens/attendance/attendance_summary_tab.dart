@@ -22,6 +22,7 @@ import '../../utils/attendance_viewport_preserve.dart';
 import '../../utils/shift_records_calculator.dart';
 import '../../utils/paid_leave_schedule_utils.dart';
 import '../../utils/travel_hours_load_utils.dart';
+import '../../utils/travel_salary_utils.dart';
 import '../../services/api_service.dart';
 import '../../widgets/attendance_frozen_employee_name_cell.dart';
 import '../../widgets/hrm_collapsible_overview.dart';
@@ -93,6 +94,7 @@ class AttendanceSummaryTab extends StatefulWidget {
   final double standardWorkHours;
   final List<dynamic> holidays;
   final List<dynamic> salaryProfiles;
+  final Map<String, dynamic>? storeSalarySettings;
   final List<Map<String, dynamic>> shiftTemplates;
   final List<Map<String, dynamic>> shiftSalaryLevels;
   final List<dynamic> approvedLeaves;
@@ -144,6 +146,7 @@ class AttendanceSummaryTab extends StatefulWidget {
     this.standardWorkHours = 8,
     this.holidays = const [],
     this.salaryProfiles = const [],
+    this.storeSalarySettings,
     this.shiftTemplates = const [],
     this.shiftSalaryLevels = const [],
     this.approvedLeaves = const [],
@@ -175,6 +178,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   bool _showOverviewPanel = true;
   final GlobalKey _tableKey = GlobalKey();
   String _shiftFilter = 'all'; // 'all' | 'missing' | 'complete'
+
+  bool get _showTravelColumns => isTravelFeatureVisible(
+        storeSalarySettings: widget.storeSalarySettings,
+        salaryProfiles: widget.salaryProfiles,
+      );
 
   // Sorting
   String _sortColumn = 'name';
@@ -1257,6 +1265,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   }
 
   double _travelHoursForSummary(_DailySummary s) {
+    if (!_showTravelColumns) return 0;
     return lookupTravelHoursForDay(
       widget.travelHoursByEmployeeDateKey,
       date: s.date,
@@ -1275,6 +1284,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     String? employeeGuid,
     String? pin,
   }) {
+    if (!_showTravelColumns) return 0;
     return lookupTravelHoursTotal(
       widget.travelHoursByEmployeeKey,
       employeeId: employeeId,
@@ -1527,7 +1537,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   );
 
   int _summaryColumnCount(int maxPunches, int maxShifts) =>
-      5 + maxPunches + maxShifts + 4;
+      5 + maxPunches + maxShifts + (_showTravelColumns ? 4 : 3);
 
   Map<int, TableColumnWidth> _summaryDesktopColumnWidths(
       int maxPunches, int maxShifts) {
@@ -1546,7 +1556,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       widths[idx++] = const FixedColumnWidth(78);
     }
     widths[idx++] = const FixedColumnWidth(82);
-    widths[idx++] = const FixedColumnWidth(72);
+    if (_showTravelColumns) {
+      widths[idx++] = const FixedColumnWidth(72);
+    }
     widths[idx++] = const FixedColumnWidth(96);
     widths[idx] = const FixedColumnWidth(88);
     return widths;
@@ -1707,13 +1719,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
       ),
-      _summaryTableCell(_buildTravelHoursCell(
-        _travelHoursTotalForEmployee(
-          employeeId: totals.employeeId,
-          employeeCode: totals.employeeCode,
-        ),
-        bold: true,
-      )),
+      if (_showTravelColumns)
+        _summaryTableCell(_buildTravelHoursCell(
+          _travelHoursTotalForEmployee(
+            employeeId: totals.employeeId,
+            employeeCode: totals.employeeCode,
+          ),
+          bold: true,
+        )),
       _summaryTableCell(
         Text(
           tr(workStr),
@@ -1797,7 +1810,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     }
     cells.addAll([
       _summaryTableCell(_summarySortableHeader('Tổng giờ', 'totalHours')),
-      _summaryTableCell(_summaryHeaderText('Đi đường')),
+      if (_showTravelColumns)
+        _summaryTableCell(_summaryHeaderText('Đi đường')),
       _summaryTableCell(_summaryHeaderText('Số công')),
       _summaryTableCell(_summaryHeaderText('Giờ thập phân')),
     ]);
@@ -2409,7 +2423,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     for (var i = 1; i <= maxShifts; i++) {
       headers.add('Giờ ca $i');
     }
-    headers.addAll(['Tổng giờ', 'Đi đường', 'Số công', 'Giờ thập phân']);
+    headers.add('Tổng giờ');
+    if (_showTravelColumns) headers.add('Đi đường');
+    headers.addAll(['Số công', 'Giờ thập phân']);
     return headers;
   }
 
@@ -2532,8 +2548,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     final punchStartCol = 3;
     final shiftStartCol = punchStartCol + maxPunches;
     final totalHoursCol = shiftStartCol + maxShifts;
-    final travelCol = totalHoursCol + 1;
-    final workCountCol = travelCol + 1;
+    final travelCol = _showTravelColumns ? totalHoursCol + 1 : -1;
+    final workCountCol = totalHoursCol + (_showTravelColumns ? 2 : 1);
     final decimalHoursCol = workCountCol + 1;
 
     var row = startRow;
@@ -2637,15 +2653,18 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         style: numStyle,
       );
       final travelH = _travelHoursForSummary(s);
-      _excelSetCell(
-        sheet,
-        row,
-        travelCol,
-        travelH > 0
-            ? excel_lib.DoubleCellValue(double.parse(travelH.toStringAsFixed(2)))
-            : excel_lib.TextCellValue(''),
-        style: numStyle,
-      );
+      if (_showTravelColumns) {
+        _excelSetCell(
+          sheet,
+          row,
+          travelCol,
+          travelH > 0
+              ? excel_lib.DoubleCellValue(
+                  double.parse(travelH.toStringAsFixed(2)))
+              : excel_lib.TextCellValue(''),
+          style: numStyle,
+        );
+      }
       _excelSetCell(
         sheet,
         row,
@@ -2707,15 +2726,17 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         style: totalStyle,
       );
 
-      final travelStart = _excelRef(travelCol, firstDataRow);
-      final travelEnd = _excelRef(travelCol, lastDataRow);
-      _excelSetCell(
-        sheet,
-        totalRow,
-        travelCol,
-        excel_lib.FormulaCellValue('=SUM($travelStart:$travelEnd)'),
-        style: totalStyle,
-      );
+      if (_showTravelColumns) {
+        final travelStart = _excelRef(travelCol, firstDataRow);
+        final travelEnd = _excelRef(travelCol, lastDataRow);
+        _excelSetCell(
+          sheet,
+          totalRow,
+          travelCol,
+          excel_lib.FormulaCellValue('=SUM($travelStart:$travelEnd)'),
+          style: totalStyle,
+        );
+      }
 
       final wcStart = _excelRef(workCountCol, firstDataRow);
       final wcEnd = _excelRef(workCountCol, lastDataRow);
@@ -2914,9 +2935,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       cells.add(h > 0 ? h.toStringAsFixed(2) : '');
     }
     cells.add(s.totalHours > 0 ? s.totalHours.toStringAsFixed(2) : '');
-    cells.add(_travelHoursForSummary(s) > 0
-        ? _travelHoursForSummary(s).toStringAsFixed(2)
-        : '');
+    if (_showTravelColumns) {
+      cells.add(_travelHoursForSummary(s) > 0
+          ? _travelHoursForSummary(s).toStringAsFixed(2)
+          : '');
+    }
     cells.add(s.workCount > 0 ? s.workCount.toStringAsFixed(2) : '');
     cells.add(
         s.totalHours > 0 ? s.totalHours.toStringAsFixed(2) : '');
@@ -2939,15 +2962,17 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     }
     cells.addAll([
       totals.totalHours > 0 ? totals.totalHours.toStringAsFixed(2) : '',
-      _travelHoursTotalForEmployee(
-              employeeId: totals.employeeId,
-              employeeCode: totals.employeeCode,
-            ) > 0
-          ? _travelHoursTotalForEmployee(
-                  employeeId: totals.employeeId,
-                  employeeCode: totals.employeeCode)
-              .toStringAsFixed(2)
-          : '',
+      if (_showTravelColumns)
+        _travelHoursTotalForEmployee(
+                    employeeId: totals.employeeId,
+                    employeeCode: totals.employeeCode,
+                  ) >
+                0
+            ? _travelHoursTotalForEmployee(
+                    employeeId: totals.employeeId,
+                    employeeCode: totals.employeeCode)
+                .toStringAsFixed(2)
+            : '',
       totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '',
       totals.totalHours > 0 ? totals.totalHours.toStringAsFixed(2) : '',
     ]);
@@ -3723,6 +3748,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             : mobileAttendancePunchText(
                 _verticalSummaryPunchText(summary, maxShifts),
               ),
+        shiftHours: [
+          for (var i = 1; i <= maxShifts; i++)
+            summary != null && summary.getShiftHours(i) > 0
+                ? _formatHours(summary.getShiftHours(i))
+                : '—',
+        ],
         totalHours: summary != null && summary.totalHours > 0
             ? _formatHours(summary.totalHours)
             : '—',
@@ -3745,12 +3776,16 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     var totalTravel = 0.0;
     var totalWork = 0.0;
     var presentDays = 0;
+    final shiftTotals = List<double>.filled(maxShifts, 0);
     for (final s in summaries) {
       if (s.employeeId != empId) continue;
       totalHours += s.totalHours;
       totalTravel += _travelHoursForSummary(s);
       totalWork += s.workCount;
       if (s.totalPunches > 0) presentDays++;
+      for (var i = 1; i <= maxShifts; i++) {
+        shiftTotals[i - 1] += s.getShiftHours(i);
+      }
     }
 
     final totalRow = rows.isEmpty
@@ -3768,6 +3803,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 ),
               ),
             ),
+            shiftHours: [
+              for (var i = 0; i < maxShifts; i++)
+                shiftTotals[i] > 0 ? _formatHours(shiftTotals[i]) : '—',
+            ],
             totalHours:
                 totalHours > 0 ? _formatHours(totalHours) : '—',
             travelHours:
@@ -3780,6 +3819,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       title: title ?? 'Bảng dọc · $empName',
       rows: rows,
       totalRow: totalRow,
+      maxShifts: maxShifts,
+      showTravel: _showTravelColumns,
     );
   }
 
@@ -3861,6 +3902,29 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     String first(String s) => s.isNotEmpty ? s[0] : '';
     if (parts.length == 1) return first(parts[0]).toUpperCase();
     return '${first(parts[0])}${first(parts.last)}'.toUpperCase();
+  }
+
+  Widget _mobileCompactHourChip({
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        tr('$label $value'),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
   }
 
   Widget _mobileEmployeeMetricChip({
@@ -3994,6 +4058,18 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           : (expected > 0 && work >= expected
               ? const Color(0xFF16A34A)
               : HrmPageChrome.chipMid);
+      final shiftHourChips = <Widget>[];
+      for (var i = 1; i <= maxShifts; i++) {
+        final h = dates.fold<double>(
+            0.0, (sum, d) => sum + (getSummary(empId, d)?.getShiftHours(i) ?? 0));
+        if (h > 0) {
+          shiftHourChips.add(_mobileCompactHourChip(
+            label: 'Ca $i',
+            value: _formatHours(h),
+            color: const Color(0xFF0F766E),
+          ));
+        }
+      }
 
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
@@ -4081,13 +4157,15 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         value: hours > 0 ? _formatHours(hours) : '—',
                         color: HrmPageChrome.chipMid,
                       ),
-                      const SizedBox(width: 8),
-                      _mobileEmployeeMetricChip(
-                        icon: Icons.directions_car_rounded,
-                        label: 'Đi đường',
-                        value: travel > 0 ? _formatHours(travel) : '—',
-                        color: HrmPageChrome.chipMid,
-                      ),
+                      if (_showTravelColumns) ...[
+                        const SizedBox(width: 8),
+                        _mobileEmployeeMetricChip(
+                          icon: Icons.directions_car_rounded,
+                          label: 'Đi đường',
+                          value: travel > 0 ? _formatHours(travel) : '—',
+                          color: HrmPageChrome.chipMid,
+                        ),
+                      ],
                       const SizedBox(width: 8),
                       _mobileEmployeeMetricChip(
                         icon: Icons.calendar_today_rounded,
@@ -4097,6 +4175,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                       ),
                     ],
                   ),
+                  if (shiftHourChips.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: shiftHourChips,
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -4406,7 +4492,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             iconColor: Colors.green,
             isBold: true,
           ),
-          if (_travelHoursForSummary(s) > 0)
+          if (_showTravelColumns && _travelHoursForSummary(s) > 0)
             _buildDetailRow(
               'Giờ đi đường',
               _formatHours(_travelHoursForSummary(s)),
@@ -4855,9 +4941,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         _buildHoursBadge(summary.totalHours, Colors.green, isBold: true),
       ));
 
-      cells.add(_summaryTableCell(
-        _buildTravelHoursCell(_travelHoursForSummary(summary)),
-      ));
+      if (_showTravelColumns) {
+        cells.add(_summaryTableCell(
+          _buildTravelHoursCell(_travelHoursForSummary(summary)),
+        ));
+      }
 
       cells.add(_summaryTableCell(
         Container(

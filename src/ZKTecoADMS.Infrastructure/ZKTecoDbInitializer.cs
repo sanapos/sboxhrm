@@ -1501,6 +1501,7 @@ public class ZKTecoDbInitializer(
                         ON ""PosKitchenVoidSlips"" (""StoreId"", ""AfterBillRequested"", ""VoidedAt"");
                     ALTER TABLE ""PosKitchenVoidSlips"" ADD COLUMN IF NOT EXISTS ""Reason"" character varying(80) NULL;
                     ALTER TABLE ""PosKitchenVoidSlips"" ADD COLUMN IF NOT EXISTS ""DetailNote"" character varying(500) NULL;
+                    ALTER TABLE ""PosKitchenVoidSlips"" ADD COLUMN IF NOT EXISTS ""KdsAckedAt"" timestamp without time zone NULL;
 
                     CREATE TABLE IF NOT EXISTS ""PosCancelReturnAudits"" (
                         ""Id"" uuid NOT NULL,
@@ -1539,6 +1540,181 @@ public class ZKTecoDbInitializer(
                         ON ""PosCancelReturnAudits"" (""StoreId"", ""ActionType"", ""OccurredAt"");
                     CREATE INDEX IF NOT EXISTS ""IX_PosCancelReturnAudits_Store_AfterProv""
                         ON ""PosCancelReturnAudits"" (""StoreId"", ""AfterProvisionalBill"", ""OccurredAt"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosPaymentGatewaySettings"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""DefaultTransferProvider"" integer NOT NULL DEFAULT 0,
+                        ""TingeeEnabled"" boolean NOT NULL DEFAULT false,
+                        ""TingeeClientId"" character varying(100) NULL,
+                        ""TingeeSecretKey"" character varying(300) NULL,
+                        ""TingeeVaAccountNumber"" character varying(100) NULL,
+                        ""TingeeMerchantId"" character varying(50) NULL,
+                        ""TingeeWebhookSecret"" character varying(300) NULL,
+                        ""ExtraJson"" character varying(4000) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosPaymentGatewaySettings"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosPaymentGatewaySettings_StoreId""
+                        ON ""PosPaymentGatewaySettings"" (""StoreId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosStoreNotificationCredits"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""RemainingCount"" integer NOT NULL DEFAULT 0,
+                        ""TotalGranted"" integer NOT NULL DEFAULT 0,
+                        ""TotalConsumed"" integer NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosStoreNotificationCredits"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosStoreNotificationCredits_StoreId""
+                        ON ""PosStoreNotificationCredits"" (""StoreId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosNotificationCreditPackages"" (
+                        ""Id"" uuid NOT NULL,
+                        ""Name"" character varying(120) NOT NULL,
+                        ""CreditCount"" integer NOT NULL DEFAULT 0,
+                        ""Price"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""IsPublic"" boolean NOT NULL DEFAULT true,
+                        ""Description"" character varying(500) NULL,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosNotificationCreditPackages"" PRIMARY KEY (""Id"")
+                    );
+
+                    CREATE TABLE IF NOT EXISTS ""PosNotificationCreditPurchases"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""PackageId"" uuid NULL,
+                        ""CreditCount"" integer NOT NULL DEFAULT 0,
+                        ""AmountPaid"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""Status"" integer NOT NULL DEFAULT 0,
+                        ""ExternalPaymentRef"" character varying(120) NULL,
+                        ""PaidAt"" timestamp without time zone NULL,
+                        ""Note"" character varying(500) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosNotificationCreditPurchases"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosNotificationCreditPurchases_Store_Status""
+                        ON ""PosNotificationCreditPurchases"" (""StoreId"", ""Status"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosNotificationCreditLedgers"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Delta"" integer NOT NULL DEFAULT 0,
+                        ""BalanceAfter"" integer NOT NULL DEFAULT 0,
+                        ""Source"" integer NOT NULL DEFAULT 0,
+                        ""ReferenceId"" uuid NULL,
+                        ""ProviderTransactionCode"" character varying(120) NULL,
+                        ""Provider"" integer NULL,
+                        ""Note"" character varying(500) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosNotificationCreditLedgers"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosNotificationCreditLedgers_Store_Created""
+                        ON ""PosNotificationCreditLedgers"" (""StoreId"", ""CreatedAt"");
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosNotificationCreditLedgers_ProviderTxn""
+                        ON ""PosNotificationCreditLedgers"" (""ProviderTransactionCode"")
+                        WHERE ""ProviderTransactionCode"" IS NOT NULL AND ""Deleted"" IS NULL;
+
+                    CREATE TABLE IF NOT EXISTS ""PosTransferPaymentIntents"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""SaleOrderId"" uuid NULL,
+                        ""ExternalOrderId"" character varying(100) NOT NULL,
+                        ""OrderNo"" character varying(40) NULL,
+                        ""AmountExpected"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""Provider"" integer NOT NULL DEFAULT 1,
+                        ""Status"" integer NOT NULL DEFAULT 0,
+                        ""ProviderTransactionCode"" character varying(120) NULL,
+                        ""TransferContent"" character varying(500) NULL,
+                        ""ConfirmedAt"" timestamp without time zone NULL,
+                        ""CompletedAt"" timestamp without time zone NULL,
+                        ""ExpiresAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""TableName"" character varying(200) NULL,
+                        ""RawWebhookJson"" character varying(2000) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosTransferPaymentIntents"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosTransferPaymentIntents_Store_Status""
+                        ON ""PosTransferPaymentIntents"" (""StoreId"", ""Status"", ""CreatedAt"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosTransferPaymentIntents_Store_ExternalOrder""
+                        ON ""PosTransferPaymentIntents"" (""StoreId"", ""ExternalOrderId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosPaymentWebhookEvents"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NULL,
+                        ""Provider"" integer NOT NULL DEFAULT 1,
+                        ""ProviderTransactionCode"" character varying(120) NULL,
+                        ""EventType"" character varying(80) NULL,
+                        ""SignatureValid"" boolean NOT NULL DEFAULT false,
+                        ""ResultCode"" character varying(10) NULL,
+                        ""TransferIntentId"" uuid NULL,
+                        ""PayloadJson"" character varying(8000) NULL,
+                        ""ReceivedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosPaymentWebhookEvents"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosPaymentWebhookEvents_Provider_Txn""
+                        ON ""PosPaymentWebhookEvents"" (""Provider"", ""ProviderTransactionCode"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosPaymentWebhookEvents_ReceivedAt""
+                        ON ""PosPaymentWebhookEvents"" (""ReceivedAt"");
 
                     -- Không còn dùng «cần dọn» — bàn trống ngay sau thanh toán.
                     UPDATE ""PosServiceResources"" SET ""NeedsCleaning"" = false WHERE ""NeedsCleaning"" = true;

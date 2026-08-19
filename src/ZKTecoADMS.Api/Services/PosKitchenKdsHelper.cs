@@ -9,6 +9,7 @@ internal static class PosKitchenKdsHelper
     public const string Cooking = "cooking";
     public const string Ready = "ready";
     public const string Done = "done";
+    public const string Voided = "voided";
 
     public static decimal OpenQty(PosSaleOrderLine line) =>
         Math.Max(0, line.KitchenSentQty - line.KitchenDoneQty);
@@ -98,6 +99,7 @@ internal static class PosKitchenKdsHelper
             Cooking or "cook" or "doing" => Cooking,
             Ready or "plated" => Ready,
             Done or "bump" or "bumped" => Done,
+            Voided or "void" or "cancel" or "cancelled" => Voided,
             Queued or "new" => Queued,
             None or "" => None,
             _ => s,

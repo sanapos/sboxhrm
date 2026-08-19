@@ -1113,11 +1113,10 @@ Future<bool> _printKitchenCompactSlipLocked({
   final svc = PosProductPrinterService.instance;
   final hasAnyProductId = lines.any((l) => (l.productId ?? '').isNotEmpty);
   if (hasAnyProductId) {
-    // Ép tải lại máy in + routes (tránh documentTypes trống / cache 30s).
-    await PosPrintOrchestrator.instance.invalidateCache();
-    await PosPrintOrchestrator.instance.refreshConfig(force: true);
-    // Tránh cache gán SP cũ (vừa đổi WiFi vẫn còn USB trong 5 phút).
-    await svc.invalidate();
+    // Dùng cache TTL (máy in 3 phút, gán SP 5 phút). Bust mỗi lần bấm
+    // Thông báo làm A7 đơ: 3 API + parse JSON trên isolate UI.
+    await PosPrintOrchestrator.instance.refreshConfig();
+    await svc.preload();
     final resolved = await Future.wait(lines.map((l) async => (
           line: l,
           printerId: (l.productId ?? '').isEmpty

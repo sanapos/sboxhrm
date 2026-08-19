@@ -405,14 +405,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavigationNotifier.reportScreen(label, moduleCode: item.moduleCode);
   }
 
-  /// Load quyền hiệu lực cho user hiện tại
+  /// Load quyền hiệu lực cho user hiện tại (luôn tải mới khi MainLayout mount).
   void _loadPermissions() {
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
     final permProvider =
         Provider.of<PermissionProvider>(context, listen: false);
-    if (!permProvider.isLoaded && !permProvider.isLoading) {
-      permProvider.loadPermissions(role: authUser?.role);
-    }
+    if (permProvider.isLoading) return;
+    permProvider.loadPermissions(
+      role: authUser?.role,
+      freshSession: true,
+    );
   }
 
   Future<void> _loadSidebarPreference() async {
@@ -534,13 +536,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       NavigationNotifier.pendingOpenOvertime.value = false;
     }
 
-    int? idx;
-    for (var i = 0; i < _navItems.length; i++) {
-      if (_navItems[i].moduleCode == code) {
-        idx = i;
-        break;
-      }
-    }
+    final idx = _navIndexForHomeShortcut(code);
     NavigationNotifier.navigateToModule.value = null;
 
     if (idx != null) {
@@ -573,6 +569,25 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (_navItems[i].moduleCode == moduleCode) return i;
     }
     return null;
+  }
+
+  /// Trang chủ / truy cập nhanh: khi trùng moduleCode, mở đúng màn chức năng.
+  int? _navIndexForHomeShortcut(String moduleCode) {
+    const preferLabel = {
+      'PosPurchaseReceipts': 'Nhập hàng NCC',
+      'PosSalesReport': 'Báo cáo POS',
+      'PosSaleReturns': 'Trả hàng bán',
+    };
+    final want = preferLabel[moduleCode];
+    if (want != null) {
+      for (var i = 0; i < _navItems.length; i++) {
+        if (_navItems[i].moduleCode == moduleCode &&
+            _navItems[i].label == want) {
+          return i;
+        }
+      }
+    }
+    return _navIndexForModule(moduleCode);
   }
 
   bool _isNavItemVisible(int index) {
@@ -666,7 +681,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   void _navigateToModule(String moduleCode) {
-    final idx = _navIndexForModule(moduleCode);
+    final idx = _navIndexForHomeShortcut(moduleCode);
     if (idx != null) _tryNavigateToIndex(idx);
   }
 
@@ -1949,6 +1964,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       key: const ValueKey('main_home_menu'),
       navItems: _navItems,
       onItemTap: _tryNavigateToIndex,
+      onModuleTap: (code) {
+        final idx = _navIndexForHomeShortcut(code);
+        if (idx != null) _tryNavigateToIndex(idx);
+      },
       allowedModules: allowed,
       bypassPackageFilter: bypass,
     );
@@ -2324,6 +2343,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               PosMobileHubScreen(
                 key: const ValueKey('pos_mobile_hub'),
                 initialTab: PosHubModules.tabIndexForModule(moduleCode),
+                restoreLastTab: false,
               ),
             ],
           ),
@@ -2545,7 +2565,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(10),
                     onTap: () {
-                      final idx = _navIndexForModule(code);
+                      final idx = _navIndexForHomeShortcut(code);
                       if (idx != null && _tryNavigateToIndex(idx)) {
                         Navigator.pop(context);
                       }
@@ -3556,7 +3576,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
-              Provider.of<PermissionProvider>(context, listen: false).clear();
               Provider.of<AuthProvider>(context, listen: false).logout();
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -3706,6 +3725,7 @@ class NavItem {
 class _HomeMenuScreen extends StatefulWidget {
   final List<NavItem> navItems;
   final ValueChanged<int> onItemTap;
+  final ValueChanged<String>? onModuleTap;
   final List<String>? allowedModules;
   final bool bypassPackageFilter;
 
@@ -3713,6 +3733,7 @@ class _HomeMenuScreen extends StatefulWidget {
     super.key,
     required this.navItems,
     required this.onItemTap,
+    this.onModuleTap,
     this.allowedModules,
     this.bypassPackageFilter = false,
   });
@@ -3849,6 +3870,10 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
               label: def.label,
               icon: def.icon,
               onTap: () {
+                if (widget.onModuleTap != null) {
+                  widget.onModuleTap!(code);
+                  return;
+                }
                 final idx = widget.navItems
                     .indexWhere((n) => n.moduleCode == code);
                 if (idx >= 0) widget.onItemTap(idx);

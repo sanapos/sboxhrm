@@ -19,7 +19,7 @@ const String travelSalaryModeBasePlusCompletionPer8h =
 TravelSalaryMode parseTravelSalaryMode({Map<String, dynamic>? salarySettings}) {
   final raw = salarySettings?['travelSalaryMode']?.toString().trim().toLowerCase() ??
       salarySettings?['travel_salary_mode']?.toString().trim().toLowerCase() ??
-      travelSalaryModeBasePer8h;
+      travelSalaryModeOff;
   return _parseTravelSalaryModeRaw(raw);
 }
 
@@ -32,17 +32,41 @@ TravelSalaryMode parseTravelSalaryModeForEmployee({
   if (employeeRaw != null && employeeRaw.isNotEmpty) {
     return _parseTravelSalaryModeRaw(employeeRaw);
   }
-  return TravelSalaryMode.basePer8h;
+  return TravelSalaryMode.off;
 }
 
 /// NV bật tính lương đi đường (không phải mode `off`).
+/// Hồ sơ mới / chưa lưu mode → tắt. Hồ sơ cũ đã lưu mode khác `off` vẫn bật.
 bool isTravelSalaryEnabledForEmployee({Map<String, dynamic>? benefit}) {
   final raw = benefit?['travelSalaryMode']?.toString().trim().toLowerCase() ??
       benefit?['TravelSalaryMode']?.toString().trim().toLowerCase();
-  if (raw == null || raw.isEmpty) return true; // tương thích dữ liệu cũ
+  if (raw == null || raw.isEmpty) return false;
   return raw != travelSalaryModeOff &&
       raw != 'disabled' &&
       raw != 'none';
+}
+
+/// Hiện cột đi đường trên báo cáo / bảng lương khi cửa hàng hoặc ít nhất 1 NV bật.
+bool isTravelFeatureVisible({
+  Map<String, dynamic>? storeSalarySettings,
+  Iterable<dynamic> salaryProfiles = const [],
+}) {
+  if (parseTravelSalaryMode(salarySettings: storeSalarySettings) !=
+      TravelSalaryMode.off) {
+    return true;
+  }
+  for (final raw in salaryProfiles) {
+    if (raw is! Map) continue;
+    final profile = Map<String, dynamic>.from(raw);
+    if (isTravelSalaryEnabledForEmployee(benefit: profile)) return true;
+    final nested = profile['benefit'];
+    if (nested is Map &&
+        isTravelSalaryEnabledForEmployee(
+            benefit: Map<String, dynamic>.from(nested))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 double parseTravelFixedHourlyRateForEmployee({

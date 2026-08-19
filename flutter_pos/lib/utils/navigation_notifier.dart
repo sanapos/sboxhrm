@@ -330,4 +330,30 @@ class NavigationNotifier {
     SettingsHubScreen.pendingSubIndex.value = 12;
     goToModule('SettingsHub');
   }
+
+  /// Reset intent điều hướng khi đổi phiên — tránh POS/HRM lẫn state cũ.
+  static void resetForNewSession() {
+    navigateTo.value = null;
+    navigateToModule.value = null;
+    posHubTab.value = null;
+    pendingOpenOvertime.value = false;
+    pendingAiOpenCreate.value = null;
+    notificationHighlightId.value = null;
+    mobileDrawerModuleActive.value = false;
+    currentScreenLabel.value = null;
+    currentModuleCode.value = null;
+    scheduleApprovalTab.value = 0;
+    attendanceApprovalTab.value = 0;
+    mobileAttendanceSettingsTab.value = null;
+    attendanceApprovalStatusFilter.value = -1;
+    leaveInitialTab.value = -1;
+    advanceRequestsStatusFilter.value = -1;
+    penaltyTicketsFilterStatus.value = null;
+    taskFilterStatusIndex.value = -1;
+    taskFilterOverdueOnly.value = false;
+    taskOpenComments.value = false;
+    feedbackPreferInbox.value = false;
+    posHandleSystemBack = null;
+    SettingsHubScreen.pendingSubIndex.value = null;
+  }
 }

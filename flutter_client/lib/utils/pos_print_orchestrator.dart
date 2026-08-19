@@ -1400,6 +1400,12 @@ class PosPrintOrchestrator {
         );
       }
     }
+    // A7 / HRM (không phải Sunmi, không phải Agent): luôn gửi JSON cho Agent.
+    // Profile USB/LAN «ảo» trên C20Lite từng làm compile ESC/POS bitmap trên UI → đơ.
+    if (!isAgent && !onSunmiHw) {
+      effectiveForceCloud = true;
+      effectivePreferDirect = false;
+    }
     debugPrint(
       'Kitchen DBG dispatchKitchenSlip: printer=${printer.name} isSunmi=${printer.isSunmi} '
       'isAgent=$isAgent onSunmiHw=$onSunmiHw forceCloud=$effectiveForceCloud '

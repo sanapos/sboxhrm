@@ -280,13 +280,49 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                             future:
                                 widget.api.getPosSampleCatalogImageBytes(id),
                             builder: (_, snap) {
+                              if (snap.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                );
+                              }
                               if (snap.hasData &&
                                   snap.data != null &&
                                   snap.data!.isNotEmpty) {
                                 return Image.memory(
                                   Uint8List.fromList(snap.data!),
                                   fit: BoxFit.cover,
+                                  gaplessPlayback: true,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    (s['kind']?.toString() == 'Drink')
+                                        ? Icons.local_cafe_outlined
+                                        : (s['kind']?.toString() == 'Food')
+                                            ? Icons.restaurant_outlined
+                                            : Icons.inventory_2_outlined,
+                                    color: Colors.grey,
+                                  ),
                                 );
+                              }
+                              final url = s['imageUrl']?.toString().trim();
+                              if (url != null && url.isNotEmpty) {
+                                final full = widget.api.getFileUrl(url);
+                                if (full.isNotEmpty) {
+                                  return Image.network(
+                                    full,
+                                    fit: BoxFit.cover,
+                                    headers: widget.api.imageAuthHeaders,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      Icons.image_not_supported_outlined,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  );
+                                }
                               }
                               return Icon(
                                 (s['kind']?.toString() == 'Drink')
@@ -307,7 +343,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      tr(name),
+                      name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -317,7 +353,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      tr([
+                      [
                         if ((s['productType'] ?? '').toString().isNotEmpty)
                           posProductTypeLabel(posProductTypeFromString(
                               s['productType']?.toString())),
@@ -327,7 +363,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                         if (unit.isNotEmpty) unit,
                         if ((s['brandName'] ?? '').toString().isNotEmpty)
                           s['brandName'],
-                      ].where((e) => e != null && '$e'.isNotEmpty).join(' · ')),
+                      ].where((e) => e != null && '$e'.isNotEmpty).join(' · '),
                       style: const TextStyle(
                         fontSize: 11,
                         color: PosTheme.textSecondary,

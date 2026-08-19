@@ -524,6 +524,62 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             '${_money.format(s.total)}đ',
             emphasize: true,
           ),
+          if ((s.paymentStatus ?? '').toLowerCase() == 'confirmed') ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFDCFCE7),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF22C55E)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 28),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      tr((s.paymentConfirmedMessage ?? 'Đã nhận chuyển khoản')
+                          .trim()),
+                      style: const TextStyle(
+                        color: Color(0xFF166534),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else if ((s.paymentQrUrl ?? '').isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              tr((s.paymentStatus ?? '').toLowerCase() == 'waiting'
+                  ? 'Quét mã chuyển khoản'
+                  : 'Mã QR thanh toán'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _billFg,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220, maxHeight: 220),
+                child: CachedNetworkImage(
+                  imageUrl: s.paymentQrUrl!,
+                  fit: BoxFit.contain,
+                  errorWidget: (_, __, ___) => const Icon(
+                    Icons.qr_code_2,
+                    size: 80,
+                    color: _billMuted,
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Text(tr('Cảm ơn quý khách'),
             textAlign: TextAlign.center,

@@ -112,8 +112,8 @@ class _PosCancelReturnSettingsScreenState
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          tr('Bật thì mỗi lần hủy món bếp, hủy đơn hoặc trả hàng phải chọn lý do '
-              '(Thao tác sai / Khách yêu cầu) + ghi chú tuỳ chọn.'),
+          tr('Hủy món đã báo bếp luôn hỏi lý do (Thao tác sai / Khách yêu cầu / nhập tùy ý). '
+              'Bật thêm thì hủy đơn hoàn thành và trả hàng cũng phải chọn lý do.'),
           style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
         ),
         const SizedBox(height: 12),
@@ -121,7 +121,7 @@ class _PosCancelReturnSettingsScreenState
           contentPadding: EdgeInsets.zero,
           title: Text(tr('Bắt buộc chọn lý do hủy / trả')),
           subtitle: Text(
-              tr('Áp dụng hủy món bếp, hủy đơn hoàn thành, trả hàng')),
+              tr('Áp dụng hủy đơn hoàn thành và trả hàng (hủy món bếp luôn bắt buộc)')),
           value: cfg.enabled,
           onChanged: _saving
               ? null

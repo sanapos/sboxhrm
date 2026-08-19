@@ -35,10 +35,9 @@ class PosHubScope extends InheritedWidget {
       pushedSubPage != oldWidget.pushedSubPage;
 }
 
-/// Module POS mở shell 5-tab trên mobile.
+/// Module POS mở shell 5-tab trên mobile (không gồm báo cáo 14 mẫu).
 abstract final class PosHubModules {
   static const primary = {
-    'PosSalesReport',
     'PosProducts',
     'PosSell',
     'PosSaleOrders',
@@ -48,7 +47,6 @@ abstract final class PosHubModules {
       code != null && primary.contains(code);
 
   static int tabIndexForModule(String? code) => switch (code) {
-        'PosSalesReport' => 0,
         'PosProducts' => 1,
         'PosSell' => 2,
         'PosSaleOrders' => 3,

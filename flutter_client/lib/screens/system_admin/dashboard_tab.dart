@@ -40,6 +40,7 @@ class DashboardTabState extends State<DashboardTab> {
   Map<String, dynamic>? _pos;
   String? _posStoreId;
   Map<String, dynamic>? _health;
+  Map<String, dynamic>? _creditPurchasesReport;
   List<Map<String, dynamic>> _metricPoints = [];
   int _metricsHours = 24;
   bool _isLoading = false;
@@ -142,6 +143,7 @@ class DashboardTabState extends State<DashboardTab> {
             toDate: _formatDateParam(_toDate),
             storeId: _posStoreId,
           ),
+          _apiService.adminCreditPurchasesReport(limit: 20),
         ]);
         if (!mounted) return;
         if (results[0]['isSuccess'] == true) {
@@ -160,6 +162,10 @@ class DashboardTabState extends State<DashboardTab> {
         if (results[3]['isSuccess'] == true && results[3]['data'] is Map) {
           setState(() =>
               _pos = Map<String, dynamic>.from(results[3]['data'] as Map));
+        }
+        if (results[4]['isSuccess'] == true && results[4]['data'] is Map) {
+          setState(() => _creditPurchasesReport =
+              Map<String, dynamic>.from(results[4]['data'] as Map));
         }
         await _loadMetrics();
       }
@@ -337,6 +343,8 @@ class DashboardTabState extends State<DashboardTab> {
                 // Recent activities (notifications)
                 _buildRecentActivities(),
                 const SizedBox(height: 20),
+                if (!widget.agentMode) _buildCreditPurchasesReportCard(),
+                if (!widget.agentMode) const SizedBox(height: 20),
                 // Two-column layout for health and recent stores
                 LayoutBuilder(
                   builder: (context, constraints) {
@@ -1919,6 +1927,152 @@ class DashboardTabState extends State<DashboardTab> {
               ),
             );
           }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreditPurchasesReportCard() {
+    final report = _creditPurchasesReport;
+    if (report == null) return const SizedBox.shrink();
+
+    final items = (report['items'] as List?) ?? const [];
+    final totalAmountPaid = report['totalAmountPaid'] ?? 0;
+    final totalAmountPending = report['totalAmountPending'] ?? 0;
+
+    String formatDate(dynamic raw) {
+      final v = raw?.toString();
+      if (v == null || v.trim().isEmpty) return '';
+      try {
+        final dt = DateTime.parse(v).toLocal();
+        return DateFormat('dd/MM HH:mm').format(dt);
+      } catch (_) {
+        return v;
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: AdminHelpers.cardDecoration(borderColor: AdminHelpers.primaryDark),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.credit_card, color: AdminHelpers.primaryDark, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tr('Tra soát credit'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Colors.grey[800],
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AdminHelpers.success.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  tr('Paid: ${_vnd(totalAmountPaid)}'),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AdminHelpers.success),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AdminHelpers.warning.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  tr('Pending: ${_vnd(totalAmountPending)}'),
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AdminHelpers.warning),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(flex: 3, child: Text(tr('Cửa hàng'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+              Expanded(flex: 2, child: Text(tr('Gói'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+              Expanded(flex: 1, child: Text(tr('Lượt'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12), textAlign: TextAlign.right)),
+              Expanded(flex: 2, child: Text(tr('Số tiền'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12), textAlign: TextAlign.right)),
+              Expanded(flex: 2, child: Text(tr('Trạng thái'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+              Expanded(flex: 2, child: Text(tr('PaidAt'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (items.isEmpty)
+            AdminHelpers.emptyState(Icons.receipt_long, tr('Chưa có đơn mua credit'))
+          else
+            ...items.take(10).map((it) {
+              final item = it is Map<String, dynamic> ? it : <String, dynamic>{};
+              final storeName = (item['storeName'] ?? item['storeId'] ?? '').toString();
+              final packageName = (item['packageName'] ?? '').toString();
+              final creditCount = item['creditCount'] ?? 0;
+              final amountPaid = item['amountPaid'] ?? 0;
+              final status = (item['status'] ?? '').toString();
+              final paidAt = formatDate(item['paidAt'] ?? item['createdAt']);
+              final isPaid = status.toLowerCase() == 'paid';
+
+              final badgeColor = isPaid ? AdminHelpers.success : AdminHelpers.warning;
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Text(storeName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(packageName, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Text(
+                        '${creditCount}',
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        _vnd(amountPaid),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          tr(status.isEmpty ? (isPaid ? 'Paid' : 'Pending') : status),
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: badgeColor),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(paidAt, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    ),
+                  ],
+                ),
+              );
+            }),
         ],
       ),
     );

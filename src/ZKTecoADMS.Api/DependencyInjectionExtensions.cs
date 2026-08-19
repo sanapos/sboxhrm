@@ -6,6 +6,7 @@ using ZKTecoADMS.Api.Middlewares;
 using ZKTecoADMS.Api.Controllers.Filters;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
+using ZKTecoADMS.Api.Services.PaymentGateway;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
@@ -135,6 +136,14 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.ViettelSInvoiceClient>();
         services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.EasyInvoiceClient>();
         services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.PosEInvoiceService>();
+        services.AddScoped<IPaymentWebhookProvider, TingeePaymentWebhookProvider>();
+        services.AddSingleton<IPaymentWebhookProviderRegistry, PaymentWebhookProviderRegistry>();
+        services.AddScoped<IPosNotificationCreditService, PosNotificationCreditService>();
+        services.AddScoped<IPosPaymentGatewayService, PosPaymentGatewayService>();
+        services.AddHttpClient("tingee-open-api", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(60);
+        });
         services.AddHttpClient("face-sidecar");
         services.AddSingleton<OnnxFaceEmbeddingService>();
         

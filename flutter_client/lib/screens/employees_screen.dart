@@ -554,11 +554,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           _filterStatus == 'Tất cả' || emp.workStatusDisplay == _filterStatus;
 
       final matchesBranch = _filterBranchId == null ||
-          (emp.branchId != null &&
-              BranchFilterHelper.expandBranchIds(
-                _filterBranchId!,
-                _branches,
-              ).contains(emp.branchId));
+          emp.branchId == null ||
+          BranchFilterHelper.expandBranchIds(
+            _filterBranchId!,
+            _branches,
+          ).contains(emp.branchId);
 
       return matchesSearch &&
           matchesDepartment &&

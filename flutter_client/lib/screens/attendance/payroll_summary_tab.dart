@@ -126,8 +126,23 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   List<DailyShiftRecord>? _cachedShiftRecords;
   Map<String, List<DailyShiftRecord>>? _shiftRecordsByEmpKey;
   Map<String, double> _travelHoursByEmpKey = {};
-  TravelSalaryMode _travelSalaryMode = TravelSalaryMode.basePer8h;
+  TravelSalaryMode _travelSalaryMode = TravelSalaryMode.off;
   double _travelFixedHourlyRate = 0;
+
+  bool get _showTravelPayrollColumns {
+    if (_travelSalaryMode != TravelSalaryMode.off) return true;
+    for (final entry in _employeeSalaryProfiles) {
+      final raw = entry['profile'];
+      if (raw is! Map) continue;
+      final profile = Map<String, dynamic>.from(raw);
+      final benefit = profile['benefit'];
+      final map = benefit is Map
+          ? Map<String, dynamic>.from(benefit)
+          : profile;
+      if (isTravelSalaryEnabledForEmployee(benefit: map)) return true;
+    }
+    return false;
+  }
 
   // ═══ State ═══
   bool _isLoading = true;
@@ -229,8 +244,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         label: _l10n.overtime,
         defaultVisible: false,
       ),
-      PayrollColumn(key: 'travelHours', label: 'Đi đường (giờ)'),
-      PayrollColumn(key: 'travelSalary', label: 'Lương đi đường'),
+      PayrollColumn(
+        key: 'travelHours',
+        label: 'Đi đường (giờ)',
+        defaultVisible: false,
+      ),
+      PayrollColumn(
+        key: 'travelSalary',
+        label: 'Lương đi đường',
+        defaultVisible: false,
+      ),
       PayrollColumn(key: 'baseSalary', label: _l10n.baseSalary),
       PayrollColumn(key: 'workSalary', label: 'Lương theo công'),
       PayrollColumn(key: 'completionSalary', label: _l10n.completionSalary),
@@ -348,6 +371,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
       if (_payrollCoreColumnKeys.contains(c.key)) {
         visible.add(c);
+        continue;
+      }
+      if (!_showTravelPayrollColumns &&
+          (c.key == 'travelHours' || c.key == 'travelSalary')) {
         continue;
       }
       if (scan == null) {
@@ -1616,7 +1643,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
     otSalary += holidayDaySalary;
 
-    final double travelHours = _travelHoursForEmployee(emp);
+    final double travelHours = _showTravelPayrollColumns
+        ? _travelHoursForEmployee(emp)
+        : 0;
     final travelMode = parseTravelSalaryModeForEmployee(
       benefit: benefit,
     );
@@ -3276,9 +3305,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               '${(row['otHoursWeekend'] as num).toStringAsFixed(1)}h'),
           _detailRow('Tăng ca ngày lễ',
               '${(row['otHoursHoliday'] as num).toStringAsFixed(1)}h'),
-          _detailRow(
-              'Đi đường',
-              '${(row['travelHours'] as num?)?.toStringAsFixed(1) ?? '0'}h'),
+          if (_showTravelPayrollColumns)
+            _detailRow(
+                'Đi đường',
+                '${(row['travelHours'] as num?)?.toStringAsFixed(1) ?? '0'}h'),
           _detailRow(
               'Đi trễ', '${row['lateCount']} lần (${row['lateMinutes']} phút)'),
           _detailRow('Về sớm',
@@ -3298,7 +3328,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _detailRow('Lương theo ca', _fmtCurrency(row['shiftSalary'])),
           _detailRow('Lương theo giờ', _fmtCurrency(row['hourlySalary'])),
           _detailRow('Lương tăng ca', _fmtCurrency(row['otSalary'])),
-          _detailRow('Lương đi đường', _fmtCurrency(row['travelSalary'])),
+          if (_showTravelPayrollColumns)
+            _detailRow('Lương đi đường', _fmtCurrency(row['travelSalary'])),
           _detailRow('Phụ cấp cố định', _fmtCurrency(row['allowanceFixed'])),
           _detailRow('Phụ cấp theo ngày (mức/ngày)',
               _fmtCurrency(row['allowanceDaily'])),
@@ -5696,7 +5727,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   color: Color(0xFF1D4ED8),
                 ),
               ),
-              if ((_toDouble(row['travelHours'])) > 0)
+              if (_showTravelPayrollColumns &&
+                  (_toDouble(row['travelHours'])) > 0)
                 Text(tr('${tr('Đi đường: ')}${(_toDouble(row['travelHours'])).toStringAsFixed(1)}h'),
                   style: TextStyle(
                     fontSize: 10,
@@ -5889,7 +5921,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   // ──────── Vertical payroll layout (mobile) ────────
   List<PayrollColumn> _mobilePayrollDetailColumns() {
-    const alwaysOnMobile = {'travelHours', 'travelSalary'};
     final visible = _visiblePayrollColumns(_cachedPayrollData)
         .where((c) => !{
               'stt',
@@ -5899,11 +5930,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               _employeeSignColumnKey,
             }.contains(c.key))
         .toList();
-    for (final key in alwaysOnMobile) {
-      if (visible.any((c) => c.key == key)) continue;
-      final col = _columns.where((c) => c.key == key).firstOrNull;
-      if (col != null) visible.add(col);
-    }
     return visible;
   }
 

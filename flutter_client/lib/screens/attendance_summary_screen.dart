@@ -69,6 +69,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   Map<String, double> _travelHoursByEmployeeKey = {};
   Map<String, double> _travelHoursByEmployeeDateKey = {};
   Set<String> _travelEligibleEmployeeKeys = {};
+  Map<String, dynamic>? _salarySettings;
 
   _AttendanceSummaryScreenState() {
     final range = AttendanceDateRangePresets.resolve('month');
@@ -206,6 +207,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       }
 
       final salarySettings = phase1[5] as Map<String, dynamic>;
+      _salarySettings = salarySettings;
       if (minHoursForWorkDay == 0) {
         minHoursForWorkDay = parseMinHoursForWorkDay(salarySettings: salarySettings);
       }
@@ -568,6 +570,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                     standardWorkHours: _standardWorkHours,
                     holidays: _holidays,
                     salaryProfiles: _salaryProfiles,
+                    storeSalarySettings: _salarySettings,
                     shiftTemplates: _shiftTemplates,
                     shiftSalaryLevels: _shiftSalaryLevels,
                     approvedLeaves: _approvedLeaves,

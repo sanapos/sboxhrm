@@ -31,8 +31,10 @@ public partial class PosSellIndustryController(
         string reason,
         Guid? orderId = null,
         Guid? resourceId = null,
-        Guid? sessionId = null)
-        => PosFloorRealtimeHelper.Notify(hub, storeId, reason, orderId, resourceId, sessionId);
+        Guid? sessionId = null,
+        string? tableName = null,
+        string? message = null)
+        => PosFloorRealtimeHelper.Notify(hub, storeId, reason, orderId, resourceId, sessionId, tableName, message);
 
     bool TryGetStoreId(out Guid storeId)
     {

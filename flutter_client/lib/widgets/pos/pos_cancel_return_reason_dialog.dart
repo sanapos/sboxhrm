@@ -19,13 +19,17 @@ Future<CancelReturnReasonConfig> fetchCancelReturnReasonConfig(
   return const CancelReturnReasonConfig();
 }
 
-/// Hộp chọn lý do hủy/trả khi bật kiểm soát trong Thiết lập ngành.
+const _kCustomReason = '__custom__';
+
+/// Hộp chọn lý do hủy/trả. [force] = luôn hiện (hủy món đã báo bếp).
 Future<CancelReturnReasonResult?> showPosCancelReturnReasonDialog(
   BuildContext context, {
   required CancelReturnReasonConfig config,
   String title = 'Lý do hủy / trả',
+  bool force = false,
+  bool allowCustom = true,
 }) async {
-  if (!config.enabled) {
+  if (!config.enabled && !force) {
     return const CancelReturnReasonResult(reason: '');
   }
   final reasons = config.reasons.isEmpty
@@ -33,6 +37,7 @@ Future<CancelReturnReasonResult?> showPosCancelReturnReasonDialog(
       : config.reasons;
   var selected = reasons.first;
   final noteCtrl = TextEditingController();
+  final customCtrl = TextEditingController();
 
   final ok = await showDialog<bool>(
     context: context,
@@ -40,6 +45,7 @@ Future<CancelReturnReasonResult?> showPosCancelReturnReasonDialog(
     builder: (ctx) {
       return StatefulBuilder(
         builder: (ctx, setLocal) {
+          final isCustom = selected == _kCustomReason;
           return AlertDialog(
             title: Text(tr(title)),
             content: SizedBox(
@@ -64,6 +70,30 @@ Future<CancelReturnReasonResult?> showPosCancelReturnReasonDialog(
                         setLocal(() => selected = v);
                       },
                     ),
+                  if (allowCustom)
+                    RadioListTile<String>(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(tr('Nhập tùy ý')),
+                      value: _kCustomReason,
+                      groupValue: selected,
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setLocal(() => selected = v);
+                      },
+                    ),
+                  if (isCustom) ...[
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: customCtrl,
+                      autofocus: true,
+                      maxLength: 80,
+                      decoration: InputDecoration(
+                        labelText: tr('Lý do tùy ý'),
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   TextField(
                     controller: noteCtrl,
@@ -84,7 +114,13 @@ Future<CancelReturnReasonResult?> showPosCancelReturnReasonDialog(
                 child: Text(tr('Huỷ')),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(ctx, true),
+                onPressed: () {
+                  if (selected == _kCustomReason &&
+                      customCtrl.text.trim().isEmpty) {
+                    return;
+                  }
+                  Navigator.pop(ctx, true);
+                },
                 child: Text(tr('Xác nhận')),
               ),
             ],
@@ -95,10 +131,14 @@ Future<CancelReturnReasonResult?> showPosCancelReturnReasonDialog(
   );
 
   final note = noteCtrl.text.trim();
+  final custom = customCtrl.text.trim();
   noteCtrl.dispose();
+  customCtrl.dispose();
   if (ok != true) return null;
+  final reason = selected == _kCustomReason ? custom : selected;
+  if (reason.isEmpty) return null;
   return CancelReturnReasonResult(
-    reason: selected,
+    reason: reason,
     detailNote: note.isEmpty ? null : note,
   );
 }

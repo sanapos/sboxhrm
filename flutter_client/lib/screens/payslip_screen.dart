@@ -661,7 +661,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                       _detailRow('Phụ cấp', p['allowances']),
                       _detailRow('Thưởng', p['bonus']),
                       _detailRow('Tăng ca', p['overtimePay']),
-                      if (_payslipTravelHours(p) > 0)
+                      if (_payslipShowsTravel(p))
                         _detailRow(
                           'Lương đi đường (${_payslipTravelHours(p).toStringAsFixed(1)}h)',
                           p['travelSalary'],
@@ -783,6 +783,13 @@ class _PayslipScreenState extends State<PayslipScreen> {
     final v = p['travelHours'];
     if (v is num) return v.toDouble();
     return double.tryParse(v?.toString() ?? '') ?? 0;
+  }
+
+  bool _payslipShowsTravel(Map<String, dynamic> p) {
+    if (_payslipTravelHours(p) <= 0) return false;
+    final pay = p['travelSalary'];
+    if (pay is num) return pay > 0;
+    return (double.tryParse(pay?.toString() ?? '') ?? 0) > 0;
   }
 
   Widget _detailRow(String label, dynamic value) {

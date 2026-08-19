@@ -31,12 +31,20 @@ class PosSellCatalogCache {
   static const ttl = Duration(minutes: 20);
   static const _metaPrefix = 'pos_sell_catalog_v1_';
   String? _lastStoreId;
+  String? _memoryStoreId;
+  PosSellCatalogSnapshot? _memory;
 
   /// Store gần nhất đã đọc/ghi cache — dùng patch tồn khi lưới bán chưa mount.
   String? get lastStoreId => _lastStoreId;
 
+  /// Decode sẵn catalog lúc đang xem sơ đồ — lần mở lưới không jsonDecode lại.
+  Future<void> warmup(String storeId) async {
+    await read(storeId);
+  }
+
   Future<PosSellCatalogSnapshot?> read(String storeId) async {
     if (storeId.isEmpty) return null;
+    if (_memory != null && _memoryStoreId == storeId) return _memory;
     try {
       final prefs = await SharedPreferences.getInstance();
       final metaKey = '$_metaPrefix$storeId';
@@ -63,11 +71,13 @@ class PosSellCatalogCache {
         catalogVersion = DateTime.tryParse(versionRaw.toString());
       }
       _lastStoreId = storeId;
-      return PosSellCatalogSnapshot(
+      _memoryStoreId = storeId;
+      _memory = PosSellCatalogSnapshot(
         items: items,
         cachedAt: DateTime.fromMillisecondsSinceEpoch(cachedAtMs),
         catalogVersion: catalogVersion,
       );
+      return _memory;
     } catch (_) {
       return null;
     }
@@ -86,6 +96,12 @@ class PosSellCatalogCache {
   }) async {
     if (storeId.isEmpty) return;
     _lastStoreId = storeId;
+    _memoryStoreId = storeId;
+    _memory = PosSellCatalogSnapshot(
+      items: items,
+      cachedAt: DateTime.now(),
+      catalogVersion: catalogVersion,
+    );
     try {
       final payload = jsonEncode({
         'catalogVersion': catalogVersion?.toUtc().toIso8601String(),
@@ -116,6 +132,10 @@ class PosSellCatalogCache {
       await prefs.remove('${metaKey}_ver');
       await cache_io.deleteCatalogJson(storeId);
       if (_lastStoreId == storeId) _lastStoreId = null;
+      if (_memoryStoreId == storeId) {
+        _memoryStoreId = null;
+        _memory = null;
+      }
     } catch (_) {}
   }
 

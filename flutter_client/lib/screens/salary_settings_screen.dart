@@ -3198,11 +3198,12 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
           : hoursPerWorkDayInit.toStringAsFixed(1)),
     );
 
-    bool travelSalaryEnabled = isTravelSalaryEnabledForEmployee(benefit: benefit);
+    bool travelSalaryEnabled = employee['isConfigured'] == true &&
+        isTravelSalaryEnabledForEmployee(benefit: benefit);
     TravelSalaryMode employeeTravelMode = parseTravelSalaryModeForEmployee(
       benefit: benefit,
     );
-    if (employeeTravelMode == TravelSalaryMode.off) {
+    if (travelSalaryEnabled && employeeTravelMode == TravelSalaryMode.off) {
       employeeTravelMode = TravelSalaryMode.basePer8h;
     }
     final employeeTravelFixedRate = parseTravelFixedHourlyRateForEmployee(

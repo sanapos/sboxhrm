@@ -52,6 +52,7 @@ class PosResourceFloorScreen extends StatefulWidget {
     this.zeroPendingKitchenResourceIds = const {},
     this.billRequestedResourceIds = const {},
     this.releasedOrderIds = const {},
+    this.freedResourceIds = const {},
     this.promptGuestCountOnOpen = false,
     this.allowProvisionalBill = true,
     this.onActiveTotalsChanged,
@@ -86,6 +87,9 @@ class PosResourceFloorScreen extends StatefulWidget {
 
   /// Đơn máy này vừa nhả khóa khi về sơ đồ — không hiện «đang giữ».
   final Set<String> releasedOrderIds;
+
+  /// Bàn máy này vừa TT / trả trống — tô Free ngay, không chờ GET.
+  final Set<String> freedResourceIds;
 
   /// Hỏi số khách khi mở bàn trống (Thiết lập ngành POS).
   final bool promptGuestCountOnOpen;
@@ -206,6 +210,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   PosServiceResourceDto _patchResourceFlags(PosServiceResourceDto r) {
     final rid = r.id.toLowerCase();
+    if (widget.freedResourceIds.any((e) => e.toLowerCase() == rid)) {
+      return r.asLocallyFreed();
+    }
     final zeroKitchen =
         widget.zeroPendingKitchenResourceIds.any((e) => e.toLowerCase() == rid) &&
             r.pendingKitchenCount > 0;
@@ -332,7 +339,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         oldWidget.billRequestedResourceIds != widget.billRequestedResourceIds;
     final releasedChanged =
         oldWidget.releasedOrderIds != widget.releasedOrderIds;
-    if ((kitchenChanged || billChanged || releasedChanged) &&
+    final freedChanged = oldWidget.freedResourceIds != widget.freedResourceIds;
+    if ((kitchenChanged || billChanged || releasedChanged || freedChanged) &&
         _resources.isNotEmpty) {
       setState(() {
         _resources = _resources.map(_patchResourceFlags).toList();

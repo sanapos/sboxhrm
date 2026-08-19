@@ -10237,7 +10237,9 @@ class ApiService {
       trimmed = 'stores/$trimmed';
     }
 
-    if (trimmed.startsWith('stores/') || trimmed.startsWith('uploads/')) {
+    if (trimmed.startsWith('stores/') ||
+        trimmed.startsWith('uploads/') ||
+        trimmed.startsWith('catalog/')) {
       return '$baseUrl/api/upload/serve?path=${Uri.encodeQueryComponent(trimmed)}';
     }
 
@@ -18625,6 +18627,181 @@ class ApiService {
     }
   }
 
+  // ── Payment gateway (Tingee / notification credits) ──
+
+  Future<Map<String, dynamic>> getPosPaymentGatewaySettings() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/payment-gateway/settings'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> putPosPaymentGatewaySettings(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/settings'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosNotificationCredits() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/payment-gateway/credits'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> listPosNotificationCreditPackages() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/payment-gateway/credit-packages'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosNotificationCreditPurchase({
+    required String packageId,
+    String? note,
+    String? externalPaymentRef,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/credit-purchases'),
+            headers: _headers,
+            body: jsonEncode({
+              'packageId': packageId,
+              if (note != null && note.isNotEmpty) 'note': note,
+              if (externalPaymentRef != null && externalPaymentRef.isNotEmpty)
+                'externalPaymentRef': externalPaymentRef,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> listPosNotificationCreditPurchases({
+    String? status,
+    int limit = 20,
+  }) async {
+    try {
+      final q = <String, String>{'limit': '$limit'};
+      if (status != null && status.isNotEmpty) q['status'] = status;
+      final uri = Uri.parse('$baseUrl/api/pos/payment-gateway/credit-purchases')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> listPosNotificationCreditLedgers({
+    int limit = 50,
+  }) async {
+    try {
+      final uri = Uri.parse(
+              '$baseUrl/api/pos/payment-gateway/credit-ledgers?limit=$limit')
+          .replace(queryParameters: {'limit': '$limit'});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// SuperAdmin: Báo cáo tra soát tiền mua credit (tổng + list theo store).
+  Future<Map<String, dynamic>> adminCreditPurchasesReport({
+    int limit = 50,
+  }) async {
+    try {
+      final uri = Uri.parse(
+              '$baseUrl/api/pos/payment-gateway/admin/credit-purchases-report?limit=$limit')
+          .replace(queryParameters: {'limit': '$limit'});
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> listPosTransferPaymentIntents({
+    String? status,
+    int limit = 50,
+  }) async {
+    try {
+      final q = <String, String>{'limit': '$limit'};
+      if (status != null && status.isNotEmpty) q['status'] = status;
+      final uri = Uri.parse('$baseUrl/api/pos/payment-gateway/transfer-intents')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosTransferPaymentIntent({
+    required String externalOrderId,
+    String? orderNo,
+    required double amountExpected,
+    String? tableName,
+    String? saleOrderId,
+    String provider = 'Tingee',
+    int expireMinutes = 30,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/transfer-intents'),
+            headers: _headers,
+            body: jsonEncode({
+              'externalOrderId': externalOrderId,
+              if (orderNo != null) 'orderNo': orderNo,
+              'amountExpected': amountExpected,
+              if (tableName != null) 'tableName': tableName,
+              if (saleOrderId != null) 'saleOrderId': saleOrderId,
+              'provider': provider,
+              'expireMinutes': expireMinutes,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> updatePosSellSettings(Map<String, dynamic> body) async {
     try {
       final response = await http
@@ -19101,6 +19278,25 @@ class ApiService {
           .post(
             Uri.parse('$baseUrl/api/pos/kds/tickets/$orderId/bump'),
             headers: _headers,
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> ackPosKdsVoids(List<String> ids) async {
+    try {
+      final want = ids.where((e) => e.trim().isNotEmpty).toList();
+      if (want.isEmpty) {
+        return {'isSuccess': false, 'message': 'Chưa chọn phiếu hủy'};
+      }
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/kds/voids/ack'),
+            headers: _headers,
+            body: jsonEncode({'ids': want}),
           )
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);

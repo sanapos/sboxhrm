@@ -6,7 +6,9 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
 import '../providers/theme_provider.dart';
+import '../services/session_reset.dart';
 import '../utils/app_text_scaler.dart';
 import '../utils/vietnamese_font.dart';
 import '../screens/main_layout.dart';
@@ -64,6 +66,9 @@ class ZKTecoApp extends StatelessWidget {
 
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
+        SessionReset.bindPermissionProvider(
+          Provider.of<PermissionProvider>(context, listen: false),
+        );
         return MaterialApp(
           title: 'SBOX HRM',
           debugShowCheckedModeBanner: false,

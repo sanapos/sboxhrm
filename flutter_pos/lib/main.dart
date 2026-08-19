@@ -21,12 +21,14 @@ import 'screens/main_layout.dart';
 import 'services/api_service.dart';
 import 'services/mobile_bottom_nav_prefs.dart';
 import 'services/pos_print_agent_service.dart';
+import 'services/session_reset.dart';
 import 'services/signalr_service.dart';
 import 'utils/notification_display_utils.dart';
 import 'utils/navigation_notifier.dart';
 import 'utils/pos_print_agent_settings.dart';
 import 'utils/pos_print_orchestrator.dart';
 import 'utils/pos_qr_order_voice.dart';
+import 'utils/pos_payment_gateway_listener.dart';
 import 'utils/ssl_trust.dart';
 import 'utils/vietnamese_font.dart';
 import 'widgets/app_boot_screen.dart';
@@ -117,7 +119,11 @@ class SboxPosApp extends StatelessWidget {
       ],
       child: ListenableBuilder(
         listenable: AppLocale.listenable,
-        builder: (context, _) => MaterialApp(
+        builder: (context, _) {
+          SessionReset.bindPermissionProvider(
+            context.read<PermissionProvider>(),
+          );
+          return MaterialApp(
         title: 'SBOX POS',
         debugShowCheckedModeBanner: false,
         locale: AppLocale.locale,
@@ -172,7 +178,8 @@ class SboxPosApp extends StatelessWidget {
             return const _PosAuthShell();
           },
         ),
-      ),
+          );
+        },
       ),
     );
   }
@@ -249,7 +256,7 @@ class _PosAuthShellState extends State<_PosAuthShell>
       // Luôn gọi ACL thật — ensurePosSellDefaults() đã set isLoaded=true (fail-open UI)
       // nên không được skip; nếu skip thì Admin không lên superUser → nút TT xám mãi.
       await perm
-          .loadPermissions(role: auth.user?.role)
+          .loadPermissions(role: auth.user?.role, freshSession: true)
           .timeout(const Duration(seconds: 12));
     } catch (e) {
       debugPrint('⚠️ PosAuthShell permissions: $e');
@@ -297,6 +304,7 @@ class _PosAuthShellState extends State<_PosAuthShell>
           forceReregister: forceAgent,
         );
         unawaited(PosQrOrderVoiceAlert.instance.start());
+        PosPaymentGatewayListener.instance.start();
       }
       final userId = auth.user?.id;
       if (userId != null && userId.isNotEmpty) {

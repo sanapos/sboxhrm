@@ -26,6 +26,8 @@ import 'pos_end_of_day_screen.dart';
 import '../hkd_books_screen.dart';
 import 'pos_split_report_screens.dart';
 import 'pos_customer_display_settings_screen.dart';
+import 'pos_transfer_confirm_screen.dart';
+import 'pos_payment_gateway_settings_screen.dart';
 import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
@@ -104,6 +106,13 @@ class PosMoreScreen extends StatelessWidget {
                     _Item('QR order bàn', Icons.qr_code_2, 'PosQrOrder',
                         const PosQrTableOrderScreen(),
                         altModules: const ['PosSell']),
+                    _Item(
+                      'Xác nhận CK',
+                      Icons.payments_outlined,
+                      'PosSell',
+                      const PosTransferConfirmScreen(),
+                      altModules: const ['PosSell'],
+                    ),
                     _Item('Màn hình bếp (KDS)', Icons.kitchen_outlined, 'PosKds',
                         const PosKdsScreen(),
                         altModules: const ['PosSell']),
@@ -173,6 +182,13 @@ class PosMoreScreen extends StatelessWidget {
                       Icons.tv_outlined,
                       'PosCustomerDisplay',
                       const PosCustomerDisplaySettingsScreen(),
+                      altModules: const ['PosSell'],
+                    ),
+                    _Item(
+                      'Cổng thanh toán CK',
+                      Icons.account_balance_outlined,
+                      'PosSell',
+                      const PosPaymentGatewaySettingsScreen(),
                       altModules: const ['PosSell'],
                     ),
                     _Item(

@@ -1197,6 +1197,7 @@ class PosMobileProductRow extends StatelessWidget {
     this.selectedQty,
     this.onIncrement,
     this.onDecrement,
+    this.onQtyTap,
     this.typeBadge,
   });
 
@@ -1216,6 +1217,7 @@ class PosMobileProductRow extends StatelessWidget {
   final double? selectedQty;
   final VoidCallback? onIncrement;
   final VoidCallback? onDecrement;
+  final VoidCallback? onQtyTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1302,6 +1304,7 @@ class PosMobileProductRow extends StatelessWidget {
                           qty: selectedQty!,
                           onMinus: onDecrement,
                           onPlus: onIncrement ?? onTap,
+                          onQtyTap: onQtyTap,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1353,6 +1356,7 @@ class PosMobileProductRow extends StatelessWidget {
     required double qty,
     VoidCallback? onMinus,
     VoidCallback? onPlus,
+    VoidCallback? onQtyTap,
   }) {
     final qtyText = qty <= 0
         ? '0'
@@ -1375,14 +1379,24 @@ class PosMobileProductRow extends StatelessWidget {
               enabled: qty > 0 && onMinus != null,
               onTap: qty > 0 ? onMinus : null,
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Text(
-                tr(qtyText),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: PosTheme.kiotBlue,
+            InkWell(
+              onTap: onQtyTap,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 32),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Center(
+                    child: Text(
+                      tr(qtyText),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: PosTheme.kiotBlue,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Color(0x662563EB),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

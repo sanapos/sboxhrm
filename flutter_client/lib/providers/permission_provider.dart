@@ -24,8 +24,14 @@ class PermissionProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   /// Tải quyền hiệu lực từ API
-  Future<void> loadPermissions({String? role}) async {
-    if (_isLoading) return;
+  Future<void> loadPermissions({String? role, bool freshSession = false}) async {
+    if (_isLoading && !freshSession) return;
+    if (freshSession) {
+      _permissions = {};
+      _isLoaded = false;
+      _loadError = false;
+      _isSuperUser = false;
+    }
     _isLoading = true;
     _lastRole = role;
     final normalizedRole = (role ?? '').trim().toLowerCase();
@@ -55,7 +61,7 @@ class PermissionProvider extends ChangeNotifier {
       if (data.isEmpty) {
         debugPrint(
             '⚠️ PermissionProvider: API returned empty list - possible 403 or no modules');
-        if (_isLoaded && _permissions.isNotEmpty) {
+        if (!freshSession && _isLoaded && _permissions.isNotEmpty) {
           debugPrint(
               '⚠️ PermissionProvider: Keeping last-known ${_permissions.length} modules');
           return;

@@ -12,11 +12,13 @@ import '../../utils/pos_category_tree.dart';
 import '../../utils/pos_combo_stock.dart';
 import '../../utils/pos_price_list_resolver.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
+import '../../utils/pos_qty_rules.dart';
 import '../../utils/pos_sell_stock_patch.dart';
 import '../../utils/pos_sell_unit_views.dart';
 import 'pos_catalog_sort_sheet.dart';
 import 'pos_h_scroll_chip_row.dart';
 import 'pos_mobile_widgets.dart';
+import 'pos_numeric_keypad.dart';
 import '../pos_barcode_scanner.dart';
 import 'pos_product_image.dart';
 import 'pos_product_unit_view.dart';
@@ -32,6 +34,7 @@ class PosSellProductGrid extends StatefulWidget {
     required this.api,
     required this.onPick,
     this.onDecrement,
+    this.onSetQty,
     this.storeId,
     this.pageSize = 24,
     this.sellListLayout = false,
@@ -44,6 +47,8 @@ class PosSellProductGrid extends StatefulWidget {
   final ValueChanged<PosPurchaseLookupPick> onPick;
   /// Giảm 1 SP trong giỏ (màn chọn hàng hóa — nút −).
   final ValueChanged<PosProduct>? onDecrement;
+  /// Đặt SL nháp (chạm vào số lượng trên hàng đã chọn).
+  final void Function(PosProduct product, double qty)? onSetQty;
   /// Store hiện tại — dùng key cache catalog local.
   final String? storeId;
   final int pageSize;
@@ -572,21 +577,44 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       widget.cartQtyByProductId[productId] ?? 0;
 
   List<PosProduct> get _sortedSellListProducts {
-    // Giữ thứ tự menu (sortOrder); SP đã chọn trong giỏ nổi lên đầu.
+    // SP đã chọn nổi lên đầu theo thứ tự đặt (món chọn trước xếp trước).
     if (widget.cartQtyByProductId.isEmpty) return _products;
+    final order = <String, int>{};
+    var i = 0;
+    for (final e in widget.cartQtyByProductId.entries) {
+      if (e.value > 0) order[e.key] = i++;
+    }
+    if (order.isEmpty) return _products;
     final list = List<PosProduct>.from(_products);
     list.sort((a, b) {
-      final qa = _qtyInCart(a.id);
-      final qb = _qtyInCart(b.id);
-      final aSelected = qa > 0;
-      final bSelected = qb > 0;
-      if (aSelected != bSelected) return aSelected ? -1 : 1;
-      if (qa != qb) return qb.compareTo(qa);
+      final ia = order[a.id];
+      final ib = order[b.id];
+      if (ia != null && ib != null) return ia.compareTo(ib);
+      if (ia != null) return -1;
+      if (ib != null) return 1;
       final cs = a.sortOrder.compareTo(b.sortOrder);
       if (cs != 0) return cs;
       return a.name.compareTo(b.name);
     });
     return list;
+  }
+
+  Future<void> _promptSellListQty(PosProduct p) async {
+    final onSet = widget.onSetQty;
+    if (onSet == null) return;
+    final cur = _qtyInCart(p.id);
+    final raw = await showPosNumericKeypad(
+      context: context,
+      title: tr('Số lượng'),
+      initial: PosQtyRules.isWhole(cur)
+          ? cur.toStringAsFixed(0)
+          : cur.toString(),
+      allowDecimal: PosQtyRules.allowsDecimal(p),
+    );
+    if (raw == null || !mounted) return;
+    final v = double.tryParse(raw.trim().replaceAll(',', '.'));
+    if (v == null || v < 0) return;
+    onSet(p, v);
   }
 
   List<PosProduct> get _sortedSellListPageItems => _sortedSellListProducts;
@@ -1021,6 +1049,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           onDecrement: !isSelected || widget.onDecrement == null
               ? null
               : () => widget.onDecrement!(p),
+          onQtyTap: !isSelected || widget.onSetQty == null
+              ? null
+              : () => unawaited(_promptSellListQty(p)),
         );
   }
 

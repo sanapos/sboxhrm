@@ -45,8 +45,8 @@ class PosProductImage extends StatelessWidget {
       child: _PosProductImageLoader(
         productId: productId,
         paths: [
-          if (hasUrl) url,
           if (hasId) ApiService.posProductImagePath(productId!),
+          if (hasUrl) url,
         ],
         cacheEpoch: updatedAt?.millisecondsSinceEpoch ?? 0,
         updatedAt: updatedAt,
@@ -142,7 +142,7 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
         cacheEpoch: widget.cacheEpoch,
       );
       final mem = cache.memoryGet(key);
-      if (mem != null && mem.isNotEmpty) {
+      if (mem != null && mem.isNotEmpty && _looksLikeRasterImage(mem)) {
         if (!mounted || !identical(_loadToken, token)) return;
         setState(() {
           _bytes = mem;
@@ -157,7 +157,7 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
         cacheEpoch: widget.cacheEpoch,
       );
       if (!mounted || !identical(_loadToken, token)) return;
-      if (bytes != null && bytes.isNotEmpty) {
+      if (bytes != null && bytes.isNotEmpty && _looksLikeRasterImage(bytes)) {
         setState(() {
           _bytes = bytes;
           _failed = false;
@@ -170,21 +170,36 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
     setState(() => _failed = true);
   }
 
+  static bool _looksLikeRasterImage(Uint8List b) {
+    if (b.length < 12) return false;
+    if (b[0] == 0xFF && b[1] == 0xD8) return true;
+    if (b[0] == 0x89 && b[1] == 0x50) return true;
+    if (b[0] == 0x47 && b[1] == 0x49) return true;
+    if (b[0] == 0x52 && b[1] == 0x49 && b[8] == 0x57) return true;
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_failed) return widget.placeholder;
     if (_bytes == null) return widget.placeholder;
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    final cachePx = (widget.size * dpr).round().clamp(1, 256);
-    return Image.memory(
-      _bytes!,
-      width: widget.fill ? double.infinity : widget.size,
-      height: widget.fill ? double.infinity : widget.size,
-      fit: widget.fit,
-      gaplessPlayback: true,
-      cacheWidth: cachePx,
-      cacheHeight: cachePx,
-      errorBuilder: (_, __, ___) => widget.placeholder,
+    // Chỉ cacheWidth: set cả Height sẽ vuông hóa JPEG (méo ảnh catalog mẫu landscape).
+    // Tăng cacheWidth để ảnh không bị mờ khi hiển thị trong ô lưới nhỏ.
+    // decode theo ~1.25x kích thước ô — cap 480px để máy yếu không đơ khi lưới nhiều ảnh.
+    final cachePx = (widget.size * dpr * 1.25).round().clamp(96, 480);
+    // PNG có thể có nền trong suốt — bọc nền trắng để ảnh không bị lẫn màu nền container.
+    return ColoredBox(
+      color: Colors.white,
+      child: Image.memory(
+        _bytes!,
+        width: widget.fill ? double.infinity : widget.size,
+        height: widget.fill ? double.infinity : widget.size,
+        fit: widget.fit,
+        gaplessPlayback: true,
+        cacheWidth: cachePx,
+        errorBuilder: (_, __, ___) => widget.placeholder,
+      ),
     );
   }
 }
