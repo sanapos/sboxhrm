@@ -78,6 +78,14 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
     }
 
     /// <summary>Xem sổ trên màn hình (JSON) — không cần tải Excel.</summary>
+    [HttpGet("preview")]
+    [RequireModulePermission("HkdBooks", ModulePermissionAction.View)]
+    public Task<IActionResult> PreviewBookAlias(
+        [FromQuery] string book = "S2a",
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null)
+        => PreviewBook(book, from, to);
+
     [HttpGet("books/preview")]
     [RequireModulePermission("HkdBooks", ModulePermissionAction.View)]
     public async Task<IActionResult> PreviewBook(
@@ -827,24 +835,42 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         ws.Columns(1, headers.Length).AdjustToContents();
     }
 
-    private const int PreviewRowLimit = 3000;
+    private const int PreviewRowLimit = 800;
 
     private async Task<HkdBookPreviewDto> PreviewRevenueAsync(
         Guid storeId, string bookCode, DateTime fromDt, DateTime toDt,
         HkdProfile profile, string periodLabel)
     {
-        var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
-        var total = orders.Sum(o => o.Total);
+        var query = dbContext.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId
+                        && o.Deleted == null
+                        && o.IsActive
+                        && o.Status == PosSaleOrderStatus.Completed
+                        && (o.SaleDate ?? o.CreatedAt) >= fromDt
+                        && (o.SaleDate ?? o.CreatedAt) < toDt);
+        var count = await query.CountAsync();
+        var total = count == 0 ? 0 : await query.SumAsync(o => (decimal?)o.Total) ?? 0;
         var vatEst = RoundMoney(total * (decimal)(profile.VatPercent / 100.0));
         var pitEst = RoundMoney(total * (decimal)(profile.PitPercent / 100.0));
-        var truncated = orders.Count > PreviewRowLimit;
-        var slice = truncated ? orders.Take(PreviewRowLimit).ToList() : orders;
+        var truncated = count > PreviewRowLimit;
+        var slice = await query
+            .OrderBy(o => o.SaleDate ?? o.CreatedAt)
+            .Take(PreviewRowLimit)
+            .Select(o => new
+            {
+                o.OrderNo,
+                SaleAt = o.SaleDate ?? o.CreatedAt,
+                o.Total,
+                o.CustomerName,
+                o.PaymentMethod,
+            })
+            .ToListAsync();
 
         var dto = BasePreview(bookCode, profile, periodLabel);
-        dto.RowCount = orders.Count;
+        dto.RowCount = count;
         dto.Truncated = truncated;
         if (truncated)
-            dto.Note = $"Đang xem {PreviewRowLimit:N0} dòng đầu / {orders.Count:N0}. Xuất Excel để xem đủ.";
+            dto.Note = $"Đang xem {PreviewRowLimit:N0} dòng đầu / {count:N0}. Xuất Excel để xem đủ.";
 
         if (bookCode == "S2b")
         {
@@ -853,7 +879,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             [
                 new("Tổng doanh thu", total),
                 new("GTGT ước tính", vatEst),
-                new("Số chứng từ", orders.Count),
+                new("Số chứng từ", count),
             ];
             dto.Columns =
             [
@@ -871,8 +897,9 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                 {
                     ["stt"] = idx++,
                     ["code"] = o.OrderNo,
-                    ["date"] = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy"),
-                    ["description"] = BuildRevenueDescription(o, profile.Industry),
+                    ["date"] = o.SaleAt.ToString("dd/MM/yyyy"),
+                    ["description"] = BuildRevenueDescription(
+                        o.CustomerName, o.PaymentMethod, profile.Industry),
                     ["amount"] = o.Total,
                     ["vat"] = RoundMoney(o.Total * (decimal)(profile.VatPercent / 100.0)),
                 });
@@ -888,7 +915,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                 new("Tổng doanh thu", total),
                 new("GTGT ước tính", vatEst),
                 new("TNCN ước tính", pitEst),
-                new("Số chứng từ", orders.Count),
+                new("Số chứng từ", count),
             ];
             dto.Columns =
             [
@@ -907,8 +934,9 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                 {
                     ["stt"] = idx++,
                     ["code"] = o.OrderNo,
-                    ["date"] = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy"),
-                    ["description"] = BuildRevenueDescription(o, profile.Industry),
+                    ["date"] = o.SaleAt.ToString("dd/MM/yyyy"),
+                    ["description"] = BuildRevenueDescription(
+                        o.CustomerName, o.PaymentMethod, profile.Industry),
                     ["amount"] = o.Total,
                     ["vat"] = RoundMoney(o.Total * (decimal)(profile.VatPercent / 100.0)),
                     ["pit"] = RoundMoney(o.Total * (decimal)(profile.PitPercent / 100.0)),
@@ -921,7 +949,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         dto.Summary =
         [
             new("Tổng doanh thu", total),
-            new("Số chứng từ", orders.Count),
+            new("Số chứng từ", count),
         ];
         dto.Columns =
         [
@@ -936,8 +964,9 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             dto.Rows.Add(new Dictionary<string, object?>
             {
                 ["stt"] = i++,
-                ["date"] = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy"),
-                ["description"] = BuildRevenueDescription(o, profile.Industry),
+                ["date"] = o.SaleAt.ToString("dd/MM/yyyy"),
+                ["description"] = BuildRevenueDescription(
+                    o.CustomerName, o.PaymentMethod, profile.Industry),
                 ["amount"] = o.Total,
             });
         }
@@ -948,48 +977,86 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         Guid storeId, DateTime fromDt, DateTime toDt,
         HkdProfile profile, string periodLabel)
     {
-        var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
-        var expenses = await dbContext.CashTransactions.AsNoTracking()
-            .Include(t => t.Category)
+        var orderQuery = CompletedOrdersQuery(storeId, fromDt, toDt);
+        var expenseQuery = dbContext.CashTransactions.AsNoTracking()
             .Where(t => t.StoreId == storeId
                         && t.Deleted == null
                         && t.Status == CashTransactionStatus.Completed
                         && t.Type == CashTransactionType.Expense
                         && t.TransactionDate >= fromDt
-                        && t.TransactionDate < toDt)
-            .OrderBy(t => t.TransactionDate)
-            .ThenBy(t => t.TransactionCode)
-            .ToListAsync();
-        var receipts = await dbContext.PosStockReceipts.AsNoTracking()
-            .Include(r => r.Supplier)
+                        && t.TransactionDate < toDt);
+        var receiptQuery = dbContext.PosStockReceipts.AsNoTracking()
             .Where(r => r.StoreId == storeId
                         && r.Deleted == null
                         && r.Status == PosPurchaseReceiptStatus.Completed
                         && ((r.ImportDate ?? r.CreatedAt) >= fromDt)
-                        && ((r.ImportDate ?? r.CreatedAt) < toDt))
-            .OrderBy(r => r.ImportDate ?? r.CreatedAt)
-            .ToListAsync();
+                        && ((r.ImportDate ?? r.CreatedAt) < toDt));
 
-        var revenueTotal = orders.Sum(o => o.Total);
-        var cashCost = expenses.Sum(t => t.Amount);
-        var purchaseCost = receipts.Sum(r => r.TotalCost + r.TotalVat - r.DiscountAmount);
+        var orderCount = await orderQuery.CountAsync();
+        var expenseCount = await expenseQuery.CountAsync();
+        var receiptCount = await receiptQuery.CountAsync();
+        var rowCount = orderCount + expenseCount + receiptCount;
+        var revenueTotal = orderCount == 0 ? 0 : await orderQuery.SumAsync(o => (decimal?)o.Total) ?? 0;
+        var cashCost = expenseCount == 0 ? 0 : await expenseQuery.SumAsync(t => (decimal?)t.Amount) ?? 0;
+        var purchaseCost = receiptCount == 0
+            ? 0
+            : await receiptQuery.SumAsync(r => (decimal?)(r.TotalCost + r.TotalVat - r.DiscountAmount)) ?? 0;
         var costTotal = cashCost + purchaseCost;
         var taxableIncome = revenueTotal - costTotal;
         var pitEst = RoundMoney(Math.Max(0, taxableIncome) * (decimal)(profile.PitPercent / 100.0));
 
+        var orderSlice = await orderQuery
+            .OrderBy(o => o.SaleDate ?? o.CreatedAt)
+            .Take(PreviewRowLimit)
+            .Select(o => new
+            {
+                o.OrderNo,
+                SaleAt = o.SaleDate ?? o.CreatedAt,
+                o.Total,
+                o.CustomerName,
+                o.PaymentMethod,
+            })
+            .ToListAsync();
+        var expenseSlice = await expenseQuery
+            .OrderBy(t => t.TransactionDate)
+            .ThenBy(t => t.TransactionCode)
+            .Take(PreviewRowLimit)
+            .Select(t => new
+            {
+                t.TransactionDate,
+                t.TransactionCode,
+                t.Description,
+                t.ContactName,
+                CategoryName = t.Category != null ? t.Category.Name : null,
+                t.Amount,
+            })
+            .ToListAsync();
+        var receiptSlice = await receiptQuery
+            .OrderBy(r => r.ImportDate ?? r.CreatedAt)
+            .Take(PreviewRowLimit)
+            .Select(r => new
+            {
+                When = r.ImportDate ?? r.CreatedAt,
+                r.ReceiptNo,
+                SupplierName = r.Supplier != null ? r.Supplier.Name : null,
+                r.Note,
+                Amount = r.TotalCost + r.TotalVat - r.DiscountAmount,
+            })
+            .ToListAsync();
+
         var rows = new List<(DateTime Date, string Code, string Desc, string Kind, decimal Amount)>();
-        foreach (var o in orders)
+        foreach (var o in orderSlice)
         {
             rows.Add((
-                o.SaleDate ?? o.CreatedAt,
+                o.SaleAt,
                 o.OrderNo,
-                BuildRevenueDescription(o, profile.Industry),
+                BuildRevenueDescription(o.CustomerName, o.PaymentMethod, profile.Industry),
                 "Doanh thu",
                 o.Total));
         }
-        foreach (var t in expenses)
+        foreach (var t in expenseSlice)
         {
-            var cat = t.Category?.Name;
+            var cat = t.CategoryName;
             var desc = string.IsNullOrWhiteSpace(cat)
                 ? t.Description
                 : $"{cat} — {t.Description}";
@@ -997,21 +1064,17 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                 desc = $"{desc} — {t.ContactName}";
             rows.Add((t.TransactionDate, t.TransactionCode, desc, "Chi phí (thu chi)", t.Amount));
         }
-        foreach (var r in receipts)
+        foreach (var r in receiptSlice)
         {
-            var when = r.ImportDate ?? r.CreatedAt;
-            var supplier = r.Supplier?.Name;
-            var desc = string.IsNullOrWhiteSpace(supplier)
+            var desc = string.IsNullOrWhiteSpace(r.SupplierName)
                 ? "Nhập hàng / mua hàng"
-                : $"Nhập hàng — {supplier}";
+                : $"Nhập hàng — {r.SupplierName}";
             if (!string.IsNullOrWhiteSpace(r.Note))
                 desc = $"{desc} — {r.Note}";
-            rows.Add((when, r.ReceiptNo, desc, "Chi phí (nhập hàng)",
-                r.TotalCost + r.TotalVat - r.DiscountAmount));
+            rows.Add((r.When, r.ReceiptNo, desc, "Chi phí (nhập hàng)", r.Amount));
         }
-        rows = rows.OrderBy(x => x.Date).ThenBy(x => x.Code).ToList();
-        var truncated = rows.Count > PreviewRowLimit;
-        var slice = truncated ? rows.Take(PreviewRowLimit).ToList() : rows;
+        rows = rows.OrderBy(x => x.Date).ThenBy(x => x.Code).Take(PreviewRowLimit).ToList();
+        var truncated = rowCount > rows.Count;
 
         var dto = BasePreview("S2c", profile, periodLabel);
         dto.Title = "SỔ CHI TIẾT DOANH THU, CHI PHÍ — Mẫu số S2c-HKD";
@@ -1031,12 +1094,12 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             new("kind", "Loại"),
             new("amount", "Số tiền", Money: true),
         ];
-        dto.RowCount = rows.Count;
+        dto.RowCount = rowCount;
         dto.Truncated = truncated;
         if (truncated)
-            dto.Note = $"Đang xem {PreviewRowLimit:N0} dòng đầu / {rows.Count:N0}. Xuất Excel để xem đủ.";
+            dto.Note = $"Đang xem {rows.Count:N0} dòng đầu / {rowCount:N0}. Xuất Excel để xem đủ.";
         var idx = 1;
-        foreach (var item in slice)
+        foreach (var item in rows)
         {
             dto.Rows.Add(new Dictionary<string, object?>
             {
@@ -1055,11 +1118,30 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         Guid storeId, DateTime fromDt, DateTime toDt,
         HkdProfile profile, string periodLabel)
     {
-        var products = await dbContext.PosProducts.AsNoTracking()
+        var productsQuery = dbContext.PosProducts.AsNoTracking()
             .Where(p => p.StoreId == storeId
                         && p.Deleted == null
                         && p.IsActive
-                        && p.ProductType != PosProductType.Service)
+                        && p.ProductType != PosProductType.Service);
+        var openingRows = await dbContext.PosStockTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId
+                        && t.Deleted == null
+                        && t.CreatedAt < fromDt)
+            .GroupBy(t => t.ProductId)
+            .Select(g => new { ProductId = g.Key, Qty = g.Sum(x => x.QtyChange) })
+            .Where(x => x.Qty != 0)
+            .ToListAsync();
+        var periodProductIds = await dbContext.PosStockTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId
+                        && t.Deleted == null
+                        && t.CreatedAt >= fromDt
+                        && t.CreatedAt < toDt)
+            .Select(t => t.ProductId)
+            .Distinct()
+            .ToListAsync();
+        var relevantIds = openingRows.Select(x => x.ProductId).Concat(periodProductIds).Distinct().ToList();
+        var products = await productsQuery
+            .Where(p => relevantIds.Contains(p.Id))
             .Select(p => new
             {
                 p.Id,
@@ -1068,26 +1150,26 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                 p.BaseUnitName,
                 p.CostPrice,
             })
+            .OrderBy(p => p.ProductCode)
             .ToListAsync();
+        var truncatedSkus = products.Count > 60;
+        if (truncatedSkus)
+            products = products.Take(60).ToList();
         var productIds = products.Select(p => p.Id).ToList();
-        var openingRows = await dbContext.PosStockTransactions.AsNoTracking()
-            .Where(t => t.StoreId == storeId
-                        && productIds.Contains(t.ProductId)
-                        && t.Deleted == null
-                        && t.CreatedAt < fromDt)
-            .GroupBy(t => t.ProductId)
-            .Select(g => new { ProductId = g.Key, Qty = g.Sum(x => x.QtyChange) })
-            .ToListAsync();
-        var openingByProduct = openingRows.ToDictionary(x => x.ProductId, x => x.Qty);
-        var periodTxs = await dbContext.PosStockTransactions.AsNoTracking()
-            .Where(t => t.StoreId == storeId
-                        && productIds.Contains(t.ProductId)
-                        && t.Deleted == null
-                        && t.CreatedAt >= fromDt
-                        && t.CreatedAt < toDt)
-            .OrderBy(t => t.ProductId)
-            .ThenBy(t => t.CreatedAt)
-            .ToListAsync();
+        var openingByProduct = openingRows
+            .Where(x => productIds.Contains(x.ProductId))
+            .ToDictionary(x => x.ProductId, x => x.Qty);
+        var periodTxs = productIds.Count == 0
+            ? []
+            : await dbContext.PosStockTransactions.AsNoTracking()
+                .Where(t => t.StoreId == storeId
+                            && productIds.Contains(t.ProductId)
+                            && t.Deleted == null
+                            && t.CreatedAt >= fromDt
+                            && t.CreatedAt < toDt)
+                .OrderBy(t => t.ProductId)
+                .ThenBy(t => t.CreatedAt)
+                .ToListAsync();
 
         var productMap = products.ToDictionary(
             p => p.Id,
@@ -1097,18 +1179,14 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                 string.IsNullOrWhiteSpace(p.BaseUnitName) ? "Cái" : p.BaseUnitName,
                 p.CostPrice,
                 openingByProduct.GetValueOrDefault(p.Id)));
-        var movedIds = periodTxs.Select(t => t.ProductId).ToHashSet();
-        var relevant = productMap
-            .Where(p => movedIds.Contains(p.Key) || p.Value.OpeningQty != 0)
-            .OrderBy(p => p.Value.Code)
-            .ToList();
+        var relevant = productMap.OrderBy(p => p.Value.Code).ToList();
         var txsByProduct = periodTxs.GroupBy(t => t.ProductId).ToDictionary(g => g.Key, g => g.ToList());
 
         var dto = BasePreview("S2d", profile, periodLabel);
         dto.Title = "SỔ CHI TIẾT VẬT LIỆU, DỤNG CỤ, SẢN PHẨM, HÀNG HÓA — Mẫu số S2d-HKD";
         dto.Summary =
         [
-            new("Số SKU có phát sinh / tồn đầu", relevant.Count),
+            new("Số SKU có phát sinh / tồn đầu", relevantIds.Count),
             new("Số dòng biến động kỳ", periodTxs.Count),
         ];
         dto.Columns =
@@ -1225,8 +1303,11 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         }
 
         dto.RowCount = dto.Rows.Count;
+        if (truncatedSkus) dto.Truncated = true;
         if (dto.Truncated)
-            dto.Note = $"Đang xem {PreviewRowLimit:N0} dòng đầu. Xuất Excel để xem đủ thẻ kho.";
+            dto.Note = truncatedSkus
+                ? $"Đang xem {products.Count:N0} SKU đầu / {relevantIds.Count:N0}. Xuất Excel để xem đủ thẻ kho."
+                : $"Đang xem {PreviewRowLimit:N0} dòng đầu. Xuất Excel để xem đủ thẻ kho.";
         return dto;
     }
 
@@ -1234,19 +1315,35 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         Guid storeId, DateTime fromDt, DateTime toDt,
         HkdProfile profile, string periodLabel)
     {
-        var txs = await dbContext.CashTransactions.AsNoTracking()
+        var query = dbContext.CashTransactions.AsNoTracking()
             .Where(t => t.StoreId == storeId
                         && t.Deleted == null
                         && t.Status == CashTransactionStatus.Completed
                         && t.TransactionDate >= fromDt
-                        && t.TransactionDate < toDt)
+                        && t.TransactionDate < toDt);
+        var count = await query.CountAsync();
+        var totalIn = count == 0
+            ? 0
+            : await query.Where(t => t.Type == CashTransactionType.Income).SumAsync(t => (decimal?)t.Amount) ?? 0;
+        var totalOut = count == 0
+            ? 0
+            : await query.Where(t => t.Type == CashTransactionType.Expense).SumAsync(t => (decimal?)t.Amount) ?? 0;
+        var truncated = count > PreviewRowLimit;
+        var slice = await query
             .OrderBy(t => t.TransactionDate)
             .ThenBy(t => t.TransactionCode)
+            .Take(PreviewRowLimit)
+            .Select(t => new
+            {
+                t.TransactionCode,
+                t.TransactionDate,
+                t.ContactName,
+                t.Description,
+                t.Type,
+                t.Amount,
+                t.PaymentMethod,
+            })
             .ToListAsync();
-        var totalIn = txs.Where(t => t.Type == CashTransactionType.Income).Sum(t => t.Amount);
-        var totalOut = txs.Where(t => t.Type == CashTransactionType.Expense).Sum(t => t.Amount);
-        var truncated = txs.Count > PreviewRowLimit;
-        var slice = truncated ? txs.Take(PreviewRowLimit).ToList() : txs;
 
         var dto = BasePreview("S2e", profile, periodLabel);
         dto.Title = "SỔ CHI TIẾT TIỀN — Mẫu số S2e-HKD";
@@ -1255,7 +1352,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             new("Tổng thu", totalIn),
             new("Tổng chi", totalOut),
             new("Chênh lệch", totalIn - totalOut),
-            new("Số chứng từ", txs.Count),
+            new("Số chứng từ", count),
         ];
         dto.Columns =
         [
@@ -1267,10 +1364,10 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             new("expense", "Chi", Money: true),
             new("method", "Hình thức"),
         ];
-        dto.RowCount = txs.Count;
+        dto.RowCount = count;
         dto.Truncated = truncated;
         if (truncated)
-            dto.Note = $"Đang xem {PreviewRowLimit:N0} dòng đầu / {txs.Count:N0}. Xuất Excel để xem đủ.";
+            dto.Note = $"Đang xem {PreviewRowLimit:N0} dòng đầu / {count:N0}. Xuất Excel để xem đủ.";
         var idx = 1;
         foreach (var t in slice)
         {
@@ -1303,14 +1400,17 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         PitPercent = profile.PitPercent,
     };
 
-    private Task<List<PosSaleOrder>> LoadCompletedOrdersAsync(Guid storeId, DateTime fromDt, DateTime toDt) =>
+    private IQueryable<PosSaleOrder> CompletedOrdersQuery(Guid storeId, DateTime fromDt, DateTime toDt) =>
         dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId
                         && o.Deleted == null
                         && o.IsActive
                         && o.Status == PosSaleOrderStatus.Completed
                         && (o.SaleDate ?? o.CreatedAt) >= fromDt
-                        && (o.SaleDate ?? o.CreatedAt) < toDt)
+                        && (o.SaleDate ?? o.CreatedAt) < toDt);
+
+    private Task<List<PosSaleOrder>> LoadCompletedOrdersAsync(Guid storeId, DateTime fromDt, DateTime toDt) =>
+        CompletedOrdersQuery(storeId, fromDt, toDt)
             .OrderBy(o => o.SaleDate ?? o.CreatedAt)
             .ToListAsync();
 
@@ -1401,15 +1501,19 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         };
     }
 
-    private static string BuildRevenueDescription(PosSaleOrder o, string industry)
+    private static string BuildRevenueDescription(PosSaleOrder o, string industry) =>
+        BuildRevenueDescription(o.CustomerName, o.PaymentMethod, industry);
+
+    private static string BuildRevenueDescription(
+        string? customerName, string? paymentMethod, string industry)
     {
         var parts = new List<string> { "Bán hàng" };
         if (!string.IsNullOrWhiteSpace(industry))
             parts.Add(industry.Trim());
-        if (!string.IsNullOrWhiteSpace(o.CustomerName))
-            parts.Add(o.CustomerName.Trim());
-        if (!string.IsNullOrWhiteSpace(o.PaymentMethod))
-            parts.Add(o.PaymentMethod.Trim());
+        if (!string.IsNullOrWhiteSpace(customerName))
+            parts.Add(customerName.Trim());
+        if (!string.IsNullOrWhiteSpace(paymentMethod))
+            parts.Add(paymentMethod.Trim());
         return string.Join(" — ", parts);
     }
 

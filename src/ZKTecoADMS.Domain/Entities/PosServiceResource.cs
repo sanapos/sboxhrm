@@ -176,4 +176,12 @@ public class PosResourceReservation : AuditableEntity<Guid>
     public virtual Employee? AssignedEmployee { get; set; }
 
     public bool IsTimedSlot => DurationMinutes is > 0;
+
+    /// <summary>Loại tổ chức: birthday, party, reunion, partner, other.</summary>
+    [MaxLength(40)]
+    public string? Occasion { get; set; }
+
+    /// <summary>Yêu cầu thêm: bánh kem, trang trí, phòng riêng…</summary>
+    [MaxLength(500)]
+    public string? SpecialRequest { get; set; }
 }

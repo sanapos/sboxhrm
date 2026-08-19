@@ -118,8 +118,8 @@ class _EodThermalLayout {
       _lr('Hủy đơn', '${r.canceledCount}', chars),
       if (r.canceledTotal > 0) _lr('GT hủy', _money(r.canceledTotal), chars),
       _rule(chars),
-      '>> THANH TOÁN',
-      _lr('Tiền mặt', _money(r.cashTotal), chars),
+      '>> THANH TOÁN BÁN HÀNG',
+      _lr('Tiền mặt HĐ', _money(r.cashTotal), chars),
       _lr('Ghi nợ', _money(r.debtTotal), chars),
     ];
 
@@ -130,11 +130,21 @@ class _EodThermalLayout {
       }
       lines.add(_lr(p.paymentMethod, _money(p.total), chars));
     }
-
-    lines
-      ..add(_rule(chars, '='))
-      ..add(_lr('THỰC THU', _money(r.actualReceived), chars))
-      ..add(_rule(chars, '='));
+    lines.addAll([
+      _lr('Thực thu HĐ', _money(r.actualReceived), chars),
+      _rule(chars),
+      '>> CỌC ĐẶT BÀN',
+      _lr('Thu cọc hôm nay', _money(r.depositCollected), chars),
+      for (final p in r.depositByPayment)
+        _lr(p.paymentMethod, _money(p.total), chars),
+      _lr('Hoàn cọc', _money(r.depositRefunded), chars),
+      _lr('Mất cọc', _money(r.depositForfeited), chars),
+      _lr('Đang giữ', _money(r.depositHeld), chars),
+      _lr('Đã trừ HĐ', _money(r.depositApplied), chars),
+      _rule(chars),
+      _lr('TIỀN MẶT KÉT', _money(r.drawerCash), chars),
+      _lr('QUỸ VÀO HÔM NAY', _money(r.fundInToday), chars),
+    ]);
 
     if (showProductDetail && r.products.isNotEmpty) {
       lines.add('>> HÀNG BÁN');
@@ -185,7 +195,7 @@ class _EodThermalLayout {
 
   List<({String left, String right, bool bold})> paymentRows() {
     final rows = <({String left, String right, bool bold})>[
-      (left: 'Tiền mặt', right: _money(report.cashTotal), bold: false),
+      (left: 'Tiền mặt HĐ', right: _money(report.cashTotal), bold: false),
       (left: 'Ghi nợ', right: _money(report.debtTotal), bold: false),
     ];
     for (final p in report.payments) {
@@ -195,6 +205,16 @@ class _EodThermalLayout {
       }
       rows.add((left: p.paymentMethod, right: _money(p.total), bold: false));
     }
+    rows.add((left: 'Thực thu HĐ', right: _money(report.actualReceived), bold: false));
+    rows.add((left: 'Thu cọc hôm nay', right: _money(report.depositCollected), bold: false));
+    for (final p in report.depositByPayment) {
+      rows.add((left: 'Cọc ${p.paymentMethod}', right: _money(p.total), bold: false));
+    }
+    rows.add((left: 'Hoàn cọc', right: _money(report.depositRefunded), bold: false));
+    rows.add((left: 'Mất cọc', right: _money(report.depositForfeited), bold: false));
+    rows.add((left: 'Đang giữ', right: _money(report.depositHeld), bold: false));
+    rows.add((left: 'TIỀN MẶT KÉT', right: _money(report.drawerCash), bold: true));
+    rows.add((left: 'QUỸ VÀO HÔM NAY', right: _money(report.fundInToday), bold: true));
     return rows;
   }
 
@@ -253,8 +273,8 @@ String _buildBillHtml(
     ..write(row('Trả hàng', _money(r.refundTotal)))
     ..write(row('Sau trả hàng', _money(r.totalAfterRefund)))
     ..write(row('Hóa đơn hủy', '${r.canceledCount}'))
-    ..write(section('THANH TOÁN'))
-    ..write(row('Tiền mặt', _money(r.cashTotal), sub: true))
+    ..write(section('THANH TOÁN BÁN HÀNG'))
+    ..write(row('Tiền mặt HĐ', _money(r.cashTotal), sub: true))
     ..write(row('Ghi nợ', _money(r.debtTotal), sub: true));
 
   for (final p in r.payments) {
@@ -262,7 +282,19 @@ String _buildBillHtml(
     if (m.contains('mặt') || m == 'cash') continue;
     rows.write(row(p.paymentMethod, _money(p.total), sub: true));
   }
-  rows.write(row('THỰC THU', _money(r.actualReceived), bold: true));
+  rows
+    ..write(row('Thực thu HĐ', _money(r.actualReceived)))
+    ..write(section('CỌC ĐẶT BÀN'))
+    ..write(row('Thu cọc hôm nay', _money(r.depositCollected), sub: true));
+  for (final p in r.depositByPayment) {
+    rows.write(row(p.paymentMethod, _money(p.total), sub: true));
+  }
+  rows
+    ..write(row('Hoàn cọc', _money(r.depositRefunded), sub: true))
+    ..write(row('Mất cọc', _money(r.depositForfeited), sub: true))
+    ..write(row('Đang giữ', _money(r.depositHeld), sub: true))
+    ..write(row('TIỀN MẶT KÉT', _money(r.drawerCash), bold: true))
+    ..write(row('QUỸ VÀO HÔM NAY', _money(r.fundInToday), bold: true));
 
   if (showProductDetail && r.products.isNotEmpty) {
     rows.write(section('HÀNG BÁN'));
@@ -541,10 +573,10 @@ Future<Uint8List> buildPosEndOfDayPdfBytes(
             section('TRẢ / HỦY'),
             ...layout.refundRows().map((e) => pair(e.left, e.right, bold: e.bold)),
             pw.Divider(thickness: 0.4),
-            section('THANH TOÁN'),
+            section('THANH TOÁN / CỌC'),
             ...layout.paymentRows().map((e) => pair(e.left, e.right, bold: e.bold)),
             pw.Divider(thickness: 0.8),
-            pair('THỰC THU', _money(r.actualReceived), bold: true),
+            pair('TIỀN MẶT KÉT', _money(r.drawerCash), bold: true),
             pw.Divider(thickness: 0.8),
             if (layout.productRows().isNotEmpty) ...[
               section('HÀNG BÁN'),

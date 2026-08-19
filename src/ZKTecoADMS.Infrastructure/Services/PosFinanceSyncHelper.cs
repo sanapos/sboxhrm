@@ -116,6 +116,7 @@ public static class PosFinanceSyncHelper
         PosResourceReservation booking,
         decimal amount,
         Guid createdByUserId,
+        Guid? bankAccountId = null,
         CancellationToken cancellationToken = default)
     {
         if (amount <= 0) return;
@@ -136,6 +137,7 @@ public static class PosFinanceSyncHelper
             Description = $"Thu cọc đặt chỗ — {booking.CustomerName}" +
                           (string.IsNullOrWhiteSpace(booking.Phone) ? "" : $" — {booking.Phone}"),
             PaymentMethod = ParsePaymentMethod(booking.DepositPaymentMethod),
+            BankAccountId = bankAccountId,
             Status = CashTransactionStatus.Completed,
             IsPaid = true,
             PaidDate = DateTime.UtcNow,
@@ -165,6 +167,14 @@ public static class PosFinanceSyncHelper
             "undo", "#DC2626", cancellationToken);
         if (category == null) return;
 
+        var origPrefix = $"{ReservationDepositMarker}{booking.Id}";
+        var orig = await db.CashTransactions.AsNoTracking()
+            .Where(c => c.StoreId == booking.StoreId && c.Deleted == null && c.IsActive
+                && c.Type == CashTransactionType.Income
+                && c.InternalNote != null && c.InternalNote.StartsWith(origPrefix))
+            .OrderByDescending(c => c.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
         db.CashTransactions.Add(new CashTransaction
         {
             Id = Guid.NewGuid(),
@@ -174,7 +184,8 @@ public static class PosFinanceSyncHelper
             Amount = booking.DepositPaid,
             TransactionDate = DateTime.UtcNow,
             Description = $"Hoàn cọc đặt chỗ — {booking.CustomerName}",
-            PaymentMethod = ParsePaymentMethod(booking.DepositPaymentMethod),
+            PaymentMethod = orig?.PaymentMethod ?? ParsePaymentMethod(booking.DepositPaymentMethod),
+            BankAccountId = orig?.BankAccountId,
             Status = CashTransactionStatus.Completed,
             IsPaid = true,
             PaidDate = DateTime.UtcNow,
@@ -186,6 +197,37 @@ public static class PosFinanceSyncHelper
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
         });
+    }
+
+    /// <summary>
+    /// Mất cọc: không tạo phiếu thu mới (tiền đã vào quỹ lúc thu).
+    /// Đổi danh mục phiếu cọc → «Mất cọc đặt chỗ» để sổ quỹ / cuối ngày nhận là thu nhập.
+    /// </summary>
+    public static async Task ReclassifyDepositOnForfeitAsync(
+        ZKTecoDbContext db,
+        PosResourceReservation booking,
+        CancellationToken cancellationToken = default)
+    {
+        if (booking.DepositPaid <= 0) return;
+        var prefix = $"{ReservationDepositMarker}{booking.Id}";
+        var cashList = await db.CashTransactions
+            .AsTracking()
+            .Where(c => c.StoreId == booking.StoreId && c.Deleted == null && c.IsActive
+                && c.Type == CashTransactionType.Income
+                && c.InternalNote != null && c.InternalNote.StartsWith(prefix))
+            .ToListAsync(cancellationToken);
+        if (cashList.Count == 0) return;
+
+        var category = await EnsureCategoryAsync(
+            db, booking.StoreId, CashTransactionType.Income, "Mất cọc đặt chỗ",
+            "gavel", "#B45309", cancellationToken);
+        if (category == null) return;
+
+        foreach (var cash in cashList)
+        {
+            cash.CategoryId = category.Id;
+            cash.Description = $"Mất cọc đặt chỗ — {booking.CustomerName}";
+        }
     }
 
     public static async Task ReverseSaleOnCancelAsync(

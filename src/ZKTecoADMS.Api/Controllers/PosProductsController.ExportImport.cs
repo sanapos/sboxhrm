@@ -18,7 +18,8 @@ public partial class PosProductsController
         [FromQuery] string? search,
         [FromQuery] Guid? categoryId,
         [FromQuery] Guid? supplierId,
-        [FromQuery] PosProductType? productType)
+        [FromQuery] PosProductType? productType,
+        [FromQuery] bool all = true)
     {
         var storeId = RequiredStoreId;
         var query = dbContext.PosProducts
@@ -28,64 +29,43 @@ public partial class PosProductsController
             .Include(p => p.Supplier)
             .Include(p => p.DefaultPrinter)
             .Include(p => p.StorageLocation)
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive);
+            .Where(p => p.StoreId == storeId && p.Deleted == null);
 
-        if (!string.IsNullOrWhiteSpace(search))
+        if (!all)
         {
-            var s = search.Trim().ToLower();
-            query = query.Where(p =>
-                p.Name.ToLower().Contains(s) ||
-                p.ProductCode.ToLower().Contains(s) ||
-                (p.Barcode != null && p.Barcode.ToLower().Contains(s)));
+            query = query.Where(p => p.IsActive);
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim().ToLower();
+                query = query.Where(p =>
+                    p.Name.ToLower().Contains(s) ||
+                    p.ProductCode.ToLower().Contains(s) ||
+                    (p.Barcode != null && p.Barcode.ToLower().Contains(s)));
+            }
+            if (categoryId.HasValue) query = query.Where(p => p.CategoryId == categoryId);
+            if (supplierId.HasValue) query = query.Where(p => p.SupplierId == supplierId);
         }
-        if (categoryId.HasValue) query = query.Where(p => p.CategoryId == categoryId);
-        if (supplierId.HasValue) query = query.Where(p => p.SupplierId == supplierId);
         if (productType.HasValue) query = query.Where(p => p.ProductType == productType);
 
-        var products = await query.OrderBy(p => p.Name).Take(10000).ToListAsync();
+        var products = await query
+            .OrderBy(p => p.ProductType)
+            .ThenBy(p => p.ProductCode)
+            .ThenBy(p => p.Name)
+            .ToListAsync();
 
         using var workbook = new XLWorkbook();
-        var ws = workbook.Worksheets.Add("Hàng hóa");
-        var headers = new[]
+        var typesToWrite = productType.HasValue
+            ? new[] { productType.Value }
+            : new[]
+            {
+                PosProductType.Goods, PosProductType.Service, PosProductType.Combo,
+                PosProductType.Material, PosProductType.Topping,
+            };
+        foreach (var type in typesToWrite)
         {
-            "STT", "Mã hàng", "Mã vạch", "Tên hàng", "Nhóm hàng", "Thương hiệu", "Nhà cung cấp",
-            "Giá vốn", "Giá bán", "Tồn kho", "Tồn thấp nhất", "Tồn cao nhất",
-            "Đơn vị", "Loại hàng", "Bán trực tiếp", "Trọng lượng", "Vị trí", "Mô tả", "Máy in"
-        };
-
-        var meta = ReportExcelMeta.FromUser(
-            User, "DANH SÁCH HÀNG HÓA POS", null, null,
-            new[] { $"Tổng: {products.Count}" }, products.Count);
-        var (headerRow, dataStartRow) = ReportExcelLayout.ApplyMeta(ws, meta, headers.Length);
-        ReportExcelLayout.ApplyHeaderRow(ws, headerRow, headers);
-
-        var row = dataStartRow;
-        var idx = 1;
-        foreach (var p in products)
-        {
-            ws.Cell(row, 1).Value = idx++;
-            ws.Cell(row, 2).Value = p.ProductCode;
-            ws.Cell(row, 3).Value = p.Barcode ?? "";
-            ws.Cell(row, 4).Value = p.Name;
-            ws.Cell(row, 5).Value = p.Category?.Name ?? "";
-            ws.Cell(row, 6).Value = p.Brand?.Name ?? "";
-            ws.Cell(row, 7).Value = p.Supplier?.Name ?? "";
-            ws.Cell(row, 8).Value = p.CostPrice;
-            ws.Cell(row, 9).Value = p.BasePrice;
-            ws.Cell(row, 10).Value = p.OnHandQty;
-            ws.Cell(row, 11).Value = p.MinStockQty;
-            ws.Cell(row, 12).Value = p.MaxStockQty;
-            ws.Cell(row, 13).Value = p.BaseUnitName;
-            ws.Cell(row, 14).Value = PosProductTypeRules.DisplayName(p.ProductType);
-            ws.Cell(row, 15).Value = p.IsDirectSale ? "Có" : "Không";
-            ws.Cell(row, 16).Value = p.Weight.HasValue ? p.Weight.Value : "";
-            ws.Cell(row, 17).Value = p.StorageLocation?.Name ?? "";
-            ws.Cell(row, 18).Value = p.Description ?? "";
-            ws.Cell(row, 19).Value = p.DefaultPrinter?.Name ?? "";
-            row++;
+            var slice = products.Where(p => p.ProductType == type).ToList();
+            WriteProductExportSheet(workbook, User, type, slice, products.Count);
         }
-
-        ws.Columns(1, headers.Length).AdjustToContents();
 
         var comboProductIds = products
             .Where(p => p.ProductType == PosProductType.Combo)
@@ -125,9 +105,78 @@ public partial class PosProductsController
 
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
-        var fileName = $"HangHoa_POS_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
+        var typeTag = productType.HasValue
+            ? PosProductTypeRules.CodePrefix(productType.Value)
+            : "ALL";
+        var fileName = $"HangHoa_POS_{typeTag}_{products.Count}_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
         return File(stream.ToArray(),
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
+
+    private static void WriteProductExportSheet(
+        XLWorkbook workbook,
+        System.Security.Claims.ClaimsPrincipal user,
+        PosProductType type,
+        List<PosProduct> products,
+        int catalogTotal)
+    {
+        var sheetName = type switch
+        {
+            PosProductType.Service => "DichVu",
+            PosProductType.Combo => "ComboHang",
+            PosProductType.Material => "NVL",
+            PosProductType.Topping => "Topping",
+            _ => "HangHoa",
+        };
+        var ws = workbook.Worksheets.Add(sheetName);
+        var headers = new[]
+        {
+            "STT", "Mã hàng", "Mã vạch", "Tên hàng", "Nhóm hàng", "Thương hiệu", "Nhà cung cấp",
+            "Giá vốn", "Giá bán", "Tồn kho", "Tồn thấp nhất", "Tồn cao nhất",
+            "Đơn vị", "Loại hàng", "Bán trực tiếp", "Trọng lượng", "Vị trí", "Mô tả", "Máy in",
+            "Đang KD",
+        };
+        var typeName = PosProductTypeRules.DisplayName(type);
+        var meta = ReportExcelMeta.FromUser(
+            user,
+            $"DANH SÁCH {typeName.ToUpperInvariant()} POS — đủ danh sách để xem/sửa rồi nhập lại",
+            null, null,
+            new[]
+            {
+                $"{typeName}: {products.Count} dòng  |  Cả cửa hàng: {catalogTotal}",
+                "Gồm hàng đang KD và ngừng KD. Sửa file rồi Import Excel (không ghi đè tồn khi cập nhật).",
+            },
+            products.Count);
+        var (headerRow, dataStartRow) = ReportExcelLayout.ApplyMeta(ws, meta, headers.Length);
+        ReportExcelLayout.ApplyHeaderRow(ws, headerRow, headers);
+
+        var row = dataStartRow;
+        var idx = 1;
+        foreach (var p in products)
+        {
+            ws.Cell(row, 1).Value = idx++;
+            ws.Cell(row, 2).Value = p.ProductCode;
+            ws.Cell(row, 3).Value = p.Barcode ?? "";
+            ws.Cell(row, 4).Value = p.Name;
+            ws.Cell(row, 5).Value = p.Category?.Name ?? "";
+            ws.Cell(row, 6).Value = p.Brand?.Name ?? "";
+            ws.Cell(row, 7).Value = p.Supplier?.Name ?? "";
+            ws.Cell(row, 8).Value = p.CostPrice;
+            ws.Cell(row, 9).Value = p.BasePrice;
+            ws.Cell(row, 10).Value = p.OnHandQty;
+            ws.Cell(row, 11).Value = p.MinStockQty;
+            ws.Cell(row, 12).Value = p.MaxStockQty;
+            ws.Cell(row, 13).Value = p.BaseUnitName;
+            ws.Cell(row, 14).Value = PosProductTypeRules.DisplayName(p.ProductType);
+            ws.Cell(row, 15).Value = p.IsDirectSale ? "Có" : "Không";
+            ws.Cell(row, 16).Value = p.Weight.HasValue ? p.Weight.Value : "";
+            ws.Cell(row, 17).Value = p.StorageLocation?.Name ?? "";
+            ws.Cell(row, 18).Value = p.Description ?? "";
+            ws.Cell(row, 19).Value = p.DefaultPrinter?.Name ?? "";
+            ws.Cell(row, 20).Value = p.IsActive ? "Có" : "Không";
+            row++;
+        }
+        ws.Columns(1, headers.Length).AdjustToContents();
     }
 
     [HttpGet("excel-template")]
@@ -418,6 +467,8 @@ public partial class PosProductsController
                 entity.MaxStockQty = row.MaxStockQty;
                 entity.BaseUnitName = row.BaseUnitName;
                 entity.IsDirectSale = row.IsDirectSale;
+                if (row.IsActive is bool active)
+                    entity.IsActive = active;
                 entity.Weight = row.Weight;
                 entity.Description = row.Description;
                 NormalizeByProductType(entity);

@@ -207,6 +207,16 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                         color: PosTheme.kiotBlue,
                       ),
                       (
+                        label: 'Thu cọc trong kỳ',
+                        value: _num(_data?['reservationDepositCollected']),
+                        color: const Color(0xFF0369A1),
+                      ),
+                      (
+                        label: 'Hoàn cọc',
+                        value: _num(_data?['reservationDepositRefundedCash']),
+                        color: const Color(0xFF7C3AED),
+                      ),
+                      (
                         label: 'Cọc mất',
                         value: _num(_data?['reservationDepositForfeited']),
                         color: Colors.red.shade700,

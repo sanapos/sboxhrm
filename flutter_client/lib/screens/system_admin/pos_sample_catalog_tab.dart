@@ -71,6 +71,21 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
   String _imageUrl(String id) =>
       '${ApiService.baseUrl}/api/system-admin/pos-sample-catalog/$id/image?v=$_imageNonce';
 
+  Future<Uint8List?> _readPickedBytes(PlatformFile f) async {
+    if (f.bytes != null && f.bytes!.isNotEmpty) {
+      return Uint8List.fromList(f.bytes!);
+    }
+    if (f.readStream != null) {
+      final chunks = BytesBuilder(copy: false);
+      await for (final part in f.readStream!) {
+        chunks.add(part);
+      }
+      final out = chunks.takeBytes();
+      if (out.isNotEmpty) return out;
+    }
+    return null;
+  }
+
   Future<void> loadData() async {
     setState(() => _loading = true);
     final results = await Future.wait([
@@ -258,6 +273,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                   child: Image.network(
                     _imageUrl(id),
                     fit: BoxFit.contain,
+                    headers: _api.imageAuthHeaders,
                     errorBuilder: (_, __, ___) =>
                         const Icon(Icons.broken_image_outlined, size: 64),
                   ),
@@ -329,12 +345,20 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                             final picked = await FilePicker.platform.pickFiles(
                               type: FileType.image,
                               withData: true,
+                              withReadStream: true,
                             );
                             if (picked == null || picked.files.isEmpty) return;
                             final f = picked.files.first;
-                            if (f.bytes == null) return;
+                            final bytes = await _readPickedBytes(f);
+                            if (bytes == null) {
+                              NotificationOverlayManager().showError(
+                                title: 'Ảnh',
+                                message: tr('Không đọc được file ảnh'),
+                              );
+                              return;
+                            }
                             setLocal(() {
-                              pendingImage = Uint8List.fromList(f.bytes!);
+                              pendingImage = bytes;
                               pendingImageName =
                                   f.name.isEmpty ? 'sample.jpg' : f.name;
                             });
@@ -353,6 +377,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                                         ? Image.network(
                                             _imageUrl('${row!['id']}'),
                                             fit: BoxFit.contain,
+                                            headers: _api.imageAuthHeaders,
                                             errorBuilder: (_, __, ___) =>
                                                 const Icon(
                                                     Icons.image_outlined,
@@ -551,14 +576,22 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                                 await FilePicker.platform.pickFiles(
                               type: FileType.image,
                               withData: true,
+                              withReadStream: true,
                             );
                             if (picked == null || picked.files.isEmpty) {
                               return;
                             }
                             final f = picked.files.first;
-                            if (f.bytes == null) return;
+                            final bytes = await _readPickedBytes(f);
+                            if (bytes == null) {
+                              NotificationOverlayManager().showError(
+                                title: 'Ảnh',
+                                message: tr('Không đọc được file ảnh'),
+                              );
+                              return;
+                            }
                             setLocal(() {
-                              pendingImage = Uint8List.fromList(f.bytes!);
+                              pendingImage = bytes;
                               pendingImageName =
                                   f.name.isEmpty ? 'sample.jpg' : f.name;
                             });
@@ -682,13 +715,21 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.image,
       withData: true,
+      withReadStream: true,
     );
     if (picked == null || picked.files.isEmpty) return;
     final f = picked.files.first;
-    final raw = f.bytes;
-    if (raw == null || raw.isEmpty) return;
+    final raw = await _readPickedBytes(f);
+    if (raw == null || raw.isEmpty) {
+      if (!mounted) return;
+      NotificationOverlayManager().showError(
+        title: 'Ảnh',
+        message: tr('Không đọc được file ảnh — thử chọn lại'),
+      );
+      return;
+    }
     await _uploadImageBytes(
-        id, Uint8List.fromList(raw), f.name.isEmpty ? 'sample.jpg' : f.name);
+        id, raw, f.name.isEmpty ? 'sample.jpg' : f.name);
   }
 
   Future<void> _uploadImageBytes(
@@ -1016,6 +1057,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                                 child: Image.network(
                                   _imageUrl(id),
                                   fit: BoxFit.cover,
+                                  headers: _api.imageAuthHeaders,
                                   errorBuilder: (_, __, ___) =>
                                       _kindIcon(kind),
                                 ),
@@ -1135,6 +1177,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                 : Image.network(
                     _imageUrl(id),
                     fit: BoxFit.cover,
+                    headers: _api.imageAuthHeaders,
                     errorBuilder: (_, __, ___) => _kindIcon(kind),
                   ),
           ),

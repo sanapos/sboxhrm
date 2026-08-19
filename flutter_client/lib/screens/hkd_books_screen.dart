@@ -362,6 +362,12 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
     }
   }
 
+  String get _groupShort => switch (_taxGroup) {
+        1 => 'Dưới 1 tỷ/năm',
+        3 => 'Trên 3 tỷ/năm',
+        _ => 'Từ 1–3 tỷ/năm',
+      };
+
   String get _groupHint {
     switch (_taxGroup) {
       case 1:
@@ -414,11 +420,11 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
                     style: const TextStyle(fontSize: 13, color: Color(0xFF71717A)),
                   ),
                   const SizedBox(height: 16),
-                  _buildProfileCard(canEdit),
-                  const SizedBox(height: 16),
                   _buildPeriodCard(),
                   const SizedBox(height: 16),
                   _buildBookCard(canExport),
+                  const SizedBox(height: 16),
+                  _buildProfileCard(canEdit),
                   if (_exporting) ...[
                     const SizedBox(height: 12),
                     const LinearProgressIndicator(),
@@ -437,17 +443,26 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: Color(0xFFE4E4E7)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: false,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Text(
+            tr('Hồ sơ hộ kinh doanh'),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+          ),
+          subtitle: Text(
+            tr(_groupShort),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+          ),
           children: [
-            Text(
-              tr('Hồ sơ hộ kinh doanh'),
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(tr('Nhóm theo doanh thu năm'),
+                  style: const TextStyle(fontSize: 12)),
             ),
-            const SizedBox(height: 12),
-            Text(tr('Nhóm theo doanh thu năm'), style: const TextStyle(fontSize: 12)),
             const SizedBox(height: 6),
             DropdownButtonFormField<int>(
               value: _taxGroup,
@@ -631,7 +646,8 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
                 final selected = _selectedBook == b.id;
                 return FilterChip(
                   selected: selected,
-                  label: Text('${b.title} · ${b.subtitle}'),
+                  label: Text(b.title),
+                  tooltip: b.subtitle,
                   onSelected: (_) => _selectBook(b.id),
                   selectedColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
                   checkmarkColor: HrmPageChrome.primaryNavy,
@@ -647,6 +663,7 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
               canExport: canExport,
               exporting: _exporting,
               onExport: _exportSelected,
+              onRetry: _loadPreview,
             ),
           ],
         ),

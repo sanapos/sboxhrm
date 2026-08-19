@@ -23,6 +23,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   String? _status;
+  String _dateBasis = 'usage';
   bool _loading = true;
   Map<String, dynamic>? _data;
 
@@ -38,6 +39,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
       from: _time.from,
       to: _time.to,
       status: _status,
+      dateBasis: _dateBasis,
     );
     if (!mounted) return;
     setState(() {
@@ -73,13 +75,45 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
               children: [
                 Wrap(
                   spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    FilterChip(
+                      label: Text(tr('Theo ngày dùng bàn')),
+                      selected: _dateBasis == 'usage',
+                      onSelected: (_) {
+                        setState(() => _dateBasis = 'usage');
+                        _load();
+                      },
+                    ),
+                    FilterChip(
+                      label: Text(tr('Theo ngày nhận lịch')),
+                      selected: _dateBasis == 'created',
+                      onSelected: (_) {
+                        setState(() => _dateBasis = 'created');
+                        _load();
+                      },
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, bottom: 8),
+                  child: Text(
+                    tr(_dateBasis == 'created'
+                        ? 'Lịch nhân viên nhận trong kỳ. Cọc vẫn vào két ngày thu. Lịch dùng sau kỳ: ${_data?['useLaterCount'] ?? 0}.'
+                        : 'Lịch khách đến dùng trong kỳ. Đặt trước từ ngày khác: ${_data?['advanceCount'] ?? 0}.'),
+                    style: const TextStyle(
+                        fontSize: 12, color: PosTheme.textSecondary),
+                  ),
+                ),
+                Wrap(
+                  spacing: 8,
                   children: [
                     for (final e in [
                       (null, 'Tất cả'),
                       ('Booked', 'Đặt ${_data?['bookedCount'] ?? 0}'),
                       ('Seated', 'Nhận ${_data?['seatedCount'] ?? 0}'),
                       ('Cancelled', 'Hủy ${_data?['cancelledCount'] ?? 0}'),
-                      ('NoShow', 'Vắng ${_data?['noShowCount'] ?? 0}'),
+                      ('NoShow', 'Không đến ${_data?['noShowCount'] ?? 0}'),
                     ])
                       FilterChip(
                         label: Text(tr(e.$2)),
@@ -99,6 +133,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                     tiles: [
                       (label: 'Đang giữ', value: _n(_data?['depositHeld']), color: const Color(0xFF0F766E)),
                       (label: 'Đã trừ HĐ', value: _n(_data?['depositApplied']), color: PosTheme.kiotBlue),
+                      (label: 'Hoàn cọc', value: _n(_data?['depositRefunded']), color: const Color(0xFF7C3AED)),
                       (label: 'Phạt / mất', value: _n(_data?['depositForfeited']), color: Colors.red.shade700),
                     ],
                   ),
@@ -124,6 +159,10 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
 
   Widget _row(Map<String, dynamic> r) {
     final at = DateTime.tryParse('${r['reservedAt'] ?? ''}');
+    final created = DateTime.tryParse('${r['createdAt'] ?? ''}');
+    final occ = (r['occasionLabel'] ?? '').toString();
+    final req = (r['specialRequest'] ?? '').toString();
+    final note = (r['note'] ?? '').toString();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -142,9 +181,29 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
           ],
         ),
         Text(
-          tr('${at == null ? '' : _dateFmt.format(at)} · ${r['guestCount'] ?? 1} khách · cọc ${_moneyFmt.format(_n(r['depositPaid']))}'),
+          tr([
+            if (at != null) 'Dùng ${_dateFmt.format(at.toLocal())}',
+            if (created != null) 'Đặt ${DateFormat('dd/MM HH:mm').format(created.toLocal())}',
+            '${r['guestCount'] ?? 1} khách',
+            'cọc ${_moneyFmt.format(_n(r['depositPaid']))}',
+            if ((r['depositPaymentMethod'] ?? '').toString().isNotEmpty)
+              r['depositPaymentMethod'].toString(),
+            r['depositStatusLabel'] ?? r['depositStatus'] ?? '',
+          ].join(' · ')),
           style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
         ),
+        if (occ.isNotEmpty || req.isNotEmpty || note.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              tr([
+                if (occ.isNotEmpty) occ,
+                if (req.isNotEmpty) req,
+                if (note.isNotEmpty) note,
+              ].join(' · ')),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF7C3AED)),
+            ),
+          ),
       ],
     );
   }

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../models/pos_end_of_day_report.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_end_of_day_print.dart';
 import '../../utils/pos_report_export.dart';
@@ -61,7 +62,9 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
 
   Future<void> _initAndLoad() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    _canPickStaff = StoreRoleHelper.isManagerOrAbove(auth.userRole);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    _canPickStaff = StoreRoleHelper.isManagerOrAbove(auth.userRole) ||
+        perm.canViewAllPosStaffReports();
     await _loadSellSettings();
     await _loadStaff();
     await _loadReport();
@@ -145,7 +148,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         if (hit.isNotEmpty) return hit.first.employeeId;
         return eid;
       }
-      if (list.isNotEmpty) return list.first.employeeId;
+      final email = user.email.trim();
+      if (email.isNotEmpty) return email;
       return null;
     }
     final email = user.email.trim();
@@ -155,8 +159,16 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       if (hit.isNotEmpty) return hit.first.email;
       return email;
     }
-    if (list.isNotEmpty) return list.first.email;
     return null;
+  }
+
+  String _selfAccountLabel() {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final name = (user?.fullName ?? '').trim();
+    if (name.isNotEmpty) return name;
+    final email = (user?.email ?? '').trim();
+    if (email.isNotEmpty) return email;
+    return 'tài khoản đang đăng nhập';
   }
 
   Future<void> _loadReport() async {
@@ -240,7 +252,13 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         ['Hoàn trả', r.refundTotal],
         ['Tiền mặt', r.cashTotal],
         ['Công nợ', r.debtTotal],
-        ['Thực thu', r.actualReceived],
+        ['Thực thu HĐ', r.actualReceived],
+        ['Thu cọc', r.depositCollected],
+        ['Hoàn cọc', r.depositRefunded],
+        ['Mất cọc', r.depositForfeited],
+        ['Cọc đang giữ', r.depositHeld],
+        ['Tiền mặt két', r.drawerCash],
+        ['Quỹ vào hôm nay', r.fundInToday],
         for (final p in r.payments) [p.paymentMethod, p.total],
         for (final p in r.products) [p.productName, p.qty],
       ],
@@ -392,7 +410,11 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                         },
                 ),
               ),
-            ],
+            ] else
+              Chip(
+                avatar: const Icon(Icons.person_outline, size: 18),
+                label: Text(tr('Chỉ ${_selfAccountLabel()}')),
+              ),
             FilterChip(
               label: Text(tr(_sellSettings?.overnightReportEnabled == true
                   ? 'Qua đêm ${_sellSettings!.reportDayStartHour.toString().padLeft(2, '0')}:00'
@@ -598,15 +620,28 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 _summaryLine('', 'Sau trả', _fmt(r.totalAfterRefund)),
                 _summaryLine('', 'Hủy đơn', '${r.canceledCount}'),
                 const Divider(height: 16),
-                section('THANH TOÁN'),
-                _summaryLine('', 'Tiền mặt', _fmt(r.cashTotal), indent: true),
+                section('THANH TOÁN BÁN HÀNG'),
+                _summaryLine('', 'Tiền mặt HĐ', _fmt(r.cashTotal), indent: true),
                 _summaryLine('', 'Ghi nợ', _fmt(r.debtTotal), indent: true),
                 for (final p in r.payments)
                   if (!p.paymentMethod.toLowerCase().contains('mặt') &&
                       p.paymentMethod.toLowerCase() != 'cash')
                     _summaryLine('', p.paymentMethod, _fmt(p.total), indent: true),
+                _summaryLine('', 'Thực thu HĐ (gồm cọc trừ)', _fmt(r.actualReceived)),
+                const Divider(height: 16),
+                section('CỌC ĐẶT BÀN'),
+                _summaryLine('', 'Thu cọc hôm nay', _fmt(r.depositCollected), indent: true),
+                for (final p in r.depositByPayment)
+                  _summaryLine('', p.paymentMethod, _fmt(p.total), indent: true),
+                _summaryLine('', 'Hoàn cọc', _fmt(r.depositRefunded), indent: true),
+                _summaryLine('', 'Mất cọc (thu nhập)', _fmt(r.depositForfeited), indent: true),
+                _summaryLine('', 'Đang giữ (chưa nhận bàn)', _fmt(r.depositHeld), indent: true),
+                _summaryLine('', 'Đã trừ HĐ hôm nay', _fmt(r.depositApplied), indent: true),
                 const Divider(height: 18, thickness: 1.4),
-                _summaryLine('', 'THỰC THU', _fmt(r.actualReceived), bold: true),
+                _summaryLine('', 'TIỀN MẶT TRONG KÉT', _fmt(r.drawerCash), bold: true),
+                _summaryLine('', 'QUỸ VÀO HÔM NAY', _fmt(r.fundInToday), bold: true),
+                if (r.otherIncome > 0)
+                  _summaryLine('', 'Thu nhập khác (mất cọc)', _fmt(r.otherIncome)),
                 const Divider(height: 18, thickness: 1.4),
                 if (_showProductDetail && r.products.isNotEmpty) ...[
                   section('HÀNG BÁN'),
@@ -639,7 +674,12 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         const SizedBox(height: 12),
         _summaryLine('', 'Số đơn', '${r.orderCount}'),
         _summaryLine('', 'Doanh thu ròng', _fmt(r.netSales)),
-        _summaryLine('', 'Thực thu', _fmt(r.actualReceived), bold: true),
+        _summaryLine('', 'Thực thu HĐ', _fmt(r.actualReceived), bold: true),
+        _summaryLine('', 'Thu cọc hôm nay', _fmt(r.depositCollected)),
+        _summaryLine('', 'Hoàn cọc', _fmt(r.depositRefunded)),
+        _summaryLine('', 'Mất cọc', _fmt(r.depositForfeited)),
+        _summaryLine('', 'Tiền mặt két', _fmt(r.drawerCash), bold: true),
+        _summaryLine('', 'Quỹ vào hôm nay', _fmt(r.fundInToday), bold: true),
         if (r.closedOffDayOrders.isNotEmpty) ...[
           const SizedBox(height: 12),
           Text(tr('Hóa đơn chốt ngày khác'),

@@ -14564,15 +14564,25 @@ class ApiService {
     String? categoryId,
     String? supplierId,
     PosProductType? productType,
+    bool all = true,
   }) async {
-    final q = <String, String>{};
-    if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
-    if (categoryId != null && categoryId.isNotEmpty) q['categoryId'] = categoryId;
-    if (supplierId != null && supplierId.isNotEmpty) q['supplierId'] = supplierId;
+    final q = <String, String>{
+      'all': all ? 'true' : 'false',
+    };
+    if (!all) {
+      if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+      if (categoryId != null && categoryId.isNotEmpty) {
+        q['categoryId'] = categoryId;
+      }
+      if (supplierId != null && supplierId.isNotEmpty) {
+        q['supplierId'] = supplierId;
+      }
+    }
     if (productType != null) q['productType'] = productType.apiValue.toString();
     return _getExcelExport(
       Uri.parse('$baseUrl/api/pos/products/export/excel')
-          .replace(queryParameters: q.isEmpty ? null : q),
+          .replace(queryParameters: q),
+      timeout: const Duration(seconds: 180),
     );
   }
 
@@ -15466,12 +15476,14 @@ class ApiService {
     DateTime? from,
     DateTime? to,
     String? status,
+    String dateBasis = 'usage',
   }) async {
     try {
       final q = <String, String>{};
       if (from != null) q['from'] = from.toIso8601String();
       if (to != null) q['to'] = to.toIso8601String();
       if (status != null && status.isNotEmpty) q['status'] = status;
+      if (dateBasis.isNotEmpty) q['dateBasis'] = dateBasis;
       final uri = Uri.parse('$baseUrl/api/pos/reports/reservations/summary')
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
@@ -15645,21 +15657,52 @@ class ApiService {
     DateTime? from,
     DateTime? to,
   }) async {
-    final q = <String, String>{'book': book};
-    if (from != null) q['from'] = from.toIso8601String();
-    if (to != null) q['to'] = to.toIso8601String();
-    try {
+    final q = _hkdBookQuery(book, from, to);
+    Future<Map<String, dynamic>> get(String path) async {
       final response = await http
           .get(
-            Uri.parse('$baseUrl/api/hkd/books/preview')
-                .replace(queryParameters: q),
+            Uri.parse('$baseUrl$path').replace(queryParameters: q),
             headers: _headers,
           )
           .timeout(const Duration(seconds: 60));
+      if (response.statusCode == 404) {
+        return {
+          'isSuccess': false,
+          'statusCode': 404,
+          'message':
+              'Không xem được sổ (404). Máy chủ cần bản API có /api/hkd/preview.',
+        };
+      }
       return _handleResponse(response);
+    }
+
+    try {
+      var res = await get('/api/hkd/preview');
+      if (res['statusCode'] == 404) {
+        res = await get('/api/hkd/books/preview');
+      }
+      return res;
     } catch (e) {
       return _connectionFailure(e);
     }
+  }
+
+  Map<String, String> _hkdBookQuery(String? book, DateTime? from, DateTime? to) {
+    final q = <String, String>{};
+    if (book != null && book.trim().isNotEmpty) q['book'] = book.trim();
+    final f = _ymdDate(from);
+    final t = _ymdDate(to);
+    if (f != null) q['from'] = f;
+    if (t != null) q['to'] = t;
+    return q;
+  }
+
+  static String? _ymdDate(DateTime? d) {
+    if (d == null) return null;
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
   }
 
   Future<Map<String, dynamic>> exportHkdRevenueBookExcel({
@@ -15667,9 +15710,7 @@ class ApiService {
     DateTime? from,
     DateTime? to,
   }) async {
-    final q = <String, String>{'book': book};
-    if (from != null) q['from'] = from.toIso8601String();
-    if (to != null) q['to'] = to.toIso8601String();
+    final q = _hkdBookQuery(book, from, to);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/hkd/books/revenue/export/excel')
           .replace(queryParameters: q),
@@ -15680,9 +15721,7 @@ class ApiService {
     DateTime? from,
     DateTime? to,
   }) async {
-    final q = <String, String>{};
-    if (from != null) q['from'] = from.toIso8601String();
-    if (to != null) q['to'] = to.toIso8601String();
+    final q = _hkdBookQuery(null, from, to);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/hkd/books/cash/export/excel')
           .replace(queryParameters: q.isEmpty ? null : q),
@@ -15693,9 +15732,7 @@ class ApiService {
     DateTime? from,
     DateTime? to,
   }) async {
-    final q = <String, String>{};
-    if (from != null) q['from'] = from.toIso8601String();
-    if (to != null) q['to'] = to.toIso8601String();
+    final q = _hkdBookQuery(null, from, to);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/hkd/books/income-expense/export/excel')
           .replace(queryParameters: q.isEmpty ? null : q),
@@ -15706,9 +15743,7 @@ class ApiService {
     DateTime? from,
     DateTime? to,
   }) async {
-    final q = <String, String>{};
-    if (from != null) q['from'] = from.toIso8601String();
-    if (to != null) q['to'] = to.toIso8601String();
+    final q = _hkdBookQuery(null, from, to);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/hkd/books/inventory/export/excel')
           .replace(queryParameters: q.isEmpty ? null : q),
@@ -18939,6 +18974,24 @@ class ApiService {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/resource-reservations'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosResourceReservation(
+    String id,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/resource-reservations/$id'),
             headers: _headers,
             body: jsonEncode(body),
           )

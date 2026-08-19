@@ -57,7 +57,7 @@ internal static class PosProductExcelImportParser
         public int DescCol = -1;
 
         public int PrinterCol = -1;
-
+        public int IsActiveCol = -1;
     }
 
 
@@ -111,8 +111,8 @@ internal static class PosProductExcelImportParser
         string? LocationName,
 
         string? Description,
-
-        string? PrinterName);
+        string? PrinterName,
+        bool? IsActive = null);
 
 
 
@@ -151,112 +151,62 @@ internal static class PosProductExcelImportParser
 
 
     static List<ImportRow> ParseProductsWorkbook(XLWorkbook workbook)
-
     {
-
-        var ws = workbook.Worksheets.FirstOrDefault(w =>
-
-                     string.Equals(w.Name, "Hàng hóa", StringComparison.OrdinalIgnoreCase) ||
-
-                     string.Equals(w.Name, "Hang hoa", StringComparison.OrdinalIgnoreCase) ||
-
-                     string.Equals(w.Name, "Products", StringComparison.OrdinalIgnoreCase))
-
-                 ?? workbook.Worksheets.First();
-
-
-
-        var headerRow = FindHeaderRow(ws);
-
-        if (headerRow <= 0) return [];
-
-
-
-        var cols = BuildColumnMap(ws, headerRow);
-
-        if (cols.NameCol <= 0) return [];
-
-
-
-        var lastRow = ws.LastRowUsed()?.RowNumber() ?? headerRow;
-
         var rows = new List<ImportRow>();
-
-
-
-        for (var r = headerRow + 1; r <= lastRow; r++)
-
+        foreach (var ws in workbook.Worksheets)
         {
+            var n = (ws.Name ?? "").Trim();
+            if (n.Equals("Combo", StringComparison.OrdinalIgnoreCase) ||
+                n.Equals("HuongDan", StringComparison.OrdinalIgnoreCase) ||
+                n.StartsWith("Hướng", StringComparison.OrdinalIgnoreCase))
+                continue;
+            rows.AddRange(ParseProductSheet(ws));
+        }
+        return rows;
+    }
 
+    static List<ImportRow> ParseProductSheet(IXLWorksheet ws)
+    {
+        var headerRow = FindHeaderRow(ws);
+        if (headerRow <= 0) return [];
+        var cols = BuildColumnMap(ws, headerRow);
+        if (cols.NameCol <= 0) return [];
+        var lastRow = ws.LastRowUsed()?.RowNumber() ?? headerRow;
+        var rows = new List<ImportRow>();
+        for (var r = headerRow + 1; r <= lastRow; r++)
+        {
             var name = Cell(ws, r, cols.NameCol);
-
             if (string.IsNullOrWhiteSpace(name)) continue;
-
-
-
             var typeRaw = Cell(ws, r, cols.TypeCol);
             var productType = PosProductTypeRules.Parse(typeRaw);
-
-
-
             var directRaw = Cell(ws, r, cols.DirectSaleCol);
-
             var isDirect = string.IsNullOrWhiteSpace(directRaw) ||
-
                            directRaw.Equals("có", StringComparison.OrdinalIgnoreCase) ||
-
                            directRaw.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
-
                            directRaw == "1" ||
-
                            directRaw.Equals("true", StringComparison.OrdinalIgnoreCase);
-
-
-
             rows.Add(new ImportRow(
-
                 NullIfEmpty(Cell(ws, r, cols.CodeCol)),
-
                 NullIfEmpty(Cell(ws, r, cols.BarcodeCol)),
-
                 name.Trim(),
-
                 NullIfEmpty(Cell(ws, r, cols.CategoryCol)),
-
                 NullIfEmpty(Cell(ws, r, cols.BrandCol)),
-
                 NullIfEmpty(Cell(ws, r, cols.SupplierCol)),
-
                 ParseDec(Cell(ws, r, cols.CostCol)),
-
                 ParseDec(Cell(ws, r, cols.PriceCol)),
-
                 ParseDec(Cell(ws, r, cols.StockCol)),
-
                 ParseDec(Cell(ws, r, cols.MinStockCol)),
-
                 ParseDec(Cell(ws, r, cols.MaxStockCol)),
-
                 string.IsNullOrWhiteSpace(Cell(ws, r, cols.UnitCol)) ? "Cái" : Cell(ws, r, cols.UnitCol).Trim(),
-
                 productType,
-
                 isDirect,
-
                 ParseDecNullable(Cell(ws, r, cols.WeightCol)),
-
                 NullIfEmpty(Cell(ws, r, cols.LocationCol)),
-
                 NullIfEmpty(Cell(ws, r, cols.DescCol)),
-
-                NullIfEmpty(Cell(ws, r, cols.PrinterCol))));
-
+                NullIfEmpty(Cell(ws, r, cols.PrinterCol)),
+                ParseActive(Cell(ws, r, cols.IsActiveCol))));
         }
-
-
-
         return rows;
-
     }
 
 
@@ -442,6 +392,11 @@ internal static class PosProductExcelImportParser
             else if (h.Contains("mota", StringComparison.Ordinal) || h.Contains("description", StringComparison.Ordinal)) map.DescCol = c;
 
             else if (h.Contains("mayin", StringComparison.Ordinal) || h.Contains("printer", StringComparison.Ordinal)) map.PrinterCol = c;
+            else if (h.Contains("dangkd", StringComparison.Ordinal) ||
+                     h.Contains("trangthai", StringComparison.Ordinal) ||
+                     h.Contains("isactive", StringComparison.Ordinal) ||
+                     h.Contains("active", StringComparison.Ordinal))
+                map.IsActiveCol = c;
 
         }
 
@@ -526,8 +481,29 @@ internal static class PosProductExcelImportParser
 
 
     static decimal? ParseDecNullable(string s) =>
-
         string.IsNullOrWhiteSpace(s) ? null : ParseDec(s);
+
+    static bool? ParseActive(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        var t = s.Trim();
+        if (t.Equals("có", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("yes", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+            t == "1" ||
+            t.Equals("dangkd", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("hoatdong", StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (t.Equals("không", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("khong", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("no", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("false", StringComparison.OrdinalIgnoreCase) ||
+            t == "0" ||
+            t.Equals("ngungkd", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("ngừng", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return null;
+    }
 
 
 

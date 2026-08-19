@@ -198,34 +198,49 @@ public partial class PosReportsController
         }));
     }
 
-    /// <summary>Đặt chỗ / cọc theo kỳ (chỉ bản ghi chưa xóa).</summary>
+    /// <summary>
+    /// Đặt chỗ / cọc theo kỳ.
+    /// dateBasis=usage (mặc định): lọc theo ngày khách dùng bàn (ReservedAt).
+    /// dateBasis=created: lọc theo ngày nhân viên nhận lịch (CreatedAt) — cọc thu hôm nay vẫn vào két ngày thu.
+    /// </summary>
     [HttpGet("reservations/summary")]
     [RequireModulePermission("PosSalesReport", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetReservationsSummary(
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
         [FromQuery] string? status = null,
-        [FromQuery] int? dayStartHour = null)
+        [FromQuery] int? dayStartHour = null,
+        [FromQuery] string? dateBasis = "usage")
     {
         var storeId = RequiredStoreId;
         var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
         var (fromDt, toDt, fromVn, toVnEx) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
 
+        var byCreated = string.Equals(dateBasis, "created", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(dateBasis, "booked", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(dateBasis, "dat", StringComparison.OrdinalIgnoreCase);
+
         var query = dbContext.PosResourceReservations.AsNoTracking()
-            .Where(x => x.StoreId == storeId && x.Deleted == null &&
-                        x.ReservedAt >= fromDt && x.ReservedAt < toDt);
+            .Where(x => x.StoreId == storeId);
+        query = byCreated
+            ? query.Where(x => x.CreatedAt >= fromDt && x.CreatedAt < toDt)
+            : query.Where(x => x.ReservedAt >= fromDt && x.ReservedAt < toDt);
 
         if (!string.IsNullOrWhiteSpace(status) &&
             Enum.TryParse<PosResourceReservationStatus>(status, true, out var st))
             query = query.Where(x => x.Status == st);
 
-        var rows = await query
-            .OrderByDescending(x => x.ReservedAt)
+        var ordered = byCreated
+            ? query.OrderByDescending(x => x.CreatedAt)
+            : query.OrderByDescending(x => x.ReservedAt);
+
+        var rows = await ordered
             .Select(x => new
             {
                 x.Id,
                 x.ReservedAt,
                 x.ReservedUntil,
+                x.CreatedAt,
                 x.GuestCount,
                 x.CustomerName,
                 x.Phone,
@@ -235,7 +250,10 @@ public partial class PosReportsController
                 x.DepositAmount,
                 x.DepositPaid,
                 depositStatus = x.DepositStatus.ToString(),
+                depositPaymentMethod = x.DepositPaymentMethod,
                 x.Note,
+                x.Occasion,
+                x.SpecialRequest,
             })
             .ToListAsync();
 
@@ -248,14 +266,43 @@ public partial class PosReportsController
             _ => s,
         };
 
+        static string DepositVi(string s) => s switch
+        {
+            "Held" => "Đang giữ",
+            "Applied" => "Đã trừ HĐ",
+            "Refunded" => "Đã hoàn",
+            "Forfeited" => "Mất cọc",
+            "None" => "Chưa thu",
+            _ => s,
+        };
+
+        static string OccasionVi(string? s) => (s ?? "").ToLowerInvariant() switch
+        {
+            "birthday" => "Sinh nhật",
+            "party" => "Liên hoan",
+            "reunion" => "Họp lớp",
+            "partner" => "Gặp đối tác",
+            "other" => "Khác",
+            "" => "",
+            _ => s!,
+        };
+
+        var advanceCount = rows.Count(x =>
+            ReservationVnDate(x.CreatedAt) < ReservationVnDate(x.ReservedAt));
+        var useLaterCount = rows.Count(x =>
+            x.status == "Booked" && x.ReservedAt >= toDt);
+
         return Ok(AppResponse<object>.Success(new
         {
             from = fromVn.Date,
             to = toVnEx.AddDays(-1).Date,
+            dateBasis = byCreated ? "created" : "usage",
             bookedCount = rows.Count(x => x.status == "Booked"),
             seatedCount = rows.Count(x => x.status == "Seated"),
             cancelledCount = rows.Count(x => x.status == "Cancelled"),
             noShowCount = rows.Count(x => x.status == "NoShow"),
+            advanceCount,
+            useLaterCount,
             depositHeld = rows.Where(x => x.depositStatus == "Held").Sum(x => x.DepositPaid),
             depositApplied = rows.Where(x => x.depositStatus == "Applied").Sum(x => x.DepositPaid),
             depositForfeited = rows.Where(x => x.depositStatus == "Forfeited").Sum(x => x.DepositPaid),
@@ -265,6 +312,7 @@ public partial class PosReportsController
                 x.Id,
                 x.ReservedAt,
                 x.ReservedUntil,
+                x.CreatedAt,
                 x.GuestCount,
                 x.CustomerName,
                 x.Phone,
@@ -275,8 +323,19 @@ public partial class PosReportsController
                 x.DepositAmount,
                 x.DepositPaid,
                 x.depositStatus,
+                depositStatusLabel = DepositVi(x.depositStatus),
+                x.depositPaymentMethod,
                 x.Note,
+                x.Occasion,
+                occasionLabel = OccasionVi(x.Occasion),
+                x.SpecialRequest,
             }).ToList(),
         }));
+    }
+
+    static DateTime ReservationVnDate(DateTime utc)
+    {
+        var u = utc.Kind == DateTimeKind.Utc ? utc : DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+        return u.AddHours(7).Date;
     }
 }

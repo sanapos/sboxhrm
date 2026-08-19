@@ -354,6 +354,7 @@ public partial class PosSellIndustryController(
         string? ReservationPhone = null,
         int ReservationGuestCount = 0,
         int ReservationPreOrderCount = 0,
+        DateTime? ReservationReservedAt = null,
         DateTime? ReservationReservedUntil = null,
         string? LockedByDeviceId = null,
         string? LockedByDeviceName = null,
@@ -882,7 +883,9 @@ public partial class PosSellIndustryController(
             }
 
             string status;
-            if (sess == null && booking != null && lineCount <= 0) status = "Reserved";
+            // Lịch đặt (kể cả slot tương lai) thắng phiếu trống / holding 0 món —
+            // không để phiên walk-in che ô ĐẶT trên sơ đồ bán.
+            if (booking != null && lineCount <= 0) status = "Reserved";
             else if (sess == null && lineCount <= 0) status = "Free";
             else if (sess == null && lineCount > 0) status = "Occupied"; // draft mồ côi còn món
             else if (sess!.Status == PosResourceSessionStatus.Paused) status = "Paused";
@@ -927,6 +930,7 @@ public partial class PosSellIndustryController(
                 r.LayoutX, r.LayoutY, r.LayoutW, r.LayoutH,
                 booking?.Id, booking?.CustomerName, booking?.Phone,
                 booking?.GuestCount ?? 0, preOrderCount,
+                booking?.ReservedAt,
                 booking?.ReservedUntil,
                 lockedByDeviceId, lockedByDeviceName, lockedByDisplayName, lockExpiresAt,
                 tableSessionOpen, hasParkedBill,

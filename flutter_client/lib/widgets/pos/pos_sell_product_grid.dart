@@ -15,6 +15,7 @@ import '../../utils/pos_purchase_product_lookup.dart';
 import '../../utils/pos_sell_stock_patch.dart';
 import '../../utils/pos_sell_unit_views.dart';
 import 'pos_catalog_sort_sheet.dart';
+import 'pos_h_scroll_chip_row.dart';
 import 'pos_mobile_widgets.dart';
 import '../pos_barcode_scanner.dart';
 import 'pos_product_image.dart';
@@ -1113,41 +1114,33 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   }
 
   Widget _horizontalCategoryStrip() {
-    return SizedBox(
-      height: 46,
-      child: _loadingCategories
-          ? const Center(
+    return _loadingCategories
+        ? const SizedBox(
+            height: 46,
+            child: Center(
               child: SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
-            )
-          : Row(
-              children: [
-                Expanded(
-                  child: Scrollbar(
-                    thumbVisibility: false,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
-                      children: [
-                        _horizontalCategoryChip('Tất cả', null),
-                        for (final node in buildPosCategoryTree(_categories))
-                          ..._horizontalCategoryChipsForNode(node),
-                      ],
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: tr('Sắp xếp menu'),
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.swap_vert, size: 22, color: PosTheme.textSecondary),
-                  onPressed: _openCatalogSort,
-                ),
-              ],
             ),
-    );
+          )
+        : PosHScrollChipRow(
+            height: 48,
+            padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+            trailing: IconButton(
+              tooltip: tr('Sắp xếp menu'),
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.swap_vert,
+                  size: 22, color: PosTheme.textSecondary),
+              onPressed: _openCatalogSort,
+            ),
+            children: [
+              _horizontalCategoryChip('Tất cả', null),
+              for (final node in buildPosCategoryTree(_categories))
+                ..._horizontalCategoryChipsForNode(node),
+            ],
+          );
   }
 
   List<Widget> _horizontalCategoryChipsForNode(PosCategoryNode node) {
@@ -1162,29 +1155,26 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   Widget _horizontalCategoryChip(String label, String? id) {
     final selected = _categoryId == id;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Material(
-        color: selected ? PosTheme.kiotBlue : Colors.white,
+    return Material(
+      color: selected ? PosTheme.kiotBlue : Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => _selectCategory(id),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: selected ? PosTheme.kiotBlue : const Color(0xFFD9D9D9),
-              ),
+        onTap: () => _selectCategory(id),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected ? PosTheme.kiotBlue : const Color(0xFFD9D9D9),
             ),
-            child: Text(
-              tr(label),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                color: selected ? Colors.white : PosTheme.textPrimary,
-              ),
+          ),
+          child: Text(
+            tr(label),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? Colors.white : PosTheme.textPrimary,
             ),
           ),
         ),

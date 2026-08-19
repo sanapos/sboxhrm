@@ -1606,8 +1606,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavItem(
       icon: Icons.event_available_outlined,
       activeIcon: Icons.event_available,
-      label: 'Đặt bàn / lịch hẹn',
-      subtitle: 'Đặt bàn',
+      label: 'Đặt lịch',
+      subtitle: 'Đặt lịch',
       screen: const PosAppointmentDayScreen(),
       group: 'POS',
       themeColor: HrmPageChrome.primaryNavy,

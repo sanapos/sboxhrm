@@ -147,6 +147,17 @@ class PosEndOfDayReport {
   final List<PosEndOfDayPayment> payments;
   final List<PosEndOfDayProduct> products;
   final List<PosEndOfDayTransaction> transactions;
+  final double depositCollected;
+  final double depositRefunded;
+  final double depositForfeited;
+  final double depositHeld;
+  final double depositApplied;
+  final double depositCollectedCash;
+  final double depositRefundedCash;
+  final List<PosEndOfDayPayment> depositByPayment;
+  final double drawerCash;
+  final double fundInToday;
+  final double otherIncome;
 
   const PosEndOfDayReport({
     required this.from,
@@ -174,6 +185,17 @@ class PosEndOfDayReport {
     this.payments = const [],
     this.products = const [],
     this.transactions = const [],
+    this.depositCollected = 0,
+    this.depositRefunded = 0,
+    this.depositForfeited = 0,
+    this.depositHeld = 0,
+    this.depositApplied = 0,
+    this.depositCollectedCash = 0,
+    this.depositRefundedCash = 0,
+    this.depositByPayment = const [],
+    this.drawerCash = 0,
+    this.fundInToday = 0,
+    this.otherIncome = 0,
   });
 
   factory PosEndOfDayReport.fromJson(Map<String, dynamic> json) {
@@ -209,6 +231,18 @@ class PosEndOfDayReport {
       payments: list(json['payments'], PosEndOfDayPayment.fromJson),
       products: list(json['products'], PosEndOfDayProduct.fromJson),
       transactions: list(json['transactions'], PosEndOfDayTransaction.fromJson),
+      depositCollected: _num(json['depositCollected']),
+      depositRefunded: _num(json['depositRefunded']),
+      depositForfeited: _num(json['depositForfeited']),
+      depositHeld: _num(json['depositHeld']),
+      depositApplied: _num(json['depositApplied']),
+      depositCollectedCash: _num(json['depositCollectedCash']),
+      depositRefundedCash: _num(json['depositRefundedCash']),
+      depositByPayment:
+          list(json['depositByPayment'], PosEndOfDayPayment.fromJson),
+      drawerCash: _num(json['drawerCash']),
+      fundInToday: _num(json['fundInToday']),
+      otherIncome: _num(json['otherIncome']),
     );
   }
 }

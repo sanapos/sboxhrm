@@ -231,6 +231,19 @@ enum PosSellProfile {
       this == PosSellProfile.roomHourly ||
       this == PosSellProfile.hotel;
 
+  /// Đặt theo khung giờ / đêm — lịch hẹn, dịch vụ, NV (salon, KS, phòng giờ).
+  bool get usesTimedBooking =>
+      this == PosSellProfile.salon ||
+      this == PosSellProfile.hotel ||
+      this == PosSellProfile.roomHourly;
+
+  /// Đặt bàn F&B cổ điển (giờ đến, số khách, gọi món trước).
+  bool get usesClassicTableBooking => this == PosSellProfile.restaurant;
+
+  /// Gán nhân viên khi đặt (salon/spa; phòng giờ có dịch vụ).
+  bool get assignsServiceStaff =>
+      this == PosSellProfile.salon || this == PosSellProfile.roomHourly;
+
   bool get usesKitchenNotify => this == PosSellProfile.restaurant;
 
   bool get usesWarehouseSlip =>
@@ -638,6 +651,7 @@ class PosServiceResourceDto {
     this.reservationPhone,
     this.reservationGuestCount = 0,
     this.reservationPreOrderCount = 0,
+    this.reservationReservedAt,
     this.reservationReservedUntil,
     this.lockedByDeviceId,
     this.lockedByDeviceName,
@@ -686,6 +700,7 @@ class PosServiceResourceDto {
   final String? reservationPhone;
   final int reservationGuestCount;
   final int reservationPreOrderCount;
+  final DateTime? reservationReservedAt;
   final DateTime? reservationReservedUntil;
   final String? lockedByDeviceId;
   final String? lockedByDeviceName;
@@ -748,6 +763,12 @@ class PosServiceResourceDto {
 
   bool get isReserved => occupancyStatus.toLowerCase() == 'reserved';
 
+  bool get hasReservation => (reservationId ?? '').isNotEmpty;
+
+  /// Có lịch đặt và chưa có món — hiện ĐẶT, không mở khách vãng lai.
+  bool get showReservedOnFloor =>
+      isReserved || (hasReservation && lineCount <= 0);
+
   bool get isFree => occupancyStatus.toLowerCase() == 'free';
   bool get isDirty => occupancyStatus.toLowerCase() == 'dirty' || needsCleaning;
   bool get isPaused => occupancyStatus.toLowerCase() == 'paused';
@@ -798,6 +819,7 @@ class PosServiceResourceDto {
         reservationPhone: reservationPhone,
         reservationGuestCount: reservationGuestCount,
         reservationPreOrderCount: reservationPreOrderCount,
+        reservationReservedAt: reservationReservedAt,
         reservationReservedUntil: reservationReservedUntil,
         lockedByDeviceId: lockedByDeviceId,
         lockedByDeviceName: lockedByDeviceName,
@@ -908,6 +930,8 @@ class PosServiceResourceDto {
           i(json['reservationGuestCount'] ?? json['ReservationGuestCount']),
       reservationPreOrderCount: i(
           json['reservationPreOrderCount'] ?? json['ReservationPreOrderCount']),
+      reservationReservedAt: dt(json['reservationReservedAt'] ??
+          json['ReservationReservedAt']),
       reservationReservedUntil: dt(json['reservationReservedUntil'] ??
           json['ReservationReservedUntil']),
       lockedByDeviceId:
@@ -1008,6 +1032,17 @@ class PosResourceReservationDto {
     this.isTimedSlot = false,
     this.preOrderValue = 0,
     this.resourceKind,
+    this.seatedSessionId,
+    this.orderId,
+    this.orderNo,
+    this.orderStatus,
+    this.orderTotal = 0,
+    this.orderPaid = 0,
+    this.orderLineCount = 0,
+    this.seatedAt,
+    this.createdAt,
+    this.occasion,
+    this.specialRequest,
   });
 
   final String id;
@@ -1036,6 +1071,17 @@ class PosResourceReservationDto {
   final bool isTimedSlot;
   final double preOrderValue;
   final String? resourceKind;
+  final String? seatedSessionId;
+  final String? orderId;
+  final String? orderNo;
+  final String? orderStatus;
+  final double orderTotal;
+  final double orderPaid;
+  final int orderLineCount;
+  final DateTime? seatedAt;
+  final DateTime? createdAt;
+  final String? occasion;
+  final String? specialRequest;
 
   bool get isBooked => status.toLowerCase() == 'booked';
   bool get isSeated => status.toLowerCase() == 'seated';
@@ -1043,6 +1089,12 @@ class PosResourceReservationDto {
   bool get isNoShow => status.toLowerCase() == 'noshow';
   bool get hasDepositHeld =>
       depositStatus.toLowerCase() == 'held' && depositPaid > 0;
+  bool get isOrderCompleted =>
+      (orderStatus ?? '').toLowerCase() == 'completed';
+  bool get isOrderCancelled =>
+      (orderStatus ?? '').toLowerCase() == 'cancelled';
+  bool get isUsingTable =>
+      isSeated && !isOrderCompleted && !isOrderCancelled;
 
   /// Tạm tính ngày đặt: món đặt trước + cọc đang giữ (chỉ Booked).
   double get expectedRevenue {
@@ -1112,7 +1164,48 @@ class PosResourceReservationDto {
       isTimedSlot: timed,
       preOrderValue: d(json['preOrderValue'] ?? json['PreOrderValue']),
       resourceKind: (json['resourceKind'] ?? json['ResourceKind'])?.toString(),
+      seatedSessionId:
+          (json['seatedSessionId'] ?? json['SeatedSessionId'])?.toString(),
+      orderId: (json['orderId'] ?? json['OrderId'])?.toString(),
+      orderNo: (json['orderNo'] ?? json['OrderNo'])?.toString(),
+      orderStatus: (json['orderStatus'] ?? json['OrderStatus'])?.toString(),
+      orderTotal: d(json['orderTotal'] ?? json['OrderTotal']),
+      orderPaid: d(json['orderPaid'] ?? json['OrderPaid']),
+      orderLineCount: i(json['orderLineCount'] ?? json['OrderLineCount']),
+      seatedAt: dt(json['seatedAt'] ?? json['SeatedAt']),
+      createdAt: dt(json['createdAt'] ?? json['CreatedAt']),
+      occasion: (json['occasion'] ?? json['Occasion'])?.toString(),
+      specialRequest:
+          (json['specialRequest'] ?? json['SpecialRequest'])?.toString(),
     );
+  }
+}
+
+class PosReservationOccasion {
+  static const options = <(String, String)>[
+    ('birthday', 'Sinh nhật'),
+    ('party', 'Liên hoan'),
+    ('reunion', 'Họp lớp'),
+    ('partner', 'Gặp đối tác'),
+    ('other', 'Khác'),
+  ];
+
+  static const requestChips = <String>[
+    'Bánh kem',
+    'Trang trí',
+    'Phòng riêng',
+    'Máy chiếu / loa',
+    'Hóa đơn VAT',
+    'Có trẻ em',
+  ];
+
+  static String label(String? code) {
+    final c = (code ?? '').trim().toLowerCase();
+    if (c.isEmpty) return '';
+    for (final o in options) {
+      if (o.$1 == c) return o.$2;
+    }
+    return code!.trim();
   }
 }
 

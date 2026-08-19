@@ -12,6 +12,7 @@ class HkdBookPreviewPanel extends StatefulWidget {
     required this.accent,
     this.error,
     this.onExport,
+    this.onRetry,
     this.canExport = false,
     this.exporting = false,
   });
@@ -21,6 +22,7 @@ class HkdBookPreviewPanel extends StatefulWidget {
   final Color accent;
   final String? error;
   final VoidCallback? onExport;
+  final VoidCallback? onRetry;
   final bool canExport;
   final bool exporting;
 
@@ -32,6 +34,14 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
   final _searchCtrl = TextEditingController();
   final _money = NumberFormat('#,##0', 'vi_VN');
   final _qty = NumberFormat('#,##0.###', 'vi_VN');
+  int _page = 0;
+  static const _pageSize = 40;
+
+  @override
+  void didUpdateWidget(covariant HkdBookPreviewPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.preview != widget.preview) _page = 0;
+  }
 
   @override
   void dispose() {
@@ -81,8 +91,21 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
     if (widget.error != null && widget.error!.isNotEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Text(widget.error!,
-            style: const TextStyle(color: Color(0xFFB42318))),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.error!,
+                style: const TextStyle(color: Color(0xFFB42318))),
+            if (widget.onRetry != null) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: widget.onRetry,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: Text(tr('Thử lại')),
+              ),
+            ],
+          ],
+        ),
       );
     }
     final data = widget.preview;
@@ -108,8 +131,12 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
-    final rows = _rows(data);
-    final totalCount = (data['rowCount'] as num?)?.toInt() ?? rows.length;
+    final allRows = _rows(data);
+    final totalCount = (data['rowCount'] as num?)?.toInt() ?? allRows.length;
+    final pageCount = (allRows.length / _pageSize).ceil().clamp(1, 9999);
+    if (_page >= pageCount) _page = pageCount - 1;
+    final start = _page * _pageSize;
+    final rows = allRows.skip(start).take(_pageSize).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,7 +225,7 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
         const SizedBox(height: 12),
         TextField(
           controller: _searchCtrl,
-          onChanged: (_) => setState(() {}),
+          onChanged: (_) => setState(() => _page = 0),
           decoration: InputDecoration(
             isDense: true,
             prefixIcon: const Icon(Icons.search, size: 18),
@@ -208,9 +235,9 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
         ),
         const SizedBox(height: 8),
         Text(
-          tr(rows.length == totalCount
-              ? '$totalCount dòng'
-              : '${rows.length} / $totalCount dòng'),
+          tr(allRows.length == totalCount
+              ? '${allRows.length} dòng'
+              : '${allRows.length} / $totalCount dòng'),
           style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
         ),
         const SizedBox(height: 8),
@@ -224,9 +251,9 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
               style: const TextStyle(color: Color(0xFF71717A)),
             ),
           )
-        else
+        else ...[
           ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 560),
+            constraints: const BoxConstraints(maxHeight: 420),
             child: Scrollbar(
               thumbVisibility: true,
               child: SingleChildScrollView(
@@ -294,6 +321,31 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
               ),
             ),
           ),
+          if (pageCount > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  TextButton(
+                    onPressed: _page <= 0
+                        ? null
+                        : () => setState(() => _page--),
+                    child: Text(tr('Trước')),
+                  ),
+                  Text(
+                    tr('${_page + 1} / $pageCount'),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  TextButton(
+                    onPressed: _page >= pageCount - 1
+                        ? null
+                        : () => setState(() => _page++),
+                    child: Text(tr('Sau')),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ],
     );
   }

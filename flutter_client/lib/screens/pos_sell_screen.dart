@@ -85,6 +85,7 @@ import '../widgets/pos/pos_numeric_keypad.dart';
 import 'pos/pos_end_of_day_screen.dart';
 import 'pos/pos_split_report_screens.dart';
 import 'pos/pos_resource_floor_screen.dart';
+import 'pos/pos_appointment_day_screen.dart';
 import 'pos/pos_session_redeem_sheet.dart';
 import 'pos_reports_screen.dart';
 import 'pos_sale_return_list_screen.dart';
@@ -127,6 +128,24 @@ abstract final class _KiotLayout {
 
   static double get tableMinWidth =>
       wDel + wNameMin + wQty + wUnit + wPrice + wTotal + 20;
+}
+
+class _SellMoreAction {
+  const _SellMoreAction({
+    required this.id,
+    required this.icon,
+    required this.label,
+    this.badge,
+    this.iconColor,
+    this.enabled = true,
+  });
+
+  final String id;
+  final IconData icon;
+  final String label;
+  final String? badge;
+  final Color? iconColor;
+  final bool enabled;
 }
 
 class _PosPaymentSource {
@@ -9669,6 +9688,58 @@ class _PosSellScreenState extends State<PosSellScreen> {
     });
   }
 
+  Future<void> _openBookingCalendar() async {
+    final floor = _floorPaneKey.currentState;
+    if (floor != null) {
+      await floor.openAppointmentCalendar();
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => PosAppointmentDayScreen(
+          sellProfile: _sellProfile,
+          onSeated: _onFloorSelect,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBookingToolbarButton({
+    Color iconColor = Colors.white,
+    bool labeled = true,
+  }) {
+    if (!labeled) {
+      return IconButton(
+        constraints: _KiotLayout.topBarActionTap,
+        tooltip: tr('Đặt lịch'),
+        onPressed: () => unawaited(_openBookingCalendar()),
+        icon: Icon(Icons.calendar_month_outlined, size: 22, color: iconColor),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: TextButton.icon(
+        onPressed: () => unawaited(_openBookingCalendar()),
+        icon: Icon(Icons.calendar_month_outlined, size: 18, color: iconColor),
+        label: Text(
+          tr('Đặt lịch'),
+          style: TextStyle(
+            color: iconColor,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+        ),
+        style: TextButton.styleFrom(
+          foregroundColor: iconColor,
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          side: BorderSide(color: iconColor.withValues(alpha: 0.45)),
+        ),
+      ),
+    );
+  }
+
   /// Top bar kiểu F&B cho mọi ngành: mode tabs / HĐ · tìm gọn · actions icon.
   Widget _buildTopBar({bool desktopChrome = false}) {
     final floorPrimary = _useFloorAsPrimary;
@@ -9724,6 +9795,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
             const Spacer(),
             ..._spacedTopBarActions([
               if (_isTableOrderMode) _buildTableGuestIconButton(),
+              if (_useFloorAsPrimary) _buildBookingToolbarButton(),
               IconButton(
                 constraints: _KiotLayout.topBarActionTap,
                 tooltip: tr(_systemUnreadNotifications > 0
@@ -9823,6 +9895,239 @@ class _PosSellScreenState extends State<PosSellScreen> {
       out.add(w);
     }
     return out;
+  }
+
+  List<_SellMoreAction> _sellMoreActions({required bool floorCompact}) {
+    final tableMode = _isTableOrderMode;
+    final actions = <_SellMoreAction>[];
+    if (!floorCompact) {
+      if (!tableMode &&
+          (_tab.resourceSessionId ?? '').isNotEmpty &&
+          _industrySettings?.sellProfile == PosSellProfile.restaurant) {
+        actions.add(_SellMoreAction(
+          id: 'kitchen',
+          icon: Icons.soup_kitchen_outlined,
+          label: 'Báo chế biến',
+          iconColor: const Color(0xFFB45309),
+          enabled: !_kitchenSending && !_checkingOut && !_parking,
+        ));
+      }
+      if (_printSettings.showCupLabelManualButton) {
+        actions.add(_SellMoreAction(
+          id: 'cup_label',
+          icon: Icons.sticky_note_2_outlined,
+          label: 'In tem ly',
+          badge: _cupLabelPendingCount > 0 ? '$_cupLabelPendingCount' : null,
+          iconColor: const Color(0xFF0D9488),
+          enabled: _cupLabelPendingCount > 0,
+        ));
+      }
+      if (!tableMode) {
+        actions.add(const _SellMoreAction(
+          id: 'price_list',
+          icon: Icons.sell_outlined,
+          label: 'Bảng giá',
+          iconColor: PosTheme.kiotBlue,
+        ));
+        actions.add(const _SellMoreAction(
+          id: 'scan_continuous',
+          icon: Icons.qr_code_scanner,
+          label: 'Quét liên tục',
+          iconColor: PosTheme.kiotBlue,
+        ));
+      }
+      if (tableMode) {
+        actions.add(_SellMoreAction(
+          id: 'guests',
+          icon: Icons.people_outline,
+          label: 'Số khách',
+          badge: _tab.tableGuestCount > 0 ? '${_tab.tableGuestCount}' : null,
+          enabled: !_tab.draftReadOnly,
+        ));
+      }
+    }
+    if (_useFloorAsPrimary) {
+      actions.add(const _SellMoreAction(
+        id: 'booking',
+        icon: Icons.calendar_month_outlined,
+        label: 'Đặt lịch',
+      ));
+    }
+    if (_pendingPrintCount == 0) {
+      actions.add(const _SellMoreAction(
+        id: 'pending_print',
+        icon: Icons.receipt_long_outlined,
+        label: 'In treo',
+      ));
+    }
+    actions.add(_SellMoreAction(
+      id: 'fullscreen',
+      icon: _isPosFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+      label: _isPosFullscreen ? 'Thoát full' : 'Toàn màn hình',
+    ));
+    actions.add(const _SellMoreAction(
+      id: 'customer_display',
+      icon: Icons.cast_connected_outlined,
+      label: 'Màn hình khách',
+    ));
+    return actions;
+  }
+
+  Widget _buildSellMoreButton({
+    Color iconColor = Colors.white,
+    bool floorCompact = false,
+  }) {
+    final attention = _sellMoreActions(floorCompact: floorCompact)
+        .any((a) => (a.badge ?? '').isNotEmpty);
+    return IconButton(
+      constraints: _KiotLayout.topBarActionTap,
+      tooltip: tr('Chức năng khác'),
+      onPressed: () => unawaited(_showSellMoreSheet(floorCompact: floorCompact)),
+      icon: Badge(
+        isLabelVisible: attention,
+        smallSize: 8,
+        child: Icon(Icons.more_horiz, size: 26, color: iconColor),
+      ),
+    );
+  }
+
+  Future<void> _showSellMoreSheet({bool floorCompact = false}) async {
+    final actions = _sellMoreActions(floorCompact: floorCompact);
+    if (actions.isEmpty || !mounted) return;
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: PosTheme.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 10),
+                  child: Text(
+                    tr('Chức năng'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: PosTheme.textPrimary,
+                    ),
+                  ),
+                ),
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 4,
+                  crossAxisSpacing: 4,
+                  childAspectRatio: 0.88,
+                  children: [
+                    for (final a in actions)
+                      Material(
+                        color: a.enabled
+                            ? const Color(0xFFF4F6F8)
+                            : const Color(0xFFF8F8F8),
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: a.enabled
+                              ? () => Navigator.pop(ctx, a.id)
+                              : null,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 8),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Badge(
+                                  isLabelVisible: (a.badge ?? '').isNotEmpty,
+                                  label: Text(tr(a.badge ?? '')),
+                                  child: Icon(
+                                    a.icon,
+                                    size: 26,
+                                    color: a.enabled
+                                        ? (a.iconColor ?? PosTheme.kiotBlue)
+                                        : PosTheme.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  tr(a.label),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    height: 1.15,
+                                    fontWeight: FontWeight.w600,
+                                    color: a.enabled
+                                        ? PosTheme.textPrimary
+                                        : PosTheme.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted || picked == null) return;
+    await _runSellMoreAction(picked);
+  }
+
+  Future<void> _runSellMoreAction(String id) async {
+    switch (id) {
+      case 'kitchen':
+        await _kitchenSendCurrentTable();
+        break;
+      case 'cup_label':
+        await _printPendingCupLabels();
+        break;
+      case 'price_list':
+        await _openMobilePriceListPicker();
+        break;
+      case 'scan_continuous':
+        await _openMobileContinuousScan();
+        break;
+      case 'guests':
+        await _editTableGuestCount();
+        break;
+      case 'booking':
+        await _openBookingCalendar();
+        break;
+      case 'pending_print':
+        _openPendingPrintQueue();
+        break;
+      case 'fullscreen':
+        await _togglePosFullscreen();
+        break;
+      case 'customer_display':
+        await _openCustomerDisplay();
+        break;
+    }
   }
 
   /// Phóng toàn màn hình + truyền màn hình phụ (khách).
@@ -12510,6 +12815,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
               ),
             ),
             ..._spacedTopBarActions([
+              if (!compact && _useFloorAsPrimary)
+                _buildBookingToolbarButton(labeled: true),
               IconButton(
                 constraints: _KiotLayout.topBarActionTap,
                 tooltip: tr(_systemUnreadNotifications > 0
@@ -12531,13 +12838,16 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   ),
                 ),
               ),
-              PosPendingPrintIconButton(
-                pendingCount: _pendingPrintCount,
-                onTap: _openPendingPrintQueue,
-                iconColor: Colors.white,
-                compact: true,
-              ),
-              if (!compact) ..._buildTopBarScreenActions(),
+              if (_pendingPrintCount > 0)
+                PosPendingPrintIconButton(
+                  pendingCount: _pendingPrintCount,
+                  onTap: _openPendingPrintQueue,
+                  iconColor: Colors.white,
+                  compact: true,
+                ),
+              if (compact)
+                _buildSellMoreButton(floorCompact: true)
+              else ..._buildTopBarScreenActions(),
               IconButton(
                 constraints: _KiotLayout.topBarActionTap,
                 tooltip: tr('Menu'),
@@ -13055,59 +13365,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 ),
               ),
               ..._spacedTopBarActions([
-                if (!tableMode &&
-                    (_tab.resourceSessionId ?? '').isNotEmpty &&
-                    _industrySettings?.sellProfile == PosSellProfile.restaurant)
-                  IconButton(
-                    constraints: _KiotLayout.topBarActionTap,
-                    tooltip: tr('Báo chế biến'),
-                    icon: const Icon(Icons.soup_kitchen_outlined,
-                        color: Color(0xFFB45309)),
-                    onPressed: (_kitchenSending || _checkingOut || _parking)
-                        ? null
-                        : () => unawaited(_kitchenSendCurrentTable()),
-                  ),
-                if (_printSettings.showCupLabelManualButton)
-                  IconButton(
-                    constraints: _KiotLayout.topBarActionTap,
-                    tooltip: tr(_cupLabelPendingCount > 0
-                        ? 'In tem ly ($_cupLabelPendingCount)'
-                        : 'In tem ly'),
-                    icon: Badge(
-                      isLabelVisible: _cupLabelPendingCount > 0,
-                      label: Text(tr('$_cupLabelPendingCount')),
-                      child: Icon(
-                        Icons.sticky_note_2_outlined,
-                        color: _cupLabelPendingCount > 0
-                            ? const Color(0xFF0D9488)
-                            : PosTheme.textSecondary,
-                      ),
-                    ),
-                    onPressed: _cupLabelPendingCount == 0
-                        ? null
-                        : () => unawaited(_printPendingCupLabels()),
-                  ),
-                if (!tableMode)
-                  IconButton(
-                    constraints: _KiotLayout.topBarActionTap,
-                    tooltip: tr('Chọn bảng giá'),
-                    icon: const Icon(Icons.sell_outlined,
-                        color: PosTheme.kiotBlue),
-                    onPressed: _openMobilePriceListPicker,
-                  ),
-                if (!tableMode)
-                  IconButton(
-                    constraints: _KiotLayout.topBarActionTap,
-                    tooltip: tr('Quét liên tục'),
-                    icon: const Icon(Icons.qr_code_scanner,
-                        color: PosTheme.kiotBlue),
-                    onPressed: _openMobileContinuousScan,
-                  ),
-                if (tableMode)
-                  _buildTableGuestIconButton(
-                    iconColor: PosTheme.textPrimary,
-                    compact: true,
-                  ),
                 IconButton(
                   constraints: _KiotLayout.topBarActionTap,
                   tooltip: tr(_systemUnreadNotifications > 0
@@ -13128,13 +13385,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
                     ),
                   ),
                 ),
-                PosPendingPrintIconButton(
-                  pendingCount: _pendingPrintCount,
-                  onTap: _openPendingPrintQueue,
-                  iconColor: PosTheme.textPrimary,
-                  compact: true,
-                ),
-                ..._buildTopBarScreenActions(iconColor: PosTheme.textPrimary),
+                if (_pendingPrintCount > 0)
+                  PosPendingPrintIconButton(
+                    pendingCount: _pendingPrintCount,
+                    onTap: _openPendingPrintQueue,
+                    iconColor: PosTheme.textPrimary,
+                    compact: true,
+                  ),
+                _buildSellMoreButton(iconColor: PosTheme.textPrimary),
                 IconButton(
                   constraints: _KiotLayout.topBarActionTap,
                   icon: const Icon(Icons.menu, color: PosTheme.textPrimary),

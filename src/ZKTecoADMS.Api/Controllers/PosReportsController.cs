@@ -7,6 +7,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Controllers.Reports;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -18,7 +19,9 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/reports")]
 [Authorize]
-public partial class PosReportsController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
+public partial class PosReportsController(
+    ZKTecoDbContext dbContext,
+    IModulePermissionService modulePermissionService) : AuthenticatedControllerBase
 {
     [HttpGet("sales/summary")]
     [RequireModulePermission("PosSalesReport", ModulePermissionAction.View)]
@@ -163,13 +166,14 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
             .FirstOrDefaultAsync();
 
         var reservations = await dbContext.PosResourceReservations.AsNoTracking()
-            .Where(x => x.StoreId == storeId && x.Deleted == null
+            .Where(x => x.StoreId == storeId
                 && x.ReservedAt >= fromDt && x.ReservedAt < toDt)
-            .Select(x => new { x.Status, x.DepositPaid, x.DepositStatus })
+            .Select(x => new { x.Status, x.DepositPaid, x.DepositStatus, x.Deleted })
             .ToListAsync();
-        var reservationBookedCount = reservations.Count(x => x.Status == PosResourceReservationStatus.Booked);
+        var reservationBookedCount = reservations.Count(x =>
+            x.Deleted == null && x.Status == PosResourceReservationStatus.Booked);
         var reservationDepositHeld = reservations
-            .Where(x => x.DepositStatus == PosReservationDepositStatus.Held)
+            .Where(x => x.Deleted == null && x.DepositStatus == PosReservationDepositStatus.Held)
             .Sum(x => x.DepositPaid);
         var reservationDepositApplied = reservations
             .Where(x => x.DepositStatus == PosReservationDepositStatus.Applied)
@@ -177,6 +181,34 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
         var reservationDepositForfeited = reservations
             .Where(x => x.DepositStatus == PosReservationDepositStatus.Forfeited)
             .Sum(x => x.DepositPaid);
+        var reservationDepositRefunded = reservations
+            .Where(x => x.DepositStatus == PosReservationDepositStatus.Refunded)
+            .Sum(x => x.DepositPaid);
+
+        var depositCash = await dbContext.CashTransactions.AsNoTracking()
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                && c.Status == CashTransactionStatus.Completed
+                && c.InternalNote != null
+                && c.TransactionDate >= fromDt && c.TransactionDate < toDt
+                && (c.InternalNote.StartsWith(PosFinanceSyncHelper.ReservationDepositMarker)
+                    || c.InternalNote.StartsWith(PosFinanceSyncHelper.ReservationDepositRefundMarker)))
+            .Select(c => new { c.Type, c.Amount, c.PaymentMethod, c.InternalNote })
+            .ToListAsync();
+        var reservationDepositCollected = depositCash
+            .Where(c => c.Type == CashTransactionType.Income
+                && (c.InternalNote ?? "").StartsWith(PosFinanceSyncHelper.ReservationDepositMarker))
+            .Sum(c => c.Amount);
+        var reservationDepositRefundedCash = depositCash
+            .Where(c => c.Type == CashTransactionType.Expense
+                && (c.InternalNote ?? "").StartsWith(PosFinanceSyncHelper.ReservationDepositRefundMarker))
+            .Sum(c => c.Amount);
+        var reservationDepositByPayment = depositCash
+            .Where(c => c.Type == CashTransactionType.Income
+                && (c.InternalNote ?? "").StartsWith(PosFinanceSyncHelper.ReservationDepositMarker))
+            .GroupBy(c => c.PaymentMethod)
+            .Select(g => new { paymentMethod = PayLabel(g.Key), total = g.Sum(x => x.Amount), count = g.Count() })
+            .OrderByDescending(x => x.total)
+            .ToList();
 
         return Ok(AppResponse<object>.Success(new
         {
@@ -201,6 +233,10 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
             reservationDepositHeld,
             reservationDepositApplied,
             reservationDepositForfeited,
+            reservationDepositRefunded,
+            reservationDepositCollected,
+            reservationDepositRefundedCash,
+            reservationDepositByPayment,
             byPayment,
             byDay,
             profitByDay,
@@ -931,7 +967,8 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
 
         string? effectiveStaff = staffEmail?.Trim();
         Guid? effectiveEmployeeId = soldByEmployeeId;
-        if (!IsManager)
+        var canViewAllStaff = await CanViewAllEndOfDayStaffAsync();
+        if (!canViewAllStaff)
         {
             effectiveStaff = CurrentUserEmail;
             effectiveEmployeeId = EmployeeId;
@@ -993,6 +1030,7 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
         // Phân tách theo từng dòng thu quỹ (marker sale), không theo chuỗi PaymentMethod gộp.
         var payments = new List<object>();
         var cashTotal = 0m;
+        var saleFundIn = 0m;
         if (orderIds.Count > 0)
         {
             var orderIdSet = orderIds.ToHashSet();
@@ -1026,6 +1064,7 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
             cashTotal = paymentRows
                 .FirstOrDefault(p => p.paymentMethod.Equals("Tiền mặt", StringComparison.OrdinalIgnoreCase))
                 ?.total ?? 0m;
+            saleFundIn = matched.Sum(x => x.Amount);
         }
 
         object? products = null;
@@ -1142,6 +1181,13 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
         else if (!string.IsNullOrWhiteSpace(effectiveStaff))
             staffName = await ResolveStaffDisplayNameAsync(storeId, effectiveStaff);
 
+        var depositEod = await LoadDepositEndOfDayAsync(
+            storeId, fromDt, toDt, effectiveStaff, effectiveEmployeeId, filter);
+
+        var drawerCash = cashTotal + depositEod.CollectedCash - depositEod.RefundedCash;
+        var fundInToday = saleFundIn + depositEod.Collected - depositEod.Refunded;
+        var otherIncome = depositEod.Forfeited;
+
         return Ok(AppResponse<object>.Success(new
         {
             from = fromVn,
@@ -1149,6 +1195,7 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
             dayStartHour = hour,
             overnight = hour > 0,
             filterBy = filter,
+            canViewAllStaff,
             staffEmail = effectiveStaff,
             soldByEmployeeId = effectiveEmployeeId,
             staffName,
@@ -1172,6 +1219,17 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
             payments,
             products,
             transactions,
+            depositCollected = depositEod.Collected,
+            depositRefunded = depositEod.Refunded,
+            depositForfeited = depositEod.Forfeited,
+            depositHeld = depositEod.HeldOutstanding,
+            depositApplied = depositEod.AppliedInPeriod,
+            depositCollectedCash = depositEod.CollectedCash,
+            depositRefundedCash = depositEod.RefundedCash,
+            depositByPayment = depositEod.CollectedByPayment,
+            drawerCash,
+            fundInToday,
+            otherIncome,
         }));
     }
 
@@ -1193,7 +1251,7 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
                 ? "soldBy"
                 : "soldByEmployee";
 
-        if (!IsManager)
+        if (!await CanViewAllEndOfDayStaffAsync())
         {
             var email = CurrentUserEmail ?? "";
             var selfId = EmployeeId;
@@ -1472,6 +1530,28 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
         return ReportHelpers.PosBusinessRange(from, to, dayStartHour, defFrom, defTo);
     }
 
+    /// <summary>
+    /// Xem tổng kết mọi nhân viên: quản lý/admin, hoặc quyền Sửa/Duyệt module cuối ngày / hub báo cáo.
+    /// Thu ngân / nhân viên bán (chỉ Xem/Xuất) bị khóa theo tài khoản đang đăng nhập.
+    /// </summary>
+    private async Task<bool> CanViewAllEndOfDayStaffAsync(CancellationToken ct = default)
+    {
+        if (IsManager) return true;
+        var uid = CurrentUserId;
+        var role = CurrentUserRole;
+        var storeId = CurrentStoreId;
+        if (await modulePermissionService.HasPermissionAsync(
+                uid, role, storeId, "PosReportEndOfDay", ModulePermissionAction.Edit, ct))
+            return true;
+        if (await modulePermissionService.HasPermissionAsync(
+                uid, role, storeId, "PosReportEndOfDay", ModulePermissionAction.Approve, ct))
+            return true;
+        if (await modulePermissionService.HasPermissionAsync(
+                uid, role, storeId, "PosSalesReport", ModulePermissionAction.Edit, ct))
+            return true;
+        return false;
+    }
+
     private IQueryable<PosSaleOrder> ScopeOrdersForViewer(IQueryable<PosSaleOrder> query)
     {
         if (IsManager) return query;
@@ -1567,5 +1647,131 @@ public partial class PosReportsController(ZKTecoDbContext dbContext) : Authentic
                 result[e.CompanyEmail] = e.Name;
         }
         return result;
+    }
+
+    private sealed record DepositEodBlock(
+        decimal Collected,
+        decimal Refunded,
+        decimal Forfeited,
+        decimal HeldOutstanding,
+        decimal AppliedInPeriod,
+        decimal CollectedCash,
+        decimal RefundedCash,
+        List<object> CollectedByPayment);
+
+    private static string CashPayLabel(PaymentMethodType method) => method switch
+    {
+        PaymentMethodType.Cash => "Tiền mặt",
+        PaymentMethodType.BankTransfer => "Chuyển khoản",
+        PaymentMethodType.VietQR => "VietQR",
+        PaymentMethodType.Card => "Thẻ",
+        PaymentMethodType.EWallet => "Ví điện tử",
+        _ => "Khác",
+    };
+
+    private async Task<DepositEodBlock> LoadDepositEndOfDayAsync(
+        Guid storeId,
+        DateTime fromDt,
+        DateTime toDt,
+        string? staffEmail,
+        Guid? soldByEmployeeId,
+        string filterBy)
+    {
+        Guid? userId = null;
+        string? email = staffEmail?.Trim();
+        if (soldByEmployeeId.HasValue &&
+            !filterBy.Equals("createdBy", StringComparison.OrdinalIgnoreCase))
+        {
+            var emp = await dbContext.Employees.AsNoTracking()
+                .Where(e => e.Id == soldByEmployeeId && e.Deleted == null)
+                .Select(e => new { e.ApplicationUserId, e.CompanyEmail })
+                .FirstOrDefaultAsync();
+            userId = emp?.ApplicationUserId;
+            if (string.IsNullOrWhiteSpace(email))
+                email = emp?.CompanyEmail;
+        }
+        else if (!string.IsNullOrWhiteSpace(email))
+        {
+            userId = await dbContext.Users.AsNoTracking()
+                .Where(u => u.Email == email)
+                .Select(u => (Guid?)u.Id)
+                .FirstOrDefaultAsync();
+        }
+
+        var cashQ = dbContext.CashTransactions.AsNoTracking()
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                && c.Status == CashTransactionStatus.Completed
+                && c.InternalNote != null
+                && c.TransactionDate >= fromDt && c.TransactionDate < toDt
+                && (c.InternalNote.StartsWith(PosFinanceSyncHelper.ReservationDepositMarker)
+                    || c.InternalNote.StartsWith(PosFinanceSyncHelper.ReservationDepositRefundMarker)));
+        if (userId.HasValue)
+            cashQ = cashQ.Where(c => c.CreatedByUserId == userId);
+
+        var cashRows = await cashQ
+            .Select(c => new { c.Type, c.Amount, c.PaymentMethod, c.InternalNote })
+            .ToListAsync();
+
+        var collectedRows = cashRows
+            .Where(c => c.Type == CashTransactionType.Income
+                && (c.InternalNote ?? "").StartsWith(PosFinanceSyncHelper.ReservationDepositMarker))
+            .ToList();
+        var refundRows = cashRows
+            .Where(c => c.Type == CashTransactionType.Expense
+                && (c.InternalNote ?? "").StartsWith(PosFinanceSyncHelper.ReservationDepositRefundMarker))
+            .ToList();
+
+        var bookQ = dbContext.PosResourceReservations.AsNoTracking()
+            .Where(x => x.StoreId == storeId);
+        if (!string.IsNullOrWhiteSpace(email))
+            bookQ = bookQ.Where(x => x.CreatedBy == email || x.UpdatedBy == email);
+
+        var bookings = await bookQ
+            .Select(x => new
+            {
+                x.DepositPaid,
+                x.DepositStatus,
+                x.Deleted,
+                x.Status,
+                x.UpdatedAt,
+                x.DepositPaidAt,
+            })
+            .ToListAsync();
+
+        var forfeited = bookings
+            .Where(x => x.DepositStatus == PosReservationDepositStatus.Forfeited
+                && x.UpdatedAt != null && x.UpdatedAt >= fromDt && x.UpdatedAt < toDt)
+            .Sum(x => x.DepositPaid);
+        var held = bookings
+            .Where(x => x.Deleted == null
+                && x.Status == PosResourceReservationStatus.Booked
+                && x.DepositStatus == PosReservationDepositStatus.Held)
+            .Sum(x => x.DepositPaid);
+        var applied = bookings
+            .Where(x => x.DepositStatus == PosReservationDepositStatus.Applied
+                && x.UpdatedAt != null && x.UpdatedAt >= fromDt && x.UpdatedAt < toDt)
+            .Sum(x => x.DepositPaid);
+
+        var byPay = collectedRows
+            .GroupBy(c => c.PaymentMethod)
+            .Select(g => (object)new
+            {
+                paymentMethod = CashPayLabel(g.Key),
+                total = g.Sum(x => x.Amount),
+                count = g.Count(),
+            })
+            .ToList();
+
+        static bool IsCash(PaymentMethodType m) => m == PaymentMethodType.Cash;
+
+        return new DepositEodBlock(
+            collectedRows.Sum(x => x.Amount),
+            refundRows.Sum(x => x.Amount),
+            forfeited,
+            held,
+            applied,
+            collectedRows.Where(x => IsCash(x.PaymentMethod)).Sum(x => x.Amount),
+            refundRows.Where(x => IsCash(x.PaymentMethod)).Sum(x => x.Amount),
+            byPay);
     }
 }

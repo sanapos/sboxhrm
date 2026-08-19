@@ -1227,15 +1227,15 @@ class PosMobileProductRow extends StatelessWidget {
         onTap: onTap,
         onLongPress: onLongPress,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: SizedBox(
-                  width: 48,
-                  height: 48,
+                  width: 44,
+                  height: 44,
                   child: image ??
                       ColoredBox(
                         color: PosTheme.kiotBlueLight,
@@ -1251,90 +1251,94 @@ class PosMobileProductRow extends StatelessWidget {
                   children: [
                     Text(
                       tr(name),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight:
                             isSelected ? FontWeight.w700 : FontWeight.w600,
-                        height: 1.25,
+                        height: 1.2,
                         color: isSelected
                             ? PosTheme.kiotBlue
                             : PosTheme.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      tr(code),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: PosTheme.textSecondary,
-                      ),
-                    ),
-                    if (typeBadge != null) ...[
-                      const SizedBox(height: 4),
-                      typeBadge!,
-                    ],
-                    if (kiotSellStyle &&
-                        (stockText.isNotEmpty ||
-                            orderReservedText != null)) ...[
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          if (stockText.isNotEmpty) _sellMetaChip(stockText),
-                          if (orderReservedText != null)
-                            _sellMetaChip(orderReservedText!),
-                        ],
-                      ),
-                    ],
-                    if (!kiotSellStyle && stockText.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          tr(stockText),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: PosTheme.textSecondary,
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            tr(code),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: PosTheme.textSecondary,
+                            ),
                           ),
                         ),
-                      ),
+                        if (typeBadge != null) ...[
+                          const SizedBox(width: 6),
+                          typeBadge!,
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              // Cột cố định: [ô SL] trên + [giá] dưới — giữ chỗ dù chưa chọn.
-              SizedBox(
-                width: 108,
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: 84,
+                  maxWidth: showStepper ? 120 : 104,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    SizedBox(
-                      height: 34,
-                      child: showStepper
-                          ? Align(
-                              alignment: Alignment.centerRight,
-                              child: _qtyStepper(
-                                qty: selectedQty!,
-                                onMinus: onDecrement,
-                                onPlus: onIncrement ?? onTap,
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    const SizedBox(height: 4),
+                    if (showStepper) ...[
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: _qtyStepper(
+                          qty: selectedQty!,
+                          onMinus: onDecrement,
+                          onPlus: onIncrement ?? onTap,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Text(
                       tr(priceText),
                       textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: PosTheme.kiotBlue,
                       ),
                     ),
+                    if (stockText.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        tr(stockText),
+                        textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: kiotSellStyle
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: stockText.contains('Hết')
+                              ? const Color(0xFFB42318)
+                              : PosTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                    if (orderReservedText != null) ...[
+                      const SizedBox(height: 2),
+                      _sellMetaChip(orderReservedText!),
+                    ],
                   ],
                 ),
               ),

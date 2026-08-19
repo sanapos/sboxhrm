@@ -1655,6 +1655,8 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""DurationMinutes"" integer NULL;
                     ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""ServiceProductId"" uuid NULL;
                     ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""AssignedEmployeeId"" uuid NULL;
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""Occasion"" character varying(40) NULL;
+                    ALTER TABLE ""PosResourceReservations"" ADD COLUMN IF NOT EXISTS ""SpecialRequest"" character varying(500) NULL;
                     CREATE INDEX IF NOT EXISTS ""IX_PosResourceReservations_Store_Status_Until""
                         ON ""PosResourceReservations"" (""StoreId"", ""Status"", ""ReservedUntil"");
                     CREATE INDEX IF NOT EXISTS ""IX_PosResourceReservations_Store_Employee_Slot""

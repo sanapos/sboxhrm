@@ -9,9 +9,56 @@ import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../utils/safe_navigator.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_deposit_payment_picker.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
+
+Color reservationAccent(PosResourceReservationDto b) {
+  if (b.isCancelled) return const Color(0xFF64748B);
+  if (b.isNoShow) return const Color(0xFFC2410C);
+  if (b.isOrderCompleted) return const Color(0xFF15803D);
+  if (b.isUsingTable) return const Color(0xFF0F766E);
+  if (b.isSeated) return const Color(0xFF15803D);
+  return b.isTimedSlot ? const Color(0xFF7C3AED) : PosTheme.kiotBlue;
+}
+
+String reservationStatusLabel(PosResourceReservationDto b) {
+  if (b.isCancelled) return 'Đã hủy';
+  if (b.isNoShow) return 'Không đến';
+  if (b.isOrderCompleted) return 'Đã thanh toán';
+  if (b.isUsingTable) return 'Đang dùng';
+  if (b.isSeated) return 'Đã nhận';
+  return 'Chưa đến';
+}
+
+String reservationDepositLabel(String status) {
+  switch (status.toLowerCase()) {
+    case 'held':
+      return 'Đang giữ';
+    case 'applied':
+      return 'Đã trừ vào đơn';
+    case 'refunded':
+      return 'Đã hoàn';
+    case 'forfeited':
+      return 'Mất cọc';
+    default:
+      return 'Chưa thu';
+  }
+}
+
+String reservationOrderStatusLabel(String? status) {
+  switch ((status ?? '').toLowerCase()) {
+    case 'completed':
+      return 'Đã thanh toán';
+    case 'cancelled':
+      return 'Đã hủy đơn';
+    case 'draft':
+      return 'Đang mở';
+    default:
+      return status ?? '';
+  }
+}
 
 /// Lịch hẹn theo ngày (salon): multi-slot, dịch vụ, NV, ghế.
 class PosAppointmentDayScreen extends StatefulWidget {
@@ -48,11 +95,15 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
   int? _pipelineBooked;
   double? _pipelineDeposit;
   double? _pipelineExpected;
+  int _upcomingBooked = 0;
   List<String> _availDays = [];
   List<Map<String, dynamic>> _availItems = [];
 
+  PosSellProfile? _loadedProfile;
+  bool _profileLoading = false;
+
   PosSellProfile get _profile =>
-      widget.sellProfile ?? PosSellProfile.salon;
+      widget.sellProfile ?? _loadedProfile ?? PosSellProfile.restaurant;
 
   String get _calendarTitle => _profile.bookingCalendarTitle;
 
@@ -99,9 +150,41 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     super.initState();
     final now = widget.initialDay ?? DateTime.now();
     _day = DateTime(now.year, now.month, now.day);
-    _showGrid = widget.sellProfile == PosSellProfile.hotel ||
-        widget.sellProfile == PosSellProfile.roomHourly;
-    unawaited(_reload());
+    if (widget.sellProfile != null) {
+      _showGrid = widget.sellProfile == PosSellProfile.hotel ||
+          widget.sellProfile == PosSellProfile.roomHourly;
+      unawaited(_reload());
+    } else {
+      _profileLoading = true;
+      unawaited(_loadSellProfile());
+    }
+  }
+
+  Future<void> _loadSellProfile() async {
+    try {
+      final res = await _api.getPosSellSettings();
+      if (!mounted) return;
+      PosSellProfile profile = PosSellProfile.restaurant;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        profile = PosStoreSellSettingsDto.fromJson(
+          Map<String, dynamic>.from(res['data'] as Map),
+        ).sellProfile;
+      }
+      setState(() {
+        _loadedProfile = profile;
+        _profileLoading = false;
+        _showGrid = profile == PosSellProfile.hotel ||
+            profile == PosSellProfile.roomHourly;
+      });
+      await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadedProfile = PosSellProfile.restaurant;
+        _profileLoading = false;
+        _error = 'Không tải cấu hình ngành: $e';
+      });
+    }
   }
 
   Future<void> _reload() async {
@@ -156,7 +239,11 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       Map<String, dynamic>? avail;
       try {
         final extra = await Future.wait([
-          _api.getPosReservationPipeline(from: dayUtc, to: dayUtc),
+          _api.getPosReservationPipeline(
+            from: dayUtc,
+            to: DateTime.utc(_day.year, _day.month, _day.day)
+                .add(const Duration(days: 6)),
+          ),
           _api.getPosReservationAvailability(
             from: DateTime.utc(weekStart.year, weekStart.month, weekStart.day),
             to: DateTime.utc(weekEnd.year, weekEnd.month, weekEnd.day),
@@ -174,14 +261,30 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       int? pBooked;
       double? pDep;
       double? pExp;
+      var upcoming = 0;
       if (pipe != null) {
         final totals = pipe['totals'] ?? pipe['Totals'];
         if (totals is Map) {
-          pBooked = (totals['booked'] ?? totals['Booked'] as num?)?.toInt();
           pDep = (totals['depositHeld'] ?? totals['DepositHeld'] as num?)
               ?.toDouble();
           pExp = (totals['expectedRevenue'] ?? totals['ExpectedRevenue'] as num?)
               ?.toDouble();
+        }
+        final dayKey =
+            '${_day.year.toString().padLeft(4, '0')}-${_day.month.toString().padLeft(2, '0')}-${_day.day.toString().padLeft(2, '0')}';
+        final days = pipe['days'] ?? pipe['Days'];
+        if (days is List) {
+          for (final e in days) {
+            if (e is! Map) continue;
+            final ds = (e['date'] ?? e['Date'] ?? '').toString();
+            final booked =
+                int.tryParse('${e['booked'] ?? e['Booked'] ?? 0}') ?? 0;
+            if (ds == dayKey) {
+              pBooked = booked;
+            } else if (ds.compareTo(dayKey) > 0) {
+              upcoming += booked;
+            }
+          }
         }
       }
 
@@ -243,6 +346,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
         _pipelineBooked = pBooked;
         _pipelineDeposit = pDep;
         _pipelineExpected = pExp;
+        _upcomingBooked = upcoming;
         _availDays = availDays;
         _availItems = availItems;
         _loading = false;
@@ -279,61 +383,35 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
-        title: 'Đã quét no-show',
+        title: 'Đã quét khách không đến',
         message: res['message']?.toString() ?? 'Cập nhật lịch quá hạn',
       );
       await _reload();
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
-        message: res['message']?.toString() ?? 'Không quét được no-show',
+        message: res['message']?.toString() ?? 'Không quét được khách không đến',
       );
     }
   }
 
   Future<void> _collectExtraDeposit(PosResourceReservationDto b) async {
-    final ctrl = TextEditingController();
-    final amount = await showDialog<double>(
+    final picked = await showPosCollectDepositDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Thu thêm cọc')),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          keyboardType: TextInputType.number,
-          decoration: InputDecoration(
-            labelText: tr('Số tiền'),
-            suffixText: 'đ',
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(tr('Huỷ')),
-          ),
-          FilledButton(
-            onPressed: () {
-              final v =
-                  double.tryParse(ctrl.text.trim().replaceAll(',', '')) ?? 0;
-              Navigator.pop(ctx, v);
-            },
-            child: Text(tr('Thu cọc')),
-          ),
-        ],
-      ),
+      title: 'Thu thêm cọc',
     );
-    ctrl.dispose();
-    if (amount == null || amount <= 0 || !mounted) return;
+    if (picked == null || !mounted) return;
+    final amount = picked.amount;
     final res = await _api.collectPosResourceReservationDeposit(b.id, {
       'amount': amount,
-      'paymentMethod': 'Tiền mặt',
+      ...picked.pay.toCollectBody(),
     });
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã thu cọc',
-        message: '${_moneyFmt.format(amount)}đ · ${b.customerName}',
+        message:
+            '${_moneyFmt.format(amount)}đ · ${picked.pay.methodLabel} · ${b.customerName}',
       );
       await _reload();
     } else {
@@ -361,67 +439,34 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     if (ok == true && mounted) await _reload();
   }
 
-  Future<void> _openBooking(PosResourceReservationDto b) async {
-    final action = await showModalBottomSheet<String>(
+  Future<void> _editBooking(PosResourceReservationDto existing) async {
+    final ok = await showDialog<bool>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      builder: (ctx) => _BookAppointmentDialog(
+        day: existing.reservedAt?.toLocal() ?? _day,
+        resources: _resources,
+        initialResourceId: existing.resourceId,
+        sellProfile: _profile,
+        existing: existing,
       ),
-      builder: (ctx) {
-        final start = b.reservedAt?.toLocal();
-        final end = b.reservedUntil?.toLocal();
-        final time = start == null
-            ? ''
-            : end == null
-                ? DateFormat('HH:mm').format(start)
-                : '${DateFormat('HH:mm').format(start)}–${DateFormat('HH:mm').format(end)}';
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text(tr(b.customerName),
-                    style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(tr([
-                  if (time.isNotEmpty) time,
-                  if ((b.serviceProductName ?? '').isNotEmpty)
-                    b.serviceProductName!,
-                  if (b.durationMinutes != null) '${b.durationMinutes}′',
-                  '${b.areaName == null || b.areaName!.isEmpty ? b.resourceName : '${b.areaName} · ${b.resourceName}'}',
-                  if ((b.assignedEmployeeName ?? '').isNotEmpty)
-                    b.assignedEmployeeName!,
-                  if (b.depositPaid > 0)
-                    'Cọc ${_moneyFmt.format(b.depositPaid)}đ',
-                ].join(' · '))),
-              ),
-              const Divider(height: 1),
-              if (b.isBooked) ...[
-                ListTile(
-                  leading:
-                      const Icon(Icons.login, color: PosTheme.kiotBlue),
-                  title: Text(tr('Khách đến — nhận $_noun')),
-                  onTap: () => Navigator.pop(ctx, 'seat'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.payments_outlined,
-                      color: Color(0xFF0F766E)),
-                  title: Text(tr('Thu thêm cọc')),
-                  onTap: () => Navigator.pop(ctx, 'deposit'),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.cancel_outlined, color: Colors.red),
-                  title: Text(tr('Hủy đặt')),
-                  onTap: () => Navigator.pop(ctx, 'cancel'),
-                ),
-              ],
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
+    );
+    if (ok == true && mounted) await _reload();
+  }
+
+  Future<void> _openBooking(PosResourceReservationDto b) async {
+    final action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _BookingDetailDialog(
+        booking: b,
+        noun: _noun,
+        moneyFmt: _moneyFmt,
+      ),
     );
     if (action == null || !mounted) return;
+    if (action == 'edit') {
+      await _editBooking(b);
+      return;
+    }
     if (action == 'deposit') {
       await _collectExtraDeposit(b);
       return;
@@ -641,23 +686,20 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_profileLoading) {
+      return Scaffold(
+        appBar: AppBar(title: Text(tr('Đặt chỗ / lịch hẹn'))),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     final isToday = DateUtils.isSameDay(_day, DateTime.now());
     final visible = _visibleItems;
     final weekStart = _day.subtract(const Duration(days: 3));
 
-    Color statusColor(PosResourceReservationDto b) {
-      if (b.isSeated) return const Color(0xFF15803D);
-      if (b.isCancelled) return const Color(0xFF64748B);
-      if (b.isNoShow) return const Color(0xFFC2410C);
-      return b.isTimedSlot ? const Color(0xFF7C3AED) : PosTheme.kiotBlue;
-    }
+    Color statusColor(PosResourceReservationDto b) => reservationAccent(b);
 
-    String statusLabel(PosResourceReservationDto b) {
-      if (b.isSeated) return 'Đã nhận';
-      if (b.isCancelled) return 'Đã hủy';
-      if (b.isNoShow) return 'No-show';
-      return 'Đặt';
-    }
+    String statusLabel(PosResourceReservationDto b) =>
+        reservationStatusLabel(b);
 
     Widget filterChip(String id, String label) {
       final selected = _statusFilter == id;
@@ -686,7 +728,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                   : Icons.grid_view_outlined),
             ),
           IconButton(
-            tooltip: tr('Quét no-show'),
+            tooltip: tr('Quét khách không đến'),
             onPressed: _loading ? null : () => unawaited(_expireNoShows()),
             icon: const Icon(Icons.event_busy_outlined),
           ),
@@ -837,6 +879,21 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       ],
                     ),
                   ),
+                  if (_upcomingBooked > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          tr(
+                              'Đã nhận $_upcomingBooked lịch dùng trong 7 ngày tới — mở đúng ngày trên lịch để chuẩn bị bàn. Cọc thu hôm đặt vào két ngày thu.'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: PosTheme.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 8),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -846,13 +903,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                         filterChip('booked', 'Đặt ($_bookedCount)'),
                         filterChip(
                             'seated',
-                            'Đã nhận (${_items.where((e) => e.isSeated).length})'),
+                            'Đã dùng (${_items.where((e) => e.isSeated).length})'),
                         filterChip(
                             'cancelled',
                             'Hủy (${_items.where((e) => e.isCancelled).length})'),
                         filterChip(
                             'noshow',
-                            'No-show (${_items.where((e) => e.isNoShow).length})'),
+                            'Không đến (${_items.where((e) => e.isNoShow).length})'),
                       ],
                     ),
                   ),
@@ -1037,6 +1094,47 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                                       fontSize: 12,
                                                       color: PosTheme
                                                           .textSecondary)),
+                                            if (PosReservationOccasion.label(
+                                                    b.occasion)
+                                                .isNotEmpty)
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.only(
+                                                        top: 2),
+                                                child: Text(
+                                                  tr(PosReservationOccasion
+                                                      .label(b.occasion)),
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight.w700,
+                                                    color: Color(0xFF7C3AED),
+                                                  ),
+                                                ),
+                                              ),
+                                            if (b.createdAt != null &&
+                                                b.reservedAt != null &&
+                                                !DateUtils.isSameDay(
+                                                    b.createdAt!.toLocal(),
+                                                    b.reservedAt!.toLocal()))
+                                              Text(
+                                                tr(
+                                                    'Đặt ${DateFormat('dd/MM').format(b.createdAt!.toLocal())} · dùng ${DateFormat('dd/MM').format(b.reservedAt!.toLocal())}'),
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color:
+                                                      PosTheme.textSecondary,
+                                                ),
+                                              ),
+                                            if (b.guestCount > 0)
+                                              Text(
+                                                tr('${b.guestCount} khách'),
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color:
+                                                      PosTheme.textSecondary,
+                                                ),
+                                              ),
                                             if (b.depositPaid > 0 ||
                                                 b.preOrderValue > 0)
                                               Padding(
@@ -1046,7 +1144,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                                 child: Text(
                                                   tr([
                                                     if (b.depositPaid > 0)
-                                                      'Cọc ${_moneyFmt.format(b.depositPaid)}đ (${b.depositStatus})',
+                                                      'Cọc ${_moneyFmt.format(b.depositPaid)}đ (${reservationDepositLabel(b.depositStatus)})',
                                                     if (b.preOrderValue > 0)
                                                       'Món ${_moneyFmt.format(b.preOrderValue)}đ',
                                                   ].join(' · ')),
@@ -1055,6 +1153,34 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                                     color: Color(0xFF0F766E),
                                                     fontWeight:
                                                         FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            if ((b.orderNo ?? '').isNotEmpty ||
+                                                b.orderTotal > 0)
+                                              Padding(
+                                                padding:
+                                                    const EdgeInsets.only(
+                                                        top: 4),
+                                                child: Text(
+                                                  tr([
+                                                    if ((b.orderNo ?? '')
+                                                        .isNotEmpty)
+                                                      'HĐ ${b.orderNo}',
+                                                    if (b.orderTotal > 0)
+                                                      '${_moneyFmt.format(b.orderTotal)}đ',
+                                                    if (b.orderPaid > 0)
+                                                      'Đã trả ${_moneyFmt.format(b.orderPaid)}đ',
+                                                  ].join(' · ')),
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight.w700,
+                                                    color: b.isOrderCompleted
+                                                        ? const Color(
+                                                            0xFF15803D)
+                                                        : const Color(
+                                                            0xFF0F766E),
                                                   ),
                                                 ),
                                               ),
@@ -1078,6 +1204,268 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
   }
 }
 
+class _BookingDetailDialog extends StatelessWidget {
+  const _BookingDetailDialog({
+    required this.booking,
+    required this.noun,
+    required this.moneyFmt,
+  });
+
+  final PosResourceReservationDto booking;
+  final String noun;
+  final NumberFormat moneyFmt;
+
+  @override
+  Widget build(BuildContext context) {
+    final b = booking;
+    final accent = reservationAccent(b);
+    final start = b.reservedAt?.toLocal();
+    final end = b.reservedUntil?.toLocal();
+    final time = start == null
+        ? '—'
+        : end == null
+            ? DateFormat('HH:mm dd/MM').format(start)
+            : '${DateFormat('HH:mm').format(start)}–${DateFormat('HH:mm').format(end)} · ${DateFormat('dd/MM/yyyy').format(start)}';
+    final table = b.areaName == null || b.areaName!.isEmpty
+        ? b.resourceName
+        : '${b.areaName} · ${b.resourceName}';
+    final size = MediaQuery.sizeOf(context);
+
+    Widget row(String label, String value, {bool emphasize = false}) {
+      if (value.trim().isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 118,
+              child: Text(
+                tr(label),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: PosTheme.textSecondary,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                tr(value),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          maxHeight: size.height * 0.9,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      tr('Chi tiết lịch đặt'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            tr(b.customerName),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: accent.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            tr(reservationStatusLabel(b)),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: accent,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    row('Giờ', time, emphasize: true),
+                    if (b.createdAt != null)
+                      row(
+                        'Ngày đặt lịch',
+                        DateFormat('HH:mm dd/MM/yyyy')
+                            .format(b.createdAt!.toLocal()),
+                      ),
+                    row(noun[0].toUpperCase() + noun.substring(1), table,
+                        emphasize: true),
+                    row('Số khách', '${b.guestCount}'),
+                    row('Điện thoại', b.phone ?? ''),
+                    row('Loại tiệc',
+                        PosReservationOccasion.label(b.occasion)),
+                    row('Yêu cầu thêm', b.specialRequest ?? ''),
+                    row('Dịch vụ', b.serviceProductName ?? ''),
+                    row('Nhân viên', b.assignedEmployeeName ?? ''),
+                    if (b.depositPaid > 0 || b.depositAmount > 0)
+                      row(
+                        'Cọc',
+                        [
+                          if (b.depositPaid > 0)
+                            '${moneyFmt.format(b.depositPaid)}đ',
+                          reservationDepositLabel(b.depositStatus),
+                          if ((b.depositPaymentMethod ?? '').isNotEmpty)
+                            b.depositPaymentMethod!,
+                        ].join(' · '),
+                      ),
+                    if (b.preOrderCount > 0 || b.preOrderValue > 0)
+                      row(
+                        'Món đặt trước',
+                        [
+                          if (b.preOrderCount > 0) '${b.preOrderCount} món',
+                          if (b.preOrderValue > 0)
+                            '${moneyFmt.format(b.preOrderValue)}đ',
+                        ].join(' · '),
+                      ),
+                    if (b.isSeated ||
+                        (b.orderNo ?? '').isNotEmpty ||
+                        b.orderTotal > 0) ...[
+                      const Divider(height: 24),
+                      Text(
+                        tr('Đơn hàng'),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      row(
+                        'Tình trạng',
+                        b.isOrderCompleted
+                            ? 'Khách đã dùng · đã thanh toán'
+                            : b.isUsingTable
+                                ? 'Khách đang dùng bàn'
+                                : b.isSeated
+                                    ? 'Đã nhận bàn'
+                                    : reservationOrderStatusLabel(
+                                        b.orderStatus),
+                        emphasize: true,
+                      ),
+                      row(
+                        'Mã HĐ',
+                        (b.orderNo ?? '').isEmpty ? '—' : b.orderNo!,
+                      ),
+                      if (b.seatedAt != null)
+                        row(
+                          'Nhận lúc',
+                          DateFormat('HH:mm dd/MM')
+                              .format(b.seatedAt!.toLocal()),
+                        ),
+                      row(
+                        'Giá trị đơn',
+                        '${moneyFmt.format(b.orderTotal)}đ',
+                        emphasize: true,
+                      ),
+                      row(
+                        'Đã thanh toán',
+                        '${moneyFmt.format(b.orderPaid)}đ',
+                      ),
+                      if (b.orderLineCount > 0)
+                        row('Số món', '${b.orderLineCount}'),
+                    ],
+                    if ((b.note ?? '').trim().isNotEmpty) ...[
+                      const Divider(height: 24),
+                      row('Ghi chú', b.note!.trim()),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: [
+                  if (b.isBooked) ...[
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(context, 'edit'),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: Text(tr('Sửa')),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(context, 'cancel'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red.shade700,
+                      ),
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: Text(tr('Xóa lịch')),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(context, 'deposit'),
+                      icon: const Icon(Icons.payments_outlined, size: 18),
+                      label: Text(tr('Thu cọc')),
+                    ),
+                    FilledButton.icon(
+                      onPressed: () => Navigator.pop(context, 'seat'),
+                      icon: const Icon(Icons.login, size: 18),
+                      label: Text(tr('Nhận $noun')),
+                    ),
+                  ] else
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(tr('Đóng')),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _BookAppointmentDialog extends StatefulWidget {
   const _BookAppointmentDialog({
     required this.day,
@@ -1085,6 +1473,7 @@ class _BookAppointmentDialog extends StatefulWidget {
     this.initialResourceId,
     this.slotHint,
     this.sellProfile,
+    this.existing,
   });
 
   final DateTime day;
@@ -1092,6 +1481,7 @@ class _BookAppointmentDialog extends StatefulWidget {
   final String? initialResourceId;
   final TimeOfDay? slotHint;
   final PosSellProfile? sellProfile;
+  final PosResourceReservationDto? existing;
 
   @override
   State<_BookAppointmentDialog> createState() => _BookAppointmentDialogState();
@@ -1103,6 +1493,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
   final _phoneCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   final _depositPaidCtrl = TextEditingController();
+  var _depositPay = const PosDepositPayChoice();
 
   String? _customerId;
   String? _resourceId;
@@ -1111,6 +1502,11 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
   late TimeOfDay _slotTime;
   int _durationMinutes = 60;
   int _stayNights = 1;
+  int _guestCount = 1;
+  late DateTime _usageDay;
+  String? _occasion;
+  final _requestCtrl = TextEditingController();
+  final Set<String> _requestTags = {};
   bool _saving = false;
   bool _loadingMeta = true;
 
@@ -1121,6 +1517,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
       widget.sellProfile ?? PosSellProfile.salon;
   bool get _isHotel => _profile == PosSellProfile.hotel;
   bool get _requireService => _profile == PosSellProfile.salon;
+  bool get _showStaffPicker => _profile.assignsServiceStaff;
   String get _noun => _profile.resourceNoun.isEmpty
       ? 'chỗ'
       : _profile.resourceNoun;
@@ -1128,16 +1525,52 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
   @override
   void initState() {
     super.initState();
-    _resourceId = widget.initialResourceId ??
+    final existing = widget.existing;
+    _resourceId = existing?.resourceId ??
+        widget.initialResourceId ??
         (widget.resources.isNotEmpty ? widget.resources.first.id : null);
     final now = DateTime.now();
-    _slotTime = widget.slotHint ??
-        TimeOfDay(
-          hour: DateUtils.isSameDay(widget.day, now)
-              ? ((now.hour + 1) % 24)
-              : (_isHotel ? 14 : 9),
-          minute: 0,
-        );
+    _usageDay = DateTime(widget.day.year, widget.day.month, widget.day.day);
+    if (existing != null) {
+      _nameCtrl.text = existing.customerName;
+      _phoneCtrl.text = existing.phone ?? '';
+      _noteCtrl.text = existing.note ?? '';
+      _customerId = existing.customerId;
+      _serviceProductId = existing.serviceProductId;
+      _employeeId = existing.assignedEmployeeId;
+      _guestCount = existing.guestCount < 1 ? 1 : existing.guestCount;
+      _occasion = existing.occasion;
+      final req = (existing.specialRequest ?? '').trim();
+      if (req.isNotEmpty) {
+        for (final chip in PosReservationOccasion.requestChips) {
+          if (req.contains(chip)) _requestTags.add(chip);
+        }
+        final leftover = req
+            .split(' · ')
+            .where((p) => p.trim().isNotEmpty && !_requestTags.contains(p.trim()))
+            .join(' · ');
+        _requestCtrl.text = leftover;
+      }
+      final slot = existing.reservedAt?.toLocal();
+      if (slot != null) {
+        _usageDay = DateTime(slot.year, slot.month, slot.day);
+      }
+      _slotTime = slot == null
+          ? TimeOfDay(hour: widget.day.hour, minute: 0)
+          : TimeOfDay(hour: slot.hour, minute: slot.minute);
+      _durationMinutes = existing.durationMinutes ?? 60;
+      if (_isHotel && existing.durationMinutes != null) {
+        _stayNights = (existing.durationMinutes! / 1440).round().clamp(1, 14);
+      }
+    } else {
+      _slotTime = widget.slotHint ??
+          TimeOfDay(
+            hour: DateUtils.isSameDay(widget.day, now)
+                ? ((now.hour + 1) % 24)
+                : (_isHotel ? 14 : 9),
+            minute: 0,
+          );
+    }
     unawaited(_loadMeta());
   }
 
@@ -1147,6 +1580,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
     _phoneCtrl.dispose();
     _noteCtrl.dispose();
     _depositPaidCtrl.dispose();
+    _requestCtrl.dispose();
     super.dispose();
   }
 
@@ -1200,7 +1634,10 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
       _services = services;
       _employees = employees;
       _loadingMeta = false;
-      if (_serviceProductId == null && services.isNotEmpty) {
+      if (_serviceProductId == null &&
+          services.isNotEmpty &&
+          widget.existing == null &&
+          _requireService) {
         _onServicePicked(services.first);
       }
     });
@@ -1330,9 +1767,9 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
     }
 
     final slotLocal = DateTime(
-      widget.day.year,
-      widget.day.month,
-      widget.day.day,
+      _usageDay.year,
+      _usageDay.month,
+      _usageDay.day,
       _slotTime.hour,
       _slotTime.minute,
     );
@@ -1348,7 +1785,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
           ? null
           : _phoneCtrl.text.trim(),
       'customerId': _customerId,
-      'guestCount': 1,
+      'guestCount': _guestCount < 1 ? 1 : _guestCount,
       'slotStart': slotLocal.toUtc().toIso8601String(),
       if (_isHotel) 'stayNights': _stayNights,
       if (!_isHotel) 'durationMinutes': _durationMinutes,
@@ -1356,25 +1793,37 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
       'assignedEmployeeId': _employeeId,
       'note':
           _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
-      if (depositPaid > 0) ...{
+      'occasion': _occasion,
+      'specialRequest': () {
+        final parts = [
+          ..._requestTags,
+          if (_requestCtrl.text.trim().isNotEmpty) _requestCtrl.text.trim(),
+        ];
+        return parts.isEmpty ? null : parts.join(' · ');
+      }(),
+      if (widget.existing == null && depositPaid > 0) ...{
         'depositAmount': depositPaid,
         'depositPaid': depositPaid,
-        'depositPaymentMethod': 'Tiền mặt',
+        ..._depositPay.toCreateBody(),
       },
     };
-    final res = await _api.createPosResourceReservation(body);
+    final res = widget.existing == null
+        ? await _api.createPosResourceReservation(body)
+        : await _api.updatePosResourceReservation(widget.existing!.id, body);
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
-        title: 'Đã đặt lịch',
+        title: tr(widget.existing == null
+            ? 'Đã ${_profile.bookActionLabel.toLowerCase()}'
+            : 'Đã lưu lịch'),
         message:
-            '${DateFormat('HH:mm').format(slotLocal)} · ${_nameCtrl.text.trim()}',
+            '${DateFormat('HH:mm dd/MM').format(slotLocal)} · ${_nameCtrl.text.trim()}',
       );
       Navigator.pop(context, true);
     } else {
       NotificationOverlayManager().showError(
-        title: 'Không đặt được',
+        title: widget.existing == null ? 'Không đặt được' : 'Không sửa được',
         message: res['message']?.toString() ?? 'Lỗi',
       );
     }
@@ -1382,8 +1831,13 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final serviceIds = {for (final p in _services) p.id};
+    final employeeIds = {for (final e in _employees) e.id};
+    final resourceIds = {for (final r in widget.resources) r.id};
     return AlertDialog(
-      title: Text(tr(_profile.bookActionLabel)),
+      title: Text(tr(widget.existing == null
+          ? _profile.bookActionLabel
+          : 'Sửa lịch đặt')),
       content: SizedBox(
         width: 420,
         child: _loadingMeta
@@ -1423,8 +1877,33 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                       keyboardType: TextInputType.phone,
                     ),
                     const SizedBox(height: 10),
+                    DropdownButtonFormField<int>(
+                      value: _guestCount < 1 ? 1 : _guestCount,
+                      decoration: InputDecoration(
+                        labelText: tr('Số khách'),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      items: [
+                        for (final n in ({
+                          1, 2, 3, 4, 5, 6, 8, 10, 12, _guestCount.clamp(1, 99),
+                        }.toList()
+                          ..sort()))
+                          DropdownMenuItem(value: n, child: Text('$n')),
+                      ],
+                      onChanged: _saving
+                          ? null
+                          : (v) {
+                              if (v != null) {
+                                setState(() => _guestCount = v);
+                              }
+                            },
+                    ),
+                    const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
-                      value: _resourceId,
+                      value: resourceIds.contains(_resourceId)
+                          ? _resourceId
+                          : null,
                       decoration: InputDecoration(
                         labelText: tr('${_noun[0].toUpperCase()}${_noun.substring(1)} *'),
                         border: const OutlineInputBorder(),
@@ -1444,7 +1923,9 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                     ),
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String?>(
-                      value: _serviceProductId,
+                      value: serviceIds.contains(_serviceProductId)
+                          ? _serviceProductId
+                          : null,
                       decoration: InputDecoration(
                         labelText: tr(_requireService
                             ? 'Dịch vụ *'
@@ -1480,6 +1961,30 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                     const SizedBox(height: 10),
                     Row(
                       children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _saving
+                                ? null
+                                : () async {
+                                    final d = await showDatePicker(
+                                      context: context,
+                                      initialDate: _usageDay,
+                                      firstDate: DateTime.now()
+                                          .subtract(const Duration(days: 1)),
+                                      lastDate: DateTime.now()
+                                          .add(const Duration(days: 180)),
+                                    );
+                                    if (d != null) {
+                                      setState(() => _usageDay = DateTime(
+                                          d.year, d.month, d.day));
+                                    }
+                                  },
+                            icon: const Icon(Icons.event, size: 18),
+                            label: Text(tr(
+                                DateFormat('dd/MM/yyyy').format(_usageDay))),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: _saving
@@ -1568,39 +2073,118 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String?>(
-                      value: _employeeId,
-                      decoration: InputDecoration(
-                        labelText: tr('Nhân viên phụ trách'),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: [
-                        DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text(tr('— Không chọn —')),
+                    if (_showStaffPicker) ...[
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String?>(
+                        value: employeeIds.contains(_employeeId)
+                            ? _employeeId
+                            : null,
+                        decoration: InputDecoration(
+                          labelText: tr('Nhân viên phụ trách'),
+                          border: const OutlineInputBorder(),
+                          isDense: true,
                         ),
-                        ..._employees.map((e) => DropdownMenuItem(
-                              value: e.id,
-                              child: Text(tr(e.label)),
-                            )),
-                      ],
-                      onChanged: _saving
-                          ? null
-                          : (v) => setState(() => _employeeId = v),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _depositPaidCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: tr('Thu cọc ngay'),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                        suffixText: 'đ',
+                        items: [
+                          DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text(tr('— Không chọn —')),
+                          ),
+                          ..._employees.map((e) => DropdownMenuItem(
+                                value: e.id,
+                                child: Text(tr(e.label)),
+                              )),
+                        ],
+                        onChanged: _saving
+                            ? null
+                            : (v) => setState(() => _employeeId = v),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        tr('Loại tổ chức'),
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700),
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final o in PosReservationOccasion.options)
+                          ChoiceChip(
+                            label: Text(tr(o.$2),
+                                style: const TextStyle(fontSize: 12)),
+                            selected: _occasion == o.$1,
+                            onSelected: _saving
+                                ? null
+                                : (v) => setState(
+                                    () => _occasion = v ? o.$1 : null),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        tr('Yêu cầu thêm'),
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final chip in PosReservationOccasion.requestChips)
+                          FilterChip(
+                            label: Text(tr(chip),
+                                style: const TextStyle(fontSize: 12)),
+                            selected: _requestTags.contains(chip),
+                            onSelected: _saving
+                                ? null
+                                : (v) => setState(() {
+                                      if (v) {
+                                        _requestTags.add(chip);
+                                      } else {
+                                        _requestTags.remove(chip);
+                                      }
+                                    }),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _requestCtrl,
+                      decoration: InputDecoration(
+                        labelText: tr('Yêu cầu khác (ghi chú)'),
+                        hintText: tr('VD: không cay, bàn gần cửa sổ…'),
+                        border: const OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                    ),
+                    if (widget.existing == null) ...[
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: _depositPaidCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: tr('Thu cọc ngay'),
+                          border: const OutlineInputBorder(),
+                          isDense: true,
+                          suffixText: 'đ',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      PosDepositPaymentPicker(
+                        compact: true,
+                        value: _depositPay,
+                        onChanged: (v) => setState(() => _depositPay = v),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     TextField(
                       controller: _noteCtrl,
@@ -1627,7 +2211,9 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(tr(_profile.bookActionLabel)),
+              : Text(tr(widget.existing == null
+                  ? _profile.bookActionLabel
+                  : 'Lưu')),
         ),
       ],
     );

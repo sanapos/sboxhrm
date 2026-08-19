@@ -44,11 +44,31 @@ public partial class PosSellIndustryController
         List<ReservationPreOrderItemDto>? PreOrderItems = null,
         decimal DepositAmount = 0,
         decimal DepositPaid = 0,
-        string? DepositPaymentMethod = null);
+        string? DepositPaymentMethod = null,
+        Guid? DepositBankAccountId = null,
+        string? Occasion = null,
+        string? SpecialRequest = null);
+
+    public record UpdateReservationDto(
+        Guid ResourceId,
+        string CustomerName,
+        string? Phone = null,
+        int GuestCount = 1,
+        Guid? CustomerId = null,
+        DateTime? ReservedUntil = null,
+        DateTime? SlotStart = null,
+        int? DurationMinutes = null,
+        int? StayNights = null,
+        Guid? ServiceProductId = null,
+        Guid? AssignedEmployeeId = null,
+        string? Note = null,
+        string? Occasion = null,
+        string? SpecialRequest = null);
 
     public record CollectDepositDto(
         decimal Amount,
-        string? PaymentMethod = null);
+        string? PaymentMethod = null,
+        Guid? BankAccountId = null);
 
     public record CancelReservationDto(
         bool ForfeitDeposit = false,
@@ -82,7 +102,18 @@ public partial class PosSellIndustryController
         string? AssignedEmployeeName = null,
         bool IsTimedSlot = false,
         decimal PreOrderValue = 0,
-        string? ResourceKind = null);
+        string? ResourceKind = null,
+        Guid? SeatedSessionId = null,
+        Guid? OrderId = null,
+        string? OrderNo = null,
+        string? OrderStatus = null,
+        decimal OrderTotal = 0,
+        decimal OrderPaid = 0,
+        int OrderLineCount = 0,
+        DateTime? SeatedAt = null,
+        DateTime? CreatedAt = null,
+        string? Occasion = null,
+        string? SpecialRequest = null);
 
     [HttpGet("resource-reservations")]
     [RequireModulePermission("PosBooking", ModulePermissionAction.View)]
@@ -119,7 +150,8 @@ public partial class PosSellIndustryController
         }
 
         var list = await q.OrderBy(x => x.ReservedAt).ToListAsync();
-        return Ok(AppResponse<List<ReservationDto>>.Success(list.Select(ToReservationDto).ToList()));
+        return Ok(AppResponse<List<ReservationDto>>.Success(
+            await MapReservationsWithOrdersAsync(storeId, list)));
     }
 
     public record ReservationDayPipelineDto(
@@ -494,6 +526,8 @@ public partial class PosSellIndustryController
             Status = PosResourceReservationStatus.Booked,
             PreOrderJson = preJson,
             Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim(),
+            Occasion = NormalizeOccasion(dto.Occasion),
+            SpecialRequest = TrimMax(dto.SpecialRequest, 500),
             DepositAmount = depositAmount,
             DepositPaid = depositPaid,
             DepositStatus = depositStatus,
@@ -511,7 +545,7 @@ public partial class PosSellIndustryController
         if (depositPaid > 0)
         {
             await PosFinanceSyncHelper.SyncReservationDepositCollectedAsync(
-                db, entity, depositPaid, CurrentUserId);
+                db, entity, depositPaid, CurrentUserId, dto.DepositBankAccountId);
         }
         await db.SaveChangesAsync();
 
@@ -535,6 +569,177 @@ public partial class PosSellIndustryController
             isTimedSlot = entity.IsTimedSlot,
             serviceProductId = entity.ServiceProductId,
             assignedEmployeeId = entity.AssignedEmployeeId,
+        }));
+    }
+
+    [HttpPut("resource-reservations/{id:guid}")]
+    [RequireModulePermission("PosBooking", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> UpdateReservation(
+        Guid id, [FromBody] UpdateReservationDto dto)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        if (string.IsNullOrWhiteSpace(dto.CustomerName) && !dto.CustomerId.HasValue)
+            return BadRequest(AppResponse<object>.Fail("Nhập tên khách đặt bàn"));
+
+        var entity = await db.PosResourceReservations.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.Deleted == null
+                && (x.StoreId == storeId || x.StoreId == Guid.Empty));
+        if (entity == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đặt bàn"));
+        if (entity.Status != PosResourceReservationStatus.Booked)
+            return BadRequest(AppResponse<object>.Fail("Chỉ sửa lịch còn hiệu lực (chưa nhận bàn / chưa hủy)"));
+
+        var resource = await db.PosServiceResources
+            .FirstOrDefaultAsync(r => r.Id == dto.ResourceId && r.StoreId == storeId
+                && r.Deleted == null && r.IsActive);
+        if (resource == null)
+            return BadRequest(AppResponse<object>.Fail("Bàn/phòng không hợp lệ"));
+
+        var now = DateTime.UtcNow;
+        int? duration = dto.DurationMinutes is > 0 ? dto.DurationMinutes : null;
+        if (dto.StayNights is > 0)
+            duration = dto.StayNights.Value * 24 * 60;
+        PosProduct? serviceProduct = null;
+        if (dto.ServiceProductId.HasValue)
+        {
+            serviceProduct = await db.PosProducts.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == dto.ServiceProductId && p.StoreId == storeId
+                    && p.Deleted == null && p.IsActive
+                    && p.ProductType == PosProductType.Service);
+            if (serviceProduct == null)
+                return BadRequest(AppResponse<object>.Fail("Dịch vụ không hợp lệ"));
+            duration ??= serviceProduct.DefaultDurationMinutes is > 0
+                ? serviceProduct.DefaultDurationMinutes
+                : 60;
+        }
+        duration ??= entity.DurationMinutes;
+
+        var isTimed = duration is > 0;
+        DateTime slotStart;
+        DateTime? slotEnd;
+        if (isTimed)
+        {
+            slotStart = ToUtc(dto.SlotStart ?? dto.ReservedUntil) ?? entity.ReservedAt;
+            slotEnd = slotStart.AddMinutes(duration!.Value);
+        }
+        else
+        {
+            slotStart = ToUtc(dto.SlotStart) ?? entity.ReservedAt;
+            slotEnd = ToUtc(dto.ReservedUntil) ?? entity.ReservedUntil;
+        }
+
+        if (dto.AssignedEmployeeId.HasValue)
+        {
+            var empOk = await db.Employees.AnyAsync(e =>
+                e.Id == dto.AssignedEmployeeId && e.Deleted == null
+                && e.WorkStatus != EmployeeWorkStatus.Resigned);
+            if (!empOk)
+                return BadRequest(AppResponse<object>.Fail("Nhân viên không hợp lệ"));
+        }
+
+        var live = await db.PosResourceSessions.AnyAsync(s =>
+            s.ResourceId == dto.ResourceId
+            && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused)
+            && s.Deleted == null);
+        if (live && (!isTimed || (slotStart <= now && slotEnd > now)))
+            return BadRequest(AppResponse<object>.Fail("Bàn đang mở — không đổi sang khung giờ đang diễn ra"));
+
+        var booked = await db.PosResourceReservations.AsNoTracking()
+            .Where(x => x.ResourceId == dto.ResourceId && x.StoreId == storeId
+                && x.Deleted == null && x.Status == PosResourceReservationStatus.Booked
+                && x.Id != id)
+            .Select(x => new { x.ReservedAt, x.ReservedUntil, x.DurationMinutes })
+            .ToListAsync();
+
+        if (isTimed)
+        {
+            var overlap = booked.Any(x =>
+            {
+                var otherTimed = x.DurationMinutes is > 0;
+                if (!otherTimed) return true;
+                var oStart = x.ReservedAt;
+                var oEnd = x.ReservedUntil ?? oStart.AddMinutes(x.DurationMinutes ?? 60);
+                return slotStart < oEnd && oStart < slotEnd!.Value;
+            });
+            if (overlap)
+                return BadRequest(AppResponse<object>.Fail(
+                    "Khung giờ trùng đặt trước khác trên bàn/ghế này"));
+        }
+        else if (booked.Count > 0)
+        {
+            return BadRequest(AppResponse<object>.Fail(
+                "Bàn đã có đặt trước — hủy hoặc nhận bàn trước"));
+        }
+
+        if (isTimed && dto.AssignedEmployeeId.HasValue)
+        {
+            var empBooked = await db.PosResourceReservations.AsNoTracking()
+                .Where(x => x.StoreId == storeId && x.Deleted == null
+                    && x.Status == PosResourceReservationStatus.Booked
+                    && x.AssignedEmployeeId == dto.AssignedEmployeeId
+                    && x.Id != id
+                    && x.DurationMinutes != null && x.DurationMinutes > 0)
+                .Select(x => new { x.ReservedAt, x.ReservedUntil, x.DurationMinutes })
+                .ToListAsync();
+            var empOverlap = empBooked.Any(x =>
+            {
+                var oStart = x.ReservedAt;
+                var oEnd = x.ReservedUntil ?? oStart.AddMinutes(x.DurationMinutes ?? 60);
+                return slotStart < oEnd && oStart < slotEnd!.Value;
+            });
+            if (empOverlap)
+                return BadRequest(AppResponse<object>.Fail(
+                    "Nhân viên đã có lịch hẹn trùng khung giờ"));
+        }
+
+        var name = (dto.CustomerName ?? "").Trim();
+        string? phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim();
+        if (dto.CustomerId.HasValue)
+        {
+            var cust = await db.PosCustomers.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == dto.CustomerId && c.StoreId == storeId && c.Deleted == null);
+            if (cust == null)
+                return BadRequest(AppResponse<object>.Fail("Khách hàng không hợp lệ"));
+            if (string.IsNullOrWhiteSpace(name)) name = cust.Name;
+            phone ??= string.IsNullOrWhiteSpace(cust.Phone) ? null : cust.Phone.Trim();
+        }
+        if (string.IsNullOrWhiteSpace(name))
+            return BadRequest(AppResponse<object>.Fail("Nhập tên khách đặt bàn"));
+
+        if (entity.StoreId == Guid.Empty) entity.StoreId = storeId;
+        var oldResourceId = entity.ResourceId;
+        entity.ResourceId = resource.Id;
+        entity.CustomerId = dto.CustomerId;
+        entity.CustomerName = name;
+        entity.Phone = phone;
+        entity.GuestCount = dto.GuestCount < 1 ? 1 : dto.GuestCount;
+        entity.ReservedAt = slotStart;
+        entity.ReservedUntil = slotEnd;
+        entity.DurationMinutes = duration;
+        entity.ServiceProductId = serviceProduct?.Id;
+        entity.AssignedEmployeeId = dto.AssignedEmployeeId;
+        entity.Note = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
+        entity.Occasion = NormalizeOccasion(dto.Occasion);
+        entity.SpecialRequest = TrimMax(dto.SpecialRequest, 500);
+        entity.UpdatedAt = now;
+        entity.UpdatedBy = CurrentUserEmail;
+        await db.SaveChangesAsync();
+
+        NotifyFloorChanged(storeId, "reservationUpdated", resourceId: entity.ResourceId);
+        if (oldResourceId != entity.ResourceId)
+            NotifyFloorChanged(storeId, "reservationUpdated", resourceId: oldResourceId);
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            id = entity.Id,
+            resourceId = resource.Id,
+            resourceName = resource.Name,
+            customerName = entity.CustomerName,
+            guestCount = entity.GuestCount,
+            slotStart = entity.ReservedAt,
+            slotEnd = entity.ReservedUntil,
+            durationMinutes = entity.DurationMinutes,
         }));
     }
 
@@ -585,7 +790,7 @@ public partial class PosSellIndustryController
         entity.UpdatedAt = now;
         entity.UpdatedBy = CurrentUserEmail;
         await PosFinanceSyncHelper.SyncReservationDepositCollectedAsync(
-            db, entity, dto.Amount, CurrentUserId);
+            db, entity, dto.Amount, CurrentUserId, dto.BankAccountId);
         await db.SaveChangesAsync();
 
         NotifyFloorChanged(storeId, "reservationDeposit", resourceId: entity.ResourceId);
@@ -628,9 +833,15 @@ public partial class PosSellIndustryController
                     db, entity, CurrentUserId);
             }
             else if (dto?.ForfeitDeposit == true || dto == null)
+            {
                 entity.DepositStatus = PosReservationDepositStatus.Forfeited;
+                await PosFinanceSyncHelper.ReclassifyDepositOnForfeitAsync(db, entity);
+            }
             else
+            {
                 entity.DepositStatus = PosReservationDepositStatus.Forfeited;
+                await PosFinanceSyncHelper.ReclassifyDepositOnForfeitAsync(db, entity);
+            }
         }
 
         entity.Deleted = now;
@@ -683,12 +894,9 @@ public partial class PosSellIndustryController
         if (resource == null || !resource.IsActive)
             return BadRequest(AppResponse<object>.Fail("Bàn/phòng không hợp lệ"));
 
-        var live = await db.PosResourceSessions.AnyAsync(s =>
-            s.ResourceId == booking.ResourceId
-            && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused)
-            && s.Deleted == null);
-        if (live)
-            return BadRequest(AppResponse<object>.Fail("Bàn đang có phiên mở"));
+        var block = await ReleaseEmptyWalkInOnResourceAsync(storeId, booking.ResourceId);
+        if (block != null)
+            return BadRequest(AppResponse<object>.Fail(block));
 
         try
         {
@@ -824,7 +1032,8 @@ public partial class PosSellIndustryController
             .Where(x => x.StoreId == storeId && x.Deleted == null
                 && x.Status == PosResourceReservationStatus.Booked
                 && x.ReservedUntil != null
-                && x.ReservedUntil < cutoff)
+                && x.ReservedUntil < cutoff
+                && x.ReservedAt <= cutoff)
             .ToListAsync();
         if (overdue.Count == 0) return 0;
 
@@ -833,7 +1042,10 @@ public partial class PosSellIndustryController
         {
             x.Status = PosResourceReservationStatus.NoShow;
             if (x.DepositStatus == PosReservationDepositStatus.Held && x.DepositPaid > 0)
+            {
                 x.DepositStatus = PosReservationDepositStatus.Forfeited;
+                await PosFinanceSyncHelper.ReclassifyDepositOnForfeitAsync(db, x);
+            }
             x.UpdatedAt = now;
             x.UpdatedBy = CurrentUserEmail ?? "system";
             x.IsActive = false;
@@ -842,6 +1054,81 @@ public partial class PosSellIndustryController
         if (overdue.Count > 0)
             NotifyFloorChanged(storeId, "reservationNoShow");
         return overdue.Count;
+    }
+
+    /// <summary>
+    /// Đóng phiên walk-in trống trên bàn để nhận khách đặt.
+    /// Còn món → chặn (phải TT / trả trống trước).
+    /// </summary>
+    async Task<string?> ReleaseEmptyWalkInOnResourceAsync(Guid storeId, Guid resourceId)
+    {
+        var live = await db.PosResourceSessions.AsTracking()
+            .Where(s => s.ResourceId == resourceId && s.Deleted == null
+                && (s.Status == PosResourceSessionStatus.Open
+                    || s.Status == PosResourceSessionStatus.Paused))
+            .ToListAsync();
+        if (live.Count == 0) return null;
+
+        var orderIds = live.Where(s => s.SaleOrderId.HasValue)
+            .Select(s => s.SaleOrderId!.Value)
+            .Distinct()
+            .ToList();
+        var busyIds = orderIds.Count == 0
+            ? new List<Guid>()
+            : await db.PosSaleOrderLines.AsNoTracking()
+                .Where(l => orderIds.Contains(l.SaleOrderId) && l.Deleted == null)
+                .Select(l => l.SaleOrderId)
+                .Distinct()
+                .ToListAsync();
+        if (busyIds.Count > 0)
+            return "Bàn đang có món — thanh toán hoặc trả trống trước khi nhận khách đặt";
+
+        var orphanBusy = await db.PosSaleOrders.AsNoTracking()
+            .AnyAsync(o => o.StoreId == storeId && o.Deleted == null
+                && o.Status == PosSaleOrderStatus.Draft
+                && o.ServiceResourceId == resourceId
+                && o.Lines.Any(l => l.Deleted == null));
+        if (orphanBusy)
+            return "Bàn đang có món — thanh toán hoặc trả trống trước khi nhận khách đặt";
+
+        var now = DateTime.UtcNow;
+        var by = CurrentUserEmail;
+        foreach (var s in live)
+        {
+            s.Status = PosResourceSessionStatus.Closed;
+            s.EndedAt = now;
+            s.UpdatedAt = now;
+            s.UpdatedBy = by;
+        }
+
+        var emptyDraftIds = await db.PosSaleOrders
+            .Where(o => o.StoreId == storeId && o.Deleted == null
+                && o.Status == PosSaleOrderStatus.Draft
+                && o.ServiceResourceId == resourceId
+                && !o.Lines.Any(l => l.Deleted == null))
+            .Select(o => o.Id)
+            .ToListAsync();
+        if (emptyDraftIds.Count > 0)
+        {
+            await db.PosSaleOrders
+                .Where(o => emptyDraftIds.Contains(o.Id))
+                .ExecuteUpdateAsync(o => o
+                    .SetProperty(x => x.Deleted, now)
+                    .SetProperty(x => x.DeletedBy, by)
+                    .SetProperty(x => x.UpdatedAt, now)
+                    .SetProperty(x => x.UpdatedBy, by)
+                    .SetProperty(x => x.ServiceEndedAt, now)
+                    .SetProperty(x => x.LockedByUserId, (Guid?)null)
+                    .SetProperty(x => x.LockedByEmployeeId, (Guid?)null)
+                    .SetProperty(x => x.LockedByDeviceId, (string?)null)
+                    .SetProperty(x => x.LockedByDeviceName, (string?)null)
+                    .SetProperty(x => x.LockedByDisplayName, (string?)null)
+                    .SetProperty(x => x.LockedAt, (DateTime?)null)
+                    .SetProperty(x => x.LockExpiresAt, (DateTime?)null));
+        }
+
+        await db.SaveChangesAsync();
+        return null;
     }
 
     async Task<int> ApplyPreOrderLinesAsync(
@@ -909,6 +1196,73 @@ public partial class PosSellIndustryController
         return added;
     }
 
+    async Task<List<ReservationDto>> MapReservationsWithOrdersAsync(
+        Guid storeId, List<PosResourceReservation> list)
+    {
+        if (list.Count == 0) return [];
+
+        var sessionIds = list
+            .Where(x => x.SeatedSessionId != null)
+            .Select(x => x.SeatedSessionId!.Value)
+            .Distinct()
+            .ToList();
+
+        var sessRows = await db.PosResourceSessions.AsNoTracking()
+            .Where(s => sessionIds.Contains(s.Id))
+            .Select(s => new { s.Id, s.SaleOrderId, s.StartedAt })
+            .ToListAsync();
+        var sessById = sessRows.ToDictionary(s => s.Id);
+
+        var orderIds = new HashSet<Guid>();
+        foreach (var s in sessRows)
+            if (s.SaleOrderId is Guid sid) orderIds.Add(sid);
+        foreach (var x in list)
+            if (x.DepositAppliedOrderId is Guid oid) orderIds.Add(oid);
+
+        var orderRows = await db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && orderIds.Contains(o.Id))
+            .Select(o => new
+            {
+                o.Id,
+                o.OrderNo,
+                Status = o.Status.ToString(),
+                o.Total,
+                o.PaidAmount,
+                LineCount = o.Lines.Count(l => l.Deleted == null),
+            })
+            .ToListAsync();
+        var orderById = orderRows.ToDictionary(o => o.Id);
+
+        return list.Select(x =>
+        {
+            Guid? oid = null;
+            DateTime? seatedAt = null;
+            if (x.SeatedSessionId is Guid sessId && sessById.TryGetValue(sessId, out var sess))
+            {
+                oid = sess.SaleOrderId;
+                seatedAt = sess.StartedAt;
+            }
+            oid ??= x.DepositAppliedOrderId;
+            var order = oid is Guid foundId && orderById.TryGetValue(foundId, out var row)
+                ? row
+                : null;
+            return ToReservationDto(x) with
+            {
+                SeatedSessionId = x.SeatedSessionId,
+                OrderId = oid,
+                OrderNo = order?.OrderNo,
+                OrderStatus = order?.Status,
+                OrderTotal = order?.Total ?? 0,
+                OrderPaid = order?.PaidAmount ?? 0,
+                OrderLineCount = order?.LineCount ?? 0,
+                SeatedAt = seatedAt,
+                CreatedAt = x.CreatedAt,
+                Occasion = x.Occasion,
+                SpecialRequest = x.SpecialRequest,
+            };
+        }).ToList();
+    }
+
     static ReservationDto ToReservationDto(PosResourceReservation x)
     {
         var (preCount, preValue) = ParsePreOrder(x.PreOrderJson);
@@ -949,7 +1303,40 @@ public partial class PosSellIndustryController
             empName,
             x.IsTimedSlot,
             preValue,
-            x.Resource?.ResourceKind.ToString());
+            x.Resource?.ResourceKind.ToString(),
+            x.SeatedSessionId,
+            null,
+            null,
+            null,
+            0,
+            0,
+            0,
+            null,
+            x.CreatedAt,
+            x.Occasion,
+            x.SpecialRequest);
+    }
+
+    static string? NormalizeOccasion(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var v = raw.Trim().ToLowerInvariant();
+        return v switch
+        {
+            "birthday" or "sinh nhật" or "sinhnhat" => "birthday",
+            "party" or "liên hoan" or "lien hoan" or "lienhoan" or "tiệc" => "party",
+            "reunion" or "họp lớp" or "hop lop" or "hoplop" => "reunion",
+            "partner" or "đối tác" or "doi tac" or "gặp đối tác" => "partner",
+            "other" or "khác" or "khac" => "other",
+            _ => v.Length <= 40 ? v : v[..40],
+        };
+    }
+
+    static string? TrimMax(string? raw, int max)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var t = raw.Trim();
+        return t.Length <= max ? t : t[..max];
     }
 
     static (int Count, decimal Value) ParsePreOrder(string? json)
@@ -1000,7 +1387,7 @@ public partial class PosSellIndustryController
         var current = timed
             .Where(b =>
             {
-                var end = b.ReservedUntil ?? b.ReservedAt.AddMinutes(b.DurationMinutes ?? 60);
+                var end = FloorBookingEnd(b);
                 return b.ReservedAt <= nowUtc && nowUtc < end;
             })
             .OrderBy(b => b.ReservedAt)
@@ -1015,6 +1402,15 @@ public partial class PosSellIndustryController
 
         return classic.OrderByDescending(b => b.ReservedAt).FirstOrDefault()
             ?? timed.OrderByDescending(b => b.ReservedAt).FirstOrDefault();
+    }
+
+    internal static DateTime FloorBookingEnd(PosResourceReservation b)
+    {
+        var minutes = b.DurationMinutes is > 0 ? b.DurationMinutes.Value : 60;
+        var end = b.ReservedUntil ?? b.ReservedAt.AddMinutes(minutes);
+        // 23:00–00:00 lưu nhầm until cùng ngày (trước start) → cộng duration.
+        if (end <= b.ReservedAt) end = b.ReservedAt.AddMinutes(minutes);
+        return end;
     }
 
     /// <summary>

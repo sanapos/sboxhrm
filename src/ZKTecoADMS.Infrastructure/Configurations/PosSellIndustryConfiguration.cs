@@ -90,6 +90,8 @@ public class PosResourceReservationConfiguration : IEntityTypeConfiguration<PosR
         builder.Property(x => x.CustomerName).HasMaxLength(200);
         builder.Property(x => x.Phone).HasMaxLength(30);
         builder.Property(x => x.Note).HasMaxLength(500);
+        builder.Property(x => x.Occasion).HasMaxLength(40);
+        builder.Property(x => x.SpecialRequest).HasMaxLength(500);
         builder.Property(x => x.PreOrderJson).HasColumnType("text");
         builder.Property(x => x.DepositAmount).HasPrecision(18, 2);
         builder.Property(x => x.DepositPaid).HasPrecision(18, 2);

@@ -825,10 +825,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     setState(() => _isExporting = true);
     try {
       final res = await _api.exportPosProductsExcel(
-        search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
-        categoryId: _categoryFilter,
-        supplierId: _supplierFilter,
         productType: _typeFilter,
+        all: true,
       );
       if (res['isSuccess'] == true) {
         final bytes = Uint8List.fromList(List<int>.from(res['data']));
@@ -838,7 +836,14 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         );
         NotificationOverlayManager().showSuccess(
-            title: 'Xuất file', message: tr('Đã xuất Excel hàng hóa'));
+            title: 'Xuất file',
+            message: tr(
+                'Đã xuất đủ danh sách (kể cả ngừng KD) — mỗi loại một sheet'));
+      } else if (mounted) {
+        NotificationOverlayManager().showError(
+          title: 'Xuất Excel thất bại',
+          message: res['message']?.toString() ?? 'Vui lòng thử lại',
+        );
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -2253,14 +2258,10 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       code: activeView.displayCode,
       priceText: _moneyFmt.format(activeView.basePrice),
       stockText: p.productType == PosProductType.service
-          ? 'Dịch vụ'
+          ? ''
           : p.productType == PosProductType.combo
-              ? 'Có thể bán: ${_moneyFmt.format(p.sellableQty ?? activeView.onHandQty)}'
-              : p.productType == PosProductType.material
-                  ? 'NVL · Tồn: ${_moneyFmt.format(activeView.onHandQty)} $stockUnit'
-                  : p.productType == PosProductType.topping
-                      ? 'Topping · Tồn: ${_moneyFmt.format(activeView.onHandQty)} $stockUnit'
-                      : 'Tồn: ${_moneyFmt.format(activeView.onHandQty)} $stockUnit',
+              ? 'Bán ${_moneyFmt.format(p.sellableQty ?? activeView.onHandQty)}'
+              : 'Tồn ${_moneyFmt.format(activeView.onHandQty)} $stockUnit',
       typeBadge: PosProductTypeBadge(type: p.productType, compact: true),
       image: PosProductImage(
         productId: p.id,

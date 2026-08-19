@@ -258,6 +258,12 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
 
   String get _stamp => DateFormat('yyyyMMdd_HHmm').format(DateTime.now());
 
+  String get _groupShort => switch (_taxGroup) {
+        1 => 'Dưới 1 tỷ/năm',
+        3 => 'Trên 3 tỷ/năm',
+        _ => 'Từ 1–3 tỷ/năm',
+      };
+
   String get _groupHint {
     switch (_taxGroup) {
       case 1:
@@ -314,18 +320,68 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
                   tr('Theo Thông tư 152/2025/TT-BTC. Xem chi tiết trên màn hình; xuất Excel khi cần nộp cơ quan thuế.'),
                   style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
                 ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
                 _card(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(tr('Hồ sơ hộ kinh doanh'),
+                      Text(tr('Kỳ dữ liệu'),
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                       const SizedBox(height: 12),
-                      Text(tr('Nhóm theo doanh thu năm'),
-                          style: const TextStyle(fontSize: 12)),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<int>(
+                      PosKiotTimeFilter(
+                        state: _time,
+                        onChanged: (v) {
+                          setState(() => _time = v);
+                          _loadPreview();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _card(child: _buildBookCard(canExport)),
+                const SizedBox(height: 16),
+                _card(child: _buildProfileCard(canEdit)),
+                if (_exporting) ...[
+                  const SizedBox(height: 12),
+                  const LinearProgressIndicator(),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _card({required Widget child}) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: PosTheme.border),
+      ),
+      child: Padding(padding: const EdgeInsets.all(16), child: child),
+    );
+  }
+
+  Widget _buildProfileCard(bool canEdit) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        initiallyExpanded: false,
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: EdgeInsets.zero,
+        title: Text(tr('Hồ sơ hộ kinh doanh'),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        subtitle: Text(tr(_groupShort),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(tr('Nhóm theo doanh thu năm'),
+                style: const TextStyle(fontSize: 12)),
+          ),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<int>(
                         value: _taxGroup,
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
@@ -426,63 +482,24 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
                           ],
                         ),
                       ],
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          Text(tr('Sổ khuyến nghị:'),
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
-                          ..._recommendedBooks.map(
-                            (b) => Chip(
-                              label: Text(b, style: const TextStyle(fontSize: 11)),
-                              visualDensity: VisualDensity.compact,
-                              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              Text(tr('Sổ khuyến nghị:'),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+              ..._recommendedBooks.map(
+                (b) => Chip(
+                  label: Text(b, style: const TextStyle(fontSize: 11)),
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                const SizedBox(height: 16),
-                _card(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Kỳ dữ liệu'),
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                      const SizedBox(height: 12),
-                      PosKiotTimeFilter(
-                        state: _time,
-                        onChanged: (v) {
-                          setState(() => _time = v);
-                          _loadPreview();
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _card(child: _buildBookCard(canExport)),
-                if (_exporting) ...[
-                  const SizedBox(height: 12),
-                  const LinearProgressIndicator(),
-                ],
-              ],
-            ),
-    );
-  }
-
-  Widget _card({required Widget child}) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: PosTheme.border),
+              ),
+            ],
+          ),
+        ],
       ),
-      child: Padding(padding: const EdgeInsets.all(16), child: child),
     );
   }
 
@@ -505,7 +522,8 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
             final selected = _selectedBook == b.id;
             return FilterChip(
               selected: selected,
-              label: Text('${b.title} · ${b.subtitle}'),
+              label: Text(b.title),
+              tooltip: b.subtitle,
               onSelected: (_) => _selectBook(b.id),
               selectedColor: PosTheme.kiotBlue.withOpacity(0.12),
               checkmarkColor: PosTheme.kiotBlue,
@@ -521,6 +539,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
           canExport: canExport,
           exporting: _exporting,
           onExport: _exportSelected,
+          onRetry: _loadPreview,
         ),
       ],
     );

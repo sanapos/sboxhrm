@@ -269,9 +269,10 @@ public partial class PosProductSampleCatalogAdminController(
         if (file == null || file.Length == 0)
             return BadRequest(AppResponse<object>.Fail("Chưa chọn ảnh"));
 
-        var entity = await dbContext.PosProductSampleCatalog
-            .FirstOrDefaultAsync(x => x.Id == id && x.Deleted == null);
-        if (entity == null)
+        var exists = await dbContext.PosProductSampleCatalog
+            .AsNoTracking()
+            .AnyAsync(x => x.Id == id && x.Deleted == null);
+        if (!exists)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy mẫu"));
 
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
@@ -283,7 +284,9 @@ public partial class PosProductSampleCatalogAdminController(
             await using var raw = file.OpenReadStream();
             var (optimized, uploadName, _) = await ImageOptimizeHelper.OptimizeAsync(
                 raw,
-                $"{id:N}{ext}",
+                string.IsNullOrWhiteSpace(Path.GetExtension(file.FileName))
+                    ? $"{id:N}{ext}"
+                    : file.FileName,
                 ImageOptimizeHelper.SampleCatalogMaxEdge,
                 ImageOptimizeHelper.SampleCatalogJpegQuality);
             await using (optimized)
@@ -291,10 +294,19 @@ public partial class PosProductSampleCatalogAdminController(
                 var path = await fileStorageService.UploadAsync(
                     optimized, uploadName, "catalog/pos-samples");
                 var imagePath = path.TrimStart('/');
-                entity.ImageUrl = imagePath;
-                entity.UpdatedAt = DateTime.UtcNow;
-                entity.UpdatedBy = CurrentUserEmail;
-                await dbContext.SaveChangesAsync();
+                var updatedBy = CurrentUserEmail ?? "API";
+                var now = DateTime.UtcNow;
+                // ExecuteUpdate: change-tracker thường không persist ImageUrl.
+                var rows = await dbContext.PosProductSampleCatalog
+                    .Where(x => x.Id == id && x.Deleted == null)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(x => x.ImageUrl, imagePath)
+                        .SetProperty(x => x.UpdatedAt, now)
+                        .SetProperty(x => x.UpdatedBy, updatedBy));
+                if (rows == 0)
+                    return NotFound(AppResponse<object>.Fail("Không cập nhật được ảnh mẫu"));
+                logger.LogInformation(
+                    "Sample catalog image saved: {Id} -> {ImageUrl}", id, imagePath);
                 return Ok(AppResponse<object>.Success(new { imageUrl = imagePath }));
             }
         }

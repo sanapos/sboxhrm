@@ -397,6 +397,12 @@ class PermissionProvider extends ChangeNotifier {
     return _hasAction(moduleCode, 'canApprove');
   }
 
+  /// Tổng kết cuối ngày / báo cáo POS của mọi nhân viên (không khóa theo tài khoản đang bán).
+  bool canViewAllPosStaffReports() =>
+      canEdit('PosReportEndOfDay') ||
+      canApprove('PosReportEndOfDay') ||
+      canEdit('PosSalesReport');
+
   /// Xóa cache khi logout
   void clear() {
     _permissions = {};

@@ -17,6 +17,8 @@ import '../../utils/pos_table_label.dart';
 import '../../utils/responsive_helper.dart';
 import '../../utils/safe_navigator.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_deposit_payment_picker.dart';
+import '../../widgets/pos/pos_h_scroll_chip_row.dart';
 import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_appointment_day_screen.dart';
@@ -121,19 +123,20 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Timer? _clock;
   String? _deviceId;
   final _floorRealtime = PosFloorRealtimeSubscription();
+  PosSellProfile? _loadedSellProfile;
 
-  bool get _isFnB => widget.sellProfile == PosSellProfile.restaurant;
-  bool get _isHourly => widget.sellProfile == PosSellProfile.roomHourly;
-  bool get _isSalon => widget.sellProfile == PosSellProfile.salon;
-  String get _bookingChipLabel {
-    if (_isFnB) return 'Đặt hôm nay';
-    final p = widget.sellProfile;
-    if (p == null) return 'Lịch đặt';
-    return p.bookingCalendarTitle;
-  }
+  PosSellProfile get _sellProfile =>
+      widget.sellProfile ?? _loadedSellProfile ?? PosSellProfile.restaurant;
+
+  bool get _isFnB => _sellProfile == PosSellProfile.restaurant;
+  bool get _isHourly => _sellProfile == PosSellProfile.roomHourly;
+  bool get _isSalon => _sellProfile == PosSellProfile.salon;
+  bool get _isHotel => _sellProfile == PosSellProfile.hotel;
+  bool get _usesAppointmentCalendar => _sellProfile.usesTimedBooking;
+  String get _bookingChipLabel => 'Đặt lịch';
   bool get _warnMissingTimed =>
-      widget.sellProfile == PosSellProfile.roomHourly ||
-      widget.sellProfile == PosSellProfile.salon;
+      _sellProfile == PosSellProfile.roomHourly ||
+      _sellProfile == PosSellProfile.salon;
 
   /// Bàn máy này đang **sửa** (có khóa), không tính bàn tạm rời.
   List<PosServiceResourceDto> get _tablesHeldByMe => _resources
@@ -147,6 +150,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.sellProfile == null) {
+      unawaited(_loadSellProfile());
+    }
     unawaited(_loadDeviceId());
     _reload();
     // Bán hàng: poll 8–12s làm fallback; SignalR PosFloorChanged reload tức thì.
@@ -176,6 +182,20 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         setState(() {});
       }
     });
+  }
+
+  Future<void> _loadSellProfile() async {
+    try {
+      final res = await _api.getPosSellSettings();
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        setState(() {
+          _loadedSellProfile = PosStoreSellSettingsDto.fromJson(
+            Map<String, dynamic>.from(res['data'] as Map),
+          ).sellProfile;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadDeviceId() async {
@@ -368,6 +388,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (!mounted) return;
     unawaited(_reload(silent: true));
   }
+
+  Future<void> openAppointmentCalendar({String? resourceId}) =>
+      _openAppointmentCalendar(resourceId: resourceId);
 
   Future<void> _reload({bool silent = false}) async {
     if (!silent) {
@@ -597,7 +620,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     PosServiceResourceDto r, {
     bool skipHoldingPrompt = false,
   }) async {
-    if (r.isReserved) {
+    if (r.showReservedOnFloor) {
       await _showReservedActions(r);
       return;
     }
@@ -789,7 +812,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       r.reservationCustomerName ?? 'Khách đặt',
       if ((r.reservationPhone ?? '').isNotEmpty) r.reservationPhone!,
       if (r.reservationGuestCount > 0) '${r.reservationGuestCount} khách',
-      if (r.reservationReservedUntil != null)
+      if (_reservationTimeLabel(r).isNotEmpty)
+        'Giờ ${_reservationTimeLabel(r)}'
+      else if (r.reservationReservedUntil != null)
         'Đến ${DateFormat('dd/MM HH:mm').format(r.reservationReservedUntil!.toLocal())}',
       if (r.reservationPreOrderCount > 0)
         '${r.reservationPreOrderCount} món đặt trước',
@@ -912,54 +937,25 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Future<void> _collectDepositForResource(PosServiceResourceDto r) async {
     final rid = r.reservationId;
     if (rid == null || rid.isEmpty) return;
-    final amountCtrl = TextEditingController(
-      text: r.reservationDepositAmount > r.reservationDepositPaid
-          ? '${(r.reservationDepositAmount - r.reservationDepositPaid).round()}'
-          : '',
-    );
-    final ok = await showDialog<bool>(
+    final initial = r.reservationDepositAmount > r.reservationDepositPaid
+        ? '${(r.reservationDepositAmount - r.reservationDepositPaid).round()}'
+        : '';
+    final picked = await showPosCollectDepositDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Thu cọc — ${r.name}')),
-        content: TextField(
-          controller: amountCtrl,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: tr('Số tiền cọc'),
-            border: OutlineInputBorder(),
-            suffixText: 'đ',
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('Huỷ'))),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(tr('Thu cọc'))),
-        ],
-      ),
+      title: 'Thu cọc — ${r.name}',
+      initialAmount: initial,
     );
-    if (ok != true || !mounted) return;
-    final amount =
-        double.tryParse(amountCtrl.text.trim().replaceAll(',', '')) ?? 0;
-    if (amount <= 0) {
-      NotificationOverlayManager().showWarning(
-        title: 'Thiếu số tiền',
-        message: tr('Nhập số tiền cọc > 0'),
-      );
-      return;
-    }
+    if (picked == null || !mounted) return;
+    final amount = picked.amount;
     final res = await _api.collectPosResourceReservationDeposit(rid, {
       'amount': amount,
-      'paymentMethod': 'Tiền mặt',
+      ...picked.pay.toCollectBody(),
     });
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã thu cọc',
-        message: '${_moneyFmt.format(amount)}đ · ${r.name}',
+        message: '${_moneyFmt.format(amount)}đ · ${picked.pay.methodLabel} · ${r.name}',
       );
       await _reload();
     } else {
@@ -975,7 +971,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       MaterialPageRoute(
         builder: (_) => PosAppointmentDayScreen(
           initialResourceId: resourceId,
-          sellProfile: widget.sellProfile,
+          sellProfile: _sellProfile,
           onSeated: (payload) {
             final rid = payload['resourceId']?.toString();
             final match = _resources.where((x) => x.id == rid).toList();
@@ -1084,7 +1080,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             final table = _resources
                                 .where((x) => x.id == b.resourceId)
                                 .firstOrNull;
-                            if (table != null && table.isReserved) {
+                            if (table != null && table.showReservedOnFloor) {
                               unawaited(_showReservedActions(table));
                             } else {
                               unawaited(_openAppointmentCalendar(
@@ -1108,6 +1104,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final noteCtrl = TextEditingController();
     final depositCtrl = TextEditingController();
     final depositPaidCtrl = TextEditingController();
+    var depositPay = const PosDepositPayChoice();
     String? customerId;
     final preItems = <Map<String, dynamic>>[];
     var guests = 2;
@@ -1129,12 +1126,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final tableLabel = r.areaName.trim().isEmpty
         ? r.name
         : '${r.areaName} · ${r.name}';
+    final bookLabel = _sellProfile.bookActionLabel;
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
-          title: Text(tr('Đặt bàn — $tableLabel')),
+          title: Text(tr('$bookLabel — $tableLabel')),
           content: SizedBox(
             width: 400,
             child: SingleChildScrollView(
@@ -1334,6 +1332,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     ],
                   ),
                   const SizedBox(height: 10),
+                  PosDepositPaymentPicker(
+                    compact: true,
+                    value: depositPay,
+                    onChanged: (v) => setLocal(() => depositPay = v),
+                  ),
+                  const SizedBox(height: 10),
                   TextField(
                     controller: noteCtrl,
                     decoration: InputDecoration(
@@ -1422,7 +1426,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 child: Text(tr('Hủy'))),
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: Text(tr('Lưu đặt bàn'))),
+                child: Text(tr('Lưu $bookLabel'))),
           ],
         ),
       ),
@@ -1460,12 +1464,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       if (preItems.isNotEmpty) 'preOrderItems': preItems,
       if (depositAmount > 0) 'depositAmount': depositAmount,
       if (depositPaid > 0) 'depositPaid': depositPaid,
-      if (depositPaid > 0) 'depositPaymentMethod': 'Tiền mặt',
+      if (depositPaid > 0) ...depositPay.toCreateBody(),
     });
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
-        title: 'Đã đặt bàn',
+        title: tr('Đã $bookLabel'),
         message:
             '$tableLabel · $name · ${DateFormat('dd/MM HH:mm').format(arriveLocal)}',
       );
@@ -2806,7 +2810,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       builder: (ctx) => AlertDialog(
         title: Text(tr('Trả hết bàn về trống?')),
         content: Text(tr(
-          '${busy.length} ${(widget.sellProfile ?? PosSellProfile.restaurant).resourceNoun} đang dùng'
+          '${busy.length} ${_sellProfile.resourceNoun} đang dùng'
           '${withItems > 0 ? ' (trong đó $withItems còn món)' : ''}.\n'
           'Xóa đơn tạm, không thu tiền, đóng mọi phiên.',
         )),
@@ -2840,7 +2844,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (fail == 0) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã trả hết về trống',
-        message: tr('$done ${(widget.sellProfile ?? PosSellProfile.restaurant).resourceNoun}'),
+        message: tr('$done ${_sellProfile.resourceNoun}'),
       );
     } else {
       NotificationOverlayManager().showError(
@@ -3196,7 +3200,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     var count = 8;
     var startNo = 1;
     var capacity = 4;
-    var kind = switch (widget.sellProfile) {
+    var kind = switch (_sellProfile) {
       PosSellProfile.salon => PosResourceKind.chair,
       PosSellProfile.roomHourly => PosResourceKind.room,
       PosSellProfile.hotel => PosResourceKind.room,
@@ -3615,7 +3619,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             ? _areaFilter!
             : _areas.first.id);
     var kind = existing?.resourceKind ??
-        switch (widget.sellProfile) {
+        switch (_sellProfile) {
           PosSellProfile.salon => PosResourceKind.chair,
           PosSellProfile.roomHourly => PosResourceKind.room,
           PosSellProfile.hotel => PosResourceKind.room,
@@ -3924,7 +3928,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Color _tileBg(PosServiceResourceDto r) {
     // Tạm tính: cam đậm dễ nhận (ưu tiên trước Occupied).
     if (r.billRequested || r.isBillRequested) return const Color(0xFFFFCC80);
-    if (r.isReserved) return const Color(0xFFE0F2FE);
+    if (r.showReservedOnFloor) return const Color(0xFFE0F2FE);
     if (r.isPaused) return const Color(0xFFFEF3C7);
     // Máy khác đang sửa — đỏ nhạt.
     if (r.isActivelyOpen && r.isLockedByOtherDevice(_deviceId)) {
@@ -3939,7 +3943,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   Color _tileBorder(PosServiceResourceDto r) {
     if (r.billRequested || r.isBillRequested) return const Color(0xFFEA580C);
-    if (r.isReserved) return const Color(0xFF0284C7);
+    if (r.showReservedOnFloor) return const Color(0xFF0284C7);
     if (r.isPaused) return const Color(0xFFD97706);
     if (r.isActivelyOpen && r.isLockedByOtherDevice(_deviceId)) {
       return const Color(0xFFDC2626);
@@ -3953,12 +3957,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   // không gắn chip chữ cạnh tên bàn.
 
   bool _isWaitingTable(PosServiceResourceDto r) =>
-      r.isHolding && r.lineCount <= 0;
+      r.isHolding && r.lineCount <= 0 && !r.hasReservation;
 
   Color _tileAccent(PosServiceResourceDto r) {
     if (r.isLockedByOtherDevice(_deviceId)) return const Color(0xFFB91C1C);
     if (r.billRequested || r.isBillRequested) return const Color(0xFFEA580C);
-    if (r.isReserved) return const Color(0xFF0284C7);
+    if (r.showReservedOnFloor) return const Color(0xFF0284C7);
     if (r.isPaused) return const Color(0xFFD97706);
     if (_isWaitingTable(r)) return _waitingTileAccent;
     if (_tableInUse(r)) return PosTheme.edgeBlue;
@@ -4003,6 +4007,46 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             fontWeight: FontWeight.w600,
             color: accent.withValues(alpha: 0.85),
           ),
+        ),
+      );
+    }
+
+    if (r.showReservedOnFloor) {
+      final meta = _tileReservedMeta(r);
+      final customer = (r.reservationCustomerName ?? '').trim();
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.event_seat_outlined, size: 22, color: accent),
+            const SizedBox(height: 4),
+            if (customer.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Text(
+                  tr(customer),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: accent,
+                  ),
+                ),
+              ),
+            Text(
+              tr(meta ?? 'Đặt bàn — không mở khách vãng lai'),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: accent.withValues(alpha: customer.isEmpty ? 1 : 0.9),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -4056,26 +4100,6 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             ),
           ),
         ],
-      );
-    }
-
-    if (r.isReserved) {
-      final meta = _tileReservedMeta(r);
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.event_seat_outlined, size: 22, color: accent),
-            const SizedBox(height: 4),
-            Text(
-              tr(meta ?? 'Đặt bàn'),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: accent),
-            ),
-          ],
-        ),
       );
     }
 
@@ -4149,21 +4173,75 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   }
 
   String? _tileReservedMeta(PosServiceResourceDto r) {
-    if (!r.isReserved) return null;
+    if (!r.hasReservation) return null;
     final parts = <String>[];
+    final time = _reservationTimeLabel(r);
+    if (time.isNotEmpty) {
+      parts.add(_reservationIsUpcoming(r) ? 'Lúc $time' : 'Đang chờ · $time');
+    }
     final guest = r.reservationGuestCount;
     if (guest > 0) parts.add('$guest kh');
-    if (r.reservationReservedUntil != null) {
-      parts.add(DateFormat('HH:mm').format(r.reservationReservedUntil!.toLocal()));
-    } else if ((r.reservationCustomerName ?? '').trim().isNotEmpty) {
-      parts.add(r.reservationCustomerName!.trim());
-    }
+    final customer = (r.reservationCustomerName ?? '').trim();
+    if (customer.isNotEmpty) parts.add(customer);
     if (r.reservationPreOrderCount > 0) parts.add('${r.reservationPreOrderCount} món');
     if (r.reservationDepositPaid > 0) {
       parts.add('Cọc ${_moneyFmt.format(r.reservationDepositPaid)}');
     }
     return parts.isEmpty ? null : parts.join(' · ');
   }
+
+  DateTime? _reservationArrivalLocal(PosServiceResourceDto r) {
+    final at = r.reservationReservedAt?.toLocal();
+    if (at != null) return at;
+    return r.reservationReservedUntil?.toLocal();
+  }
+
+  String _reservationTimeLabel(PosServiceResourceDto r) {
+    final start = r.reservationReservedAt?.toLocal();
+    final end = r.reservationReservedUntil?.toLocal();
+    if (start != null &&
+        end != null &&
+        end.isAfter(start.add(const Duration(minutes: 1)))) {
+      return '${DateFormat('HH:mm').format(start)}–${DateFormat('HH:mm').format(end)}';
+    }
+    final arrival = _reservationArrivalLocal(r);
+    if (arrival != null) return DateFormat('HH:mm').format(arrival);
+    return '';
+  }
+
+  bool _reservationIsUpcoming(PosServiceResourceDto r) {
+    final arrival = _reservationArrivalLocal(r);
+    if (arrival == null) return false;
+    return arrival.isAfter(DateTime.now().add(const Duration(minutes: 15)));
+  }
+
+  Widget _reservedTableBadge(PosServiceResourceDto r) {
+    final time = _reservationTimeLabel(r);
+    final label = time.isNotEmpty ? 'ĐẶT $time' : 'ĐẶT';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      decoration: BoxDecoration(
+        color: _reservationIsUpcoming(r)
+            ? const Color(0xFFEA580C)
+            : const Color(0xFF0284C7),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        tr(label),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          height: 1.1,
+        ),
+      ),
+    );
+  }
+
+  int get _reservedTableCount =>
+      _resources.where((r) => r.hasReservation).length;
 
   Color _tileNameColor(PosServiceResourceDto r) {
     if (r.isActivelyOpen && r.isLockedByOtherDevice(_deviceId)) {
@@ -4429,88 +4507,69 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Thanh nhóm / khu vực — to hơn để dễ bấm trên POS.
+                  // Thanh nhóm / khu vực — kéo ngang khi nhiều nhóm.
                   Material(
                     color: Colors.white,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-                      child: Row(
-                        children: [
-                          _AreaChip(
-                            label: 'Tất cả',
-                            selected: _areaFilter == null,
-                            onTap: () {
-                              if (_areaFilter == null) return;
-                              setState(() => _areaFilter = null);
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          ..._areas.map((a) => Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: _AreaChip(
-                                  label: a.name,
-                                  selected: _areaFilter == a.id,
-                                  onTap: () {
-                                    if (_areaFilter == a.id) return;
-                                    setState(() => _areaFilter = a.id);
-                                  },
-                                  onLongPress: widget.manageMode
-                                      ? () => unawaited(
-                                          _showAreaEditor(existing: a))
-                                      : null,
-                                ),
-                              )),
-                          if (widget.manageMode) ...[
-                            const SizedBox(width: 4),
-                            ActionChip(
-                              avatar: const Icon(Icons.tune, size: 18),
-                              label: Text(tr('Sắp nhóm'),
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14)),
-                              onPressed: () => unawaited(_manageAreas()),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 10),
-                              visualDensity: VisualDensity.standard,
-                            ),
-                            const SizedBox(width: 4),
-                            ActionChip(
-                              avatar:
-                                  const Icon(Icons.playlist_add, size: 18),
-                              label: Text(tr('Tạo nhanh'),
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14)),
-                              onPressed: () =>
-                                  unawaited(_showQuickCreateTables()),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 10),
-                              visualDensity: VisualDensity.standard,
-                            ),
-                          ] else ...[
-                            const SizedBox(width: 8),
-                            ActionChip(
-                              avatar: const Icon(
-                                  Icons.calendar_month_outlined,
-                                  size: 18),
-                              label: Text(
-                                  tr(_bookingChipLabel),
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14)),
-                              onPressed: () => unawaited(
-                                _isSalon || _isHourly
-                                    ? _openAppointmentCalendar()
-                                    : _showTodayReservations(),
+                    child: PosHScrollChipRow(
+                      height: 56,
+                      trailing: widget.manageMode
+                          ? Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ActionChip(
+                                    avatar: const Icon(Icons.tune, size: 18),
+                                    label: Text(tr('Sắp nhóm'),
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14)),
+                                    onPressed: () =>
+                                        unawaited(_manageAreas()),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 10),
+                                    visualDensity: VisualDensity.standard,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  ActionChip(
+                                    avatar: const Icon(
+                                        Icons.playlist_add, size: 18),
+                                    label: Text(tr('Tạo nhanh'),
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14)),
+                                    onPressed: () => unawaited(
+                                        _showQuickCreateTables()),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 10),
+                                    visualDensity: VisualDensity.standard,
+                                  ),
+                                ],
                               ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 10),
-                              visualDensity: VisualDensity.standard,
-                            ),
-                          ],
-                        ],
-                      ),
+                            )
+                          : null,
+                      children: [
+                        _AreaChip(
+                          label: 'Tất cả',
+                          selected: _areaFilter == null,
+                          onTap: () {
+                            if (_areaFilter == null) return;
+                            setState(() => _areaFilter = null);
+                          },
+                        ),
+                        ..._areas.map((a) => _AreaChip(
+                              label: a.name,
+                              selected: _areaFilter == a.id,
+                              onTap: () {
+                                if (_areaFilter == a.id) return;
+                                setState(() => _areaFilter = a.id);
+                              },
+                              onLongPress: widget.manageMode
+                                  ? () => unawaited(
+                                      _showAreaEditor(existing: a))
+                                  : null,
+                            )),
+                      ],
                     ),
                   ),
                   if (!widget.manageMode && _tablesHeldByMe.isNotEmpty)
@@ -4538,7 +4597,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                         ),
                       ),
                     ),
-                  // Chú thích màu chỉ khi quản lý — bán hàng giữ UI gọn.
+                  // Chú thích màu — quản lý đầy đủ; bán hàng chỉ nhắc khi có bàn đặt.
                   if (widget.manageMode)
                     const Padding(
                       padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
@@ -4555,6 +4614,29 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                               color: Color(0xFF9CA3AF), label: 'Chưa gọi'),
                           _LegendDot(
                               color: Color(0xFF0284C7), label: 'Đã đặt'),
+                        ],
+                      ),
+                    )
+                  else if (_reservedTableCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                      child: Row(
+                        children: [
+                          const _LegendDot(
+                              color: Color(0xFF0284C7), label: 'Đã đặt'),
+                          const SizedBox(width: 8),
+                          const _LegendDot(
+                              color: Color(0xFFEA580C),
+                              label: 'Sắp đến'),
+                          const Spacer(),
+                          Text(
+                            tr('$_reservedTableCount bàn đặt'),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0284C7),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -4701,11 +4783,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 ],
                 IconButton(
                   tooltip: tr(_bookingChipLabel),
-                  onPressed: () => unawaited(
-                    _isSalon || _isHourly
-                        ? _openAppointmentCalendar()
-                        : _showTodayReservations(),
-                  ),
+                  onPressed: () => unawaited(_openAppointmentCalendar()),
                   icon: const Icon(Icons.calendar_month_outlined),
                 ),
                 IconButton(
@@ -4925,11 +5003,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final showMoney = r.subtotal > 0 &&
         !_isWaitingTable(r) &&
         !r.isFree &&
-        !r.isReserved;
+        !r.showReservedOnFloor;
     final showGuestsFooter = !_isWaitingTable(r) && !r.isFree;
     final guestText = r.guestCount > 0 ? '${r.guestCount}' : '–';
 
-    final body = Container(
+    final body = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
       decoration: BoxDecoration(
         color: _tileBg(r),
         borderRadius: BorderRadius.circular(10),
@@ -4958,6 +5039,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   ),
                 ),
               ),
+              if (r.hasReservation) ...[
+                const SizedBox(width: 2),
+                Flexible(child: _reservedTableBadge(r)),
+              ],
               if (allowSellActions)
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
@@ -5024,6 +5109,25 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           ),
         ],
       ),
+        ),
+        if (r.hasReservation)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: Container(
+              height: 3,
+              decoration: BoxDecoration(
+                color: _reservationIsUpcoming(r)
+                    ? const Color(0xFFEA580C)
+                    : const Color(0xFF0284C7),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(10),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
 
     // Sắp xếp: không InkWell. Quản lý: sửa/xóa. Bán hàng: mở bàn / menu.
@@ -5053,10 +5157,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Future<void> _showSellTileActions(PosServiceResourceDto r) async {
     if (r.isOccupied || r.isHolding) {
       await _showOccupiedActions(r);
-    } else if (r.isReserved) {
+    } else if (r.showReservedOnFloor) {
       await _showReservedActions(r);
     } else if (r.isFree) {
-      if (_isSalon) {
+      if (_usesAppointmentCalendar) {
         await _openAppointmentCalendar(resourceId: r.id);
       } else {
         await _showReserveDialog(r);

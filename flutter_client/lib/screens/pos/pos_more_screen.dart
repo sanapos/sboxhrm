@@ -78,6 +78,9 @@ class PosMoreScreen extends StatelessWidget {
                   items: [
                     _Item('Bán hàng', Icons.shopping_bag_outlined, 'PosSell',
                         const PosSellScreen()),
+                    _Item('Đặt lịch', Icons.event_available_outlined, 'PosBooking',
+                        const PosAppointmentDayScreen(),
+                        altModules: const ['PosSell']),
                     _Item('Hoá đơn', Icons.receipt_long_outlined, 'PosSaleOrders',
                         const PosSaleOrderListScreen()),
                     _Item('Trả hàng bán', Icons.assignment_return_outlined, 'PosSaleReturns',
@@ -170,13 +173,6 @@ class PosMoreScreen extends StatelessWidget {
                       Icons.tv_outlined,
                       'PosCustomerDisplay',
                       const PosCustomerDisplaySettingsScreen(),
-                      altModules: const ['PosSell'],
-                    ),
-                    _Item(
-                      'Đặt bàn / đặt phòng / lịch hẹn',
-                      Icons.event_available_outlined,
-                      'PosBooking',
-                      const PosAppointmentDayScreen(),
                       altModules: const ['PosSell'],
                     ),
                     _Item(
