@@ -136,6 +136,24 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.ViettelSInvoiceClient>();
         services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.EasyInvoiceClient>();
         services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.PosEInvoiceService>();
+        services.AddHttpClient("shipping-ghn", c => c.Timeout = TimeSpan.FromSeconds(60));
+        services.AddHttpClient("shipping-ghtk", c => c.Timeout = TimeSpan.FromSeconds(60));
+        services.AddHttpClient("shipping-viettelpost", c => c.Timeout = TimeSpan.FromSeconds(60));
+        services.AddHttpClient("shipping-ahamove", c => c.Timeout = TimeSpan.FromSeconds(60));
+        services.AddHttpClient("shipping-geocode", c =>
+        {
+            c.Timeout = TimeSpan.FromSeconds(20);
+            c.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "SBOX-POS-Shipping/1.0");
+        });
+        services.AddScoped<ZKTecoADMS.Api.Services.Shipping.IShippingCarrierClient,
+            ZKTecoADMS.Api.Services.Shipping.GhnShippingClient>();
+        services.AddScoped<ZKTecoADMS.Api.Services.Shipping.IShippingCarrierClient,
+            ZKTecoADMS.Api.Services.Shipping.GhtkShippingClient>();
+        services.AddScoped<ZKTecoADMS.Api.Services.Shipping.IShippingCarrierClient,
+            ZKTecoADMS.Api.Services.Shipping.ViettelPostShippingClient>();
+        services.AddScoped<ZKTecoADMS.Api.Services.Shipping.IShippingCarrierClient,
+            ZKTecoADMS.Api.Services.Shipping.AhamoveShippingClient>();
+        services.AddScoped<ZKTecoADMS.Api.Services.Shipping.PosShippingService>();
         services.AddScoped<IPaymentWebhookProvider, TingeePaymentWebhookProvider>();
         services.AddSingleton<IPaymentWebhookProviderRegistry, PaymentWebhookProviderRegistry>();
         services.AddScoped<IPosNotificationCreditService, PosNotificationCreditService>();

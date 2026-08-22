@@ -22,8 +22,13 @@ public class PosSaleOrder : AuditableEntity<Guid>
     public decimal Total { get; set; }
     /// <summary>Tiền VAT của đơn (tính theo cấu hình POS lúc tạo/hoàn tất).</summary>
     public decimal VatAmount { get; set; }
-    /// <summary>Số tiền khách phải trả = Total + VatAmount (VAT cộng thêm).</summary>
-    public decimal PayableTotal => Math.Max(0m, Total + Math.Max(0m, VatAmount));
+    /// <summary>Phụ thu (tiền hoặc % trên màn thanh toán — chỉ khi cửa hàng bật).</summary>
+    public decimal SurchargeAmount { get; set; }
+    /// <summary>Phí giao hàng (số tiền — chỉ khi cửa hàng bật).</summary>
+    public decimal DeliveryFee { get; set; }
+    /// <summary>Số tiền khách phải trả = hàng + VAT + phụ thu + phí GH.</summary>
+    public decimal PayableTotal => Math.Max(0m,
+        Total + Math.Max(0m, VatAmount) + Math.Max(0m, SurchargeAmount) + Math.Max(0m, DeliveryFee));
     public decimal PaidAmount { get; set; }
 
     [MaxLength(50)]
@@ -46,10 +51,34 @@ public class PosSaleOrder : AuditableEntity<Guid>
     [MaxLength(100)]
     public string? DeliveryPartner { get; set; }
 
+    [MaxLength(100)]
+    public string? DeliveryProvince { get; set; }
+
+    [MaxLength(100)]
+    public string? DeliveryDistrict { get; set; }
+
+    [MaxLength(100)]
+    public string? DeliveryWard { get; set; }
+
     [MaxLength(50)]
     public string? DeliveryStatus { get; set; }
 
     public DateTime? DeliveryDate { get; set; }
+
+    /// <summary>Mã vận đơn / tracking (GHN order_code, GHTK label_id…).</summary>
+    [MaxLength(80)]
+    public string? DeliveryTrackingCode { get; set; }
+
+    /// <summary>Id đơn phía hãng (AhaMove order_id…).</summary>
+    [MaxLength(120)]
+    public string? DeliveryCarrierOrderId { get; set; }
+
+    /// <summary>Ghn | Ghtk | ViettelPost | Ahamove — mã kỹ thuật đã đẩy API.</summary>
+    [MaxLength(30)]
+    public string? DeliveryCarrierCode { get; set; }
+
+    [MaxLength(500)]
+    public string? DeliveryLabelUrl { get; set; }
 
     [MaxLength(500)]
     public string? Note { get; set; }

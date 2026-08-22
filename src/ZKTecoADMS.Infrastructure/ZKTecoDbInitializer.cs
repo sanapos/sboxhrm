@@ -1271,6 +1271,8 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""OpeningMinutes"" integer NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SessionPackValidDays"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""VatAmount"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SurchargeAmount"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryFee"" numeric(18,2) NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SplitFromOrderId"" uuid NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceStatus"" character varying(20) NOT NULL DEFAULT 'None';
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceProvider"" character varying(20) NULL;
@@ -1287,6 +1289,49 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerAddress"" character varying(500) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerEmail"" character varying(200) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerPhone"" character varying(50) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryTrackingCode"" character varying(80) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryCarrierOrderId"" character varying(120) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryCarrierCode"" character varying(30) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryLabelUrl"" character varying(500) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryProvince"" character varying(100) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryDistrict"" character varying(100) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryWard"" character varying(100) NULL;
+
+                    CREATE TABLE IF NOT EXISTS ""PosShippingCarrierSettings"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""CarrierCode"" character varying(30) NOT NULL,
+                        ""Enabled"" boolean NOT NULL DEFAULT false,
+                        ""UseSandbox"" boolean NOT NULL DEFAULT false,
+                        ""ApiToken"" character varying(2000) NULL,
+                        ""ShopId"" character varying(100) NULL,
+                        ""Username"" character varying(100) NULL,
+                        ""Password"" character varying(200) NULL,
+                        ""ApiBaseUrl"" character varying(300) NULL,
+                        ""PickupName"" character varying(120) NULL,
+                        ""PickupPhone"" character varying(30) NULL,
+                        ""PickupAddress"" character varying(500) NULL,
+                        ""FromProvinceName"" character varying(100) NULL,
+                        ""FromDistrictName"" character varying(100) NULL,
+                        ""FromWardName"" character varying(100) NULL,
+                        ""FromDistrictId"" character varying(40) NULL,
+                        ""FromWardCode"" character varying(40) NULL,
+                        ""FromProvinceId"" character varying(40) NULL,
+                        ""ExtraJson"" character varying(4000) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosShippingCarrierSettings"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosShippingCarrierSettings_StoreId_CarrierCode""
+                        ON ""PosShippingCarrierSettings"" (""StoreId"", ""CarrierCode"");
+
                     CREATE INDEX IF NOT EXISTS ""IX_PosSaleOrders_Store_EInvoiceStatus""
                         ON ""PosSaleOrders"" (""StoreId"", ""EInvoiceStatus"");
 

@@ -21,6 +21,8 @@ import 'pos_customers_screen.dart';
 import 'pos_cancel_return_history_screen.dart';
 import 'pos_cashier_shift_screen.dart';
 import 'pos_qr_table_order_screen.dart';
+import 'pos_qr_menu_screen.dart';
+import 'pos_qr_online_orders_screen.dart';
 import 'pos_kds_screen.dart';
 import 'pos_end_of_day_screen.dart';
 import '../hkd_books_screen.dart';
@@ -28,6 +30,7 @@ import 'pos_split_report_screens.dart';
 import 'pos_customer_display_settings_screen.dart';
 import 'pos_transfer_confirm_screen.dart';
 import 'pos_payment_gateway_settings_screen.dart';
+import 'pos_shipping_settings_screen.dart';
 import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
@@ -106,6 +109,12 @@ class PosMoreScreen extends StatelessWidget {
                     _Item('QR order bàn', Icons.qr_code_2, 'PosQrOrder',
                         const PosQrTableOrderScreen(),
                         altModules: const ['PosSell']),
+                    _Item('Menu QR / Online', Icons.restaurant_menu, 'PosQrOrder',
+                        const PosQrMenuScreen(),
+                        altModules: const ['PosSell']),
+                    _Item('Đơn online', Icons.delivery_dining_outlined, 'PosQrOrder',
+                        const PosQrOnlineOrdersScreen(),
+                        altModules: const ['PosSell']),
                     _Item(
                       'Xác nhận CK',
                       Icons.payments_outlined,
@@ -168,35 +177,37 @@ class PosMoreScreen extends StatelessWidget {
                       Icons.settings_outlined,
                       'SettingsHub',
                       const SettingsHubScreen(),
-                      altModules: const ['PosSell', 'PosProducts'],
                     ),
                     _Item(
                       'Ngành hàng',
                       Icons.storefront_outlined,
-                      'PosSell',
+                      'SettingsHub',
                       const PosSellIndustrySettingsHubScreen(),
-                      altModules: const ['PosProducts'],
                     ),
                     _Item(
                       'Màn hình phụ',
                       Icons.tv_outlined,
                       'PosCustomerDisplay',
                       const PosCustomerDisplaySettingsScreen(),
-                      altModules: const ['PosSell'],
+                      altModules: const ['SettingsHub'],
                     ),
                     _Item(
                       'Cổng thanh toán CK',
                       Icons.account_balance_outlined,
-                      'PosSell',
+                      'SettingsHub',
                       const PosPaymentGatewaySettingsScreen(),
-                      altModules: const ['PosSell'],
+                    ),
+                    _Item(
+                      'Đơn vị giao hàng',
+                      Icons.local_shipping_outlined,
+                      'SettingsHub',
+                      const PosShippingSettingsScreen(),
                     ),
                     _Item(
                       'Thiết lập cửa hàng',
                       Icons.store_outlined,
-                      'PosSell',
+                      'SettingsHub',
                       const PosStoreSettingsHubScreen(),
-                      altModules: const ['PosProducts'],
                     ),
                   ],
                 ),

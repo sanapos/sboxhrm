@@ -17804,8 +17804,45 @@ class ApiService {
     );
   }
 
-  Future<Map<String, dynamic>> getPosPrinterProductSummary() async {
-    return _getProductPrinterApi('/printers/summary');
+  /// Máy cloud không còn trên chip Agent → gỡ gán món + xóa máy.
+  Future<Map<String, dynamic>> cleanupPosAgentOrphanPrinters() async {
+    return _mutateProductPrinterApi(
+      '/printers/cleanup-agent-orphans',
+      (uri) => http.post(uri, headers: _headers, body: '{}'),
+    );
+  }
+
+  Future<Map<String, dynamic>> getPosPrinterProductSummary({
+    bool includeLocal = false,
+  }) async {
+    return _getProductPrinterApi(
+      '/printers/summary',
+      query: includeLocal ? const {'includeLocal': 'true'} : null,
+    );
+  }
+
+  /// Chuyển gán món từ máy nguồn (nội bộ) sang máy đích (Agent).
+  Future<Map<String, dynamic>> copyPosPrinterProductAssignments(
+    String targetPrinterId, {
+    required String sourcePrinterId,
+    bool? forLabel,
+    bool copyCategories = true,
+  }) async {
+    return _mutateProductPrinterApi(
+      '/printers/$targetPrinterId/copy-from',
+      (uri) => http.post(
+        uri,
+        headers: _headers,
+        body: jsonEncode({
+          'sourcePrinterId': sourcePrinterId,
+          'SourcePrinterId': sourcePrinterId,
+          'copyCategories': copyCategories,
+          'CopyCategories': copyCategories,
+          if (forLabel != null) 'forLabel': forLabel,
+          if (forLabel != null) 'ForLabel': forLabel,
+        }),
+      ),
+    );
   }
 
   Future<Map<String, dynamic>> getPosPrinterProducts(
@@ -17877,6 +17914,16 @@ class ApiService {
           'includeChildCategories': includeChildCategories,
         }),
       ),
+    );
+  }
+
+  /// Gỡ các món ngừng bán (IsActive=false) khỏi máy — dọn gán thừa.
+  Future<Map<String, dynamic>> unassignInactiveProductsFromPosPrinter(
+    String printerId,
+  ) async {
+    return _mutateProductPrinterApi(
+      '/printers/$printerId/unassign-inactive',
+      (uri) => http.post(uri, headers: _headers, body: '{}'),
     );
   }
 
@@ -18018,6 +18065,7 @@ class ApiService {
     String? deviceName,
     String? employeeName,
     required List<String> printerIds,
+    List<String>? onlinePrinterIds,
     String? appVersion,
   }) async {
     try {
@@ -18030,6 +18078,7 @@ class ApiService {
               'deviceName': deviceName,
               'employeeName': employeeName,
               'printerIds': printerIds,
+              if (onlinePrinterIds != null) 'onlinePrinterIds': onlinePrinterIds,
               'appVersion': appVersion,
             }),
           )
@@ -18174,6 +18223,80 @@ class ApiService {
       final response = await http
           .get(Uri.parse('$baseUrl/api/pos/sell-settings'), headers: _headers)
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  // ── Shipping carriers (GHN / GHTK / Viettel Post / AhaMove) ──
+
+  Future<Map<String, dynamic>> getPosShippingSettings() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/shipping/settings'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosShippingEnabled() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/shipping/enabled'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> putPosShippingSettings(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/shipping/settings'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> quotePosShipping(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/shipping/quote'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosShipment(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/shipping/shipments'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 60));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18759,6 +18882,151 @@ class ApiService {
             headers: _headers,
           )
           .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosQrMenuConfig() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/qr-order/menu'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> savePosQrMenuConfig(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/qr-order/menu'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setPosQrOrderOnline({
+    required bool enabled,
+    bool rotate = false,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/qr-order/online'),
+            headers: _headers,
+            body: jsonEncode({'enabled': enabled, 'rotate': rotate}),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosQrOnlineOrders({
+    String? status,
+    DateTime? from,
+    DateTime? to,
+    String? search,
+    String? productId,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (status != null && status.trim().isNotEmpty) {
+        q['status'] = status.trim();
+      }
+      if (from != null) {
+        q['from'] = from.toUtc().toIso8601String();
+      }
+      if (to != null) {
+        q['to'] = to.toUtc().toIso8601String();
+      }
+      if (search != null && search.trim().isNotEmpty) {
+        q['q'] = search.trim();
+      }
+      if (productId != null && productId.trim().isNotEmpty) {
+        q['productId'] = productId.trim();
+      }
+      final qs = q.isEmpty
+          ? ''
+          : '?${q.entries.map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}').join('&')}';
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/qr-order/online-orders$qs'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setPosQrOnlineOrderStatus(
+    String orderId,
+    String status, {
+    bool internalDelivery = false,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/qr-order/online-orders/$orderId/status'),
+            headers: _headers,
+            body: jsonEncode({
+              'status': status,
+              if (internalDelivery) 'internalDelivery': true,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> completePosQrOnlineOrder(String orderId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/qr-order/online-orders/$orderId/complete'),
+            headers: _headers,
+            body: jsonEncode({}),
+          )
+          .timeout(const Duration(seconds: 120));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosQrOnlineShipment(
+    String orderId,
+    String carrierCode,
+  ) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/qr-order/online-orders/$orderId/shipment'),
+            headers: _headers,
+            body: jsonEncode({'carrierCode': carrierCode}),
+          )
+          .timeout(const Duration(seconds: 60));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
