@@ -1,9 +1,9 @@
-﻿name: zkteco_flutter_client
-description: ZKTeco ADMS Flutter Client - Hệ thống quản lý chấm công
+name: zkteco_flutter_client
+description: ZKTeco ADMS Flutter Client - He thong quan ly cham cong
 
 publish_to: 'none'
 
-version: 1.0.450+12450
+version: 1.0.478+12478
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -86,10 +86,10 @@ dependencies:
   # WiFi info (BSSID/SSID detection)
   network_info_plus: ^6.0.1
 
-  # BLE — cấu hình gateway ESP32 khi giữ WiFi nhà
+  # BLE ? c?u h?nh gateway ESP32 khi gi? WiFi nh?
   flutter_blue_plus: ^1.35.5
 
-  # Bonjour / mDNS — dò gateway trên iOS (sboxadms.local / _sboxgw._tcp)
+  # Bonjour / mDNS ? d? gateway tr?n iOS (sboxadms.local / _sboxgw._tcp)
   multicast_dns: ^0.3.2+7
 
   # Mobile file save / share / open
@@ -148,7 +148,7 @@ flutter:
         - asset: assets/fonts/BeVietnamPro-ExtraBold.ttf
           weight: 800
   
-  # Fonts (nếu có)
+  # Fonts (n?u c?)
   # fonts:
   #   - family: Roboto
   #     fonts:

@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../services/api_service.dart';
+import '../../providers/permission_provider.dart';
 import '../../utils/pos_payment_gateway_listener.dart';
 import '../../utils/pos_vietqr_helper.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -35,6 +37,7 @@ class _PosPaymentGatewaySettingsScreenState
   bool _tingeeEnabled = false;
   bool _hasSecret = false;
   bool _hasWebhookSecret = false;
+  bool _platformTingeeConfigured = false;
   String _defaultProvider = 'VietQr';
   Map<String, dynamic>? _credits;
   List<Map<String, dynamic>> _packages = const [];
@@ -114,6 +117,7 @@ class _PosPaymentGatewaySettingsScreenState
       _merchantCtrl.text = (settings?['tingeeMerchantId'] ?? '').toString();
       _hasSecret = settings?['hasTingeeSecretKey'] == true;
       _hasWebhookSecret = settings?['hasTingeeWebhookSecret'] == true;
+      _platformTingeeConfigured = settings?['platformTingeeConfigured'] == true;
       _secretCtrl.clear();
       _webhookSecretCtrl.clear();
       _loading = false;
@@ -296,20 +300,22 @@ class _PosPaymentGatewaySettingsScreenState
   }
 
   Future<void> _save() async {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.canEditPosSetup()) {
+      NotificationOverlayManager().show(
+        title: tr('Không có quyền sửa'),
+        message: tr('Chỉ quản lý được lưu cổng thanh toán.'),
+        type: NotificationType.error,
+      );
+      return;
+    }
     setState(() => _saving = true);
     final body = <String, dynamic>{
       'defaultTransferProvider': _defaultProvider,
       'tingeeEnabled': _tingeeEnabled,
-      'tingeeClientId': _clientIdCtrl.text.trim(),
       'tingeeVaAccountNumber': _vaCtrl.text.trim(),
       'tingeeMerchantId': _merchantCtrl.text.trim(),
     };
-    if (_secretCtrl.text.trim().isNotEmpty) {
-      body['tingeeSecretKey'] = _secretCtrl.text.trim();
-    }
-    if (_webhookSecretCtrl.text.trim().isNotEmpty) {
-      body['tingeeWebhookSecret'] = _webhookSecretCtrl.text.trim();
-    }
     final res = await ApiService().putPosPaymentGatewaySettings(body);
     if (!mounted) return;
     setState(() => _saving = false);
@@ -457,7 +463,7 @@ class _PosPaymentGatewaySettingsScreenState
                   }),
                 ],
                 const SizedBox(height: 12),
-                Text(tr('Chế độ chuyển khoản mặc định'),
+                Text(tr('Ưu tiên hình thức chuyển khoản'),
                     style: const TextStyle(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 8),
                 SegmentedButton<String>(
@@ -479,7 +485,11 @@ class _PosPaymentGatewaySettingsScreenState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  tr('VietQR: thu ngân xác nhận tay. Tingee: webhook tự xác nhận + loa + màn phụ.'),
+                  tr(
+                    'Khi bấm «Chuyển khoản» trên POS sẽ ưu tiên loại đã chọn. '
+                    'VietQR: thu ngân xác nhận tay. '
+                    'Tingee: webhook tự xác nhận + loa + màn phụ (cần VA + TK nhận tiền trên Tingee).',
+                  ),
                   style: const TextStyle(color: Colors.grey, fontSize: 13),
                 ),
                 const SizedBox(height: 20),
@@ -490,40 +500,32 @@ class _PosPaymentGatewaySettingsScreenState
                   onChanged: (v) => setState(() => _tingeeEnabled = v),
                 ),
                 const Divider(),
-                TextField(
-                  controller: _clientIdCtrl,
-                  decoration: InputDecoration(
-                    labelText: tr('Tingee Client ID'),
-                    border: const OutlineInputBorder(),
+                if (!_platformTingeeConfigured)
+                  Card(
+                    color: Colors.orange.shade50,
+                    child: ListTile(
+                      leading: Icon(Icons.warning_amber, color: Colors.orange.shade800),
+                      title: Text(tr('Sbox chưa cấu hình Tingee platform')),
+                      subtitle: Text(tr(
+                          'Liên hệ SuperAdmin bật credentials master trước khi dùng Tingee QR.')),
+                    ),
+                  )
+                else
+                  Card(
+                    color: Colors.green.shade50,
+                    child: ListTile(
+                      leading: Icon(Icons.verified_outlined, color: Colors.green.shade800),
+                      title: Text(tr('Tingee qua Sbox')),
+                      subtitle: Text(tr(
+                          'Token master do SuperAdmin quản lý. Cửa hàng chỉ cần số VA riêng.')),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _secretCtrl,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: tr('Secret Key'),
-                    hintText: _hasSecret ? tr('Đã lưu — để trống nếu không đổi') : null,
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _webhookSecretCtrl,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: tr('Webhook Secret'),
-                    hintText: _hasWebhookSecret
-                        ? tr('Đã lưu — để trống nếu không đổi')
-                        : null,
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _vaCtrl,
                   decoration: InputDecoration(
-                    labelText: tr('Số VA Tingee'),
+                    labelText: tr('Số VA Tingee (cửa hàng)'),
+                    helperText: tr('Phải khớp tài khoản ngân hàng POS và VA trên Tingee'),
                     border: const OutlineInputBorder(),
                   ),
                 ),
@@ -537,12 +539,15 @@ class _PosPaymentGatewaySettingsScreenState
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  tr('Webhook URL: {api}/api/webhooks/payment/tingee'),
+                  tr('Webhook Sbox: https://sboxhrm.com/api/webhooks/payment/tingee'),
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
                 const SizedBox(height: 24),
                 FilledButton.icon(
-                  onPressed: _saving ? null : _save,
+                  onPressed: (_saving ||
+                          !context.watch<PermissionProvider>().canEditPosSetup())
+                      ? null
+                      : _save,
                   icon: _saving
                       ? const SizedBox(
                           width: 18,

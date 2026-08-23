@@ -15354,12 +15354,12 @@ class ApiService {
     String? categoryId,
     bool categoryIncludeChildren = true,
     int page = 1,
-    int pageSize = 500,
+    int pageSize = 48,
   }) async {
     try {
       final params = <String, String>{
         'page': page.clamp(1, 9999).toString(),
-        'pageSize': pageSize.clamp(1, 500).toString(),
+        'pageSize': pageSize.clamp(1, 100).toString(),
       };
       if (categoryIncludeChildren) {
         params['categoryIncludeChildren'] = 'true';
@@ -18734,6 +18734,22 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> comparePosShipping(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/shipping/compare'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 90));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createPosShipment(
       Map<String, dynamic> body) async {
     try {
@@ -18744,6 +18760,53 @@ class ApiService {
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosShipmentLabel(String orderId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/shipping/shipments/$orderId/label'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosShipment(
+    String orderId, {
+    String? note,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/shipping/shipments/$orderId/cancel'),
+            headers: _headers,
+            body: jsonEncode({'note': note}),
+          )
+          .timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> syncPosShipmentTracking(String orderId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/shipping/shipments/$orderId/sync-tracking'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18870,6 +18933,143 @@ class ApiService {
           .replace(queryParameters: {'limit': '$limit'});
       final response = await http
           .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> adminPlatformCredits() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/admin/platform-credits'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> adminPlatformTopUp({
+    required int creditCount,
+    double costPerCredit = 200,
+    String? note,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/payment-gateway/admin/platform-credits/top-up'),
+            headers: _headers,
+            body: jsonEncode({
+              'creditCount': creditCount,
+              'costPerCredit': costPerCredit,
+              if (note != null) 'note': note,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> adminPlatformCreditLedgers({int limit = 50}) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse(
+                '$baseUrl/api/pos/payment-gateway/admin/platform-credit-ledgers?limit=$limit'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> adminPlatformTingeeSettings() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse(
+                '$baseUrl/api/pos/payment-gateway/admin/platform-tingee-settings'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> adminUpsertPlatformTingeeSettings({
+    bool? tingeeEnabled,
+    String? tingeeClientId,
+    String? tingeeSecretKey,
+    String? tingeeWebhookSecret,
+    String? apiEnvironment,
+    String? defaultVaAccountNumber,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse(
+                '$baseUrl/api/pos/payment-gateway/admin/platform-tingee-settings'),
+            headers: _headers,
+            body: jsonEncode({
+              if (tingeeEnabled != null) 'tingeeEnabled': tingeeEnabled,
+              if (tingeeClientId != null) 'tingeeClientId': tingeeClientId,
+              if (tingeeSecretKey != null) 'tingeeSecretKey': tingeeSecretKey,
+              if (tingeeWebhookSecret != null)
+                'tingeeWebhookSecret': tingeeWebhookSecret,
+              if (apiEnvironment != null) 'apiEnvironment': apiEnvironment,
+              if (defaultVaAccountNumber != null)
+                'defaultVaAccountNumber': defaultVaAccountNumber,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> adminListCreditPackages() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/admin/credit-packages'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> adminGrantCredits({
+    required String storeId,
+    required int creditCount,
+    String? note,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/admin/grant-credits'),
+            headers: _headers,
+            body: jsonEncode({
+              'storeId': storeId,
+              'creditCount': creditCount,
+              if (note != null) 'note': note,
+            }),
+          )
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
@@ -19244,6 +19444,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> verifyPosOwnerPassword(String password) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/security/verify-owner-password'),
+            headers: _headers,
+            body: jsonEncode({'password': password}),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosCashierShiftCurrent() async {
     try {
       final response = await http
@@ -19251,6 +19466,32 @@ class ApiService {
             Uri.parse('$baseUrl/api/pos/cashier-shifts/current'),
             headers: _headers,
           )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Danh sách ca trong khoảng ngày (đối chiếu với tổng kết cuối ngày).
+  Future<Map<String, dynamic>> getPosCashierShifts({
+    DateTime? from,
+    DateTime? to,
+    String? openedBy,
+    int? dayStartHour,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (from != null) q['from'] = from.toIso8601String().split('T').first;
+      if (to != null) q['to'] = to.toIso8601String().split('T').first;
+      if (openedBy != null && openedBy.trim().isNotEmpty) {
+        q['openedBy'] = openedBy.trim();
+      }
+      if (dayStartHour != null) q['dayStartHour'] = '$dayStartHour';
+      final uri = Uri.parse('$baseUrl/api/pos/cashier-shifts')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response = await http
+          .get(uri, headers: _headers)
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
@@ -19425,6 +19666,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> deletePosQrOnlineOrder(String orderId) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse(
+                '$baseUrl/api/pos/qr-order/online-orders/$orderId'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> completePosQrOnlineOrder(String orderId) async {
     try {
       final response = await http
@@ -19443,15 +19699,35 @@ class ApiService {
 
   Future<Map<String, dynamic>> createPosQrOnlineShipment(
     String orderId,
-    String carrierCode,
-  ) async {
+    String carrierCode, {
+    int? weightGrams,
+    int? lengthCm,
+    int? widthCm,
+    int? heightCm,
+    double? codAmount,
+    String? serviceCode,
+    String? note,
+    String? shipFeePayer,
+    double? fixedShipFee,
+  }) async {
     try {
       final response = await http
           .post(
             Uri.parse(
                 '$baseUrl/api/pos/qr-order/online-orders/$orderId/shipment'),
             headers: _headers,
-            body: jsonEncode({'carrierCode': carrierCode}),
+            body: jsonEncode({
+              'carrierCode': carrierCode,
+              if (weightGrams != null) 'weightGrams': weightGrams,
+              if (lengthCm != null) 'lengthCm': lengthCm,
+              if (widthCm != null) 'widthCm': widthCm,
+              if (heightCm != null) 'heightCm': heightCm,
+              if (codAmount != null) 'codAmount': codAmount,
+              if (serviceCode != null) 'serviceCode': serviceCode,
+              if (note != null) 'note': note,
+              if (shipFeePayer != null) 'shipFeePayer': shipFeePayer,
+              if (fixedShipFee != null) 'fixedShipFee': fixedShipFee,
+            }),
           )
           .timeout(const Duration(seconds: 60));
       return _handleResponse(response);

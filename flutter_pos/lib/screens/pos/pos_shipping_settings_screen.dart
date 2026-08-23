@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
@@ -25,6 +29,8 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
   String? _busyCode;
   List<_CarrierForm> _forms = [];
   final Map<String, bool> _reveal = {};
+  /// Chỉ mở 1 hãng — tránh đơ khi build nhiều form địa chỉ/webhook cùng lúc.
+  String? _expandedCode;
 
   @override
   void initState() {
@@ -105,7 +111,9 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
 
   Future<bool> _save(_CarrierForm f, {bool silent = false}) async {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
-    if (!perm.canEditPosSetup() && !perm.canEdit('PosSell')) {
+    if (!perm.canEdit('PosShipping') &&
+        !perm.canEditPosSetup() &&
+        !perm.canEdit('PosSell')) {
       if (!silent) {
         NotificationOverlayManager().showWarning(
           title: 'Không có quyền sửa',
@@ -140,16 +148,22 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
     if (f.fromWardCodeCtrl.text.trim().isNotEmpty) {
       body['fromWardCode'] = f.fromWardCodeCtrl.text.trim();
     }
-    if (f.extraJsonCtrl.text.trim().isNotEmpty) {
+    if (f.code == 'ViettelPost' || f.code == 'Ghtk') {
+      if (f.code == 'ViettelPost') {
+        if (f.usernameCtrl.text.trim().isNotEmpty) {
+          body['username'] = f.usernameCtrl.text.trim();
+        }
+        if (f.passwordCtrl.text.trim().isNotEmpty) {
+          body['password'] = f.passwordCtrl.text.trim();
+        }
+      }
+      final mergedExtra = _mergeWebhookSecret(
+        f.extraJsonCtrl.text,
+        f.webhookSecretCtrl.text,
+      );
+      if (mergedExtra.isNotEmpty) body['extraJson'] = mergedExtra;
+    } else if (f.extraJsonCtrl.text.trim().isNotEmpty) {
       body['extraJson'] = f.extraJsonCtrl.text.trim();
-    }
-    if (f.code == 'ViettelPost') {
-      if (f.usernameCtrl.text.trim().isNotEmpty) {
-        body['username'] = f.usernameCtrl.text.trim();
-      }
-      if (f.passwordCtrl.text.trim().isNotEmpty) {
-        body['password'] = f.passwordCtrl.text.trim();
-      }
     }
     if (f.tokenCtrl.text.trim().isNotEmpty) {
       body['apiToken'] = f.tokenCtrl.text.trim();
@@ -254,6 +268,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
   }
 
   bool get _canEdit =>
+      context.watch<PermissionProvider>().canEdit('PosShipping') ||
       context.watch<PermissionProvider>().canEditPosSetup() ||
       context.watch<PermissionProvider>().canEdit('PosSell');
 
@@ -317,6 +332,8 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
     final status = !f.enabled
         ? 'Tắt'
         : (hasCreds ? 'Đã cấu hình' : 'Chưa cấu hình');
+    final expanded = _expandedCode == f.code;
+
     return Material(
       color: Colors.white,
       elevation: 0,
@@ -325,42 +342,79 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
         side: BorderSide(color: Colors.grey.shade300),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: f.enabled,
-          tilePadding: const EdgeInsets.fromLTRB(12, 0, 8, 0),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-          leading: Icon(
-            Icons.local_shipping_outlined,
-            color: f.enabled ? PosTheme.kiotBlue : Colors.grey,
-          ),
-          title: Text(
-            f.displayName,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-          ),
-          subtitle: Text(
-            status,
-            style: TextStyle(
-              fontSize: 12,
-              color: f.enabled && hasCreds
-                  ? Colors.green.shade700
-                  : Colors.grey.shade600,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() {
+                _expandedCode = expanded ? null : f.code;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.local_shipping_outlined,
+                    color: f.enabled ? PosTheme.kiotBlue : Colors.grey,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          f.displayName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                        Text(
+                          status,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: f.enabled && hasCreds
+                                ? Colors.green.shade700
+                                : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: f.enabled,
+                    onChanged: canEdit && !busy
+                        ? (v) => setState(() => f.enabled = v)
+                        : null,
+                  ),
+                  Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.grey.shade700,
+                  ),
+                ],
+              ),
             ),
           ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Switch.adaptive(
-                value: f.enabled,
-                onChanged: canEdit && !busy
-                    ? (v) => setState(() => f.enabled = v)
-                    : null,
-              ),
-              const Icon(Icons.expand_more),
-            ],
-          ),
-          children: [
+          if (expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: _carrierFormBody(f, canEdit: canEdit, busy: busy),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _carrierFormBody(
+    _CarrierForm f, {
+    required bool canEdit,
+    required bool busy,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               dense: true,
@@ -407,18 +461,24 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
                   tr(
-                    'Token Partner (32 ký tự) chỉ tra cước — không tạo vận đơn được. '
-                    'Nhập đúng Mật khẩu Viettel Post rồi Lưu (hệ thống lấy JWT), '
-                    'hoặc dán Token JWT (eyJ...) từ partner.viettelpost.vn.',
+                    'Token bí mật 32 ký tự chỉ tra cước — bấm Lưu để hệ thống đổi sang JWT (LoginVTP), '
+                    'hoặc nhập Mật khẩu đúng, hoặc dán JWT (eyJ...).',
                   ),
                   style: TextStyle(fontSize: 11, color: Colors.orange.shade900),
                 ),
               ),
             if (f.code == 'Ghn')
               _field(f.shopIdCtrl, label: 'ShopId (GHN)', enabled: canEdit),
-            if (f.code == 'Ghtk')
+            if (f.code == 'Ghtk') ...[
               _field(f.shopIdCtrl,
-                  label: 'Partner code (GHTK)', enabled: canEdit),
+                  label: 'Partner code (GHTK) — X-Client-Source (tuỳ chọn)',
+                  enabled: canEdit),
+              _GhtkWebhookGuide(
+                apiBaseUrl: ApiService.baseUrl,
+                webhookSecretCtrl: f.webhookSecretCtrl,
+                enabled: canEdit && !busy,
+              ),
+            ],
             if (f.code == 'ViettelPost') ...[
               _field(f.usernameCtrl,
                   label: 'Tài khoản / SĐT Viettel Post', enabled: canEdit),
@@ -434,12 +494,17 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
                   tr(
-                    'Tra cước: Token Partner 32 ký tự hoặc Username. '
-                    'Tạo vận đơn: cần JWT (eyJ...) hoặc Username + Mật khẩu đúng → Lưu. '
-                    'Tắt Sandbox nếu dùng partner.viettelpost.vn (production).',
+                    'Token bí mật 32 ký tự (viettelpost.vn/cau-hinh-tai-khoan): dán vào API Token → Lưu '
+                    '(hệ thống tự đổi sang JWT qua LoginVTP). Hoặc Username + Mật khẩu, hoặc JWT (eyJ...). '
+                    'Tắt Sandbox nếu dùng production.',
                   ),
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                 ),
+              ),
+              _ViettelPostWebhookGuide(
+                apiBaseUrl: ApiService.baseUrl,
+                webhookSecretCtrl: f.webhookSecretCtrl,
+                enabled: canEdit && !busy,
               ),
             ],
             const SizedBox(height: 4),
@@ -514,9 +579,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 
@@ -604,6 +667,39 @@ class _CarrierForm {
   final fromDistrictIdCtrl = TextEditingController();
   final fromWardCodeCtrl = TextEditingController();
   final extraJsonCtrl = TextEditingController();
+  final webhookSecretCtrl = TextEditingController();
+
+  static String _webhookSecretFromExtra(String extra) {
+    if (extra.trim().isEmpty) return '';
+    try {
+      final decoded = jsonDecode(extra);
+      if (decoded is Map) {
+        return (decoded['webhookSecret'] ?? decoded['WebhookSecret'] ?? '')
+            .toString();
+      }
+    } catch (_) {
+      if (!extra.trim().startsWith('{')) return extra.trim();
+    }
+    return '';
+  }
+
+  static String mergeWebhookSecret(String extra, String secret) {
+    Map<String, dynamic> map = {};
+    if (extra.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(extra);
+        if (decoded is Map) map = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    final s = secret.trim();
+    if (s.isEmpty) {
+      map.remove('webhookSecret');
+    } else {
+      map['webhookSecret'] = s;
+    }
+    if (map.isEmpty) return '';
+    return jsonEncode(map);
+  }
 
   factory _CarrierForm.fromJson(Map<String, dynamic> j) {
     final code = (j['carrierCode'] ?? j['CarrierCode'] ?? '').toString();
@@ -636,6 +732,294 @@ class _CarrierForm {
     f.fromWardCodeCtrl.text =
         (j['fromWardCode'] ?? j['FromWardCode'] ?? '').toString();
     f.extraJsonCtrl.text = (j['extraJson'] ?? j['ExtraJson'] ?? '').toString();
+    f.webhookSecretCtrl.text =
+        _webhookSecretFromExtra(f.extraJsonCtrl.text);
     return f;
+  }
+}
+
+String _mergeWebhookSecret(String extra, String secret) =>
+    _CarrierForm.mergeWebhookSecret(extra, secret);
+
+/// Hướng dẫn cấu hình webhook trên cổng Partner Viettel Post.
+class _ViettelPostWebhookGuide extends StatelessWidget {
+  const _ViettelPostWebhookGuide({
+    required this.apiBaseUrl,
+    required this.webhookSecretCtrl,
+    required this.enabled,
+  });
+
+  final String apiBaseUrl;
+  final TextEditingController webhookSecretCtrl;
+  final bool enabled;
+
+  static const vtpWebhookConfigUrl =
+      'https://partner2.viettelpost.vn/control-panel/setting-account/config-webhook';
+
+  String get _webhookUrl {
+    final root = apiBaseUrl.replaceFirst(RegExp(r'/api/?$'), '');
+    return '$root/api/webhooks/shipping/viettelpost';
+  }
+
+  Future<void> _openVtpConfig() async {
+    final uri = Uri.parse(vtpWebhookConfigUrl);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _copy(BuildContext context, String text, String label) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!context.mounted) return;
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã copy',
+      message: label,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Webhook — cập nhật trạng thái đơn tự động',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: Colors.blue.shade900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          OutlinedButton.icon(
+            onPressed: _openVtpConfig,
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('Mở trang cấu hình VTP'),
+          ),
+          const SizedBox(height: 8),
+          _step(
+            context,
+            '1. Webhook Endpoints',
+            'Dán URL bên dưới (copy → dán vào ô trên trang VTP):',
+            _webhookUrl,
+          ),
+          const SizedBox(height: 6),
+          _step(
+            context,
+            '2. Secret parameter',
+            'Tự đặt chuỗi bí mật — cùng chuỗi này dán vào ô Secret trên VTP '
+            '(header Authorization khi VTP gửi hành trình).',
+            webhookSecretCtrl.text.trim().isNotEmpty
+                ? webhookSecretCtrl.text.trim()
+                : 'SboxVtp2026!',
+            copyLabel: 'Copy secret gợi ý',
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: webhookSecretCtrl,
+            enabled: enabled,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Webhook secret (lưu cùng cấu hình VTP)',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '3. Bấm «Kiểm tra kết nối» trên VTP → phải thành công.\n'
+            '4. Lưu cấu hình trên VTP.\n'
+            '5. Gọi 19008095 hoặc email b2b@viettelpost.com.vn để Viettel duyệt webhook '
+            '(bắt buộc mới nhận hành trình thật).\n\n'
+            'Lưu ý: viettelpost.vn/cau-hinh-tai-khoan chỉ lấy token 32 ký tự — không phải trang webhook.',
+            style: TextStyle(fontSize: 11, height: 1.35, color: Colors.grey.shade800),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _step(
+    BuildContext context,
+    String title,
+    String hint,
+    String value, {
+    String? copyLabel,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+        const SizedBox(height: 2),
+        Text(hint, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: SelectableText(
+                  value,
+                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Copy',
+                icon: const Icon(Icons.copy, size: 18),
+                onPressed: () => _copy(context, value, copyLabel ?? title),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Hướng dẫn webhook GHTK — URL + hash (?hash=) theo OpenAPI docs.
+class _GhtkWebhookGuide extends StatelessWidget {
+  const _GhtkWebhookGuide({
+    required this.apiBaseUrl,
+    required this.webhookSecretCtrl,
+    required this.enabled,
+  });
+
+  final String apiBaseUrl;
+  final TextEditingController webhookSecretCtrl;
+  final bool enabled;
+
+  static const ghtkApiConfigUrl =
+      'https://khachhang.giaohangtietkiem.vn/web/thong-tin-shop/cau-hinh-api';
+  static const ghtkDocsUrl = 'https://api.ghtk.vn/docs/submit-order/webhook/';
+
+  String get _webhookUrl {
+    final root = apiBaseUrl.replaceFirst(RegExp(r'/api/?$'), '');
+    final hash = webhookSecretCtrl.text.trim().isNotEmpty
+        ? webhookSecretCtrl.text.trim()
+        : 'SboxGhtk2026';
+    return '$root/api/webhooks/shipping/ghtk?hash=$hash';
+  }
+
+  Future<void> _open(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _copy(BuildContext context, String text, String label) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!context.mounted) return;
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã copy',
+      message: label,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.teal.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.teal.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Webhook GHTK — cập nhật trạng thái realtime',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: Colors.teal.shade900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _open(ghtkApiConfigUrl),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Cấu hình API / Token GHTK'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _open(ghtkDocsUrl),
+                icon: const Icon(Icons.menu_book_outlined, size: 16),
+                label: const Text('Docs webhook'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: webhookSecretCtrl,
+            enabled: enabled,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Hash webhook (chuỗi bí mật trên URL)',
+              border: OutlineInputBorder(),
+              isDense: true,
+              helperText: 'GHTK gọi URL có ?hash=… — phải khớp chuỗi này',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'URL dán vào GHTK (callback):',
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SelectableText(
+                    _webhookUrl,
+                    style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Copy URL',
+                  icon: const Icon(Icons.copy, size: 18),
+                  onPressed: () => _copy(context, _webhookUrl, 'Webhook URL'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '1. Lấy Token tại khachhang.giaohangtietkiem.vn → Cấu hình API.\n'
+            '2. Dán Token vào ô API Token phía trên → điền điểm lấy hàng → Lưu.\n'
+            '3. Đặt Hash (vd SboxGhtk2026) → copy URL webhook → gửi GHTK / cấu hình callback.\n'
+            '4. GHTK gửi form-urlencoded (label_id, status_id, …) → SBOX cập nhật trạng thái đơn.',
+            style: TextStyle(fontSize: 11, height: 1.35, color: Colors.grey.shade800),
+          ),
+        ],
+      ),
+    );
   }
 }

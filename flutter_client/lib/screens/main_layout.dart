@@ -18,6 +18,7 @@ import '../services/pos_print_agent_service.dart';
 import '../utils/pos_print_agent_settings.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_qr_order_voice.dart';
+import '../utils/pos_payment_gateway_listener.dart';
 import '../services/pos_sell_catalog_cache.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../models/mobile_bottom_nav_config.dart';
@@ -32,6 +33,7 @@ import '../widgets/announcement_banner.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/ai_assistant_sheet.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/sbox_hrm_brand.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
 import '../models/hrm.dart';
 import '../models/user.dart';
@@ -103,6 +105,8 @@ import 'pos/pos_customers_screen.dart';
 import 'pos/pos_appointment_day_screen.dart';
 import 'pos/pos_warranty_lookup_screen.dart';
 import 'pos/pos_mobile_hub_screen.dart';
+import 'pos/pos_qr_menu_screen.dart';
+import 'pos/pos_qr_online_orders_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
 import '../utils/responsive_helper.dart';
@@ -353,6 +357,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   /// Last visible bottom-nav stack index — used while Home stays Offstage under drawer/POS.
   int? _lastMobileBottomStackIdx;
 
+  /// Đã chuyển tài khoản POS vào thu ngân trong session MainLayout này.
+  bool _didLandPosSell = false;
+
   // Tracks when SignalR connected so we can suppress stale notifications
   // that were already shown by FCM while the app was in the background.
   DateTime? _signalRConnectedAt;
@@ -411,10 +418,36 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final permProvider =
         Provider.of<PermissionProvider>(context, listen: false);
     if (permProvider.isLoading) return;
-    permProvider.loadPermissions(
-      role: authUser?.role,
-      freshSession: true,
-    );
+    unawaited(permProvider
+        .loadPermissions(
+          role: authUser?.role,
+          freshSession: true,
+        )
+        .then((_) {
+      if (mounted) _maybeLandPosSell();
+    }));
+  }
+
+  /// Tài khoản POS / thu ngân → vào màn Bán hàng (tab thu ngân) sau đăng nhập.
+  void _maybeLandPosSell() {
+    if (_didLandPosSell || !mounted) return;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.isLoaded) return;
+    if (StoreRoleHelper.isFullAccess(auth.userRole)) return;
+    if (!PermissionNavigation.canNavigate(perm, 'PosSell')) return;
+
+    final roleHit = StoreRoleHelper.isPosCashierRole(auth.userRole);
+    final moduleHit =
+        StoreRoleHelper.isPosHeavyModules(auth.user?.allowedModules);
+    if (!roleHit && !moduleHit) return;
+
+    _didLandPosSell = true;
+    NavigationNotifier.posHubTab.value = 2;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      NavigationNotifier.goToModule('PosSell');
+    });
   }
 
   Future<void> _loadSidebarPreference() async {
@@ -535,6 +568,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (openOvertime) {
       NavigationNotifier.pendingOpenOvertime.value = false;
     }
+    final openQrOnline = NavigationNotifier.pendingOpenQrOnlineOrders.value;
+    if (openQrOnline) {
+      NavigationNotifier.posHubTab.value = 2;
+    }
 
     final idx = _navIndexForHomeShortcut(code);
     NavigationNotifier.navigateToModule.value = null;
@@ -542,6 +579,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (idx != null) {
       if (idx != _selectedIndex) {
         if (!_tryNavigateToIndex(idx)) return;
+      } else if (code == 'PosSell' && openQrOnline) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!NavigationNotifier.pendingOpenQrOnlineOrders.value) return;
+          NavigationNotifier.pendingOpenQrOnlineOrders.value = false;
+          NavigationNotifier.pendingOpenQrOnlineOrders.value = true;
+        });
       }
     } else {
       final perm = Provider.of<PermissionProvider>(context, listen: false);
@@ -577,6 +620,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       'PosPurchaseReceipts': 'Nhập hàng NCC',
       'PosSalesReport': 'Báo cáo POS',
       'PosSaleReturns': 'Trả hàng bán',
+      'PosQrOrder': 'Menu QR / Online',
     };
     final want = preferLabel[moduleCode];
     if (want != null) {
@@ -828,6 +872,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         }
         await PosPrintAgentService.instance.ensureRunning(storeId);
         unawaited(PosQrOrderVoiceAlert.instance.start());
+        PosPaymentGatewayListener.instance.start();
       }
       // Join user group for user-specific notifications
       final userId = authProvider.user?.id;
@@ -1578,6 +1623,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ),
 
     // ══════════ POS / BÁN HÀNG ══════════
+    // Sidebar trái (trang chủ): chỉ các chức năng hay dùng.
+    // Còn lại vẫn hiện trên lưới Trang chủ / tab Nhiều hơn.
     NavItem(
       icon: Icons.inventory_2_outlined,
       activeIcon: Icons.inventory_2,
@@ -1609,12 +1656,33 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'PosSaleOrders',
     ),
     NavItem(
+      icon: Icons.restaurant_menu,
+      activeIcon: Icons.restaurant_menu,
+      label: 'Menu QR / Online',
+      subtitle: 'Menu QR',
+      screen: const PosQrMenuScreen(),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosQrOrder',
+    ),
+    NavItem(
+      icon: Icons.delivery_dining_outlined,
+      activeIcon: Icons.delivery_dining,
+      label: 'Đơn online',
+      subtitle: 'QR online',
+      screen: const PosQrOnlineOrdersScreen(),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosQrOrder',
+    ),
+    NavItem(
       icon: Icons.assignment_return_outlined,
       activeIcon: Icons.assignment_return,
       label: 'Trả hàng bán',
       subtitle: 'Trả hàng',
       screen: const PosSaleReturnListScreen(),
       group: 'POS',
+      showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSaleReturns',
     ),
@@ -1625,6 +1693,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Đặt lịch',
       screen: const PosAppointmentDayScreen(),
       group: 'POS',
+      showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosBooking',
     ),
@@ -1635,6 +1704,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Khách hàng',
       screen: const PosCustomersScreen(),
       group: 'POS',
+      showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosCustomers',
     ),
@@ -1645,6 +1715,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Bảo hành',
       screen: const PosWarrantyLookupScreen(),
       group: 'POS',
+      showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosWarranty',
     ),
@@ -1655,6 +1726,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'NCC',
       screen: const PosSupplierListScreen(),
       group: 'POS',
+      showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosPurchaseReceipts',
     ),
@@ -1665,6 +1737,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Nhập hàng',
       screen: const WhAdaptivePurchaseReceiptList(),
       group: 'POS',
+      showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosPurchaseReceipts',
     ),
@@ -1675,6 +1748,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Trả NCC',
       screen: const WhAdaptivePurchaseReturnList(),
       group: 'POS',
+      showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosPurchaseReturns',
     ),
@@ -1685,6 +1759,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Kiểm kê',
       screen: const WhAdaptiveStockCountList(),
       group: 'POS',
+      showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosStockCounts',
     ),
@@ -1695,6 +1770,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Xuất hủy',
       screen: const WhAdaptiveDamageIssueList(),
       group: 'POS',
+      showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosDamageIssues',
     ),
@@ -1705,6 +1781,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'Xuất nội bộ',
       screen: const WhAdaptiveInternalUseList(),
       group: 'POS',
+      showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosInternalUseIssues',
     ),
@@ -1852,8 +1929,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavItem(
       icon: Icons.tune_outlined,
       activeIcon: Icons.tune,
-      label: 'Thiết lập HRM',
-      subtitle: 'Thiết lập HRM',
+      label: 'Thiết lập Sbox',
+      subtitle: 'Thiết lập Sbox',
       screen: const SettingsHubScreen(),
       group: 'Cài đặt',
       showInSidebar: true,
@@ -2007,14 +2084,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         canPop: false,
         onPopInvokedWithResult: (didPop, _) async {
           if (didPop) return;
-          final nav = Navigator.of(context);
-          if (nav.canPop()) {
-            nav.pop();
-            return;
-          }
-          final handler = NavigationNotifier.posHandleSystemBack;
-          if (handler != null && await handler()) return;
-          _tryNavigateToIndex(0);
+          await _handleSystemBackAlignedWithUi();
         },
         child: _wrapAppShell(
           Scaffold(
@@ -2024,7 +2094,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       );
     }
 
-    return _wrapAppShell(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        await _handleSystemBackAlignedWithUi();
+      },
+      child: _wrapAppShell(
       Scaffold(
         body: Row(
           children: [
@@ -2049,6 +2125,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -2060,14 +2137,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         canPop: false,
         onPopInvokedWithResult: (didPop, _) async {
           if (didPop) return;
-          final nav = Navigator.of(context);
-          if (nav.canPop()) {
-            nav.pop();
-            return;
-          }
-          final handler = NavigationNotifier.posHandleSystemBack;
-          if (handler != null && await handler()) return;
-          _tryNavigateToIndex(0);
+          await _handleSystemBackAlignedWithUi();
         },
         child: _wrapAppShell(
           Scaffold(body: _buildPersistentMainContent()),
@@ -2075,7 +2145,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       );
     }
 
-    return _wrapAppShell(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        await _handleSystemBackAlignedWithUi();
+      },
+      child: _wrapAppShell(
       Scaffold(
         body: Row(
           children: [
@@ -2129,6 +2205,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -2316,18 +2393,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         canPop: false,
         onPopInvokedWithResult: (didPop, _) async {
           if (didPop) return;
-          final nav = Navigator.of(context);
-          if (nav.canPop()) {
-            nav.pop();
-            return;
-          }
-          final handler = NavigationNotifier.posHandleSystemBack;
-          if (handler != null && await handler()) return;
-          if (_canGoBack) {
-            _goBack();
-          } else {
-            _tryNavigateToIndex(0);
-          }
+          await _handleSystemBackAlignedWithUi(inPosHub: true);
         },
         child: _wrapAppShell(
           Stack(
@@ -2353,17 +2419,52 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
+      onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
-        if (_canGoBack) {
-          _goBack();
-        } else {
-          // Minimize app to background instead of killing
-          SystemNavigator.pop();
-        }
+        // Khớp nút ← AppBar / quay màn trước — không thoát app ngay.
+        await _handleSystemBackAlignedWithUi();
       },
       child: _wrapAppShell(scaffold),
     );
+  }
+
+  /// Android Back = cùng hành vi nút quay về trên phần mềm.
+  /// 1) pop route con (Ca thu ngân, báo cáo, đơn vị VC…)
+  /// 2) Settings Hub / Task — đóng trang con nhúng
+  /// 3) handler POS (đóng picker / thoát TT / trả sơ đồ / về HRM)
+  /// 4) trong hub POS → về trang chủ HRM
+  /// 5) lịch sử AppBar / về Home
+  /// 6) đã ở Home → minimize
+  Future<void> _handleSystemBackAlignedWithUi({bool inPosHub = false}) async {
+    final nav = Navigator.of(context);
+    if (nav.canPop()) {
+      nav.pop();
+      return;
+    }
+    if (SettingsHubScreen.internalBackCallback != null) {
+      SettingsHubScreen.internalBackCallback!();
+      return;
+    }
+    if (TaskManagementScreen.internalBackCallback != null) {
+      TaskManagementScreen.internalBackCallback!();
+      return;
+    }
+    final handler = NavigationNotifier.posHandleSystemBack;
+    if (handler != null && await handler()) return;
+    if (inPosHub ||
+        PosHubModules.isPrimary(_navItems[_selectedIndex].moduleCode)) {
+      NavigationNotifier.leavePosHubToAppHome();
+      return;
+    }
+    if (_navigationHistory.isNotEmpty) {
+      _goBack();
+      return;
+    }
+    if (_selectedIndex != 0) {
+      _tryNavigateToIndex(0);
+      return;
+    }
+    SystemNavigator.pop();
   }
 
   /// Mobile body: keep bottom-nav screens (esp. Home) mounted via Offstage when
@@ -2841,6 +2942,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       'Chấm công',
       'Tài chính',
       'Quản lý Vận hành',
+      'POS',
       'Báo cáo',
       'Đại lý',
       'Cài đặt'
@@ -2893,7 +2995,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             child: GestureDetector(
               onTap: _toggleSidebar,
               child: Container(
-                height: 64,
+                height: _isExpanded ? 78 : 64,
                 padding: EdgeInsets.symmetric(horizontal: _isExpanded ? 16 : 8),
                 decoration: const BoxDecoration(
                   color: Color(0xFFF8F9FA), // surface
@@ -2901,21 +3003,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 child: _isExpanded
                     ? Row(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(7),
-                            child: Image.asset('assets/logo.png',
-                                width: 32, height: 32),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(tr('SBOX HRM'),
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: HrmPageChrome.primaryNavy,
-                                  letterSpacing: -0.5,
-                                ),
-                                overflow: TextOverflow.ellipsis),
+                          const Expanded(
+                            child: SboxBrandLockup(
+                              logoSize: 32,
+                              titleSize: 14,
+                              sloganSize: 10,
+                              titleColor: HrmPageChrome.primaryNavy,
+                              showSlogan: true,
+                            ),
                           ),
                           Icon(Icons.chevron_left_rounded,
                               color: const Color(0xFF586064).withValues(alpha: 0.5),
@@ -3394,6 +3489,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       'Chấm công',
       'Tài chính',
       'Quản lý Vận hành',
+      'POS',
       'Báo cáo',
       'Đại lý',
       'Cài đặt'
@@ -3436,7 +3532,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       child: Column(
         children: [
           Container(
-            height: 64,
+            height: 78,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: const BoxDecoration(
               color: Color(0xFFF8F9FA),
@@ -3445,20 +3541,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
             child: Row(
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(7),
-                  child: Image.asset('assets/logo.png', width: 32, height: 32),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(tr('SBOX HRM'),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: HrmPageChrome.primaryNavy,
-                        letterSpacing: -0.5,
-                      ),
-                      overflow: TextOverflow.ellipsis),
+                const Expanded(
+                  child: SboxBrandLockup(
+                    logoSize: 32,
+                    titleSize: 14,
+                    sloganSize: 10,
+                    titleColor: HrmPageChrome.primaryNavy,
+                    showSlogan: true,
+                  ),
                 ),
                 IconButton(
                   icon: Icon(Icons.close_rounded,

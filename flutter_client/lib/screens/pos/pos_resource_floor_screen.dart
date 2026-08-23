@@ -9,6 +9,7 @@ import '../../models/pos_sale_order.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../widgets/pos/pos_split_bill_sheet.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_owner_password_gate.dart';
 import '../../utils/pos_device_identity.dart';
 import '../../utils/pos_floor_realtime.dart';
 import '../../utils/pos_kitchen_print.dart';
@@ -53,6 +54,7 @@ class PosResourceFloorScreen extends StatefulWidget {
     this.billRequestedResourceIds = const {},
     this.releasedOrderIds = const {},
     this.freedResourceIds = const {},
+    this.onReconcileOptimisticFlags,
     this.promptGuestCountOnOpen = false,
     this.allowProvisionalBill = true,
     this.onActiveTotalsChanged,
@@ -91,6 +93,13 @@ class PosResourceFloorScreen extends StatefulWidget {
   /// Bàn máy này vừa TT / trả trống — tô Free ngay, không chờ GET.
   final Set<String> freedResourceIds;
 
+  /// Sau mỗi GET: gỡ cờ lạc quan đã khớp / bị máy khác ghi đè (tránh kẹt đến khi mở lại app).
+  final void Function({
+    Set<String> dropFreed,
+    Set<String> dropKitchen,
+    Set<String> dropBill,
+  })? onReconcileOptimisticFlags;
+
   /// Hỏi số khách khi mở bàn trống (Thiết lập ngành POS).
   final bool promptGuestCountOnOpen;
 
@@ -126,7 +135,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Timer? _poll;
   Timer? _clock;
   String? _deviceId;
-  final _floorRealtime = PosFloorRealtimeSubscription();
+  final _floorRealtime = PosFloorRealtimeSubscription(
+    debounce: const Duration(milliseconds: 650),
+  );
   PosSellProfile? _loadedSellProfile;
 
   PosSellProfile get _sellProfile =>
@@ -177,7 +188,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       );
     }
     _floorRealtime.start((_) {
-      if (mounted && !_layoutEdit && widget.paneActive) _reload(silent: true);
+      // heal khi có sự kiện realtime — tránh ghost Occupied đến khi mở lại app.
+      if (mounted && !_layoutEdit && widget.paneActive) {
+        _reload(silent: true, heal: true);
+      }
     });
     // Đồng hồ bàn: 15s đủ (hiển thị phút), tránh rebuild toàn sơ đồ mỗi giây.
     _clock = Timer.periodic(const Duration(seconds: 15), (_) {
@@ -210,9 +224,24 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   PosServiceResourceDto _patchResourceFlags(PosServiceResourceDto r) {
     final rid = r.id.toLowerCase();
-    if (widget.freedResourceIds.any((e) => e.toLowerCase() == rid)) {
-      return r.asLocallyFreed();
+    final markedFreed =
+        widget.freedResourceIds.any((e) => e.toLowerCase() == rid);
+    // Chỉ ép Free khi server chưa xác nhận trống VÀ chưa bị máy khác mở lại.
+    if (markedFreed) {
+      final reopened = r.hasOpenSession ||
+          r.isOccupied ||
+          r.isHolding ||
+          r.isReserved ||
+          r.isBillRequested ||
+          r.isPaused ||
+          (r.lineCount > 0);
+      if (!reopened && !r.isFree && !r.isDirty) {
+        return r.asLocallyFreed();
+      }
+      // Free/Dirty = đã khớp; Occupied… = máy khác đã lấy — không đè nữa.
     }
+    // Badge bếp: chỉ ép 0 khi server vẫn còn pending cũ; nếu đã về 0 thì thôi
+    // (để lần order sau hiện đúng — không kẹt 0 đến hết phiên app).
     final zeroKitchen =
         widget.zeroPendingKitchenResourceIds.any((e) => e.toLowerCase() == rid) &&
             r.pendingKitchenCount > 0;
@@ -223,7 +252,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             (r.hasOpenSession ||
                 r.lineCount > 0 ||
                 (r.occupancyStatus != 'Free' &&
-                    r.occupancyStatus != 'Available'));
+                    r.occupancyStatus != 'Available' &&
+                    r.occupancyStatus != 'Dirty'));
     var out = r;
     if (zeroKitchen || forceBill) {
       out = PosServiceResourceDto(
@@ -400,7 +430,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Future<void> openAppointmentCalendar({String? resourceId}) =>
       _openAppointmentCalendar(resourceId: resourceId);
 
-  Future<void> _reload({bool silent = false}) async {
+  Future<void> _reload({bool silent = false, bool? heal}) async {
     if (!silent) {
       setState(() {
         _loading = true;
@@ -409,7 +439,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
     final areaRes = await _api.getPosServiceAreas();
     final resRes = await _api.getPosServiceResources(
-      heal: !silent,
+      heal: heal ?? !silent,
     );
     if (!mounted) return;
     if (areaRes['isSuccess'] != true || resRes['isSuccess'] != true) {
@@ -423,22 +453,66 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       }
       return;
     }
+    final rawResources = ((resRes['data'] as List?) ?? [])
+        .whereType<Map>()
+        .map((e) =>
+            PosServiceResourceDto.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    _reconcileOptimisticFlags(rawResources);
     setState(() {
       _areas = ((areaRes['data'] as List?) ?? [])
           .whereType<Map>()
           .map((e) => PosServiceAreaDto.fromJson(Map<String, dynamic>.from(e)))
           .toList();
-      var resources = ((resRes['data'] as List?) ?? [])
-          .whereType<Map>()
-          .map((e) =>
-              PosServiceResourceDto.fromJson(Map<String, dynamic>.from(e)))
-          .map(_patchResourceFlags)
-          .toList();
-      _resources = resources;
+      _resources = rawResources.map(_patchResourceFlags).toList();
       _loading = false;
       _error = null;
     });
     _notifyActiveTotals();
+  }
+
+  /// Gỡ cờ lạc quan đã khớp server hoặc bị ghi đè — tránh phải mở lại app.
+  void _reconcileOptimisticFlags(List<PosServiceResourceDto> server) {
+    final cb = widget.onReconcileOptimisticFlags;
+    if (cb == null) return;
+    final dropFreed = <String>{};
+    final dropKitchen = <String>{};
+    final dropBill = <String>{};
+    for (final r in server) {
+      final rid = r.id;
+      final key = rid.toLowerCase();
+      if (widget.freedResourceIds.any((e) => e.toLowerCase() == key)) {
+        final reopened = r.hasOpenSession ||
+            r.isOccupied ||
+            r.isHolding ||
+            r.isReserved ||
+            r.isBillRequested ||
+            r.isPaused ||
+            r.lineCount > 0;
+        if (r.isFree || r.isDirty || reopened) {
+          dropFreed.add(rid);
+        }
+      }
+      if (widget.zeroPendingKitchenResourceIds
+              .any((e) => e.toLowerCase() == key) &&
+          r.pendingKitchenCount == 0) {
+        dropKitchen.add(rid);
+      }
+      if (widget.billRequestedResourceIds.any((e) => e.toLowerCase() == key)) {
+        if (r.isBillRequested ||
+            r.isFree ||
+            r.isDirty ||
+            (!r.hasOpenSession && r.lineCount <= 0)) {
+          dropBill.add(rid);
+        }
+      }
+    }
+    if (dropFreed.isEmpty && dropKitchen.isEmpty && dropBill.isEmpty) return;
+    cb(
+      dropFreed: dropFreed,
+      dropKitchen: dropKitchen,
+      dropBill: dropBill,
+    );
   }
 
   void _emitSelect(Map<String, dynamic> result) {
@@ -1923,6 +1997,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       return;
     }
     if (action == 'free') {
+      if (!await confirmPosOwnerPassword(context)) return;
+      if (!mounted) return;
       await _returnTableToEmpty(r);
       return;
     }
@@ -2074,6 +2150,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           productId: e['productId']?.toString(),
           sentBefore: (e['sentBefore'] as num?)?.toDouble(),
           lineKey: e['lineId']?.toString(),
+          calledAt: DateTime.tryParse(e['calledAt']?.toString() ?? '') ??
+              DateTime.tryParse(e['sentAt']?.toString() ?? '') ??
+              DateTime.now(),
         ));
       }
       if (lines.isEmpty) return;
@@ -2757,7 +2836,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   int get busyTableCount => _busyTables.length;
 
-  Future<void> returnAllTablesToEmpty() => _returnAllTablesToEmpty();
+  Future<void> returnAllTablesToEmpty({bool requireOwnerPassword = true}) =>
+      _returnAllTablesToEmpty(requireOwnerPassword: requireOwnerPassword);
 
   /// Trả bàn về trống. Bàn còn món: xóa đơn tạm rồi đóng phiên.
   Future<bool> _returnTableToEmpty(
@@ -2809,9 +2889,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     return true;
   }
 
-  Future<void> _returnAllTablesToEmpty() async {
+  Future<void> _returnAllTablesToEmpty({bool requireOwnerPassword = true}) async {
     final busy = _busyTables;
     if (busy.isEmpty) return;
+    if (requireOwnerPassword) {
+      if (!await confirmPosOwnerPassword(context)) return;
+      if (!mounted) return;
+    }
     final withItems = busy.where((r) => r.lineCount > 0 || r.subtotal > 0).length;
     final ok = await showDialog<bool>(
       context: context,

@@ -410,7 +410,7 @@ class ApiService {
       String storeCode, String email, String password) async {
     try {
       debugPrint('🔐 Login attempt to $baseUrl/api/auth/login');
-      final access = await _loginAccessPayload(posApp: true);
+      final access = await _loginAccessPayload(posApp: false);
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/auth/login'),
@@ -1381,7 +1381,7 @@ class ApiService {
             headers: _headers,
             body: json.encode({'records': records}),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 120));
 
       debugPrint('📥 Import response: ${response.statusCode}');
       final data = _handleResponse(response);
@@ -1391,6 +1391,7 @@ class ApiService {
           'success': true,
           'imported': data['data']?['imported'] ?? records.length,
           'failed': data['data']?['failed'] ?? 0,
+          'skipped': data['data']?['skipped'] ?? 0,
           'errors': data['data']?['errors'] ?? [],
         };
       }
@@ -8460,6 +8461,38 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getSystemPosOverview(
+      {String? fromDate, String? toDate, String? storeId}) async {
+    try {
+      final params = <String, String>{};
+      if (fromDate != null) params['fromDate'] = fromDate;
+      if (toDate != null) params['toDate'] = toDate;
+      if (storeId != null && storeId.isNotEmpty) params['storeId'] = storeId;
+      final uri = Uri.parse('$baseUrl/api/system-admin/pos-overview')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getAgentPosOverview(
+      {String? fromDate, String? toDate, String? storeId}) async {
+    try {
+      final params = <String, String>{};
+      if (fromDate != null) params['fromDate'] = fromDate;
+      if (toDate != null) params['toDate'] = toDate;
+      if (storeId != null && storeId.isNotEmpty) params['storeId'] = storeId;
+      final uri = Uri.parse('$baseUrl/api/agent/pos-overview')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      final response = await http.get(uri, headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getSystemAdminDashboard(
       {String? fromDate, String? toDate}) async {
     try {
@@ -9579,6 +9612,100 @@ class ApiService {
     try {
       final response = await http.get(
           Uri.parse('$baseUrl/api/system-admin/system-health'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getSystemHealthMetrics({int hours = 24}) async {
+    try {
+      final response = await http.get(
+          Uri.parse(
+              '$baseUrl/api/system-admin/system-health/metrics?hours=$hours'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getServerStorage() async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/system-admin/server/storage'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cleanupServer({
+    required String scope,
+    required bool apply,
+  }) async {
+    try {
+      final response = await http.post(
+          Uri.parse('$baseUrl/api/system-admin/server/cleanup'),
+          headers: _headers,
+          body: json.encode({'scope': scope, 'apply': apply}));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getServerReleases() async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/system-admin/server/releases'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadServerRelease({
+    required List<int> bytes,
+    required String fileName,
+    required String kind,
+    String versionName = '',
+    int versionCode = 0,
+    String releaseNotes = '',
+    bool activate = true,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/system-admin/server/releases/upload');
+      final request = http.MultipartRequest('POST', uri);
+      if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
+      request.fields['kind'] = kind;
+      request.fields['versionName'] = versionName;
+      request.fields['versionCode'] = versionCode.toString();
+      request.fields['releaseNotes'] = releaseNotes;
+      request.fields['activate'] = activate.toString();
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: fileName,
+      ));
+      final streamed =
+          await request.send().timeout(const Duration(minutes: 10));
+      final response = await http.Response.fromStream(streamed);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteServerRelease(String name,
+      {bool force = false}) async {
+    try {
+      final response = await http.delete(
+          Uri.parse(
+              '$baseUrl/api/system-admin/server/releases/${Uri.encodeComponent(name)}?force=$force'),
           headers: _headers);
       return _handleResponse(response);
     } catch (e) {
@@ -14714,6 +14841,287 @@ class ApiService {
     return null;
   }
 
+  Future<Map<String, dynamic>> getSystemPosSampleCatalog({
+    String? search,
+    String? kind,
+    String? productType,
+    String? category,
+    String? categoryId,
+    String? brand,
+    String? sellProfile,
+    bool? hasImage,
+    bool? isActive,
+    bool includeInactive = false,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final q = <String, String>{
+        'page': '$page',
+        'pageSize': '$pageSize',
+        'includeInactive': '$includeInactive',
+      };
+      if (search != null && search.trim().isNotEmpty) {
+        q['search'] = search.trim();
+      }
+      if (kind != null && kind.trim().isNotEmpty) q['kind'] = kind.trim();
+      if (productType != null && productType.trim().isNotEmpty) {
+        q['productType'] = productType.trim();
+      }
+      if (category != null && category.trim().isNotEmpty) {
+        q['category'] = category.trim();
+      }
+      if (categoryId != null && categoryId.trim().isNotEmpty) {
+        q['categoryId'] = categoryId.trim();
+      }
+      if (brand != null && brand.trim().isNotEmpty) q['brand'] = brand.trim();
+      if (sellProfile != null && sellProfile.trim().isNotEmpty) {
+        q['sellProfile'] = sellProfile.trim();
+      }
+      if (hasImage != null) q['hasImage'] = '$hasImage';
+      if (isActive != null) q['isActive'] = '$isActive';
+      final uri = Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createSystemPosSampleCatalog(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSystemPosSampleCatalog(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/$id'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteSystemPosSampleCatalog(String id) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/$id'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> uploadSystemPosSampleCatalogImage(
+      String id, List<int> bytes, String filename) async {
+    try {
+      final uri =
+          Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/$id/image');
+      final request = http.MultipartRequest('POST', uri);
+      if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
+
+      final ext = filename.toLowerCase().split('.').last;
+      final mimeTypes = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+      };
+      final contentType = mimeTypes[ext] ?? 'image/jpeg';
+      final mediaParts = contentType.split('/');
+
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: filename.contains('.') ? filename : '$filename.jpg',
+        contentType: MediaType(mediaParts[0], mediaParts[1]),
+      ));
+      final streamed = await request.send().timeout(const Duration(seconds: 90));
+      final response = await http.Response.fromStream(streamed);
+      final result = _handleResponse(response);
+      if (result['isSuccess'] != true) {
+        debugPrint(
+          'uploadSystemPosSampleCatalogImage failed: '
+          'status=${response.statusCode} '
+          'body=${response.body.substring(0, response.body.length.clamp(0, 300))}',
+        );
+      }
+      return result;
+    } catch (e) {
+      debugPrint('Error uploading sample catalog image: $e');
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> seedSystemPosSampleCatalog() async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/system-admin/pos-sample-catalog/seed-defaults'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getSystemPosSampleCatalogFacets() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/facets'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getSystemPosSampleCategories({
+    bool includeInactive = true,
+  }) async {
+    try {
+      final uri = Uri.parse(
+              '$baseUrl/api/system-admin/pos-sample-catalog/categories')
+          .replace(queryParameters: {'includeInactive': '$includeInactive'});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createSystemPosSampleCategory(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/categories'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSystemPosSampleCategory(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse(
+                '$baseUrl/api/system-admin/pos-sample-catalog/categories/$id'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteSystemPosSampleCategory(String id) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse(
+                '$baseUrl/api/system-admin/pos-sample-catalog/categories/$id'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> exportSystemPosSampleCatalogExcel({
+    String? search,
+    String? kind,
+    String? productType,
+    String? category,
+    String? brand,
+    bool? hasImage,
+    bool includeInactive = true,
+  }) async {
+    final q = <String, String>{'includeInactive': '$includeInactive'};
+    if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+    if (kind != null && kind.trim().isNotEmpty) q['kind'] = kind.trim();
+    if (productType != null && productType.trim().isNotEmpty) {
+      q['productType'] = productType.trim();
+    }
+    if (category != null && category.trim().isNotEmpty) {
+      q['category'] = category.trim();
+    }
+    if (brand != null && brand.trim().isNotEmpty) q['brand'] = brand.trim();
+    if (hasImage != null) q['hasImage'] = '$hasImage';
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/export/excel')
+          .replace(queryParameters: q),
+    );
+  }
+
+  Future<Map<String, dynamic>> exportSystemPosSampleCatalogExcelTemplate() {
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/excel-template'),
+    );
+  }
+
+  Future<Map<String, dynamic>> importSystemPosSampleCatalogExcel(
+      List<int> fileBytes, String fileName) async {
+    try {
+      final uri =
+          Uri.parse('$baseUrl/api/system-admin/pos-sample-catalog/import/excel');
+      final request = http.MultipartRequest('POST', uri);
+      final authHeaders = _headers;
+      if (authHeaders.containsKey('Authorization')) {
+        request.headers['Authorization'] = authHeaders['Authorization']!;
+      }
+      request.files.add(
+          http.MultipartFile.fromBytes('file', fileBytes, filename: fileName));
+      final streamed = await request.send().timeout(const Duration(seconds: 180));
+      final response = await http.Response.fromStream(streamed);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosSuppliers() async {
     try {
       final response = await http
@@ -14946,12 +15354,12 @@ class ApiService {
     String? categoryId,
     bool categoryIncludeChildren = true,
     int page = 1,
-    int pageSize = 500,
+    int pageSize = 48,
   }) async {
     try {
       final params = <String, String>{
         'page': page.clamp(1, 9999).toString(),
-        'pageSize': pageSize.clamp(1, 500).toString(),
+        'pageSize': pageSize.clamp(1, 100).toString(),
       };
       if (categoryIncludeChildren) {
         params['categoryIncludeChildren'] = 'true';
@@ -15001,7 +15409,6 @@ class ApiService {
     try {
       final uri = Uri.parse('$baseUrl/api/pos/einvoice/settings');
       final encoded = jsonEncode(body);
-      // PUT trước; nếu 405/404 thì POST (API mới hỗ trợ cả hai).
       var response = await http
           .put(uri, headers: _headers, body: encoded)
           .timeout(const Duration(seconds: 30));
@@ -15618,6 +16025,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> exportPosSalesReportExcel({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final q = <String, String>{};
+    if (from != null) q['from'] = from.toIso8601String();
+    if (to != null) q['to'] = to.toIso8601String();
+    return _getExcelExport(
+      Uri.parse('$baseUrl/api/pos/reports/sales/export/excel')
+          .replace(queryParameters: q.isEmpty ? null : q),
+    );
+  }
+
+  // ==================== HKD BOOKS (TT 152/2025) ====================
+
   Future<Map<String, dynamic>> getHkdSettings() async {
     try {
       final response = await http
@@ -15634,7 +16056,8 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> saveHkdSettings(Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> saveHkdSettings(
+      Map<String, dynamic> body) async {
     try {
       final response = await http
           .put(
@@ -15748,19 +16171,6 @@ class ApiService {
     final q = _hkdBookQuery(null, from, to);
     return _getExcelExport(
       Uri.parse('$baseUrl/api/hkd/books/inventory/export/excel')
-          .replace(queryParameters: q.isEmpty ? null : q),
-    );
-  }
-
-  Future<Map<String, dynamic>> exportPosSalesReportExcel({
-    DateTime? from,
-    DateTime? to,
-  }) async {
-    final q = <String, String>{};
-    if (from != null) q['from'] = from.toIso8601String();
-    if (to != null) q['to'] = to.toIso8601String();
-    return _getExcelExport(
-      Uri.parse('$baseUrl/api/pos/reports/sales/export/excel')
           .replace(queryParameters: q.isEmpty ? null : q),
     );
   }
@@ -17804,20 +18214,20 @@ class ApiService {
     );
   }
 
-  /// Máy cloud không còn trên chip Agent → gỡ gán món + xóa máy.
-  Future<Map<String, dynamic>> cleanupPosAgentOrphanPrinters() async {
-    return _mutateProductPrinterApi(
-      '/printers/cleanup-agent-orphans',
-      (uri) => http.post(uri, headers: _headers, body: '{}'),
-    );
-  }
-
   Future<Map<String, dynamic>> getPosPrinterProductSummary({
     bool includeLocal = false,
   }) async {
     return _getProductPrinterApi(
       '/printers/summary',
       query: includeLocal ? const {'includeLocal': 'true'} : null,
+    );
+  }
+
+  /// Máy cloud không còn trên chip Agent → gỡ gán món + xóa máy.
+  Future<Map<String, dynamic>> cleanupPosAgentOrphanPrinters() async {
+    return _mutateProductPrinterApi(
+      '/printers/cleanup-agent-orphans',
+      (uri) => http.post(uri, headers: _headers, body: '{}'),
     );
   }
 
@@ -18229,6 +18639,43 @@ class ApiService {
     }
   }
 
+  /// Đẩy state màn phụ lên server (máy khác mở link ?v=).
+  Future<Map<String, dynamic>> putPosCustomerDisplayState({
+    required String stateJson,
+    required String viewerCode,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/customer-display/state'),
+            headers: _headers,
+            body: jsonEncode({
+              'stateJson': stateJson,
+              'viewerCode': viewerCode,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Máy khác — đọc state công khai theo mã xem (không cần login).
+  Future<Map<String, dynamic>> getPosCustomerDisplayPublicState(
+      String viewerCode) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/customer-display/public-state')
+          .replace(queryParameters: {'code': viewerCode});
+      final response = await http
+          .get(uri, headers: {'Content-Type': 'application/json'})
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   // ── Shipping carriers (GHN / GHTK / Viettel Post / AhaMove) ──
 
   Future<Map<String, dynamic>> getPosShippingSettings() async {
@@ -18287,6 +18734,22 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> comparePosShipping(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/shipping/compare'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 90));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createPosShipment(
       Map<String, dynamic> body) async {
     try {
@@ -18297,6 +18760,53 @@ class ApiService {
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosShipmentLabel(String orderId) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/shipping/shipments/$orderId/label'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosShipment(
+    String orderId, {
+    String? note,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/shipping/shipments/$orderId/cancel'),
+            headers: _headers,
+            body: jsonEncode({'note': note}),
+          )
+          .timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> syncPosShipmentTracking(String orderId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/shipping/shipments/$orderId/sync-tracking'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18413,6 +18923,23 @@ class ApiService {
     }
   }
 
+  /// SuperAdmin: Báo cáo tra soát tiền mua credit (tổng + list theo store).
+  Future<Map<String, dynamic>> adminCreditPurchasesReport({
+    int limit = 50,
+  }) async {
+    try {
+      final uri = Uri.parse(
+              '$baseUrl/api/pos/payment-gateway/admin/credit-purchases-report?limit=$limit')
+          .replace(queryParameters: {'limit': '$limit'});
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> listPosTransferPaymentIntents({
     String? status,
     int limit = 50,
@@ -18455,43 +18982,6 @@ class ApiService {
             }),
           )
           .timeout(const Duration(seconds: 20));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
-  }
-
-  /// Đẩy state màn phụ lên server (máy khác mở link ?v=).
-  Future<Map<String, dynamic>> putPosCustomerDisplayState({
-    required String stateJson,
-    required String viewerCode,
-  }) async {
-    try {
-      final response = await http
-          .put(
-            Uri.parse('$baseUrl/api/pos/customer-display/state'),
-            headers: _headers,
-            body: jsonEncode({
-              'stateJson': stateJson,
-              'viewerCode': viewerCode,
-            }),
-          )
-          .timeout(const Duration(seconds: 15));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
-  }
-
-  /// Máy khác — đọc state công khai theo mã xem (không cần login).
-  Future<Map<String, dynamic>> getPosCustomerDisplayPublicState(
-      String viewerCode) async {
-    try {
-      final uri = Uri.parse('$baseUrl/api/pos/customer-display/public-state')
-          .replace(queryParameters: {'code': viewerCode});
-      final response = await http
-          .get(uri, headers: {'Content-Type': 'application/json'})
-          .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18817,6 +19307,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> verifyPosOwnerPassword(String password) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/security/verify-owner-password'),
+            headers: _headers,
+            body: jsonEncode({'password': password}),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosCashierShiftCurrent() async {
     try {
       final response = await http
@@ -18824,6 +19329,32 @@ class ApiService {
             Uri.parse('$baseUrl/api/pos/cashier-shifts/current'),
             headers: _headers,
           )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Danh sách ca trong khoảng ngày (đối chiếu với tổng kết cuối ngày).
+  Future<Map<String, dynamic>> getPosCashierShifts({
+    DateTime? from,
+    DateTime? to,
+    String? openedBy,
+    int? dayStartHour,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (from != null) q['from'] = from.toIso8601String().split('T').first;
+      if (to != null) q['to'] = to.toIso8601String().split('T').first;
+      if (openedBy != null && openedBy.trim().isNotEmpty) {
+        q['openedBy'] = openedBy.trim();
+      }
+      if (dayStartHour != null) q['dayStartHour'] = '$dayStartHour';
+      final uri = Uri.parse('$baseUrl/api/pos/cashier-shifts')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response = await http
+          .get(uri, headers: _headers)
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
@@ -18998,6 +19529,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> deletePosQrOnlineOrder(String orderId) async {
+    try {
+      final response = await http
+          .delete(
+            Uri.parse(
+                '$baseUrl/api/pos/qr-order/online-orders/$orderId'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> completePosQrOnlineOrder(String orderId) async {
     try {
       final response = await http
@@ -19016,15 +19562,35 @@ class ApiService {
 
   Future<Map<String, dynamic>> createPosQrOnlineShipment(
     String orderId,
-    String carrierCode,
-  ) async {
+    String carrierCode, {
+    int? weightGrams,
+    int? lengthCm,
+    int? widthCm,
+    int? heightCm,
+    double? codAmount,
+    String? serviceCode,
+    String? note,
+    String? shipFeePayer,
+    double? fixedShipFee,
+  }) async {
     try {
       final response = await http
           .post(
             Uri.parse(
                 '$baseUrl/api/pos/qr-order/online-orders/$orderId/shipment'),
             headers: _headers,
-            body: jsonEncode({'carrierCode': carrierCode}),
+            body: jsonEncode({
+              'carrierCode': carrierCode,
+              if (weightGrams != null) 'weightGrams': weightGrams,
+              if (lengthCm != null) 'lengthCm': lengthCm,
+              if (widthCm != null) 'widthCm': widthCm,
+              if (heightCm != null) 'heightCm': heightCm,
+              if (codAmount != null) 'codAmount': codAmount,
+              if (serviceCode != null) 'serviceCode': serviceCode,
+              if (note != null) 'note': note,
+              if (shipFeePayer != null) 'shipFeePayer': shipFeePayer,
+              if (fixedShipFee != null) 'fixedShipFee': fixedShipFee,
+            }),
           )
           .timeout(const Duration(seconds: 60));
       return _handleResponse(response);
@@ -19604,6 +20170,53 @@ class ApiService {
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
+    }
+  }
+
+  // ==================== ZK GATEWAY FIRMWARE (OTA) ====================
+
+  /// Bản firmware ESP32 gateway mới nhất trên server (Admin+).
+  Future<Map<String, dynamic>> getZkGatewayRelease() async {
+    try {
+      final response = await _retryOnUnauthorized(
+        () => _get(Uri.parse('$baseUrl/api/app/zk-gateway-release')),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e, fallback: 'Không lấy được thông tin firmware gateway.');
+    }
+  }
+
+  /// Tải `zk_gateway.bin` từ server (Admin+). Trả null nếu lỗi / file quá nhỏ.
+  Future<Map<String, dynamic>> downloadZkGatewayFirmware() async {
+    try {
+      final response = await _retryOnUnauthorized(
+        () => http
+            .get(
+              Uri.parse('$baseUrl/api/app/zk-gateway-bin'),
+              headers: _binaryDownloadHeaders,
+            )
+            .timeout(const Duration(minutes: 2)),
+      );
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          response.bodyBytes.length >= 100000) {
+        return {
+          'isSuccess': true,
+          'data': response.bodyBytes,
+          'bytes': response.bodyBytes.length,
+        };
+      }
+      final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+      return {
+        'isSuccess': false,
+        'message': body.trim().isNotEmpty
+            ? body.trim()
+            : 'Tải firmware thất bại (${response.statusCode})',
+        'statusCode': response.statusCode,
+      };
+    } catch (e) {
+      return _connectionFailure(e, fallback: 'Không tải được firmware gateway.');
     }
   }
 }

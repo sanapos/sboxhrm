@@ -17,6 +17,8 @@ class PosVietQrPaymentPanel extends StatefulWidget {
     required this.amount,
     this.preferredAccountId,
     this.description,
+    this.title = 'VietQR thanh toán',
+    this.lockAccountSelection = false,
     this.compact = false,
     this.onAccountChanged,
   });
@@ -25,6 +27,8 @@ class PosVietQrPaymentPanel extends StatefulWidget {
   final double amount;
   final String? preferredAccountId;
   final String? description;
+  final String title;
+  final bool lockAccountSelection;
   final bool compact;
   final ValueChanged<BankAccount>? onAccountChanged;
 
@@ -101,7 +105,7 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
               const Icon(Icons.qr_code_2, color: _kiotBlue, size: 20),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(tr('VietQR thanh toán'),
+                child: Text(tr(widget.title),
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -114,7 +118,7 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
               ),
             ],
           ),
-          if (widget.accounts.length > 1) ...[
+          if (widget.accounts.length > 1 && !widget.lockAccountSelection) ...[
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
               value: acc.id,
@@ -216,11 +220,14 @@ Future<void> showPosVietQrPaymentDialog(
   required double amount,
   String? preferredAccountId,
   String? description,
+  String title = 'VietQR thanh toán',
+  String dialogTitle = 'Quét VietQR thanh toán',
+  bool lockAccountSelection = false,
 }) async {
   await showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(tr('Quét VietQR thanh toán')),
+      title: Text(tr(dialogTitle)),
       content: SizedBox(
         width: 320,
         child: PosVietQrPaymentPanel(
@@ -228,6 +235,8 @@ Future<void> showPosVietQrPaymentDialog(
           amount: amount,
           preferredAccountId: preferredAccountId,
           description: description,
+          title: title,
+          lockAccountSelection: lockAccountSelection,
         ),
       ),
       actions: [
