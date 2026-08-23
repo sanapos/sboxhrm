@@ -2,17 +2,18 @@ import 'package:flutter/foundation.dart';
 
 import 'landing_guide_url_sync_stub.dart'
     if (dart.library.html) 'landing_guide_url_sync_web.dart' as url_sync;
+import 'landing_usage_guide.dart';
 
 /// Deep link tới một mục hướng dẫn trên landing.
 class GuideDeepLink {
   const GuideDeepLink({required this.section, required this.stepId});
 
-  /// `basic` hoặc `advanced`
+  /// `basic` | `advanced` | `pos`
   final String section;
   final String stepId;
 
   bool get isBasic => section == 'basic';
-  int get sectionIndex => isBasic ? 0 : 1;
+  int get sectionIndex => LandingGuideData.indexForKey(section);
 }
 
 class LandingGuideUrl {
@@ -42,7 +43,7 @@ class LandingGuideUrl {
     var frag = uri.fragment.trim();
     if (frag.startsWith('/')) frag = frag.substring(1);
     final hashMatch =
-        RegExp(r'^guide/(basic|advanced)/([a-z0-9_]+)$').firstMatch(frag);
+        RegExp(r'^guide/(basic|advanced|pos)/([a-z0-9_]+)$').firstMatch(frag);
     if (hashMatch != null) {
       return GuideDeepLink(
         section: hashMatch.group(1)!,
@@ -57,7 +58,7 @@ class LandingGuideUrl {
     final stepId = params['step']?.trim();
     if (section != null &&
         stepId != null &&
-        (section == 'basic' || section == 'advanced') &&
+        LandingGuideData.isKnownSection(section) &&
         stepId.isNotEmpty) {
       return GuideDeepLink(section: section, stepId: stepId);
     }

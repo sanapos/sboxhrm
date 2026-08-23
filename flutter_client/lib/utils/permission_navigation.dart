@@ -13,12 +13,12 @@ class PermissionNavigation {
     'PosCustomers': ['PosSell'],
     'PosBooking': ['PosSell'],
     'PosWarranty': ['PosSell'],
-    'PosCustomerDisplay': ['PosSell'],
     'PosEInvoice': ['PosSell'],
     'PosKds': ['PosSell'],
     'PosQrOrder': ['PosSell'],
     'PosCashierShift': ['PosSell'],
-    'PosPrinters': ['PosSell'],
+    'PosCustomerDisplay': ['PosSell'],
+    'PosShipping': ['PosSell'],
     'HkdBooks': ['PosSalesReport'],
   };
 
@@ -29,7 +29,7 @@ class PermissionNavigation {
     'PosKds': ['PosSell'],
     'PosQrOrder': ['PosSell'],
     'PosCashierShift': ['PosSell'],
-    'PosPrinters': ['PosSell'],
+    'PosShipping': ['PosSell'],
     'HkdBooks': ['PosSalesReport', 'PosSell'],
   };
 
@@ -196,6 +196,8 @@ class PermissionNavigation {
         return 'Ca thu ngân';
       case 'PosPrinters':
         return 'Máy in POS';
+      case 'PosShipping':
+        return 'Đơn vị giao hàng';
       case 'PenaltyReport':
         return 'Báo cáo phạt';
       case 'CashReport':
@@ -213,7 +215,7 @@ class PermissionNavigation {
       case 'Settings':
         return 'Cài đặt';
       case 'SettingsHub':
-        return 'Thiết lập HRM';
+        return 'Thiết lập Sbox';
       default:
         return moduleCode;
     }

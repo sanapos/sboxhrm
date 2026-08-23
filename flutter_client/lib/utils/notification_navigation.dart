@@ -198,7 +198,14 @@ String? _inferEntityTypeFromTitle(String? title) {
   if (t.contains('thu chi') || t.contains('giao dịch thu')) {
     return 'CashTransaction';
   }
-  if (t.contains('phản ánh') || t.contains('ý kiến')) return 'Feedback';
+  if (t.contains('đơn online') || t.contains('gọi lại khách')) {
+    return 'PosQrOnlineOrder';
+  }
+  if (t.contains('bán hàng pos') || t.contains('hoá đơn pos')) {
+    return 'PosSaleOrder';
+  }
+  if (t.contains('nhập hàng pos')) return 'PosPurchaseReceipt';
+  if (t.contains('tồn kho thấp')) return 'PosProduct';
   if (t.contains('check-in') || t.contains('check in') || t.contains('hiện trường')) {
     return 'FieldCheckIn';
   }
@@ -297,7 +304,7 @@ String? _inferEntityTypeFromCategory(String? categoryCode, {String? title}) {
     case 'transaction':
       return 'CashTransaction';
     case 'pos':
-      return 'PosSaleOrder';
+      return _inferEntityTypeFromTitle(title) ?? 'PosSaleOrder';
     case 'internal_comm':
       return 'Communication';
     case 'device':
@@ -477,6 +484,20 @@ NotificationNavigationTarget? resolveNotificationNavigation(
       return const NotificationNavigationTarget(moduleCode: 'Asset');
     case 'assetreport':
       return const NotificationNavigationTarget(moduleCode: 'AssetReport');
+    case 'posqronlineorder':
+      NavigationNotifier.pendingOpenQrOnlineOrders.value = true;
+      NavigationNotifier.posHubTab.value = 2;
+      return const NotificationNavigationTarget(moduleCode: 'PosSell');
+
+    case 'possaleorder':
+      return const NotificationNavigationTarget(moduleCode: 'PosSaleOrders');
+
+    case 'pospurchasereceipt':
+      return const NotificationNavigationTarget(moduleCode: 'PosPurchaseReceipts');
+
+    case 'posproduct':
+      return const NotificationNavigationTarget(moduleCode: 'PosProducts');
+
     case 'feedback':
       if (title != null && title.toLowerCase().contains('phản ánh mới')) {
         NavigationNotifier.feedbackPreferInbox.value = true;

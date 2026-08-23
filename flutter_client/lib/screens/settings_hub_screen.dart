@@ -42,6 +42,7 @@ import 'pos/pos_einvoice_settings_screen.dart';
 import 'pos/pos_shipping_settings_screen.dart';
 import 'pos/pos_store_settings_hub_screen.dart';
 import 'pos/pos_printer_settings_hub_screen.dart';
+import 'pos/pos_payment_gateway_settings_screen.dart';
 import 'pos/pos_resource_floor_screen.dart';
 import 'pos/pos_appointment_day_screen.dart';
 import 'pos/pos_customer_display_settings_screen.dart';
@@ -299,6 +300,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const PosSellIndustrySettingsHubScreen(embeddedInSettings: true);
       case 17:
         return const PosStoreSettingsHubScreen();
+      case 28:
+        return const PosPaymentGatewaySettingsScreen();
       case 26:
         return const PosEInvoiceSettingsScreen();
       case 27:
@@ -418,7 +421,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tr(user?.fullName ?? 'Thiết lập HRM'),
+                  tr(user?.fullName ?? 'Thiết lập Sbox'),
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,

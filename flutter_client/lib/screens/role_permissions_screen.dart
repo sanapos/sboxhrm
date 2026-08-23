@@ -438,7 +438,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'BusinessTripReport': {'canView', 'canExport'},
     'AssetReport': {'canView', 'canExport'},
     // ── CÀI ĐẶT ──
-    'SettingsHub': {'canView'},
+    'SettingsHub': {'canView', 'canEdit'},
     'ShiftSetup': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'MobileAttendance': {
       'canView',
@@ -469,9 +469,10 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'NotificationSettings': {'canView', 'canEdit'},
     'AIGemini': {'canView', 'canEdit'},
     'PosSell': {
-      // Xem = vào màn bán; Thêm = Order/tạm tính; Duyệt = Thanh toán
+      // Xem = vào màn bán; Thêm = Order/tạm tính; Sửa = tách bill / trả bàn; Duyệt = Thanh toán
       'canView',
       'canCreate',
+      'canEdit',
       'canApprove',
     },
     'PosProducts': {
@@ -546,7 +547,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'PosBooking': {'canView', 'canCreate', 'canEdit'},
     'PosCustomers': {'canView', 'canCreate', 'canEdit'},
     'PosWarranty': {'canView'},
-    'PosCustomerDisplay': {'canView', 'canCreate'},
+    'PosCustomerDisplay': {'canView', 'canCreate', 'canEdit'},
     'Settings': {'canView', 'canEdit'},
   };
 
@@ -2586,6 +2587,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           return 'Vào bán';
         case 'canCreate':
           return 'Order';
+        case 'canEdit':
+          return 'Sửa đơn';
         case 'canApprove':
           return 'Thanh toán';
       }
@@ -2620,6 +2623,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           return 'Xem ca';
         case 'canCreate':
           return 'Mở / đóng ca';
+      }
+    }
+    if (module == 'SettingsHub') {
+      switch (action) {
+        case 'canView':
+          return 'Xem thiết lập';
+        case 'canEdit':
+          return 'Sửa thiết lập';
       }
     }
     if (module == 'PosPrinters') {

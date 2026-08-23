@@ -14,6 +14,11 @@ class PosSellTaxLine {
 }
 
 /// Tính thuế VAT theo chế độ thiết lập cửa hàng.
+///
+/// - [PosSellTaxMode.includedInPrice]: giá bán đã gồm VAT → **VAT trên HĐ = 0đ**
+///   (không tách phần thuế ra khỏi giá).
+/// - [PosSellTaxMode.perItem]: cộng thêm VAT theo % từng mặt hàng.
+/// - [PosSellTaxMode.orderTotal]: cộng thêm VAT % trên tổng đơn.
 class PosSellTax {
   static double vatAmount({
     required PosSellTaxMode mode,
@@ -26,8 +31,8 @@ class PosSellTax {
 
     switch (mode) {
       case PosSellTaxMode.includedInPrice:
-        if (orderVatExempt || orderVatRate <= 0) return 0;
-        return netTotal * orderVatRate / (100 + orderVatRate);
+        // Giá đã gồm VAT — không tách / không cộng thêm trên hóa đơn.
+        return 0;
       case PosSellTaxMode.orderTotal:
         if (orderVatExempt || orderVatRate <= 0) return 0;
         return netTotal * orderVatRate / 100;

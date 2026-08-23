@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -19,6 +19,8 @@ import '../utils/pos_print_role.dart';
 import '../utils/pos_printer_readiness.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_print_template_runtime.dart';
+import '../utils/pos_sell_store_settings.dart';
+import '../utils/pos_print_template_renderer.dart';
 import '../utils/pos_receipt_layout.dart';
 import '../utils/pos_printer_transport.dart';
 import '../utils/pos_store_printer_mapper.dart';
@@ -26,6 +28,8 @@ import '../utils/pos_sunmi_native_print.dart';
 import '../utils/pos_thermal_printer_settings.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../utils/pos_print_template_v2_codec.dart';
+import '../utils/pos_print_template_compiler.dart';
 
 /// Print Agent: thi?t b? nh?n job in cloud (LAN/BT/USB) v? in c?c b?.
 class PosPrintAgentService {
@@ -123,7 +127,7 @@ class PosPrintAgentService {
       _heartbeatTimer =
           Timer.periodic(const Duration(seconds: 12), (_) => _register());
       _claimTimer =
-          Timer.periodic(const Duration(seconds: 3), (_) => _scheduleClaim());
+          Timer.periodic(const Duration(seconds: 2), (_) => _scheduleClaim());
       await _jobNewSub?.cancel();
       _jobNewSub = _signalR.onPrintJobNew.listen((_) => _scheduleClaim());
       await _forceStopSub?.cancel();
@@ -162,8 +166,8 @@ class PosPrintAgentService {
     await settings.copyWith(enabled: false).save();
     await stop(markOffline: false);
     NotificationOverlayManager().showWarning(
-      title: 'Agent đã tắt từ máy khác',
-      message: tr('Chỉ giữ Agent trên máy gắn máy in'),
+      title: 'Agent Ä‘Ã£ táº¯t tá»« mÃ¡y khÃ¡c',
+      message: tr('Chá»‰ giá»¯ Agent trÃªn mÃ¡y gáº¯n mÃ¡y in'),
     );
   }
 
@@ -247,25 +251,33 @@ class PosPrintAgentService {
           .where((id) => alive.contains(PosPrintRole.normalizePrinterId(id)))
           .toList();
       if (filtered.length != printerIds.length) {
-        printerIds = filtered;
-        await settings.copyWith(assignedPrinterIds: printerIds).save();
-        debugPrint(
-          '??? Print Agent: d? b? chip m?y in d? x?a, c?n ${printerIds.length}',
-        );
+        // Sau reshare: twin má»›i cÃ³ thá»ƒ chÆ°a ká»‹p vÃ o list (hoáº·c vá»«a bá»‹ orphan cleanup).
+        // Äá»«ng ghi prefs rá»—ng ngay â€” váº«n heartbeat vá»›i id vá»«a gÃ¡n.
+        if (filtered.isEmpty && refreshPrinters && printerIds.isNotEmpty) {
+          debugPrint(
+            '??? Print Agent: giá»¯ chip vá»«a gÃ¡n (list server táº¡m thiáº¿u ${printerIds.length})',
+          );
+        } else {
+          printerIds = filtered;
+          await settings.copyWith(assignedPrinterIds: printerIds).save();
+          debugPrint(
+            '??? Print Agent: bá» chip mÃ¡y in Ä‘Ã£ xÃ³a, cÃ²n ${printerIds.length}',
+          );
+        }
       }
     }
     if (printerIds.isEmpty) {
       // Kh?ng t? g?n h?t m?y c?a h?ng ? user d? t?t chip th? gi? tr?ng
       // (tru?c d?y khi?n danh s?ch ?nh?y? l?i 6 m?y sau m?i heartbeat).
       _registeredPrinterIds = const [];
-      _lastRegisterError = 'Chưa chọn chip máy in cho Agent';
+      _lastRegisterError = 'ChÆ°a chá»n chip mÃ¡y in cho Agent';
       await _markOfflineOnServerIfNeeded();
       _agentId = null;
       if (!_warnedNoPrinters) {
         _warnedNoPrinters = true;
         NotificationOverlayManager().showWarning(
-          title: 'Agent chưa gắn máy in',
-          message: tr('Bật Agent và chọn ít nhất một chip máy in bên dưới'),
+          title: 'Agent chÆ°a gáº¯n mÃ¡y in',
+          message: tr('Báº­t Agent vÃ  chá»n Ã­t nháº¥t má»™t chip mÃ¡y in bÃªn dÆ°á»›i'),
         );
       }
       return;
@@ -284,9 +296,9 @@ class PosPrintAgentService {
       if (!_warnedNoPrinters) {
         _warnedNoPrinters = true;
         NotificationOverlayManager().showWarning(
-          title: 'Agent: chưa thấy cổng in',
+          title: 'Agent: chÆ°a tháº¥y cá»•ng in',
           message: tr(
-            'Vẫn nhận lệnh cloud. Rút USB ADB nếu in Tem/Zywell; kiểm tra chip máy in',
+            'Váº«n nháº­n lá»‡nh cloud. RÃºt USB ADB náº¿u in Tem/Zywell; kiá»ƒm tra chip mÃ¡y in',
           ),
         );
       }
@@ -301,6 +313,8 @@ class PosPrintAgentService {
         deviceName: device.name,
         employeeName: settings.accountLabel,
         printerIds: printerIds,
+        // Chá»‰ Online khi cá»•ng in cÃ²n sáºµn sÃ ng â€” USB rÃºt khÃ´ng bá»‹ heartbeat Ã©p Online.
+        onlinePrinterIds: printableNow,
       );
       if (res['isSuccess'] == true && res['data'] is Map) {
         final data = res['data'] as Map;
@@ -316,7 +330,7 @@ class PosPrintAgentService {
       } else {
         // Gi? agentId cu n?u heartbeat l?i t?m th?i ? tr?nh Oppo m?t Agent gi?a ch?ng.
         _lastRegisterError =
-            res['message']?.toString() ?? 'Đăng ký Agent thất bại';
+            res['message']?.toString() ?? 'ÄÄƒng kÃ½ Agent tháº¥t báº¡i';
         debugPrint('Print Agent register soft-fail: $_lastRegisterError');
       }
     } catch (e) {
@@ -344,15 +358,15 @@ class PosPrintAgentService {
   void _scheduleClaim() {
     if (!_running) return;
     _claimDebounce?.cancel();
-    _claimDebounce = Timer(const Duration(milliseconds: 250), _tryClaim);
+    _claimDebounce = Timer(const Duration(milliseconds: 80), _tryClaim);
   }
 
   Future<void> _tryClaim() async {
     if (!_running || _claimsPaused || _claimInFlight || _agentId == null) return;
     _claimInFlight = true;
-    // Job đã nhận nhưng chưa chốt. Lỗi bất ngờ (mất mạng lúc markPrinting, lỗi
-    // cổng in…) mà bỏ qua thì job nằm Claimed tới khi server hủy STUCK — phiếu
-    // bếp mất mà thu ngân không hề biết.
+    // Job Ä‘Ã£ nháº­n nhÆ°ng chÆ°a chá»‘t. Lá»—i báº¥t ngá» (máº¥t máº¡ng lÃºc markPrinting, lá»—i
+    // cá»•ng inâ€¦) mÃ  bá» qua thÃ¬ job náº±m Claimed tá»›i khi server há»§y STUCK â€” phiáº¿u
+    // báº¿p máº¥t mÃ  thu ngÃ¢n khÃ´ng há» biáº¿t.
     String? claimedJobId;
     try {
       final res = await _api.claimPosPrintJob(_agentId!);
@@ -390,7 +404,7 @@ class PosPrintAgentService {
           jobId,
           _agentId!,
           errorCode: 'NO_PRINTER_ID',
-          errorMessage: 'Job thiếu printerId',
+          errorMessage: 'Job thiáº¿u printerId',
         );
         return;
       }
@@ -402,7 +416,7 @@ class PosPrintAgentService {
           jobId,
           _agentId!,
           errorCode: 'OUTBOUND_SKIP',
-          errorMessage: 'Máy gửi lệnh — nhả cho Print Agent',
+          errorMessage: 'MÃ¡y gá»­i lá»‡nh â€” nháº£ cho Print Agent',
         );
         return;
       }
@@ -418,7 +432,7 @@ class PosPrintAgentService {
           jobId,
           _agentId!,
           errorCode: 'NOT_LOCAL_PORT',
-          errorMessage: 'Máy này không kết nối được cổng in — nhả cho Agent khác',
+          errorMessage: 'MÃ¡y nÃ y khÃ´ng káº¿t ná»‘i Ä‘Æ°á»£c cá»•ng in â€” nháº£ cho Agent khÃ¡c',
         );
         return;
       }
@@ -481,7 +495,7 @@ class PosPrintAgentService {
             _agentId!,
             errorCode: 'PRINT_TIMEOUT',
             errorMessage:
-                'In quá 75 giây — kiểm tra USB tem (rút ADB) / giấy / máy',
+                'In quÃ¡ 75 giÃ¢y â€” kiá»ƒm tra USB tem (rÃºt ADB) / giáº¥y / mÃ¡y',
           );
           _markJobSettled(jobId);
         } catch (_) {}
@@ -496,8 +510,8 @@ class PosPrintAgentService {
     }
   }
 
-  /// Báo hỏng job đã nhận nhưng chưa in xong, để máy gửi thấy lỗi ngay thay vì
-  /// chờ server hủy STUCK sau 3 phút (thu ngân tưởng bếp đã nhận món).
+  /// BÃ¡o há»ng job Ä‘Ã£ nháº­n nhÆ°ng chÆ°a in xong, Ä‘á»ƒ mÃ¡y gá»­i tháº¥y lá»—i ngay thay vÃ¬
+  /// chá» server há»§y STUCK sau 3 phÃºt (thu ngÃ¢n tÆ°á»Ÿng báº¿p Ä‘Ã£ nháº­n mÃ³n).
   Future<void> _failAbandonedJob(String? jobId, Object error) async {
     if (jobId == null || jobId.isEmpty) return;
     if (_settledJobIds.contains(jobId)) return;
@@ -511,11 +525,11 @@ class PosPrintAgentService {
         jobId,
         agentId,
         errorCode: 'AGENT_ERROR',
-        errorMessage: 'Agent lỗi khi in — thử lại hoặc chọn máy khác ($error)',
+        errorMessage: 'Agent lá»—i khi in â€” thá»­ láº¡i hoáº·c chá»n mÃ¡y khÃ¡c ($error)',
       );
       _markJobSettled(jobId);
     } catch (e) {
-      debugPrint('Print Agent: không báo hỏng được job $jobId: $e');
+      debugPrint('Print Agent: khÃ´ng bÃ¡o há»ng Ä‘Æ°á»£c job $jobId: $e');
       _activeJobIds.remove(jobId);
     }
   }
@@ -565,8 +579,8 @@ class PosPrintAgentService {
     // M?y Agent: 1 d?ng g?n ? kh?ng ch?ng toast v?i m?y g?i.
     final ref = job['referenceNo']?.toString() ?? '';
     NotificationOverlayManager().show(
-      title: 'Đã nhận lệnh in',
-      message: ref.isNotEmpty ? 'Đơn $ref — đang in…' : 'Đang in chứng từ…',
+      title: 'ÄÃ£ nháº­n lá»‡nh in',
+      message: ref.isNotEmpty ? 'ÄÆ¡n $ref â€” Ä‘ang inâ€¦' : 'Äang in chá»©ng tá»«â€¦',
       duration: const Duration(seconds: 2),
       relatedEntityType: kPosPrintNotifyKind,
     );
@@ -609,7 +623,7 @@ class PosPrintAgentService {
         jobId,
         _agentId!,
         errorCode: 'NO_PRINTER',
-        errorMessage: 'Không tìm thấy cấu hình máy in',
+        errorMessage: 'KhÃ´ng tÃ¬m tháº¥y cáº¥u hÃ¬nh mÃ¡y in',
       );
       _markJobSettled(jobId);
       return;
@@ -625,24 +639,23 @@ class PosPrintAgentService {
     var ok = true;
 
     if (format == 'SaleOrderJson') {
-      // Sunmi: in native gi?ng m?y in n?i b? (UTF-8, c? ch? d?ng).
+      // Sunmi: compile máº«u thiáº¿t káº¿ store (cÃ¹ng local) â€” khÃ´ng hardcode layout.
       try {
         final map = jsonDecode(payload);
         if (map is! Map) {
-          throw const FormatException('SaleOrderJson không phải object');
+          throw const FormatException('SaleOrderJson khÃ´ng pháº£i object');
         }
         if (!await PosPrinterTransport.isSunmiDevice()) {
           await _api.failPosPrintJob(
             jobId,
             _agentId!,
             errorCode: 'NOT_SUNMI',
-            errorMessage: 'Job SaleOrderJson cần máy Sunmi làm Agent',
+            errorMessage: 'Job SaleOrderJson cáº§n mÃ¡y Sunmi lÃ m Agent',
           );
           return;
         }
 
         PosSaleOrder? order;
-        // Uu ti?n order nh?ng trong payload (?n d?nh hon g?i l?i API).
         final orderMap = map['order'];
         if (orderMap is Map) {
           try {
@@ -665,7 +678,7 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'NO_ORDER',
-            errorMessage: 'Không tải được đơn để in Sunmi',
+            errorMessage: 'KhÃ´ng táº£i Ä‘Æ°á»£c Ä‘Æ¡n Ä‘á»ƒ in Sunmi',
           );
           return;
         }
@@ -681,36 +694,38 @@ class PosPrintAgentService {
           if (linesOverride.isEmpty) linesOverride = null;
         }
 
-        for (var i = 0; i < copies.clamp(1, 10); i++) {
-          final sent = await PosSunmiNativePrint.printSaleOrder(
-            order,
-            settings: settings,
-            storeName: map['storeName']?.toString(),
-            storeAddress: map['storeAddress']?.toString(),
-            storePhone: map['storePhone']?.toString(),
-            mergeSameItems: map['mergeSameItems'] != false && !warehouseSlip,
-            copies: 1,
-            documentTitle: map['documentTitle']?.toString() ??
-                map['slipTitle']?.toString(),
-            warehouseSlip: warehouseSlip,
-            slipTitle: map['slipTitle']?.toString(),
-            linesOverride: linesOverride,
-          );
-          if (!sent) {
-            ok = false;
-            break;
-          }
+        final vatIncludedFlag = map['vatIncludedInPrice'];
+        bool? vatIncludedInPrice;
+        if (vatIncludedFlag == true) {
+          vatIncludedInPrice = true;
+        } else if (vatIncludedFlag == false) {
+          vatIncludedInPrice = false;
         }
+        ok = await _printSaleOrderWithStoreTemplate(
+          order: order,
+          settings: settings,
+          storeName: map['storeName']?.toString(),
+          storeAddress: map['storeAddress']?.toString(),
+          storePhone: map['storePhone']?.toString(),
+          mergeSameItems: map['mergeSameItems'] != false && !warehouseSlip,
+          documentTitle: map['documentTitle']?.toString() ??
+              map['slipTitle']?.toString(),
+          warehouseSlip: warehouseSlip,
+          linesOverride: linesOverride,
+          copies: copies,
+          vatIncludedInPrice: vatIncludedInPrice,
+        );
       } catch (e) {
         await _api.failPosPrintJob(
           jobId,
           _agentId!,
           errorCode: 'BAD_PAYLOAD',
-          errorMessage: 'SaleOrderJson lỗi: $e',
+          errorMessage: 'SaleOrderJson lá»—i: $e',
         );
         return;
       }
     } else if (format == 'KitchenSlipJson') {
+
       try {
         final map = jsonDecode(payload);
         if (map is! Map) {
@@ -733,7 +748,7 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'NO_LINES',
-            errorMessage: 'Phiếu bếp không có món',
+            errorMessage: 'Phiáº¿u báº¿p khÃ´ng cÃ³ mÃ³n',
           );
           return;
         }
@@ -759,7 +774,7 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'NO_LINES',
-            errorMessage: 'Phiếu bếp không có món hợp lệ',
+            errorMessage: 'Phiáº¿u báº¿p khÃ´ng cÃ³ mÃ³n há»£p lá»‡',
           );
           return;
         }
@@ -772,53 +787,20 @@ class PosPrintAgentService {
         final senderName = slipMap['senderName']?.toString() ?? 'admin';
         final orderNo = slipMap['orderNo']?.toString() ?? '';
         final cutPerItem = slipMap['cutPerItem'] == true;
-        final onSunmi = await PosPrinterTransport.isSunmiDevice();
-        final preferNative = onSunmi &&
-            (printer.isSunmi ||
-                settings.connectionType == PosThermalConnectionType.sunmi ||
-                settings.printerBrand == PosThermalPrinterBrand.sunmi);
 
         Future<bool> printGroup(
           List<({String name, String qty, String? unit, String? note})> group,
         ) async {
-          var groupOk = false;
-          if (preferNative) {
-            final kitchenSettings = settings.copyWith(
-              connectionType: PosThermalConnectionType.sunmi,
-              printerBrand: PosThermalPrinterBrand.sunmi,
-              feedBeforeCut: 2,
-              openCashDrawer: false,
-            );
-            groupOk = true;
-            for (var i = 0; i < copies.clamp(1, 10); i++) {
-              final sent = await PosSunmiNativePrint.printKitchenSlip(
-                tableName: tableName,
-                isCancel: isCancel,
-                lines: group,
-                senderName: senderName,
-                orderNo: orderNo,
-                sentAt: sentAt,
-                settings: kitchenSettings,
-              );
-              if (!sent) {
-                groupOk = false;
-                break;
-              }
-            }
-          }
-          if (!groupOk) {
-            groupOk = await _printKitchenSlipEscPos(
-              settings: settings.copyWith(openCashDrawer: false),
-              isCancel: isCancel,
-              tableName: tableName,
-              lines: group,
-              senderName: senderName,
-              orderNo: orderNo,
-              sentAt: sentAt,
-              copies: copies,
-            );
-          }
-          return groupOk;
+          return _printKitchenSlipEscPos(
+            settings: settings.copyWith(openCashDrawer: false),
+            isCancel: isCancel,
+            tableName: tableName,
+            lines: group,
+            senderName: senderName,
+            orderNo: orderNo,
+            sentAt: sentAt,
+            copies: copies,
+          );
         }
 
         if (cutPerItem && nativeLines.length > 1) {
@@ -838,7 +820,7 @@ class PosPrintAgentService {
           jobId,
           _agentId!,
           errorCode: 'BAD_PAYLOAD',
-          errorMessage: 'KitchenSlipJson lỗi: $e',
+          errorMessage: 'KitchenSlipJson lá»—i: $e',
         );
         return;
       }
@@ -850,7 +832,7 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'NOT_SUNMI',
-            errorMessage: 'Job TestPrintJson cần máy Sunmi làm Agent',
+            errorMessage: 'Job TestPrintJson cáº§n mÃ¡y Sunmi lÃ m Agent',
           );
           return;
         }
@@ -875,10 +857,145 @@ class PosPrintAgentService {
           jobId,
           _agentId!,
           errorCode: 'BAD_PAYLOAD',
-          errorMessage: 'TestPrintJson lỗi: $e',
+          errorMessage: 'TestPrintJson lá»—i: $e',
         );
         return;
       }
+    
+    } else if (format == 'TemplatePreviewJson') {
+      // In thá»­ máº«u V2 tá»« editor â€” Agent compile Ä‘Ãºng draft, Sunmi native / ESC.
+      try {
+        final map = jsonDecode(payload);
+        if (map is! Map) {
+          throw const FormatException('TemplatePreviewJson khÃ´ng pháº£i object');
+        }
+        final content = map['templateContent']?.toString() ?? '';
+        final docType = map['documentType']?.toString() ??
+            PosPrintDocumentTypes.saleInvoice;
+        final paperSize = (map['paperSize']?.toString() ?? '').trim().isNotEmpty
+            ? map['paperSize'].toString()
+            : settings.paperSize;
+        final v2raw = PosPrintTemplateV2Codec.tryParse(content);
+        if (v2raw == null) {
+          await _api.failPosPrintJob(
+            jobId,
+            _agentId!,
+            errorCode: 'BAD_TEMPLATE',
+            errorMessage: 'KhÃ´ng parse Ä‘Æ°á»£c máº«u V2 preview',
+          );
+          _markJobSettled(jobId);
+          return;
+        }
+        final v2 = v2raw.copyWith(
+          documentType: docType,
+          paperSize: paperSize,
+        );
+        final mode = map['mode']?.toString() ?? 'sale';
+        late final PosPrintCompiledOutput output;
+        if (mode == 'kitchenSlip') {
+          final k = map['kitchen'];
+          final km = k is Map ? Map<String, dynamic>.from(k) : <String, dynamic>{};
+          final linesRaw = km['lines'];
+          final lines = <({String name, String qty, String? unit, String? note})>[];
+          if (linesRaw is List) {
+            for (final e in linesRaw) {
+              if (e is! Map) continue;
+              lines.add((
+                name: e['name']?.toString() ?? e['Ten_Hang_Hoa']?.toString() ?? '',
+                qty: e['qty']?.toString() ?? e['So_Luong']?.toString() ?? '1',
+                unit: e['unit']?.toString() ?? e['Don_Vi_Tinh']?.toString(),
+                note: e['note']?.toString() ?? e['Ghi_Chu']?.toString(),
+              ));
+            }
+          }
+          output = PosPrintTemplateRuntime.compileKitchenSlip(
+            template: v2,
+            tableName: km['tableName']?.toString() ?? 'BÃ n',
+            isCancel: km['isCancel'] == true ||
+                docType == PosPrintDocumentTypes.kitchenVoid,
+            lines: lines.isEmpty
+                ? const [
+                    (name: 'MÃ³n demo', qty: '1', unit: null, note: null),
+                  ]
+                : lines,
+            senderName: km['senderName']?.toString() ?? 'NV',
+            orderNo: km['orderNo']?.toString() ?? 'DH0001',
+            sentAt: DateTime.tryParse(km['sentAt']?.toString() ?? '') ??
+                DateTime.now(),
+          );
+        } else {
+          final dataRaw = map['data'];
+          final data = <String, String>{};
+          if (dataRaw is Map) {
+            dataRaw.forEach((k, v) {
+              data[k.toString()] = v?.toString() ?? '';
+            });
+          }
+          final items = <Map<String, String>>[];
+          final li = map['lineItems'];
+          if (li is List) {
+            for (final e in li) {
+              if (e is! Map) continue;
+              items.add({
+                for (final me in e.entries)
+                  me.key.toString(): me.value?.toString() ?? '',
+              });
+            }
+          }
+          output = PosPrintTemplateCompiler.compile(
+            template: v2,
+            data: data,
+            lineItems: items,
+          );
+        }
+        final kitchenFeed = map['kitchenFeed'] == true || mode == 'kitchenSlip';
+        final targetSunmi =
+            printer.isSunmi ||
+            settings.connectionType == PosThermalConnectionType.sunmi;
+        if (targetSunmi && await PosPrinterTransport.isSunmiDevice()) {
+          ok = await PosPrintTemplateRuntime.printCompiledSunmi(
+            output: output,
+            settings: settings.copyWith(
+              connectionType: PosThermalConnectionType.sunmi,
+              printerBrand: PosThermalPrinterBrand.sunmi,
+              paperSize: paperSize,
+            ),
+            copies: copies.clamp(1, 10),
+            kitchenFeed: kitchenFeed,
+          );
+        } else {
+          final bytes =
+              await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
+            output: output,
+            settings: settings.copyWith(paperSize: paperSize),
+          );
+          for (var i = 0; i < copies.clamp(1, 10); i++) {
+            final sent = await PosPrinterTransport.send(
+              connectionType: settings.connectionType,
+              bluetoothAddress: settings.bluetoothAddress,
+              lanHost: settings.lanHost,
+              lanPort: settings.lanPort,
+              usbDeviceName: settings.usbDeviceName,
+              bytes: bytes,
+              sunmiFeedLines: settings.resolvedFeedBeforeCut,
+            );
+            if (!sent) {
+              ok = false;
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        await _api.failPosPrintJob(
+          jobId,
+          _agentId!,
+          errorCode: 'TEMPLATE_PREVIEW_FAIL',
+          errorMessage: 'TemplatePreviewJson lá»—i: $e',
+        );
+        _markJobSettled(jobId);
+        return;
+      }
+
     } else if (format == 'EscPosBase64') {
       // Sunmi: ESC/POS qua printEscPos hay l?i font ti?ng Vi?t / in ra l?nh th?.
       // M?i job tr?n m?y Sunmi ? uu ti?n native (test JSON ho?c test slip).
@@ -905,7 +1022,7 @@ class PosPrintAgentService {
           _agentId!,
           errorCode: 'UNSUPPORTED_ON_SUNMI',
           errorMessage:
-              'Sunmi không in EscPosBase64 (lỗi font VN). Dùng SaleOrderJson / TestPrintJson.',
+              'Sunmi khÃ´ng in EscPosBase64 (lá»—i font VN). DÃ¹ng SaleOrderJson / TestPrintJson.',
         );
         _markJobSettled(jobId);
         return;
@@ -918,7 +1035,7 @@ class PosPrintAgentService {
             jobId,
             _agentId!,
             errorCode: 'BAD_PAYLOAD',
-            errorMessage: 'Payload không hợp lệ',
+            errorMessage: 'Payload khÃ´ng há»£p lá»‡',
           );
           return;
         }
@@ -931,7 +1048,7 @@ class PosPrintAgentService {
               _agentId!,
               errorCode: 'WRONG_LABEL_PROTOCOL',
               errorMessage:
-                  'Máy tem TSPL nhận lệnh ESC/POS — cập nhật app gửi tem (TSPL)',
+                  'MÃ¡y tem TSPL nháº­n lá»‡nh ESC/POS â€” cáº­p nháº­t app gá»­i tem (TSPL)',
             );
             _markJobSettled(jobId);
             return;
@@ -966,7 +1083,7 @@ class PosPrintAgentService {
         jobId,
         _agentId!,
         errorCode: 'UNSUPPORTED_FORMAT',
-        errorMessage: 'Agent không hỗ trợ $format',
+        errorMessage: 'Agent khÃ´ng há»— trá»£ $format',
       );
       _markJobSettled(jobId);
       return;
@@ -979,7 +1096,7 @@ class PosPrintAgentService {
       NotificationOverlayManager().showSuccess(
         title: 'In xong',
         message: referenceNo.isNotEmpty
-            ? 'Đơn $referenceNo — ${printer.name}'
+            ? 'ÄÆ¡n $referenceNo â€” ${printer.name}'
             : printer.name,
         relatedEntityType: kPosPrintNotifyKind,
         duration: const Duration(seconds: 2),
@@ -991,13 +1108,13 @@ class PosPrintAgentService {
         _agentId!,
         errorCode: 'PRINT_FAILED',
         errorMessage: printer.isSunmi
-            ? 'Không in được trên Sunmi'
-            : 'Không gửi được dữ liệu tới máy in',
+            ? 'KhÃ´ng in Ä‘Æ°á»£c trÃªn Sunmi'
+            : 'KhÃ´ng gá»­i Ä‘Æ°á»£c dá»¯ liá»‡u tá»›i mÃ¡y in',
       );
       await _api.reportPosPrinterHealth(
         printer.id,
         status: 'Offline',
-        errorMessage: 'In thất bại trên agent',
+        errorMessage: 'In tháº¥t báº¡i trÃªn agent',
       );
     }
   }
@@ -1111,6 +1228,85 @@ class PosPrintAgentService {
     );
   }
 
+
+  /// Gia da gom thue: uu tien flag job; khong co thi doc thiet lap ban hang local.
+  Future<bool> _resolveVatIncludedInPrice(bool? fromJob) async {
+    if (fromJob != null) return fromJob;
+    try {
+      final s = await PosSellStoreSettings.load();
+      return s.taxMode == PosSellTaxMode.includedInPrice;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// In hÃ³a Ä‘Æ¡n / táº¡m tÃ­nh / xuáº¥t kho theo máº«u thiáº¿t káº¿ store (Ä‘á»“ng bá»™ local Sunmi).
+  Future<bool> _printSaleOrderWithStoreTemplate({
+    required PosSaleOrder order,
+    required PosThermalPrinterSettings settings,
+    String? storeName,
+    String? storeAddress,
+    String? storePhone,
+    bool mergeSameItems = true,
+    String? documentTitle,
+    bool warehouseSlip = false,
+    List<PosSaleOrderLine>? linesOverride,
+    int copies = 1,
+    bool? vatIncludedInPrice,
+  }) async {
+    final docType = warehouseSlip
+        ? PosPrintDocumentTypes.stockIssue
+        : PosPrintDocumentTypes.saleInvoice;
+    final template = await resolvePosPrintTemplate(documentType: docType);
+    final paperSize = () {
+      final fromTpl = (template?.paperSize ?? '').trim();
+      if (fromTpl.isNotEmpty) return fromTpl;
+      final fromSettings = settings.paperSize.trim();
+      if (fromSettings.isNotEmpty) return fromSettings;
+      return settings.paperWidthMm <= 58
+          ? PosPrintPaperSizes.k58
+          : PosPrintPaperSizes.k80;
+    }();
+    final v2 = PosPrintTemplateRuntime.resolveOrPreset(
+      template: template,
+      documentType: docType,
+      paperSize: paperSize,
+      printerProfile: PosPrintPrinterProfiles.forPaperAndBrand(
+        paperSize: paperSize,
+        isSunmi: true,
+        isZywell: settings.printerBrand == PosThermalPrinterBrand.zywell,
+      ),
+    );
+
+    final output = warehouseSlip
+        ? PosPrintTemplateRuntime.compileStockIssue(
+            template: v2,
+            order: order,
+            lines: linesOverride ?? order.lines,
+            storeName: storeName,
+            storeAddress: storeAddress,
+            storePhone: storePhone,
+            titleOverride: documentTitle,
+          )
+        : PosPrintTemplateRuntime.compileSaleOrder(
+            template: v2,
+            order: order,
+            storeName: storeName,
+            storeAddress: storeAddress,
+            storePhone: storePhone,
+            mergeSameItems: mergeSameItems && linesOverride == null,
+            titleOverride: documentTitle,
+            linesOverride: linesOverride,
+            vatIncludedInPrice: await _resolveVatIncludedInPrice(vatIncludedInPrice),
+          );
+
+    return PosPrintTemplateRuntime.printCompiledSunmi(
+      output: output,
+      settings: settings,
+      copies: copies.clamp(1, 10),
+    );
+  }
+
   Future<bool> _printKitchenSlipEscPos({
     required PosThermalPrinterSettings settings,
     required bool isCancel,
@@ -1122,7 +1318,7 @@ class PosPrintAgentService {
     required int copies,
   }) async {
     final tpl = await PosPrintConfigSession.instance
-        .kitchenTemplate(isCancel: isCancel);
+        .kitchenTemplate(isCancel: isCancel, force: true);
     final v2 = PosPrintTemplateRuntime.resolveOrPreset(
       template: tpl,
       documentType: isCancel
@@ -1144,6 +1340,19 @@ class PosPrintAgentService {
       orderNo: orderNo,
       sentAt: sentAt,
     );
+    // Chá»‰ in native Sunmi khi ÄÃCH job lÃ  mÃ¡y Sunmi. Job Zywell LAN/USB
+    // khÃ´ng Ä‘Æ°á»£c dump ra mÃ¡y in trong A6 chá»‰ vÃ¬ Agent cháº¡y trÃªn Sunmi.
+    final targetIsSunmi =
+        settings.connectionType == PosThermalConnectionType.sunmi ||
+            settings.printerBrand == PosThermalPrinterBrand.sunmi;
+    if (targetIsSunmi && await PosPrinterTransport.isSunmiDevice()) {
+      return PosPrintTemplateRuntime.printCompiledSunmi(
+        output: output,
+        settings: settings,
+        copies: copies.clamp(1, 10),
+        kitchenFeed: true,
+      );
+    }
     final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
       output: output,
       settings: settings,
@@ -1194,11 +1403,11 @@ class PosPrintAgentService {
         ? local.toThermalSettings()
         : toThermalSettings(printer);
 
-    // LAN / BT: Agent b?t k? tr?n m?ng d?u c? th? g?i ? gi? chip.
-    if (settings.connectionType == PosThermalConnectionType.lan ||
-        settings.connectionType == PosThermalConnectionType.bluetooth) {
-      return true;
+    // BT: cÃ³ Ä‘á»‹a chá»‰ â†’ giá»¯ chip. LAN: probe TCP (Zywell/XP máº¥t káº¿t ná»‘i â†’ khÃ´ng Online).
+    if (settings.connectionType == PosThermalConnectionType.bluetooth) {
+      return (settings.bluetoothAddress ?? '').trim().isNotEmpty;
     }
+
 
     final usbList = await PosPrinterReadiness.listUsbDevices();
     return PosPrinterReadiness.probePort(

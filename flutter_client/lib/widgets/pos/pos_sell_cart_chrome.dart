@@ -8,13 +8,13 @@ class PosSellKiotCartHeader extends StatelessWidget {
   const PosSellKiotCartHeader({
     super.key,
     required this.catalogColumnLabel,
-    this.height = 28,
-    this.sidePadding = 10,
-    this.wDel = 28,
-    this.wQty = 118,
-    this.wUnit = 48,
-    this.wPrice = 72,
-    this.wTotal = 80,
+    this.height = 36,
+    this.sidePadding = 12,
+    this.wDel = 48,
+    this.wQty = 148,
+    this.wUnit = 72,
+    this.wPrice = 88,
+    this.wTotal = 96,
   });
 
   final String catalogColumnLabel;
@@ -29,9 +29,10 @@ class PosSellKiotCartHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const hdr = TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w600,
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
       color: PosTheme.textSecondary,
+      height: 1.2,
     );
     return Container(
       height: height,
@@ -75,13 +76,13 @@ class PosSellDraftSyncBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final no = draftOrderNo;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       color: const Color(0xFFEFF6FF),
       child: Text(
         tr(no != null && no.isNotEmpty
             ? 'Đồng bộ server · $no · tự lưu khi sửa hàng'
             : 'Đồng bộ server · tự lưu khi sửa hàng'),
-        style: const TextStyle(fontSize: 11, color: Color(0xFF1D4ED8)),
+        style: const TextStyle(fontSize: 12, height: 1.25, color: Color(0xFF1D4ED8)),
       ),
     );
   }

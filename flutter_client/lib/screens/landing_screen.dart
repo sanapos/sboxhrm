@@ -10,6 +10,7 @@ import '../utils/landing_public_url.dart';
 import '../utils/landing_usage_guide.dart';
 import '../utils/web_route_parser.dart';
 import '../widgets/landing_product_image.dart';
+import '../widgets/sbox_hrm_brand.dart';
 import 'landing_guide_screen.dart';
 import '../widgets/landing_youtube_player.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -393,17 +394,18 @@ class _LandingScreenState extends State<LandingScreen> {
                     Image.asset('assets/logo.png',
                         height: 38, filterQuality: FilterQuality.high),
                     const SizedBox(width: 8),
-                    Text(tr('SBOX'),
-                        style: TextStyle(
+                    Expanded(
+                      child: Text(
+                        tr(SboxBrand.productLine),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
                             color: kBlue,
                             fontWeight: FontWeight.w900,
-                            fontSize: 18,
-                            letterSpacing: 0.5)),
-                    Text(tr(' HRM'),
-                        style: TextStyle(
-                            color: kDark,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18)),
+                            fontSize: 16,
+                            letterSpacing: 0.2),
+                      ),
+                    ),
                   ],
                 ),
                 actions: isMobile
@@ -2604,7 +2606,7 @@ class _Footer extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(tr('© 2024–2026 SBOX HRM. Bảo lưu mọi quyền.'),
+              Text(tr('© 2024–2026 SBOX HRM - SBOX POS. Bảo lưu mọi quyền.'),
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
               Row(children: [
                 Text(tr('Privacy'),
@@ -2674,20 +2676,19 @@ class _Footer extends StatelessWidget {
         Image.asset('assets/logo.png',
             height: 42, filterQuality: FilterQuality.high),
         const SizedBox(width: 10),
-        Text(tr('SBOX'),
-            style: TextStyle(
+        Expanded(
+          child: Text(
+            tr(SboxBrand.productLine),
+            style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
-                fontSize: 18,
-                letterSpacing: 0.5)),
-        Text(tr(' HRM'),
-            style: TextStyle(
-                color: Colors.white70,
-                fontWeight: FontWeight.bold,
-                fontSize: 18)),
+                fontSize: 16,
+                letterSpacing: 0.2),
+          ),
+        ),
       ]),
       const SizedBox(height: 12),
-      Text(tr('Phần mềm quản lý nhân sự\nthế hệ mới cho doanh nghiệp Việt Nam.'),
+      Text(tr(SboxBrand.slogan),
           style: TextStyle(
               color: Colors.grey.shade500, fontSize: 13, height: 1.6)),
     ]);

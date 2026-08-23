@@ -61,7 +61,8 @@ abstract final class PosPrintTemplateV2Presets {
         paperSize: paperSize,
         printerProfile: printerProfile,
         documentType: documentType,
-        name: name ?? 'Phiếu xuất kho ${PosPrintPaperSizes.labels[paperSize]}',
+        name: name ??
+            (paperSize == PosPrintPaperSizes.k58 ? 'XK K58' : 'XK K80'),
         blocks: [
           PosPrintBlock(
             type: PosPrintBlockType.field,
@@ -105,66 +106,88 @@ abstract final class PosPrintTemplateV2Presets {
       );
     }
 
-    // Hóa đơn / trả hàng — layout gọn (ít dòng, chữ vừa, không QR mặc định).
+    // Hóa đơn / trả hàng — mẫu mặc định = HĐ K80 đang thiết lập cửa hàng demopos.
     final isReturn = documentType == PosPrintDocumentTypes.saleReturn;
-    final compactTitle = k58 ? 28.0 : 32.0;
-    final compactBody = k58 ? 20.0 : 22.0;
-    final compactSmall = k58 ? 16.0 : 18.0;
-    final compactTotal = k58 ? 24.0 : 28.0;
+    final invTitle = k58 ? 32.0 : 40.0;
+    final invAddr = k58 ? 20.0 : 24.0;
+    final invHeading = k58 ? 26.0 : 32.0;
+    final invOrderNo = k58 ? 24.0 : 28.0;
+    final invBody = k58 ? 20.0 : 24.0;
+    final invTotLeft = k58 ? 22.0 : 26.0;
+    final invTotRight = k58 ? 26.0 : 32.0;
+    final invThanks = k58 ? 24.0 : 30.0;
     return PosPrintTemplateV2(
       paperSize: paperSize,
       printerProfile: printerProfile,
       documentType: documentType,
       name: name ??
-          '${PosPrintDocumentTypes.all[documentType] ?? 'Mẫu in'} gọn — ${PosPrintPrinterProfiles.labels[printerProfile] ?? printerProfile}',
+          (isReturn
+              ? (k58 ? 'Trả K58' : 'Trả K80')
+              : (k58 ? 'HĐ K58' : 'HĐ K80')),
       blocks: [
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Ten_Cua_Hang',
           style: PosPrintTextStyle(
-              fontSize: compactTitle, bold: true, align: PosPrintTextAlign.center),
+              fontSize: invTitle, bold: true, align: PosPrintTextAlign.center),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Dia_Chi_Chi_Nhanh',
           style: PosPrintTextStyle(
-              fontSize: compactSmall, align: PosPrintTextAlign.center),
+              fontSize: invAddr, align: PosPrintTextAlign.center),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.field,
+          field: 'Dien_Thoai_Chi_Nhanh',
+          style: PosPrintTextStyle(
+              fontSize: invAddr, align: PosPrintTextAlign.center),
         ),
         const PosPrintBlock(type: PosPrintBlockType.divider),
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Tieu_De_In',
           style: PosPrintTextStyle(
-              fontSize: compactBody + 2,
+              fontSize: invHeading,
               bold: true,
               align: PosPrintTextAlign.center),
         ),
         PosPrintBlock(
-          type: PosPrintBlockType.pair,
-          leftField: 'Ma_Don_Hang',
-          rightField: 'Ngay',
-          fieldLabels: const {
-            'Ma_Don_Hang': 'HĐ:',
-            'Ngay': '',
-          },
-          style: PosPrintTextStyle(fontSize: compactBody, bold: true),
+          type: PosPrintBlockType.field,
+          field: 'Ma_Don_Hang',
+          style: PosPrintTextStyle(
+              fontSize: invOrderNo,
+              bold: true,
+              align: PosPrintTextAlign.center),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Ten_Ban',
-          style: PosPrintTextStyle(fontSize: compactBody, bold: true),
+          style: PosPrintTextStyle(fontSize: invBody),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.pair,
+          leftField: 'Ngay',
+          rightField: 'Gio',
+          fieldLabels: const {'Ngay': 'Ngày', 'Gio': 'Giờ'},
+          style: PosPrintTextStyle(fontSize: invBody),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Khach_Hang',
-          label: 'KH:',
-          style: PosPrintTextStyle(fontSize: compactSmall),
+          label: 'Khách hàng',
+          style: PosPrintTextStyle(fontSize: invBody),
         ),
         const PosPrintBlock(type: PosPrintBlockType.divider),
         PosPrintBlock(
           type: PosPrintBlockType.lineItems,
-          showColumnHeader: false,
-          style: PosPrintTextStyle(fontSize: compactBody, bold: true),
+          showColumnHeader: true,
+          fieldLabels: const {
+            'Don_Gia': 'Đ.Giá',
+            'Thanh_Tien': 'TT',
+          },
+          style: PosPrintTextStyle(fontSize: invBody),
+          rightStyle: PosPrintTextStyle(fontSize: invBody, bold: true),
         ),
         const PosPrintBlock(type: PosPrintBlockType.divider),
         PosPrintBlock(
@@ -174,36 +197,38 @@ abstract final class PosPrintTemplateV2Presets {
               : const [
                   'Tong_Tien_Hang',
                   'Chiet_Khau_Hoa_Don',
+                  'Tien_Thue',
+                  'Phu_Thu',
+                  'Phi_Giao_Hang',
                   'Tong_Cong',
-                  'Khach_Thanh_Toan',
                 ],
           fieldLabels: isReturn
               ? const {'Tong_Cong': 'HOÀN TIỀN'}
               : const {
                   'Tong_Tien_Hang': 'Tiền hàng',
-                  'Chiet_Khau_Hoa_Don': 'CK',
+                  'Chiet_Khau_Hoa_Don': 'Chiết khấu',
+                  'Tien_Thue': 'Thuế',
+                  'Phu_Thu': 'Phụ thu',
+                  'Phi_Giao_Hang': 'Phí GH',
                   'Tong_Cong': 'TỔNG',
-                  'Khach_Thanh_Toan': 'Đã thu',
                 },
-          style: PosPrintTextStyle(fontSize: compactBody, bold: true),
+          style: PosPrintTextStyle(fontSize: invTotLeft, bold: true),
           rightStyle: PosPrintTextStyle(
-              fontSize: compactTotal,
-              bold: true,
-              align: PosPrintTextAlign.right),
-        ),
-        PosPrintBlock(
-          type: PosPrintBlockType.text,
-          text: tr(isReturn ? 'Phiếu trả hàng' : 'Cảm ơn quý khách!'),
-          style: PosPrintTextStyle(
-              fontSize: compactSmall,
-              bold: true,
-              align: PosPrintTextAlign.center),
+              fontSize: invTotRight, bold: true, align: PosPrintTextAlign.right),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.field,
-          field: 'Ghi_Chu',
+          field: 'Tong_Cong_Bang_Chu',
           style: PosPrintTextStyle(
-              fontSize: compactSmall - 2, align: PosPrintTextAlign.center),
+              fontSize: invBody, align: PosPrintTextAlign.center),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr(isReturn ? 'Phiếu trả hàng' : 'Cảm ơn quý khách'),
+          style: PosPrintTextStyle(
+              fontSize: invThanks,
+              bold: true,
+              align: PosPrintTextAlign.center),
         ),
       ],
     );
@@ -225,7 +250,8 @@ abstract final class PosPrintTemplateV2Presets {
       paperSize: paperSize,
       printerProfile: printerProfile,
       documentType: PosPrintDocumentTypes.barcodeLabel,
-      name: name ?? 'Tem sản phẩm ${PosPrintPaperSizes.labels[paperSize]}',
+      name: name ??
+          (paperSize.contains('40x30') ? 'Tem SP 40×30' : 'Tem SP 50×30'),
       blocks: [
         if (!compact)
           PosPrintBlock(
@@ -281,7 +307,8 @@ abstract final class PosPrintTemplateV2Presets {
       paperSize: paperSize,
       printerProfile: printerProfile,
       documentType: PosPrintDocumentTypes.kitchenLabel,
-      name: name ?? 'Tem báo bếp ${PosPrintPaperSizes.labels[paperSize]}',
+      name: name ??
+          (paperSize.contains('40x30') ? 'Tem bếp 40×30' : 'Tem bếp 50×30'),
       blocks: [
         PosPrintBlock(
           type: PosPrintBlockType.pair,
@@ -331,8 +358,8 @@ abstract final class PosPrintTemplateV2Presets {
       documentType: documentType,
       name: name ??
           (isCancel
-              ? 'Hủy bếp (${PosPrintPaperSizes.displayLabel(paperSize)})'
-              : 'Báo chế biến (${PosPrintPaperSizes.displayLabel(paperSize)})'),
+              ? (k80 ? 'Hủy bếp K80' : 'Hủy bếp K58')
+              : (k80 ? 'Bếp K80' : 'Bếp K58')),
       blocks: [
         PosPrintBlock(
           type: PosPrintBlockType.field,
@@ -365,23 +392,13 @@ abstract final class PosPrintTemplateV2Presets {
         ),
         PosPrintBlock(
           type: PosPrintBlockType.text,
-          text: tr('Ngày: {Ngay} {Gio}'),
+          text: tr('Gọi lúc: {Ngay} {Gio}'),
           style: PosPrintTextStyle(fontSize: bodySize, bold: true),
         ),
         const PosPrintBlock(type: PosPrintBlockType.divider),
         PosPrintBlock(
           type: PosPrintBlockType.lineItemsKitchen,
           style: PosPrintTextStyle(fontSize: itemSize, bold: true),
-        ),
-        const PosPrintBlock(type: PosPrintBlockType.divider),
-        PosPrintBlock(
-          type: PosPrintBlockType.text,
-          text: tr('— Hết —'),
-          style: PosPrintTextStyle(
-            fontSize: bodySize - 2,
-            bold: true,
-            align: PosPrintTextAlign.center,
-          ),
         ),
       ],
     );

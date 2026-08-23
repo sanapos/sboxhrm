@@ -80,6 +80,56 @@ class CustomerDisplayPromoItem {
       );
 }
 
+/// Loại đầu ra màn phụ (thiết lập POS).
+enum CustomerDisplayTarget {
+  /// Sunmi T1 7″ — Presentation native (ảnh/chữ + VietQR), không FlutterEngine #2.
+  t1Native,
+  /// Android DisplayManager + Flutter UI đầy đủ (media/video) — nặng trên T1.
+  androidFlutter,
+  /// Cửa sổ trình duyệt / TV khác qua link viewerCode.
+  window,
+}
+
+extension CustomerDisplayTargetX on CustomerDisplayTarget {
+  String get wire => name;
+
+  String get labelVi {
+    switch (this) {
+      case CustomerDisplayTarget.t1Native:
+        return 'Sunmi T1 (ảnh welcome + bill)';
+      case CustomerDisplayTarget.androidFlutter:
+        return 'Android Flutter (đầy đủ — media/video)';
+      case CustomerDisplayTarget.window:
+        return 'Window / trình duyệt (link máy khác)';
+    }
+  }
+
+  String get hintVi {
+    switch (this) {
+      case CustomerDisplayTarget.t1Native:
+        return 'T1 7″ DSKernel: ảnh trình chiếu khi chờ + bill/VietQR khi bán';
+      case CustomerDisplayTarget.androidFlutter:
+        return 'Engine Flutter thứ 2 + video/ảnh — máy mạnh / màn phụ chuẩn Android';
+      case CustomerDisplayTarget.window:
+        return 'Không mở màn local — mở link trên TV/máy khác';
+    }
+  }
+
+  static CustomerDisplayTarget parse(String? raw) {
+    final s = (raw ?? '').trim().toLowerCase();
+    if (s == 't1native' || s == 't1' || s == 'sunmi_t1' || s == 'native') {
+      return CustomerDisplayTarget.t1Native;
+    }
+    if (s == 'window' || s == 'web' || s == 'browser') {
+      return CustomerDisplayTarget.window;
+    }
+    if (s == 'androidflutter' || s == 'android' || s == 'flutter') {
+      return CustomerDisplayTarget.androidFlutter;
+    }
+    return CustomerDisplayTarget.t1Native;
+  }
+}
+
 class CustomerDisplayState {
   const CustomerDisplayState({
     this.mode = CustomerDisplayMode.idle,
@@ -261,6 +311,7 @@ class CustomerDisplayConfig {
     this.promoImageUrls = const [],
     this.autoOpenOnPos = false,
     this.viewerCode = '',
+    this.target = CustomerDisplayTarget.t1Native,
   });
 
   final bool enabled;
@@ -270,8 +321,10 @@ class CustomerDisplayConfig {
   /// Ảnh trình chiếu riêng (path stores/... hoặc URL http).
   final List<String> promoImageUrls;
   final bool autoOpenOnPos;
-  /// Mã mở link màn phụ trên máy khác: /#/customer-display?v=CODE
+  /// Mã mở link màn phụ trên máy khác: /customer-display?v=CODE
   final String viewerCode;
+  /// T1 native | Android Flutter | Window/browser.
+  final CustomerDisplayTarget target;
 
   static String newViewerCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -312,6 +365,8 @@ class CustomerDisplayConfig {
               .toList() ??
           const <String>[];
       final code = (m['viewerCode'] ?? m['ViewerCode'] ?? '').toString().trim();
+      final targetRaw =
+          (m['target'] ?? m['Target'] ?? m['displayTarget'] ?? '').toString();
       return CustomerDisplayConfig(
         enabled: m['enabled'] == true,
         idleSeconds: (m['idleSeconds'] as num?)?.toInt().clamp(3, 60) ?? 8,
@@ -320,6 +375,7 @@ class CustomerDisplayConfig {
         promoImageUrls: images,
         autoOpenOnPos: m['autoOpenOnPos'] == true,
         viewerCode: code.length >= 4 ? code : '',
+        target: CustomerDisplayTargetX.parse(targetRaw),
       );
     } catch (_) {
       return const CustomerDisplayConfig();
@@ -343,6 +399,7 @@ class CustomerDisplayConfig {
       'promoImageUrls': promoImageUrls,
       'autoOpenOnPos': autoOpenOnPos,
       'viewerCode': code,
+      'target': target.wire,
     };
     return jsonEncode(root);
   }
@@ -355,6 +412,7 @@ class CustomerDisplayConfig {
     List<String>? promoImageUrls,
     bool? autoOpenOnPos,
     String? viewerCode,
+    CustomerDisplayTarget? target,
   }) {
     return CustomerDisplayConfig(
       enabled: enabled ?? this.enabled,
@@ -364,6 +422,7 @@ class CustomerDisplayConfig {
       promoImageUrls: promoImageUrls ?? this.promoImageUrls,
       autoOpenOnPos: autoOpenOnPos ?? this.autoOpenOnPos,
       viewerCode: viewerCode ?? this.viewerCode,
+      target: target ?? this.target,
     );
   }
 

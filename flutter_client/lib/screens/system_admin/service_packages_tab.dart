@@ -100,6 +100,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     'PosQrOrder',
     'PosCashierShift',
     'PosPrinters',
+    'PosShipping',
   ];
 
   /// Khớp PosPackageDefaults.SellWarehouseModules / FullModules.
@@ -138,6 +139,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     'PosQrOrder',
     'PosCashierShift',
     'PosPrinters',
+    'PosShipping',
   ];
 
   static const List<String> _posFullPreset = _posSellWarehousePreset;

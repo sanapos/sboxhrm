@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/pos_product.dart';
+import '../models/pos_print_template_v2.dart';
 import 'pos_barcode_print.dart';
 import 'pos_print_template_compiler.dart';
 import 'pos_receipt_layout.dart';
@@ -268,6 +269,111 @@ class PosLabelRenderer {
       );
     }
     canvas.restore();
+  }
+
+  /// Tem QR gọi món tại bàn — khổ mặc định 60×40 mm.
+  static Future<({Uint8List raster, int widthPx, int heightPx})>
+      renderTableQrLabel({
+    required String storeName,
+    required String tableLabel,
+    required String qrUrl,
+    String footer = 'SBOX POS · Quét để gọi món',
+    double widthMm = 60,
+    double heightMm = 40,
+    int dpi = 203,
+  }) async {
+    await PosThermalBitmapEncoder.ensureFont();
+    final w = mmToDots(widthMm, dpi);
+    final h = mmToDots(heightMm, dpi);
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.drawRect(
+      ui.Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+      ui.Paint()..color = const ui.Color(0xFFFFFFFF),
+    );
+
+    const pad = 4.0;
+    var y = pad;
+    final contentW = (w - pad * 2).toDouble();
+
+    final store = storeName.trim();
+    if (store.isNotEmpty) {
+      y += await _drawText(
+        canvas,
+        store,
+        pad,
+        y,
+        contentW,
+        fontSize: 15,
+        bold: true,
+        maxLines: 1,
+        center: true,
+        maxHeight: 18,
+      );
+      y += 2;
+    }
+
+    y += await _drawText(
+      canvas,
+      tableLabel.trim().isEmpty ? 'Bàn' : tableLabel.trim(),
+      pad,
+      y,
+      contentW,
+      fontSize: 18,
+      bold: true,
+      maxLines: 1,
+      center: true,
+      maxHeight: 22,
+    );
+    y += 2;
+
+    const footerH = 22.0;
+    final qrBudget = (h - y - footerH - pad).clamp(48.0, h.toDouble());
+    final qrSize = qrBudget < contentW ? qrBudget : contentW;
+    final qrLeft = pad + (contentW - qrSize) / 2;
+    _drawQr(canvas, qrUrl, ui.Rect.fromLTWH(qrLeft, y, qrSize, qrSize));
+    y += qrSize + 2;
+
+    await _drawText(
+      canvas,
+      footer,
+      pad,
+      y.clamp(0, h - footerH),
+      contentW,
+      fontSize: 10,
+      bold: false,
+      maxLines: 2,
+      center: true,
+      maxHeight: footerH,
+    );
+
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(w, h);
+    return _imageToRaster(image);
+  }
+
+  static void _drawQr(ui.Canvas canvas, String data, ui.Rect rect) {
+    if (data.isEmpty || rect.height < 8 || rect.width < 8) return;
+    try {
+      final bc = Barcode.qrCode();
+      final elements = bc.make(data, width: rect.width, height: rect.height);
+      final paint = ui.Paint()..color = const ui.Color(0xFF000000);
+      for (final e in elements) {
+        if (e is BarcodeBar && e.black) {
+          canvas.drawRect(
+            ui.Rect.fromLTWH(
+              rect.left + e.left,
+              rect.top + e.top,
+              e.width,
+              e.height,
+            ),
+            paint,
+          );
+        }
+      }
+    } catch (_) {
+      // QR không hợp lệ
+    }
   }
 
   static void _drawBarcode(ui.Canvas canvas, String data, ui.Rect rect) {
@@ -602,11 +708,31 @@ class PosLabelRenderer {
     final hMm = heightMm.clamp(10.0, 160.0).toDouble();
     final w = mmToDots(wMm, dpi).clamp(120, 1200).toInt();
     final h = mmToDots(hMm, dpi).clamp(80, 1200).toInt();
-    final left = mmToDots(marginLeftMm.clamp(0, 12), dpi).toDouble();
-    final right = mmToDots(marginRightMm.clamp(0, 12), dpi).toDouble();
-    final top = mmToDots(marginTopMm.clamp(0, 12), dpi).toDouble();
-    final bottom = mmToDots(marginBottomMm.clamp(0, 12), dpi).toDouble();
-    final scale = fontScale.clamp(0.85, 1.6);
+    final framed = output.frameStyle != PosPrintFrameStyle.none;
+    // Tem nhỏ: không cộng dồn frame+printer tới 20mm (nuốt hết 30mm cao).
+    final maxExtra = hMm <= 40 ? 2.5 : (hMm <= 60 ? 4.0 : 8.0);
+    final marginMm = framed ? output.frameMarginMm.clamp(0.5, maxExtra) : 0.0;
+    final insetMm = framed ? output.frameInsetMm.clamp(0.5, maxExtra) : 0.0;
+    final extraMm = (marginMm + insetMm).clamp(0.0, maxExtra * 1.5);
+    final left = mmToDots((marginLeftMm + extraMm).clamp(0, 8), dpi).toDouble();
+    final right = mmToDots((marginRightMm + extraMm).clamp(0, 8), dpi).toDouble();
+    final top = mmToDots((marginTopMm + extraMm).clamp(0, 6), dpi).toDouble();
+    final bottom = mmToDots((marginBottomMm + extraMm).clamp(0, 6), dpi).toDouble();
+    // Co chữ để vừa chiều cao tem thay vì cắt trắng phần dưới.
+    var scale = fontScale.clamp(0.55, 1.6);
+    final stepCount = output.steps.where((s) {
+      if (s is PosPrintCompiledLine) {
+        return !s.isDivider && s.text.trim().isNotEmpty;
+      }
+      return s is PosPrintCompiledSaleRow;
+    }).length;
+    if (stepCount > 0 && hMm <= 50) {
+      final avail = (h - top - bottom).clamp(40.0, h.toDouble());
+      final est = stepCount * 18.0 * scale;
+      if (est > avail) {
+        scale = (scale * avail / est).clamp(0.55, scale);
+      }
+    }
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
     canvas.drawRect(
@@ -652,9 +778,49 @@ class PosLabelRenderer {
         y += 2;
       } else if (step is PosPrintCompiledSaleRow) {
         final fs = (step.fontSize * 0.72 * scale).clamp(11.0, 26.0);
-        final qtyW = innerW * 0.10;
-        final priceW = innerW * 0.22;
-        final totalW = innerW * 0.24;
+        if (step.nameOnly) {
+          y += await _drawText(
+            canvas,
+            step.name,
+            contentLeft,
+            y,
+            innerW,
+            fontSize: fs,
+            bold: step.bold,
+            maxLines: 2,
+            maxHeight: remain,
+          );
+          y += 2;
+        } else if (step.showQty && !step.showPrice && !step.showTotal) {
+          final nameW = (innerW * 0.75).clamp(40.0, innerW);
+          final nameH = await _drawText(
+            canvas,
+            step.name,
+            contentLeft,
+            y,
+            nameW,
+            fontSize: fs,
+            bold: step.bold,
+            maxLines: 2,
+            maxHeight: remain,
+          );
+          final qtyH = await _drawText(
+            canvas,
+            step.qty,
+            contentLeft,
+            y,
+            innerW,
+            fontSize: fs,
+            bold: step.bold,
+            maxLines: 1,
+            right: true,
+            maxHeight: remain,
+          );
+          y += (nameH > qtyH ? nameH : qtyH) + 2;
+        } else {
+        final qtyW = step.showQty ? innerW * 0.14 : 0.0;
+        final priceW = step.showPrice ? innerW * 0.22 : 0.0;
+        final totalW = step.showTotal ? innerW * 0.24 : 0.0;
         final nameW = (innerW - qtyW - priceW - totalW).clamp(20.0, innerW);
         final nameH = await _drawText(
           canvas,
@@ -667,58 +833,74 @@ class PosLabelRenderer {
           maxLines: 2,
           maxHeight: remain,
         );
-        final qtyH = await _drawText(
-          canvas,
-          step.qty,
-          contentLeft + nameW,
-          y,
-          qtyW,
-          fontSize: fs,
-          bold: step.bold,
-          maxLines: 1,
-          right: true,
-          maxHeight: remain,
-        );
-        final priceH = await _drawText(
-          canvas,
-          step.price,
-          contentLeft + nameW + qtyW,
-          y,
-          priceW,
-          fontSize: fs,
-          bold: step.bold,
-          maxLines: 1,
-          right: true,
-          maxHeight: remain,
-        );
-        final totalH = await _drawText(
-          canvas,
-          step.total,
-          contentLeft + nameW + qtyW + priceW,
-          y,
-          totalW,
-          fontSize: fs,
-          bold: step.bold,
-          maxLines: 1,
-          right: true,
-          maxHeight: remain,
-        );
         var rowH = nameH;
-        if (qtyH > rowH) rowH = qtyH;
-        if (priceH > rowH) rowH = priceH;
-        if (totalH > rowH) rowH = totalH;
+        var x = contentLeft + nameW;
+        if (step.showQty) {
+          final qtyH = await _drawText(
+            canvas,
+            step.qty,
+            x,
+            y,
+            qtyW,
+            fontSize: fs,
+            bold: step.bold,
+            maxLines: 1,
+            right: true,
+            maxHeight: remain,
+          );
+          if (qtyH > rowH) rowH = qtyH;
+          x += qtyW;
+        }
+        if (step.showPrice) {
+          final priceH = await _drawText(
+            canvas,
+            step.price,
+            x,
+            y,
+            priceW,
+            fontSize: fs,
+            bold: step.bold,
+            maxLines: 1,
+            right: true,
+            maxHeight: remain,
+          );
+          if (priceH > rowH) rowH = priceH;
+          x += priceW;
+        }
+        if (step.showTotal) {
+          final totalH = await _drawText(
+            canvas,
+            step.total,
+            x,
+            y,
+            totalW,
+            fontSize: fs,
+            bold: step.bold,
+            maxLines: 1,
+            right: true,
+            maxHeight: remain,
+          );
+          if (totalH > rowH) rowH = totalH;
+        }
         y += rowH + 2;
+        }
       } else if (step is PosPrintCompiledPair) {
         final fs = (step.fontSize * 0.72 * scale).clamp(11.0, 26.0);
+        // Tên món + SL: tên ~3/4 khổ; cặp bàn/giờ giữ ~62%.
+        final rightTrim = step.right.trim();
+        final nameQtyPair = rightTrim.isNotEmpty &&
+            rightTrim.length <= 8 &&
+            !rightTrim.contains(':');
+        final leftFrac = nameQtyPair ? 0.75 : 0.62;
         final leftH = await _drawText(
           canvas,
           step.left,
           contentLeft,
           y,
-          innerW * 0.62,
+          innerW * leftFrac,
           fontSize: fs,
           bold: step.bold,
-          maxLines: 1,
+          maxLines: nameQtyPair ? 2 : 1,
           maxHeight: remain,
         );
         final rightH = await _drawText(
@@ -762,6 +944,25 @@ class PosLabelRenderer {
       }
     }
     canvas.restore();
+
+    if (framed) {
+      const stroke = 2.2;
+      final box = mmToDots(marginMm.clamp(0.5, 8.0), dpi).toDouble().clamp(2.0, 40.0);
+      final rect = ui.Rect.fromLTWH(box, box, w - box * 2, h - box * 2);
+      final rr = output.frameStyle == PosPrintFrameStyle.rounded
+          ? ui.RRect.fromRectAndRadius(
+              rect,
+              ui.Radius.circular(wMm >= 48 ? 10 : 8),
+            )
+          : ui.RRect.fromRectAndRadius(rect, ui.Radius.zero);
+      canvas.drawRRect(
+        rr,
+        ui.Paint()
+          ..color = const ui.Color(0xFF000000)
+          ..style = ui.PaintingStyle.stroke
+          ..strokeWidth = stroke,
+      );
+    }
 
     final picture = recorder.endRecording();
     final image = await picture.toImage(w, h);

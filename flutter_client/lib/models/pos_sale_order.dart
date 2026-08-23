@@ -170,6 +170,8 @@ class PosSaleOrder {
   final double discount;
   final double total;
   final double vatAmount;
+  final double surchargeAmount;
+  final double deliveryFee;
   final double paidAmount;
   final double balanceDue;
   final double returnedAmount;
@@ -182,8 +184,15 @@ class PosSaleOrder {
   final String? deliveryAddress;
   final String? deliveryPhone;
   final String? deliveryPartner;
+  final String? deliveryProvince;
+  final String? deliveryDistrict;
+  final String? deliveryWard;
   final String? deliveryStatus;
   final DateTime? deliveryDate;
+  final String? deliveryTrackingCode;
+  final String? deliveryCarrierOrderId;
+  final String? deliveryCarrierCode;
+  final String? deliveryLabelUrl;
   final String? note;
   final DateTime? saleDate;
   final String? soldBy;
@@ -238,6 +247,8 @@ class PosSaleOrder {
     this.discount = 0,
     this.total = 0,
     this.vatAmount = 0,
+    this.surchargeAmount = 0,
+    this.deliveryFee = 0,
     this.paidAmount = 0,
     this.balanceDue = 0,
     this.returnedAmount = 0,
@@ -250,8 +261,15 @@ class PosSaleOrder {
     this.deliveryAddress,
     this.deliveryPhone,
     this.deliveryPartner,
+    this.deliveryProvince,
+    this.deliveryDistrict,
+    this.deliveryWard,
     this.deliveryStatus,
     this.deliveryDate,
+    this.deliveryTrackingCode,
+    this.deliveryCarrierOrderId,
+    this.deliveryCarrierCode,
+    this.deliveryLabelUrl,
     this.note,
     this.saleDate,
     this.soldBy,
@@ -312,6 +330,8 @@ class PosSaleOrder {
         discount: discount,
         total: total,
         vatAmount: vatAmount,
+        surchargeAmount: surchargeAmount,
+        deliveryFee: deliveryFee,
         paidAmount: paidAmount,
         balanceDue: balanceDue,
         returnedAmount: returnedAmount,
@@ -324,8 +344,15 @@ class PosSaleOrder {
         deliveryAddress: deliveryAddress,
         deliveryPhone: deliveryPhone,
         deliveryPartner: deliveryPartner,
+        deliveryProvince: deliveryProvince,
+        deliveryDistrict: deliveryDistrict,
+        deliveryWard: deliveryWard,
         deliveryStatus: deliveryStatus,
         deliveryDate: deliveryDate,
+        deliveryTrackingCode: deliveryTrackingCode,
+        deliveryCarrierOrderId: deliveryCarrierOrderId,
+        deliveryCarrierCode: deliveryCarrierCode,
+        deliveryLabelUrl: deliveryLabelUrl,
         note: note,
         saleDate: saleDate,
         soldBy: soldBy,
@@ -418,7 +445,17 @@ class PosSaleOrder {
     final hasBalance =
         json.containsKey('balanceDue') || json.containsKey('BalanceDue');
     final balance = n(json['balanceDue'] ?? json['BalanceDue']);
-    final payable = total + vat;
+    final surcharge = n(json['surchargeAmount'] ??
+        json['SurchargeAmount'] ??
+        json['surcharge'] ??
+        json['Surcharge']);
+    final ship = n(json['deliveryFee'] ??
+        json['DeliveryFee'] ??
+        json['shippingFee'] ??
+        json['ShippingFee'] ??
+        json['phiGiaoHang'] ??
+        json['PhiGiaoHang']);
+    final payable = total + vat + surcharge + ship;
     return PosSaleOrder(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       orderNo: (json['orderNo'] ?? json['OrderNo'] ?? '').toString(),
@@ -428,6 +465,8 @@ class PosSaleOrder {
       discount: n(json['discount'] ?? json['Discount']),
       total: total,
       vatAmount: vat,
+      surchargeAmount: surcharge,
+      deliveryFee: ship,
       paidAmount: paid,
       balanceDue: hasBalance ? balance : payable - paid,
       returnedAmount: n(json['returnedAmount'] ?? json['ReturnedAmount']),
@@ -441,8 +480,21 @@ class PosSaleOrder {
       deliveryAddress: json['deliveryAddress'] ?? json['DeliveryAddress'] as String?,
       deliveryPhone: json['deliveryPhone'] ?? json['DeliveryPhone'] as String?,
       deliveryPartner: json['deliveryPartner'] ?? json['DeliveryPartner'] as String?,
+      deliveryProvince:
+          json['deliveryProvince'] ?? json['DeliveryProvince'] as String?,
+      deliveryDistrict:
+          json['deliveryDistrict'] ?? json['DeliveryDistrict'] as String?,
+      deliveryWard: json['deliveryWard'] ?? json['DeliveryWard'] as String?,
       deliveryStatus: json['deliveryStatus'] ?? json['DeliveryStatus'] as String?,
       deliveryDate: parseApiDateTime(json['deliveryDate'] ?? json['DeliveryDate']),
+      deliveryTrackingCode:
+          json['deliveryTrackingCode'] ?? json['DeliveryTrackingCode'] as String?,
+      deliveryCarrierOrderId:
+          json['deliveryCarrierOrderId'] ?? json['DeliveryCarrierOrderId'] as String?,
+      deliveryCarrierCode:
+          json['deliveryCarrierCode'] ?? json['DeliveryCarrierCode'] as String?,
+      deliveryLabelUrl:
+          json['deliveryLabelUrl'] ?? json['DeliveryLabelUrl'] as String?,
       note: json['note'] ?? json['Note'] as String?,
       saleDate: parseApiDateTime(json['saleDate'] ?? json['SaleDate']),
       soldBy: json['soldBy'] ?? json['SoldBy'] as String?,
@@ -529,6 +581,8 @@ class PosSaleOrder {
         'discount': discount,
         'total': total,
         'vatAmount': vatAmount,
+        'surchargeAmount': surchargeAmount,
+        'deliveryFee': deliveryFee,
         'paidAmount': paidAmount,
         'balanceDue': balanceDue,
         'paymentMethod': paymentMethod,

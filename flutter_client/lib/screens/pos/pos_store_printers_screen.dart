@@ -24,7 +24,7 @@ import 'pos_local_printers_screen.dart';
 import 'pos_product_printer_assignment_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-/// Quản lý máy in cửa hàng + routing chứng từ + Print Agent.
+/// Quản lý máy in cửa hàng + vai trò từng máy + Print Agent.
 class PosStorePrintersScreen extends StatefulWidget {
   const PosStorePrintersScreen({super.key});
 
@@ -185,8 +185,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         return covered || mine;
       }).toList();
 
-  /// Chỉ máy đang bật Print Agent mới được thêm/sửa/xóa máy in cloud cửa hàng.
-  bool get _canManageCloudPrinters => _agent.enabled;
+  /// Thêm/sửa máy cửa hàng: quyền module, không khóa theo công tắc Agent.
+  bool get _canManageCloudPrinters => true;
 
   bool _agentCoversPrinter(String printerId) =>
       _onlineAgents.any((a) => a.coversPrinter(printerId));
@@ -568,20 +568,70 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     return parts.join(' · ');
   }
 
-  String _printersForDoc(String docType) {
-    final ids = _routes
-        .where((x) => x.documentType == docType)
-        .map((x) => x.printerId)
-        .toList();
-    if (ids.isEmpty) {
-      if (_printers.length == 1) return _printers.first.name;
-      final def = _printers.where((p) => p.isDefault).firstOrNull;
-      return def?.name ?? '—';
+
+  Set<String> _rolesForPrinter(String printerId) => _routes
+      .where((r) => r.printerId == printerId)
+      .map((r) => r.documentType)
+      .toSet();
+
+  bool _printerNeedsProductAssign(PosStorePrinter p) {
+    final roles = _rolesForPrinter(p.id);
+    if (roles.isNotEmpty) {
+      return PosLocalPrinterRoles.needsProductAssignment(roles);
     }
-    return ids
-        .map((id) => _printers.where((p) => p.id == id).firstOrNull?.name)
-        .whereType<String>()
-        .join(', ');
+    return p.isLabelPrinter;
+  }
+
+  String _productAssignButtonLabel(PosStorePrinter p) {
+    final purpose = purposeFromRoles(_rolesForPrinter(p.id).isEmpty
+        ? p.documentTypes
+        : _rolesForPrinter(p.id));
+    return switch (purpose) {
+      PosAssignPrinterPurpose.kitchenSlip => 'Gán món báo bếp',
+      PosAssignPrinterPurpose.kitchenLabel => 'Gán món in tem',
+      PosAssignPrinterPurpose.stockIssue => 'Gán món báo kho',
+      PosAssignPrinterPurpose.mixed => 'Gán sản phẩm in',
+    };
+  }
+
+  Future<void> _openProductAssign(PosStorePrinter p) async {
+    final roles = _rolesForPrinter(p.id);
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PosPrinterManageProductsScreen(
+          printerId: p.id,
+          printerName: p.name,
+          isLabel: p.isLabelPrinter ||
+              roles.contains(PosLocalPrinterRoles.kitchenLabel) ||
+              roles.contains(PosLocalPrinterRoles.barcodeLabel),
+          purpose: purposeFromFlags(
+            isLabel: p.isLabelPrinter,
+            documentTypes: roles.isEmpty ? p.documentTypes : roles.toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _setPrinterRole(
+    String printerId,
+    String docType,
+    bool selected,
+  ) async {
+    if (!_canManageCloudPrinters) return;
+    setState(() {
+      if (selected && docType == PosLocalPrinterRoles.saleInvoice) {
+        // Hóa đơn chỉ 1 máy.
+        _routes.removeWhere(
+          (r) =>
+              r.documentType == PosLocalPrinterRoles.saleInvoice &&
+              r.printerId != printerId,
+        );
+      }
+      _toggleRoute(docType, printerId, selected);
+    });
+    await _saveRoutes(silent: true);
   }
 
   void _toggleRoute(String docType, String printerId, bool selected) {
@@ -672,22 +722,31 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     }
   }
 
-  Future<void> _saveRoutes() async {
+  Future<void> _saveRoutes({bool silent = false}) async {
     setState(() => _savingRoutes = true);
     try {
       final body = _routes.map((r) => r.toJson()).toList();
       final res = await _api.savePosPrinterRoutes(body);
       if (res['isSuccess'] == true) {
-        NotificationOverlayManager().showSuccess(
-          title: 'Đã lưu phân loại',
-          message: tr('Gán máy in theo chứng từ đã lưu lên máy chủ'),
-        );
+        if (!silent) {
+          NotificationOverlayManager().showSuccess(
+            title: 'Đã lưu vai trò máy in',
+            message: tr('Phân loại in đã lưu lên máy chủ'),
+          );
+        }
         await PosPrintOrchestrator.instance.invalidateCache();
+        // Agent đang chạy: refresh chip gán máy ngay — tránh lạc máy sau đổi vai trò.
+        if (PosPrintAgentService.instance.isRunning) {
+          unawaited(
+            PosPrintAgentService.instance.forceRegister(refreshPrinters: true),
+          );
+        }
       } else {
         NotificationOverlayManager().showError(
-          title: 'Lỗi',
-          message: res['message']?.toString() ?? 'Không lưu được',
+          title: 'Không lưu được vai trò',
+          message: res['message']?.toString() ?? 'Thử lại',
         );
+        await _load();
       }
     } finally {
       if (mounted) setState(() => _savingRoutes = false);
@@ -736,34 +795,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             },
             icon: const Icon(Icons.phone_android),
           ),
-          IconButton(
-            tooltip: tr('Gán sản phẩm cho máy in'),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PosProductPrinterAssignmentScreen(
-                    printers: _printers,
-                  ),
-                ),
-              );
-            },
-            icon: const Icon(Icons.restaurant_menu_outlined),
-          ),
-          IconButton(
-            tooltip: tr('Lưu phân loại chứng từ'),
-            onPressed: _loading || _savingRoutes ? null : _saveRoutes,
-            icon: _savingRoutes
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.save_outlined),
-          ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),
@@ -772,7 +803,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
-                // Chừa chỗ FAB «Thêm máy in» — tránh che nút «Lưu phân loại».
+                // Chừa chỗ FAB «Thêm máy in».
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
                 children: [
                   Card(
@@ -780,12 +811,12 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Text(
-                        tr('Hướng dẫn nhanh\n'
-                            '• Máy in cửa hàng: dùng chung (web / A7 / PC Agent). Job qua server → Print Agent → USB/LAN.\n'
-                            '• Máy gắn trực tiếp máy POS này (Sunmi / USB / LAN) → nút «Máy in nội bộ» (biểu tượng điện thoại).\n'
-                            '• Gán «Hóa đơn» ở bảng dưới: cả cửa hàng dùng chung; hóa đơn chỉ in 1 máy (máy mặc định / máy chọn đầu).\n'
-                            '• Máy POS có máy nội bộ + vai trò Hóa đơn: in nội bộ trước; thành công thì không gửi thêm máy cửa hàng.\n'
-                            '• Chữ tiếng Việt lỗi / rác trên XP-80C, Zywell…: sửa máy → Hãng = Xprinter (hoặc Zywell) + Chế độ chữ = «In ảnh» hoặc «Tự động».'),
+                                                tr('Hướng dẫn nhanh\n'
+                            '• Máy cục bộ: cắm vào máy POS này — bán trên máy này in ngay, không cần bật Agent.\n'
+                            '• Agent: máy khác (A7/web) in sang máy đang cắm tại đây — chọn chip ở thẻ trên.\n'
+                            '• Vai trò từng máy cloud: chọn chip bên dưới tên máy (tự lưu). Hóa đơn chỉ 1 máy.\n'
+                            '• Gán món chỉ hiện với máy báo bếp / báo kho / in tem.\n'
+                            '• Chữ tiếng Việt lỗi trên XP-80C, Zywell…: sửa máy → Hãng = Xprinter/Zywell + Chế độ chữ «In ảnh» hoặc «Tự động».'),
                         style: const TextStyle(fontSize: 12.5, height: 1.35),
                       ),
                     ),
@@ -794,12 +825,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   _agentCard(),
                   const SizedBox(height: 12),
                   _printersSection(),
-                  const SizedBox(height: 12),
-                  if (_printers.isNotEmpty) ...[
-                    _productPrinterCard(),
-                    const SizedBox(height: 12),
-                  ],
-                  _routesSection(),
                 ],
               ),
             ),
@@ -1385,20 +1410,29 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     final agentTitle = _agentNameForPrinter(p.id);
     final mine =
         _agent.enabled && _agent.assignedPrinterIds.contains(p.id);
-    final ready = locallyReady || viaAgent;
+    final ready = locallyReady || (viaAgent && !locallyLost && p.isOnline);
     final statusColor = ready
         ? Colors.green
         : (locallyLost || p.healthStatus == 'Offline')
             ? Colors.red
             : Colors.grey;
-    final statusText = locallyReady
-        ? 'Sẵn sàng · nội bộ'
-        : viaAgent
-            ? 'Online · Agent${agentTitle != null ? ' ($agentTitle)' : ''}'
-            : (locallyLost || p.healthStatus == 'Offline'
-                ? 'Mất kết nối'
-                : 'Chưa có Agent');
+    final statusText = locallyLost
+        ? 'Mất kết nối'
+        : locallyReady
+            ? 'Sẵn sàng · nội bộ'
+            : (viaAgent && p.isOnline)
+                ? 'Online · Agent${agentTitle != null ? ' ($agentTitle)' : ''}'
+                : (p.healthStatus == 'Offline'
+                    ? 'Mất kết nối'
+                    : 'Chưa có Agent');
     final isAgentCloud = !p.isDeviceLocal;
+    final sourceLabel = p.isDeviceLocal ? 'Nội bộ' : 'Agent';
+    final sameName = _printers
+        .where((x) =>
+            x.name.trim().toLowerCase() == p.name.trim().toLowerCase())
+        .length;
+    final displayName =
+        sameName > 1 ? '${p.name} ($sourceLabel)' : p.name;
     final kind = p.isDeviceLocal
         ? 'Nội bộ'
         : (p.isLabelPrinter ? 'Tem nhãn · Agent' : 'Agent / cloud');
@@ -1412,322 +1446,234 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         : (locallyLost
             ? const Color(0xFFB91C1C)
             : (isAgentCloud ? const Color(0xFF0284C7) : PosTheme.kiotBlue));
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: avatarBg,
-        child: Icon(
-          p.isDeviceLocal
-              ? Icons.phone_android
-              : (isAgentCloud ? Icons.cloud_outlined : _connectionIcon(p)),
-          color: avatarFg,
-          size: 20,
-        ),
-      ),
-      title: Text(
-        tr(mine ? '${p.name} · máy này' : p.name),
-        style: TextStyle(
-          color: isAgentCloud ? const Color(0xFF0C4A6E) : null,
-          fontWeight: isAgentCloud ? FontWeight.w600 : FontWeight.w500,
-        ),
-      ),
-      subtitle: Text(
-        tr('$kind · ${p.connectionType} · $statusText'),
-        style: TextStyle(
-          fontSize: 11,
-          color: ready
-              ? const Color(0xFF15803D)
-              : (isAgentCloud ? const Color(0xFF0369A1) : null),
-        ),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isAgentCloud)
-            const Padding(
-              padding: EdgeInsets.only(right: 6),
-              child: Icon(Icons.cloud_queue, size: 16, color: Color(0xFF0284C7)),
-            ),
-          Tooltip(
-            message: statusText,
-            child: Icon(Icons.circle, size: 10, color: statusColor),
-          ),
-          PopupMenuButton<String>(
-            onSelected: (a) async {
-              if (a == 'edit') {
-                await _openEditor(p);
-              } else if (a == 'products') {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PosPrinterManageProductsScreen(
-                      printerId: p.id,
-                      printerName: p.name,
-                      isLabel: p.isLabelPrinter,
-                      purpose: purposeFromFlags(
-                        isLabel: p.isLabelPrinter,
-                        documentTypes: p.documentTypes,
-                      ),
-                    ),
-                  ),
-                );
-              } else if (a == 'test' || a == 'test_cloud') {
-                // A7: USB không sẵn sàng / không phải Agent local → luôn cloud.
-                final locallyReady = _readyPrinterIds.contains(p.id);
-                final forceCloud = a == 'test_cloud' ||
-                    !locallyReady ||
-                    (p.needsPrintAgent &&
-                        !(_agent.enabled &&
-                            _agent.assignedPrinterIds.contains(p.id)));
-                final ok = await PosPrintOrchestrator.instance.testPrinter(
-                  p,
-                  forceRemote: forceCloud,
-                );
-                if (!mounted) return;
-                if (ok) {
-                  if (mine) setState(() => _readyPrinterIds.add(p.id));
-                  unawaited(_refreshPrinterReadiness());
-                }
-              } else if (a == 'delete') {
-                final yes = await showDialog<bool>(
-                  context: context,
-                  builder: (c) => AlertDialog(
-                    title: Text(tr('Xóa máy in?')),
-                    content: Text(tr(p.name)),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(c, false),
-                          child: Text(tr('Hủy'))),
-                      FilledButton(
-                          onPressed: () => Navigator.pop(c, true),
-                          child: Text(tr('Xóa'))),
-                    ],
-                  ),
-                );
-                if (yes == true) {
-                  final deletedId = p.id;
-                  final res = await _api.deletePosStorePrinter(deletedId);
-                  if (!mounted) return;
-                  if (res['isSuccess'] == true) {
-                    setState(() {
-                      _printers.removeWhere((x) => x.id == deletedId);
-                      _routes.removeWhere((x) => x.printerId == deletedId);
-                      if (_agent.assignedPrinterIds.contains(deletedId)) {
-                        _agent = _agent.copyWith(
-                          assignedPrinterIds: _agent.assignedPrinterIds
-                              .where((id) => id != deletedId)
-                              .toList(),
-                        );
-                        unawaited(_agent.save());
-                      }
-                    });
-                    NotificationOverlayManager().showSuccess(
-                      title: 'Đã xóa máy in',
-                      message: p.name,
-                    );
-                    await _load();
-                  } else {
-                    NotificationOverlayManager().showError(
-                      title: 'Không xóa được',
-                      message: res['message']?.toString() ??
-                          'Kiểm tra quyền PosSell (Sửa) hoặc thử lại',
-                    );
-                  }
-                }
-              }
-            },
-            itemBuilder: (_) {
-              final locallyReady = _readyPrinterIds.contains(p.id);
-              final isRemoteCloud = !locallyReady ||
-                  (p.needsPrintAgent &&
-                      !(_agent.enabled &&
-                          _agent.assignedPrinterIds.contains(p.id)));
-              return [
-                PopupMenuItem(
-                    value: 'products', child: Text(tr('Sản phẩm in kho'))),
-                if (locallyReady)
-                  PopupMenuItem(
-                      value: 'test', child: Text(tr('Test in cục bộ'))),
-                PopupMenuItem(
-                  value: 'test_cloud',
-                  child: Text(tr(isRemoteCloud
-                      ? 'Test in qua cloud'
-                      : 'Test in qua cloud (máy thu ngân)')),
-                ),
-                if (_canManageCloudPrinters) ...[
-                  PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
-                  PopupMenuItem(value: 'delete', child: Text(tr('Xóa'))),
-                ],
-              ];
-            },
-          ),
-        ],
-      ),
-      onTap: _canManageCloudPrinters
-          ? () => _openEditor(p)
-          : () {
-              NotificationOverlayManager().show(
-                title: 'Chỉ xem',
-                message: tr(
-                    'Máy in cloud — chỉ máy bật Print Agent mới được sửa. Dùng menu › Test qua cloud.'),
-                duration: const Duration(seconds: 3),
-              );
-            },
-    );
-  }
+    final roleKeys = p.isLabelPrinter
+        ? PosLocalPrinterRoles.labelRoles
+        : PosLocalPrinterRoles.receiptRoles;
+    final selectedRoles = _rolesForPrinter(p.id);
+    final needProducts = _printerNeedsProductAssign(p);
 
-  Widget _productPrinterCard() {
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.restaurant_menu_outlined, color: PosTheme.kiotBlue),
-        title: Text(tr('Gán sản phẩm cho máy in'),
-            style: TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(tr('Chọn máy in → thêm sản phẩm (tất cả, theo nhóm, từng món).'),
-          style: TextStyle(fontSize: 12),
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => PosProductPrinterAssignmentScreen(printers: _printers),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: CircleAvatar(
+            backgroundColor: avatarBg,
+            child: Icon(
+              p.isDeviceLocal
+                  ? Icons.phone_android
+                  : (isAgentCloud
+                      ? Icons.cloud_outlined
+                      : _connectionIcon(p)),
+              color: avatarFg,
+              size: 20,
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _routesSection() {
-    // Máy cloud cửa hàng — đồng bộ với danh sách Agent/cloud.
-    final routePrinters = _cloudAgentPrinters;
-    if (routePrinters.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          title: Text(
+            tr(mine ? '${p.name} · máy này' : p.name),
+            style: TextStyle(
+              color: isAgentCloud ? const Color(0xFF0C4A6E) : null,
+              fontWeight: isAgentCloud ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+          subtitle: Text(
+            tr('$kind · ${p.connectionType} · $statusText'),
+            style: TextStyle(
+              fontSize: 11,
+              color: ready
+                  ? const Color(0xFF15803D)
+                  : (isAgentCloud ? const Color(0xFF0369A1) : null),
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(tr('Máy in theo loại chứng từ'),
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              const SizedBox(height: 6),
-              Text(
-                tr('Chưa có máy in Agent để gán. Thêm máy / chọn chip Agent ở thẻ trên.'),
-                style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+              if (_savingRoutes)
+                const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              if (isAgentCloud)
+                const Padding(
+                  padding: EdgeInsets.only(right: 6),
+                  child: Icon(Icons.cloud_queue,
+                      size: 16, color: Color(0xFF0284C7)),
+                ),
+              Tooltip(
+                message: statusText,
+                child: Icon(Icons.circle, size: 10, color: statusColor),
+              ),
+              PopupMenuButton<String>(
+                onSelected: (a) async {
+                  if (a == 'edit') {
+                    await _openEditor(p);
+                  } else if (a == 'products') {
+                    await _openProductAssign(p);
+                  } else if (a == 'test' || a == 'test_cloud') {
+                    final locallyReadyNow = _readyPrinterIds.contains(p.id);
+                    final forceCloud = a == 'test_cloud' ||
+                        !locallyReadyNow ||
+                        (p.needsPrintAgent &&
+                            !(_agent.enabled &&
+                                _agent.assignedPrinterIds.contains(p.id)));
+                    final ok =
+                        await PosPrintOrchestrator.instance.testPrinter(
+                      p,
+                      forceRemote: forceCloud,
+                    );
+                    if (!mounted) return;
+                    if (ok) {
+                      if (mine) {
+                        setState(() => _readyPrinterIds.add(p.id));
+                      }
+                      unawaited(_refreshPrinterReadiness());
+                    }
+                  } else if (a == 'delete') {
+                    final yes = await showDialog<bool>(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: Text(tr('Xóa máy in?')),
+                        content: Text(tr(displayName)),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(c, false),
+                              child: Text(tr('Hủy'))),
+                          FilledButton(
+                              onPressed: () => Navigator.pop(c, true),
+                              child: Text(tr('Xóa'))),
+                        ],
+                      ),
+                    );
+                    if (yes == true) {
+                      final deletedId = p.id;
+                      final res =
+                          await _api.deletePosStorePrinter(deletedId);
+                      if (!mounted) return;
+                      if (res['isSuccess'] == true) {
+                        setState(() {
+                          _printers
+                              .removeWhere((x) => x.id == deletedId);
+                          _routes.removeWhere(
+                              (x) => x.printerId == deletedId);
+                          if (_agent.assignedPrinterIds
+                              .contains(deletedId)) {
+                            _agent = _agent.copyWith(
+                              assignedPrinterIds: _agent
+                                  .assignedPrinterIds
+                                  .where((id) => id != deletedId)
+                                  .toList(),
+                            );
+                            unawaited(_agent.save());
+                          }
+                        });
+                        NotificationOverlayManager().showSuccess(
+                          title: 'Đã xóa máy in',
+                          message: p.name,
+                        );
+                        await _load();
+                      } else {
+                        NotificationOverlayManager().showError(
+                          title: 'Không xóa được',
+                          message: res['message']?.toString() ??
+                              'Kiểm tra quyền PosSell (Sửa) hoặc thử lại',
+                        );
+                      }
+                    }
+                  }
+                },
+                itemBuilder: (_) {
+                  final locallyReadyNow = _readyPrinterIds.contains(p.id);
+                  final isRemoteCloud = !locallyReadyNow ||
+                      (p.needsPrintAgent &&
+                          !(_agent.enabled &&
+                              _agent.assignedPrinterIds.contains(p.id)));
+                  return [
+                    if (needProducts)
+                      PopupMenuItem(
+                        value: 'products',
+                        child: Text(tr(_productAssignButtonLabel(p))),
+                      ),
+                    if (locallyReadyNow)
+                      PopupMenuItem(
+                          value: 'test',
+                          child: Text(tr('Test in cục bộ'))),
+                    PopupMenuItem(
+                      value: 'test_cloud',
+                      child: Text(tr(isRemoteCloud
+                          ? 'Test in qua cloud'
+                          : 'Test in qua cloud (máy thu ngân)')),
+                    ),
+                    if (_canManageCloudPrinters) ...[
+                      PopupMenuItem(
+                          value: 'edit', child: Text(tr('Sửa'))),
+                      PopupMenuItem(
+                          value: 'delete', child: Text(tr('Xóa'))),
+                    ],
+                  ];
+                },
               ),
             ],
           ),
+          onTap: _canManageCloudPrinters
+              ? () => _openEditor(p)
+              : () {
+                  NotificationOverlayManager().show(
+                    title: 'Chỉ xem',
+                    message: tr(
+                        'Máy in cloud — chỉ máy bật Print Agent mới được sửa. Dùng menu › Test qua cloud.'),
+                    duration: const Duration(seconds: 3),
+                  );
+                },
         ),
-      );
-    }
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(tr('Máy in theo loại chứng từ'),
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            const SizedBox(height: 4),
-            Text(
-              tr('Chọn máy in cho từng loại chứng từ. '
-                  'Bếp / tem / kho: in tất cả máy đã chọn. '
-                  'Hóa đơn: chỉ 1 máy (mặc định hoặc máy đầu).'),
-              style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F9FF),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFBAE6FD)),
-              ),
-              child: Text(
-                tr('«Lưu phân loại» chỉ lưu bảng gán máy ↔ chứng từ trên máy chủ (chung cả cửa hàng).\n'
-                    'Không lưu công tắc Agent hay danh sách máy.\n'
-                    'Web in hóa đơn → server → Agent PC/POS → máy đã gán (vd. XP-80C).'),
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  height: 1.35,
-                  color: Color(0xFF0C4A6E),
-                ),
+        if (_canManageCloudPrinters) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 4, right: 4, bottom: 2),
+            child: Text(
+              tr('Vai trò in (tự lưu)'),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: PosTheme.textSecondary,
               ),
             ),
-            const SizedBox(height: 10),
-            ...PosCloudDocumentTypes.labels.entries.map((e) {
-              final selectedIds = _routes
-                  .where((r) => r.documentType == e.key)
-                  .map((r) => r.printerId)
-                  .toSet();
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tr(e.value),
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600)),
-                    if (_printersForDoc(e.key) != '—')
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2, bottom: 4),
-                        child: Text(tr('Đang chọn: ${_printersForDoc(e.key)}'),
-                          style: const TextStyle(
-                              fontSize: 11, color: PosTheme.textSecondary),
-                        ),
-                      ),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: routePrinters.map((p) {
-                        return FilterChip(
-                          label: Text(tr(p.name),
-                              style: const TextStyle(fontSize: 11)),
-                          selected: selectedIds.contains(p.id),
-                          onSelected: (v) => _toggleRoute(e.key, p.id, v),
-                        );
-                      }).toList(),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 4, right: 4, bottom: 4),
+            child: Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final role in roleKeys)
+                  FilterChip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text(
+                      tr(PosLocalPrinterRoles.label(role)),
+                      style: const TextStyle(fontSize: 11),
                     ),
-                  ],
-                ),
-              );
-            }),
-            const SizedBox(height: 12),
-            // Full-width + lệch trái vùng FAB — không bị «Thêm máy in» che.
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _savingRoutes ? null : _saveRoutes,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                icon: _savingRoutes
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.save, size: 20),
-                label: Text(
-                  tr(_savingRoutes
-                      ? 'Đang lưu…'
-                      : 'Lưu phân loại chứng từ'),
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                ),
+                    selected: selectedRoles.contains(role),
+                    onSelected: _savingRoutes
+                        ? null
+                        : (v) => unawaited(_setPrinterRole(p.id, role, v)),
+                  ),
+              ],
+            ),
+          ),
+          if (needProducts)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => unawaited(_openProductAssign(p)),
+                icon: const Icon(Icons.restaurant_menu_outlined, size: 18),
+                label: Text(tr(_productAssignButtonLabel(p))),
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              tr('Sau khi đổi chip chứng từ phải bấm Lưu — chưa lưu thì in vẫn theo cấu hình cũ.'),
-              style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
-            ),
-          ],
-        ),
-      ),
+        ],
+        const Divider(height: 16),
+      ],
     );
   }
 }

@@ -88,10 +88,10 @@ class PosSunmiNativePrint {
     return '${m}p';
   }
 
-  /// Đẩy giấy tới mép xé Sunmi V2s (~3–4 cm). Provisional trước đó chỉ feed 4 → kẹt giấy.
-  static const _minFeedSunmi = 18;
-  static const _minFeedKitchen = 6;
-  static const _maxFeed = 28;
+  /// Tôn trọng feed cấu hình; phiếu bếp/kho gọn — khỏi dư đuôi dài.
+  static const _minFeedSunmi = 5;
+  static const _minFeedKitchen = 2;
+  static const _maxFeed = 40;
 
   static Future<bool> printSaleOrder(
     PosSaleOrder order, {
@@ -105,6 +105,9 @@ class PosSunmiNativePrint {
     String? slipTitle,
     String? documentTitle,
     List<PosSaleOrderLine>? linesOverride,
+    double vatAmount = 0,
+    bool vatIncludedInPrice = true,
+    double vatRate = 0,
   }) async {
     if (kIsWeb || !settings.enabled) return false;
     if (!await PosPrinterTransport.isSunmiDevice()) return false;
@@ -117,10 +120,12 @@ class PosSunmiNativePrint {
       final raw = linesOverride ?? order.lines;
       final lines = mergeSameItems ? _mergeLines(raw) : raw;
       final titleOverride = slipTitle ?? documentTitle;
-      // HĐ / tạm tính đều đẩy giấy đủ — không dùng feed kho ngắn.
       final feed = warehouseSlip
           ? _resolveFeed(settings.resolvedFeedBeforeCut, min: _minFeedKitchen)
           : _resolveFeed(settings.resolvedFeedBeforeCut, min: _minFeedSunmi);
+      final double effectiveVat = vatAmount > 0
+          ? vatAmount
+          : (vatIncludedInPrice ? 0.0 : order.vatAmount);
       for (var c = 0; c < copies.clamp(1, 10); c++) {
         final ok = await _printOne(
           order: order,
@@ -133,6 +138,8 @@ class PosSunmiNativePrint {
           warehouseSlip: warehouseSlip,
           slipTitle: titleOverride,
           documentTitle: documentTitle,
+          vatAmount: effectiveVat,
+          vatRate: vatRate,
         );
         if (!ok) return false;
       }
@@ -143,21 +150,15 @@ class PosSunmiNativePrint {
     }
   }
 
-  static int _resolveFeed(int configured, {int min = _minFeedSunmi}) {
-    final n = configured.clamp(3, _maxFeed);
+  static int _resolveFeed(int configured, {int min = 0}) {
+    final n = configured.clamp(0, _maxFeed);
     return n < min ? min : n;
   }
 
   static Future<void> _feedPaper(int lines) async {
-    final n = lines.clamp(8, _maxFeed);
+    final n = lines.clamp(0, _maxFeed);
+    if (n <= 0) return;
     await SunmiPrinter.lineWrap(n);
-    // Thêm dòng trống — đầu in Sunmi cách mép xé khá xa.
-    for (var i = 0; i < 4; i++) {
-      await SunmiPrinter.printText(
-        ' ',
-        style: SunmiTextStyle(fontSize: 18),
-      );
-    }
   }
 
   /// Báo cáo dạng dòng chữ (tổng kết cuối ngày, v.v.) — UTF-8 native.
@@ -181,7 +182,8 @@ class PosSunmiNativePrint {
       if (!bound) return false;
 
       final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
-      final feed = _resolveFeed(settings.resolvedFeedBeforeCut, min: _minFeedKitchen);
+      final feed =
+          _resolveFeed(settings.resolvedFeedBeforeCut, min: _minFeedKitchen);
       final date = DateFormat('dd/MM/yyyy HH:mm').format(sentAt);
       final img = <PosReceiptImageLine>[
         PosReceiptImageLine(
@@ -207,7 +209,7 @@ class PosSunmiNativePrint {
           bold: true,
         ),
         PosReceiptImageLine(
-          text: 'Ngày: $date',
+          text: 'Gọi lúc: $date',
           fontSize: 20,
           bold: true,
         ),
@@ -279,7 +281,7 @@ class PosSunmiNativePrint {
       final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
       for (var c = 0; c < copies.clamp(1, 10); c++) {
         await _center(title, size: layout.titleSize, bold: true);
-        await _rule(layout.equals);
+        await _rule(layout);
         for (final raw in lines) {
           final line = raw.trimRight();
           if (line.isEmpty) {
@@ -287,14 +289,14 @@ class PosSunmiNativePrint {
             continue;
           }
           if (line.replaceAll(RegExp(r'[─\-═=]'), '').trim().isEmpty) {
-            await _rule(layout.dash);
+            await _rule(layout);
             continue;
           }
           if (line.contains('──') || line.startsWith('--')) {
             final label =
                 line.replaceAll(RegExp(r'[─\-═=\s]+'), ' ').trim();
             if (label.isEmpty) {
-              await _rule(layout.dash);
+              await _rule(layout);
             } else {
               await _center(label, size: layout.smallSize, bold: true);
             }
@@ -303,7 +305,7 @@ class PosSunmiNativePrint {
           await _left(line, size: layout.bodySize);
         }
         if (footer != null && footer.trim().isNotEmpty) {
-          await _rule(layout.dash);
+          await _rule(layout);
           await _center(footer.trim(), size: layout.smallSize);
         }
         await _feedPaper(feed);
@@ -351,38 +353,38 @@ class PosSunmiNativePrint {
       }
       await _center('TỔNG KẾT CUỐI NGÀY', size: layout.bodySize + 2, bold: true);
       await _center('Bill $badge', size: layout.smallSize);
-      await _rule(layout.equals);
+      await _rule(layout);
 
       await _left('NV: $staffLabel', size: layout.bodySize);
       await _left('Từ: $periodFrom', size: layout.smallSize);
       await _left('Đến: $periodTo', size: layout.smallSize);
-      await _rule(layout.dash);
+      await _rule(layout);
 
       await _center('BÁN HÀNG', size: layout.smallSize, bold: true);
       for (final row in salesRows) {
         await _pair(layout, row.left, row.right, bold: row.bold);
       }
-      await _rule(layout.dash);
+      await _rule(layout);
 
       if (refundRows.isNotEmpty) {
         await _center('TRẢ / HỦY', size: layout.smallSize, bold: true);
         for (final row in refundRows) {
           await _pair(layout, row.left, row.right, bold: row.bold);
         }
-        await _rule(layout.dash);
+        await _rule(layout);
       }
 
       await _center('THANH TOÁN', size: layout.smallSize, bold: true);
       for (final row in paymentRows) {
         await _pair(layout, row.left, row.right, bold: row.bold);
       }
-      await _rule(layout.equals);
+      await _rule(layout);
       await _pair(layout, 'THỰC THU', actualReceived, bold: true);
-      await _rule(layout.equals);
+      await _rule(layout);
 
       if (products.isNotEmpty) {
         await _center('HÀNG BÁN', size: layout.smallSize, bold: true);
-        await _rule(layout.dash);
+        await _rule(layout);
         for (final p in products) {
           final nameMax = layout.chars - 2;
           final chunks = _wrap(p.name, nameMax);
@@ -392,7 +394,7 @@ class PosSunmiNativePrint {
           }
           await _pair(layout, '  SL ${p.qty}', p.amount);
         }
-        await _rule(layout.dash);
+        await _rule(layout);
       }
 
       await _center(footer, size: layout.smallSize);
@@ -433,6 +435,9 @@ class PosSunmiNativePrint {
           final png = await PosThermalBitmapEncoder.receiptToPng(
             List<PosReceiptImageLine>.from(batch),
             paperDots: dots,
+            frameStyle: output.frameStyle,
+            frameInsetMm: output.frameInsetMm,
+            frameMarginMm: output.frameMarginMm,
           );
           batch.clear();
           if (png != null) {
@@ -489,7 +494,7 @@ class PosSunmiNativePrint {
         size: layout.bodySize,
         bold: true,
       );
-      await _rule(layout.dash);
+      await _rule(layout);
       await _center('Tiếng Việt: ĂÂÊÔƠƯ Đ', size: layout.bodySize);
       await _saleItemRow(
         layout,
@@ -505,9 +510,9 @@ class PosSunmiNativePrint {
         price: '2.850.000',
         total: '2.850.000',
       );
-      await _rule(layout.dash);
+      await _rule(layout);
       await _pair(layout, 'TỔNG CỘNG', '125.000 đ', bold: true);
-      await _rule(layout.equals);
+      await _rule(layout);
       await _feedPaper(_resolveFeed(feedLines));
       try {
         await SunmiPrinter.cutPaper();
@@ -532,6 +537,8 @@ class PosSunmiNativePrint {
     bool warehouseSlip = false,
     String? slipTitle,
     String? documentTitle,
+    double vatAmount = 0,
+    double vatRate = 0,
   }) async {
     final saleDate =
         order.saleDate?.toLocal() ?? order.createdAt?.toLocal() ?? DateTime.now();
@@ -657,9 +664,10 @@ class PosSunmiNativePrint {
         await _left('Thu ngân: $nv', size: layout.bodySize, bold: true);
       }
     }
-    await _rule(layout.equals);
+    await _rule(layout);
 
-    // printRow width phải = 12. Cột 5+1+3+3: tên trái, SL/Đ.giá/T.tiền phải.
+    // printRow width phải = 12. Cột 5+1+3+3: tên trái, SL/Đ.giá/T.tiền phải
+    // (in từ mép phải — không cắt 2.850.000, không xuống hàng).
     final cols = PosReceiptLayout.fromMm(layout.k58 ? 58 : 80);
     await _saleItemRow(
       layout,
@@ -668,9 +676,9 @@ class PosSunmiNativePrint {
       price: 'Đ.giá',
       total: 'T.tiền',
     );
-    await _rule(layout.equals);
+    await _rule(layout);
 
-    String moneyCell(double v) => PosReceiptLayout.moneyItemCompact(v);
+    String moneyCell(double v) => PosReceiptLayout.moneyItem(v);
 
     for (final line in lines) {
       final saleUnit = line.qty > 0 ? line.lineTotal / line.qty : line.unitPrice;
@@ -713,7 +721,7 @@ class PosSunmiNativePrint {
       }
     }
 
-    await _rule(layout.equals);
+    await _rule(layout);
 
     final lineDiscount = lines.fold<double>(0, (s, l) => s + l.discountAmount);
     final linesTotal = lines.fold<double>(0, (s, l) => s + l.lineTotal);
@@ -726,6 +734,12 @@ class PosSunmiNativePrint {
     final ck = order.discount > 0 ? order.discount : lineDiscount;
     if (!warehouseSlip && ck > 0) {
       await _pair(layout, 'Chiết khấu:', _money.format(ck));
+    }
+    if (!warehouseSlip && vatAmount > 0) {
+      final vatLabel = vatRate > 0
+          ? 'VAT (${vatRate.toStringAsFixed(vatRate % 1 == 0 ? 0 : 1)}%):'
+          : 'VAT:';
+      await _pair(layout, vatLabel, _money.format(vatAmount));
     }
     await _pair(
       layout,
@@ -759,7 +773,7 @@ class PosSunmiNativePrint {
     if (order.note != null && order.note!.trim().isNotEmpty) {
       await _left('Ghi chú: ${order.note!.trim()}', size: layout.smallSize);
     }
-    await _rule(layout.equals);
+    await _rule(layout);
     await _center('Cam on quy khach!', size: layout.bodySize, bold: true);
 
     await _feedPaper(feedLines);
@@ -829,13 +843,10 @@ class PosSunmiNativePrint {
     }
   }
 
-  /// Đường kẻ full khổ — ảnh, không dùng chuỗi '=' (T1 cắt/thiếu khổ).
-  static Future<void> _rule(Object layoutOrSample) async {
-    final k58 = layoutOrSample is _SunmiReceiptLayout
-        ? layoutOrSample.k58
-        : layoutOrSample.toString().length <= 40;
+  /// Đường kẻ full khổ: font tỉ lệ nên 32 ký tự '=' ở size 18 chỉ ~3/4 giấy K58.
+  static Future<void> _rule(_SunmiReceiptLayout layout) async {
     final png = await PosThermalBitmapEncoder.horizontalRulePng(
-      paperDots: k58 ? 384 : 576,
+      paperDots: layout.k58 ? 384 : 576,
       thickness: 2,
     );
     if (png != null) {

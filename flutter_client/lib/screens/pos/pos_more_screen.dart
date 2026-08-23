@@ -173,7 +173,7 @@ class PosMoreScreen extends StatelessWidget {
                   title: 'Thiết lập POS',
                   items: [
                     _Item(
-                      'Thiết lập HRM / POS',
+                      'Thiết lập Sbox / POS',
                       Icons.settings_outlined,
                       'SettingsHub',
                       const SettingsHubScreen(),
@@ -200,8 +200,9 @@ class PosMoreScreen extends StatelessWidget {
                     _Item(
                       'Đơn vị giao hàng',
                       Icons.local_shipping_outlined,
-                      'SettingsHub',
+                      'PosShipping',
                       const PosShippingSettingsScreen(),
+                      altModules: const ['PosSell', 'SettingsHub'],
                     ),
                     _Item(
                       'Thiết lập cửa hàng',

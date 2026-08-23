@@ -45,6 +45,12 @@ class AiAssistantPermissions {
     'nav_cash_report': _Rule('CashReport', create: false),
     'nav_advance_report': _Rule('AdvanceReport', create: false),
     'nav_business_trip_report': _Rule('BusinessTripReport', create: false),
+    'nav_attendance_summary': _Rule('AttendanceSummary', create: false),
+    'nav_penalty_report': _Rule('PenaltyReport', create: false),
+    'nav_pos_sell': _Rule('PosSell', create: false),
+    'nav_pos_reports': _Rule('PosSalesReport', create: false),
+    'nav_pos_products': _Rule('PosProducts', create: false),
+    'nav_pos_printers': _Rule('PosPrinters', create: false),
   };
 
   static const _createRules = <String, _Rule>{
@@ -121,6 +127,12 @@ class AiAssistantPermissions {
       'CashReport',
       'AdvanceReport',
       'BusinessTripReport',
+      'AttendanceSummary',
+      'PenaltyReport',
+      'PosSell',
+      'PosSalesReport',
+      'PosProducts',
+      'PosPrinters',
     ];
     return modules.where((m) => perm.canView(m)).toList();
   }

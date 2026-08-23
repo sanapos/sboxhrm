@@ -77,6 +77,7 @@ class PermissionModuleLabels {
     'PosQrOrder': 'QR order bàn',
     'PosCashierShift': 'Ca thu ngân',
     'PosPrinters': 'Máy in POS',
+    'PosShipping': 'Đơn vị giao hàng',
     // Tài chính
     'BonusPenalty': 'Phiếu thưởng',
     'PenaltyTickets': 'Phiếu phạt',
@@ -100,7 +101,7 @@ class PermissionModuleLabels {
     'BusinessTripReport': 'Báo cáo công tác phí',
     'AssetReport': 'Báo cáo tài sản',
     // Thiết lập HRM
-    'SettingsHub': 'Thiết lập HRM',
+    'SettingsHub': 'Thiết lập Sbox',
     'ShiftSetup': 'Thiết lập ca',
     'Holiday': 'Ngày lễ',
     'Device': 'Máy chấm công',

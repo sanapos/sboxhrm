@@ -50,6 +50,13 @@ enum PosPrintQrPlacement {
   custom,
 }
 
+/// Viền in quanh bill / tem — nội dung lùi vào trong khung.
+enum PosPrintFrameStyle {
+  none,
+  rectangle,
+  rounded,
+}
+
 enum PosPrintTextAlign { left, center, right }
 
 /// Kiểu đường kẻ.
@@ -139,6 +146,7 @@ class PosPrintBlock {
   /// Số ký tự đường kẻ (null = tự động theo khổ giấy).
   final int? dividerChars;
   /// Các token tổng — ví dụ Tong_Cong, Khach_Thanh_Toan.
+  /// Với [PosPrintBlockType.lineItems]: `['Ten_Hang_Hoa']` = chỉ in tên hàng.
   final List<String>? fields;
   final double height;
   /// Kích thước QR in (px/dot, 100–220).
@@ -151,6 +159,37 @@ class PosPrintBlock {
   final int barcodeHeight;
   /// In chữ mã dưới barcode.
   final bool barcodeShowText;
+
+  /// `lineItems` có danh sách cột tùy chọn (khối «Tên hàng»).
+  bool get usesCustomLineFields =>
+      type == PosPrintBlockType.lineItems &&
+      fields != null &&
+      fields!.isNotEmpty;
+
+  /// Danh sách hàng chỉ in tên món — không SL, ĐVT, đơn giá.
+  bool get isNameOnlyLineItems =>
+      usesCustomLineFields &&
+      !showsLineField('So_Luong') &&
+      !showsLineField('Don_Vi_Tinh') &&
+      !showsLineField('Don_Gia') &&
+      !showsLineField('Thanh_Tien');
+
+  bool showsLineField(String token) {
+    // Trường Ten_Hang_Hoa trên tem: tùy chọn SL / ĐVT / ghi chú giống khối「Tên hàng」.
+    if (type == PosPrintBlockType.field && field == 'Ten_Hang_Hoa') {
+      if (fields == null || fields!.isEmpty) {
+        return token == 'Ten_Hang_Hoa' || token == 'So_Luong';
+      }
+      if (token == 'Ten_Hang_Hoa') return true;
+      return fields!.contains(token);
+    }
+    if (type != PosPrintBlockType.lineItems) return true;
+    if (!usesCustomLineFields) {
+      return token != 'Don_Vi_Tinh';
+    }
+    if (token == 'Ten_Hang_Hoa') return true;
+    return fields!.contains(token);
+  }
 
   PosPrintBlock copyWith({
     PosPrintBlockType? type,
@@ -169,6 +208,7 @@ class PosPrintBlock {
     int? dividerChars,
     bool clearDividerChars = false,
     List<String>? fields,
+    bool clearFields = false,
     double? height,
     int? qrSize,
     String? qrTitle,
@@ -192,7 +232,7 @@ class PosPrintBlock {
         rightStyle: rightStyle ?? this.rightStyle,
         divider: divider ?? this.divider,
         dividerChars: clearDividerChars ? null : (dividerChars ?? this.dividerChars),
-        fields: fields ?? this.fields,
+        fields: clearFields ? null : (fields ?? this.fields),
         height: height ?? this.height,
         qrSize: qrSize ?? this.qrSize,
         qrTitle: clearQrTitle ? null : (qrTitle ?? this.qrTitle),
@@ -289,6 +329,9 @@ class PosPrintTemplateV2 {
     required this.documentType,
     required this.blocks,
     this.name,
+    this.frameStyle = PosPrintFrameStyle.none,
+    this.frameInsetMm = 2.5,
+    this.frameMarginMm = 1.5,
   });
 
   final int version;
@@ -297,6 +340,12 @@ class PosPrintTemplateV2 {
   final String documentType;
   final List<PosPrintBlock> blocks;
   final String? name;
+  /// Viền in quanh phiếu / tem.
+  final PosPrintFrameStyle frameStyle;
+  /// Khoảng cách từ viền khung tới chữ (mm).
+  final double frameInsetMm;
+  /// Khoảng cách từ mép giấy tới viền khung (mm).
+  final double frameMarginMm;
 
   PosPrintTemplateV2 copyWith({
     String? paperSize,
@@ -304,6 +353,9 @@ class PosPrintTemplateV2 {
     String? documentType,
     List<PosPrintBlock>? blocks,
     String? name,
+    PosPrintFrameStyle? frameStyle,
+    double? frameInsetMm,
+    double? frameMarginMm,
   }) =>
       PosPrintTemplateV2(
         version: version,
@@ -312,6 +364,9 @@ class PosPrintTemplateV2 {
         documentType: documentType ?? this.documentType,
         blocks: blocks ?? this.blocks,
         name: name ?? this.name,
+        frameStyle: frameStyle ?? this.frameStyle,
+        frameInsetMm: frameInsetMm ?? this.frameInsetMm,
+        frameMarginMm: frameMarginMm ?? this.frameMarginMm,
       );
 
   Map<String, dynamic> toJson() => {
@@ -320,6 +375,9 @@ class PosPrintTemplateV2 {
         'printerProfile': printerProfile,
         'documentType': documentType,
         if (name != null) 'name': name,
+        if (frameStyle != PosPrintFrameStyle.none) 'frameStyle': frameStyle.name,
+        if (frameStyle != PosPrintFrameStyle.none) 'frameInsetMm': frameInsetMm,
+        if (frameStyle != PosPrintFrameStyle.none) 'frameMarginMm': frameMarginMm,
         'blocks': blocks.map((b) => b.toJson()).toList(),
       };
 
@@ -330,6 +388,12 @@ class PosPrintTemplateV2 {
         printerProfile: json['printerProfile']?.toString() ?? PosPrintPrinterProfiles.sunmiK80,
         documentType: json['documentType']?.toString() ?? 'SaleInvoice',
         name: json['name']?.toString(),
+        frameStyle: PosPrintFrameStyle.values.firstWhere(
+          (e) => e.name == json['frameStyle'],
+          orElse: () => PosPrintFrameStyle.none,
+        ),
+        frameInsetMm: (json['frameInsetMm'] as num?)?.toDouble() ?? 2.5,
+        frameMarginMm: (json['frameMarginMm'] as num?)?.toDouble() ?? 1.5,
         blocks: ((json['blocks'] as List?) ?? [])
             .map((e) => PosPrintBlock.fromJson(e as Map<String, dynamic>))
             .toList(),

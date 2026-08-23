@@ -43,4 +43,40 @@ class StoreRoleHelper {
         return false;
     }
   }
+
+  /// Tài khoản thu ngân / phục vụ — ưu tiên vào màn Bán hàng sau đăng nhập.
+  static bool isPosCashierRole(String? role) {
+    final r = _norm(role);
+    if (r.isEmpty) return false;
+    if (r == 'pos' || r == 'cashier' || r == 'waiter') return true;
+    if (r.contains('cashier') || r.contains('waiter')) return true;
+    if (r.contains('thu ngân') || r.contains('thu ngan')) return true;
+    if (r.contains('phục vụ') || r.contains('phuc vu')) return true;
+    if (r.contains('bán hàng') || r.contains('ban hang')) return true;
+    return false;
+  }
+
+  /// Gói/module nghiêng POS (không có HRM lõi) — dùng khi role không rõ.
+  static bool isPosHeavyModules(Iterable<String>? modules) {
+    final mods = modules?.map((m) => m.trim()).where((m) => m.isNotEmpty).toList() ?? const [];
+    if (mods.isEmpty) return false;
+    final hasPos = mods.any((m) =>
+        m == 'PosSell' ||
+        m.startsWith('Pos') ||
+        m == 'HkdBooks');
+    if (!hasPos) return false;
+    const hrmCore = {
+      'Employees',
+      'Employee',
+      'Attendance',
+      'Payroll',
+      'Leaves',
+      'Leave',
+      'Task',
+      'Payslip',
+      'Overtime',
+      'ShiftSwap',
+    };
+    return !mods.any(hrmCore.contains);
+  }
 }

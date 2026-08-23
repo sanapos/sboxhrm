@@ -15,6 +15,26 @@ import '../widgets/landing_product_image.dart';
 import '../widgets/landing_youtube_player.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+/// Tông màu khớp trang chủ sboxhrm.com (nền sáng, xanh #1565C0).
+abstract final class _GuideUi {
+  static const brand = Color(0xFF1565C0);
+  static const brandDeep = Color(0xFF0C56D0);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
+  static const body = Color(0xFF475569);
+  static const page = Color(0xFFF4F7FC);
+  static const card = Color(0xFFFFFFFF);
+  static const soft = Color(0xFFF8FAFF);
+  static const line = Color(0xFFE2E8F0);
+  static const lineSoft = Color(0xFFE8EEF8);
+  static const chip = Color(0xFFE3F2FD);
+  static const shadow = Color(0x140F2864);
+
+  static List<BoxShadow> get cardShadow => const [
+        BoxShadow(color: shadow, blurRadius: 28, offset: Offset(0, 8)),
+      ];
+}
+
 /// Trang hướng dẫn sử dụng — mở từ thanh công cụ landing, không nhúng trong trang chủ.
 class LandingGuideScreen extends StatefulWidget {
   const LandingGuideScreen({
@@ -74,16 +94,27 @@ class _LandingGuideScreenState extends State<LandingGuideScreen> {
         if (didPop) LandingGuideUrl.clearFromBrowser();
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF0A0F1E),
+        backgroundColor: _GuideUi.page,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF0A0F1E),
-          foregroundColor: Colors.white,
+          backgroundColor: Colors.white,
+          foregroundColor: _GuideUi.ink,
           elevation: 0,
-          title: Text(tr('Hướng dẫn sử dụng'),
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Divider(height: 1, color: _GuideUi.lineSoft),
+          ),
+          title: Text(
+            tr('Hướng dẫn sử dụng'),
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 17,
+              color: _GuideUi.ink,
+            ),
           ),
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded),
+            icon: const Icon(Icons.arrow_back_rounded, color: _GuideUi.brand),
             onPressed: () {
               LandingGuideUrl.clearFromBrowser();
               if (Navigator.of(context).canPop()) {
@@ -97,7 +128,7 @@ class _LandingGuideScreenState extends State<LandingGuideScreen> {
         ),
         body: _loading
             ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF0C56D0)),
+                child: CircularProgressIndicator(color: _GuideUi.brand),
               )
             : LayoutBuilder(
                 builder: (context, constraints) {
@@ -157,9 +188,9 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
   bool _showSuggestions = false;
 
   List<LandingUsageGuideStep> get _steps =>
-      _section == 0 ? widget.guideData.basic : widget.guideData.advanced;
+      widget.guideData.stepsAt(_section);
 
-  String get _sectionKey => _section == 0 ? 'basic' : 'advanced';
+  String get _sectionKey => LandingGuideData.keyForIndex(_section);
 
   List<LandingGuideSearchHit> get _searchHits =>
       widget.guideData.search(_query);
@@ -209,8 +240,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
 
   bool _applyDeepLink(GuideDeepLink? link, {required bool notify}) {
     if (link == null) return false;
-    final steps =
-        link.sectionIndex == 0 ? widget.guideData.basic : widget.guideData.advanced;
+    final steps = widget.guideData.stepsAt(link.sectionIndex);
     final idx = steps.indexWhere((s) => s.id == link.stepId);
     if (idx < 0) return false;
     if (_section == link.sectionIndex && _active == idx) return true;
@@ -243,7 +273,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
       _query = hit.step.title;
     });
     _searchFocus.unfocus();
-    final sectionKey = hit.sectionIndex == 0 ? 'basic' : 'advanced';
+    final sectionKey = LandingGuideData.keyForIndex(hit.sectionIndex);
     LandingGuideUrl.syncToBrowser(
       section: sectionKey,
       stepId: hit.step.id,
@@ -282,8 +312,20 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
 
   @override
   Widget build(BuildContext context) {
-    final isBasic = _section == 0;
     final stepCount = _steps.length;
+    final title = switch (_section) {
+      1 => 'Hướng dẫn nâng cao\n$stepCount tính năng HRM',
+      2 => 'Hướng dẫn POS\n$stepCount bước bán hàng & in',
+      _ => 'Quy trình triển khai\n$stepCount bước thực tế',
+    };
+    final sub = switch (_section) {
+      1 =>
+        'Sau triển khai: lịch ca, KPI, phép, tài sản, hiện trường — POS xem tab POS',
+      2 =>
+        'A6 app POS · A7/web bán trong HRM · Máy in, bếp, kho, báo cáo doanh thu',
+      _ =>
+        'Làm theo từng bước · SBOX HRM - SBOX POS · Hỗ trợ cài đặt từ xa',
+    };
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: widget.isMobile ? 20 : 80,
@@ -293,17 +335,9 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
         children: [
           const _GuideSectionBadge('Hướng dẫn sử dụng'),
           const SizedBox(height: 12),
-          _GuideSectionTitle(
-            isBasic
-                ? 'Quy trình triển khai\n$stepCount bước thực tế'
-                : 'Hướng dẫn nâng cao\n$stepCount tính năng',
-          ),
+          _GuideSectionTitle(title),
           const SizedBox(height: 8),
-          _GuideSectionSubtext(
-            isBasic
-                ? 'Làm theo từng bước · Theo đúng menu SBOX HRM · Hỗ trợ cài đặt từ xa'
-                : 'Vận hành sau triển khai: lịch ca, KPI, phép, tài sản, POS và hơn thế nữa',
-          ),
+          _GuideSectionSubtext(sub),
           const SizedBox(height: 20),
           _buildSearchBar(),
           const SizedBox(height: 20),
@@ -325,47 +359,43 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
         TextField(
           controller: _searchCtrl,
           focusNode: _searchFocus,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          cursorColor: const Color(0xFF0C56D0),
+          style: const TextStyle(color: _GuideUi.ink, fontSize: 14),
+          cursorColor: _GuideUi.brand,
           decoration: InputDecoration(
             hintText: tr('Tìm hướng dẫn: máy chấm công, lương, nghỉ phép…'),
-            hintStyle: TextStyle(
-              color: Colors.white.withValues(alpha: 0.4),
+            hintStyle: const TextStyle(
+              color: _GuideUi.muted,
               fontSize: 13.5,
             ),
-            prefixIcon: Icon(
+            prefixIcon: const Icon(
               Icons.search_rounded,
-              color: Colors.white.withValues(alpha: 0.55),
+              color: _GuideUi.brand,
             ),
             suffixIcon: _query.isEmpty
                 ? null
                 : IconButton(
                     tooltip: tr('Xóa'),
                     onPressed: _clearSearch,
-                    icon: Icon(
+                    icon: const Icon(
                       Icons.close_rounded,
-                      color: Colors.white.withValues(alpha: 0.55),
+                      color: _GuideUi.muted,
                     ),
                   ),
             filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.06),
+            fillColor: _GuideUi.card,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.12),
-              ),
+              borderSide: const BorderSide(color: _GuideUi.line),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.12),
-              ),
+              borderSide: const BorderSide(color: _GuideUi.line),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Color(0xFF0C56D0), width: 1.4),
+              borderSide: const BorderSide(color: _GuideUi.brandDeep, width: 1.4),
             ),
           ),
           onSubmitted: (_) {
@@ -381,8 +411,8 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
               children: [
                 Text(
                   tr('Gợi ý: '),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.45),
+                  style: const TextStyle(
+                    color: _GuideUi.muted,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -390,11 +420,9 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                 ...chips.map(
                   (k) => ActionChip(
                     label: Text(tr(k), style: const TextStyle(fontSize: 12)),
-                    backgroundColor: Colors.white.withValues(alpha: 0.08),
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.14),
-                    ),
-                    labelStyle: const TextStyle(color: Colors.white70),
+                    backgroundColor: _GuideUi.chip,
+                    side: const BorderSide(color: Color(0xFFBBDEFB)),
+                    labelStyle: const TextStyle(color: _GuideUi.brand),
                     onPressed: () => _applyKeyword(k),
                     visualDensity: VisualDensity.compact,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -407,19 +435,18 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
             Container(
               constraints: const BoxConstraints(maxHeight: 280),
               decoration: BoxDecoration(
-                color: const Color(0xFF12182A),
+                color: _GuideUi.card,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.12),
-                ),
+                border: Border.all(color: _GuideUi.line),
+                boxShadow: _GuideUi.cardShadow,
               ),
               child: hits.isEmpty
                   ? Padding(
                       padding: const EdgeInsets.all(16),
                       child: Text(
                         tr('Không tìm thấy mục phù hợp. Thử từ khóa khác hoặc chọn gợi ý bên trên.'),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.55),
+                        style: const TextStyle(
+                          color: _GuideUi.muted,
                           fontSize: 13,
                           height: 1.45,
                         ),
@@ -429,9 +456,9 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                       shrinkWrap: true,
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       itemCount: hits.length,
-                      separatorBuilder: (_, __) => Divider(
+                      separatorBuilder: (_, __) => const Divider(
                         height: 1,
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: _GuideUi.lineSoft,
                       ),
                       itemBuilder: (context, i) {
                         final hit = hits[i];
@@ -439,30 +466,29 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                           dense: true,
                           leading: CircleAvatar(
                             radius: 16,
-                            backgroundColor:
-                                hit.step.accent.withValues(alpha: 0.25),
+                            backgroundColor: _GuideUi.chip,
                             child: Icon(hit.step.icon,
-                                size: 16, color: hit.step.accent),
+                                size: 16, color: _GuideUi.brand),
                           ),
                           title: Text(
                             tr(hit.step.title),
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: _GuideUi.ink,
                               fontWeight: FontWeight.w600,
                               fontSize: 13.5,
                             ),
                           ),
                           subtitle: Text(
                             tr('${hit.sectionLabel} · ${hit.matchedIn}'),
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.45),
+                            style: const TextStyle(
+                              color: _GuideUi.muted,
                               fontSize: 11.5,
                             ),
                           ),
                           trailing: const Icon(
                             Icons.arrow_forward_ios_rounded,
                             size: 12,
-                            color: Colors.white38,
+                            color: _GuideUi.muted,
                           ),
                           onTap: () => _openHit(hit),
                         );
@@ -478,6 +504,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
   Widget _buildSectionTabs() {
     final basicCount = widget.guideData.basicCount;
     final advancedCount = widget.guideData.advancedCount;
+    final posCount = widget.guideData.posCount;
     Widget tab(String label, int index) {
       final selected = _section == index;
       return Expanded(
@@ -488,25 +515,26 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
           }),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
             decoration: BoxDecoration(
-              color: selected
-                  ? const Color(0xFF0C56D0).withValues(alpha: 0.2)
-                  : Colors.white.withValues(alpha: 0.04),
+              color: selected ? _GuideUi.brand : _GuideUi.card,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: selected
-                    ? const Color(0xFF0C56D0).withValues(alpha: 0.7)
-                    : Colors.white.withValues(alpha: 0.1),
+                color: selected ? _GuideUi.brand : _GuideUi.line,
               ),
+              boxShadow: selected ? _GuideUi.cardShadow : null,
             ),
-            child: Text(
-              tr(label),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: selected ? Colors.white : Colors.white60,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                fontSize: widget.isMobile ? 12 : 13,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                tr(label),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                style: TextStyle(
+                  color: selected ? Colors.white : _GuideUi.body,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: widget.isMobile ? 11 : 13,
+                ),
               ),
             ),
           ),
@@ -517,8 +545,10 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
     return Row(
       children: [
         tab('Triển khai ($basicCount)', 0),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         tab('Nâng cao ($advancedCount)', 1),
+        const SizedBox(width: 8),
+        tab('POS ($posCount)', 2),
       ],
     );
   }
@@ -545,31 +575,29 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
-                        color: active
-                            ? s.accent.withValues(alpha: 0.15)
-                            : Colors.white.withValues(alpha: 0.04),
+                        color: active ? _GuideUi.chip : _GuideUi.card,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: active
-                              ? s.accent.withValues(alpha: 0.6)
-                              : Colors.white.withValues(alpha: 0.08),
+                          color: active ? _GuideUi.brand : _GuideUi.line,
                         ),
+                        boxShadow: active ? _GuideUi.cardShadow : null,
                       ),
                       child: Row(children: [
                         Container(
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: active
-                                ? s.accent
-                                : Colors.white.withValues(alpha: 0.08),
+                            color: active ? _GuideUi.brand : _GuideUi.soft,
                             shape: BoxShape.circle,
+                            border: active
+                                ? null
+                                : Border.all(color: _GuideUi.lineSoft),
                           ),
                           child: Center(
                             child: Text(
                               tr('${i + 1}'),
                               style: TextStyle(
-                                color: active ? Colors.white : Colors.white54,
+                                color: active ? Colors.white : _GuideUi.brand,
                                 fontWeight: FontWeight.w900,
                                 fontSize: 13,
                               ),
@@ -581,7 +609,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                           child: Text(
                             tr(s.title),
                             style: TextStyle(
-                              color: active ? Colors.white : Colors.white60,
+                              color: _GuideUi.ink,
                               fontWeight:
                                   active ? FontWeight.w700 : FontWeight.w500,
                               fontSize: 13,
@@ -589,8 +617,8 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                           ),
                         ),
                         if (active)
-                          Icon(Icons.arrow_forward_ios_rounded,
-                              color: s.accent, size: 12),
+                          const Icon(Icons.arrow_forward_ios_rounded,
+                              color: _GuideUi.brand, size: 12),
                       ]),
                     ),
                   );
@@ -617,21 +645,30 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
       return Container(
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.04),
+          color: _GuideUi.card,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(color: _GuideUi.line),
+          boxShadow: _GuideUi.cardShadow,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_rounded,
-                size: 40, color: Colors.white.withValues(alpha: 0.35)),
+            Container(
+              width: 64,
+              height: 64,
+              decoration: const BoxDecoration(
+                color: _GuideUi.chip,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.menu_book_rounded,
+                  size: 32, color: _GuideUi.brand),
+            ),
             const SizedBox(height: 16),
             Text(
               tr('Tìm theo từ khóa phía trên, hoặc chọn một bước bên ${mobile ? 'dưới' : 'trái'} để xem hướng dẫn chi tiết từng bước'),
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.55),
+              style: const TextStyle(
+                color: _GuideUi.muted,
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -640,7 +677,17 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
         ),
       );
     }
-    return _GuideStepDetail(
+    return Container(
+      padding: mobile ? EdgeInsets.zero : const EdgeInsets.all(24),
+      decoration: mobile
+          ? null
+          : BoxDecoration(
+              color: _GuideUi.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: _GuideUi.line),
+              boxShadow: _GuideUi.cardShadow,
+            ),
+      child: _GuideStepDetail(
       key: ValueKey('$_section-$_active'),
       step: _steps[_active],
       stepNumber: _active + 1,
@@ -649,6 +696,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
       mobile: mobile,
       onPrev: _active > 0 ? () => _goAdjacent(-1) : null,
       onNext: _active < _steps.length - 1 ? () => _goAdjacent(1) : null,
+    ),
     );
   }
 
@@ -663,15 +711,12 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
           child: Container(
             margin: const EdgeInsets.only(bottom: 10),
             decoration: BoxDecoration(
-              color: open
-                  ? s.accent.withValues(alpha: 0.12)
-                  : Colors.white.withValues(alpha: 0.05),
+              color: open ? _GuideUi.chip : _GuideUi.card,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: open
-                    ? s.accent.withValues(alpha: 0.5)
-                    : Colors.white.withValues(alpha: 0.08),
+                color: open ? _GuideUi.brand : _GuideUi.line,
               ),
+              boxShadow: _GuideUi.cardShadow,
             ),
             child: Column(
               children: [
@@ -682,12 +727,15 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                          color: open ? s.accent : Colors.white12,
-                          shape: BoxShape.circle),
+                          color: open ? _GuideUi.brand : _GuideUi.soft,
+                          shape: BoxShape.circle,
+                          border: open
+                              ? null
+                              : Border.all(color: _GuideUi.lineSoft)),
                       child: Center(
                           child: Text(tr('${i + 1}'),
-                              style: const TextStyle(
-                                  color: Colors.white,
+                              style: TextStyle(
+                                  color: open ? Colors.white : _GuideUi.brand,
                                   fontWeight: FontWeight.w900,
                                   fontSize: 14))),
                     ),
@@ -695,19 +743,19 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                     Expanded(
                         child: Text(tr(s.title),
                             style: TextStyle(
-                                color: Colors.white,
+                                color: _GuideUi.ink,
                                 fontWeight:
-                                    open ? FontWeight.w700 : FontWeight.w500,
+                                    open ? FontWeight.w700 : FontWeight.w600,
                                 fontSize: 14))),
                     Icon(
                         open
                             ? Icons.keyboard_arrow_up_rounded
                             : Icons.keyboard_arrow_down_rounded,
-                        color: Colors.white54),
+                        color: _GuideUi.muted),
                   ]),
                 ),
                 if (open) ...[
-                  const Divider(color: Colors.white12, height: 1),
+                  const Divider(color: _GuideUi.lineSoft, height: 1),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
                     child: _GuideStepDetail(
@@ -808,22 +856,22 @@ class _GuideStepDetail extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: _GuideUi.soft,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            border: Border.all(color: _GuideUi.lineSoft),
           ),
           child: Row(
             children: [
-              Icon(Icons.link_rounded,
-                  size: 16, color: step.accent.withValues(alpha: 0.9)),
+              const Icon(Icons.link_rounded,
+                  size: 16, color: _GuideUi.brand),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   tr(shareLink),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.75),
+                  style: const TextStyle(
+                    color: _GuideUi.body,
                     fontSize: 11.5,
                     height: 1.4,
                   ),
@@ -835,7 +883,7 @@ class _GuideStepDetail extends StatelessWidget {
                 icon: const Icon(Icons.copy_rounded, size: 16),
                 label: Text(tr('Copy link')),
                 style: TextButton.styleFrom(
-                  foregroundColor: step.accent,
+                  foregroundColor: _GuideUi.brand,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   visualDensity: VisualDensity.compact,
@@ -850,13 +898,13 @@ class _GuideStepDetail extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: step.accent.withValues(alpha: 0.18),
+                color: _GuideUi.chip,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 tr('Mục $stepNumber / $stepTotal'),
-                style: TextStyle(
-                  color: step.accent,
+                style: const TextStyle(
+                  color: _GuideUi.brand,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
@@ -867,7 +915,7 @@ class _GuideStepDetail extends StatelessWidget {
               child: Text(
                 tr(step.title),
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: _GuideUi.ink,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                   height: 1.25,
@@ -879,7 +927,7 @@ class _GuideStepDetail extends StatelessWidget {
         const SizedBox(height: 12),
         Text(tr(step.desc),
             style: const TextStyle(
-                color: Colors.white70, fontSize: 14, height: 1.65)),
+                color: _GuideUi.body, fontSize: 14, height: 1.65)),
         if (step.keywords.isNotEmpty) ...[
           const SizedBox(height: 12),
           Wrap(
@@ -892,16 +940,14 @@ class _GuideStepDetail extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.06),
+                      color: _GuideUi.soft,
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
-                      ),
+                      border: Border.all(color: _GuideUi.lineSoft),
                     ),
                     child: Text(
                       tr(k),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.55),
+                      style: const TextStyle(
+                        color: _GuideUi.muted,
                         fontSize: 11,
                       ),
                     ),
@@ -944,22 +990,22 @@ class _GuideStepDetail extends StatelessWidget {
                             videoThumb,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(
-                              color: Colors.white12,
+                              color: _GuideUi.chip,
                               child: const Icon(Icons.videocam_rounded,
-                                  color: Colors.white38, size: 48),
+                                  color: _GuideUi.brand, size: 48),
                             ),
                           )
                         : Container(
-                            color: Colors.white12,
+                            color: _GuideUi.chip,
                             child: const Icon(Icons.videocam_rounded,
-                                color: Colors.white38, size: 48),
+                                color: _GuideUi.brand, size: 48),
                           ),
                   ),
                   Container(
                     width: 56,
                     height: 56,
-                    decoration: BoxDecoration(
-                      color: step.accent.withValues(alpha: 0.92),
+                    decoration: const BoxDecoration(
+                      color: _GuideUi.brand,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.play_arrow_rounded,
@@ -973,8 +1019,8 @@ class _GuideStepDetail extends StatelessWidget {
         const SizedBox(height: 20),
         Text(
           tr('Làm lần lượt các bước sau'),
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.9),
+          style: const TextStyle(
+            color: _GuideUi.ink,
             fontSize: 14,
             fontWeight: FontWeight.w800,
           ),
@@ -993,16 +1039,14 @@ class _GuideStepDetail extends StatelessWidget {
                   height: 26,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: step.accent.withValues(alpha: 0.2),
+                    color: _GuideUi.chip,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: step.accent.withValues(alpha: 0.55),
-                    ),
+                    border: Border.all(color: const Color(0xFFBBDEFB)),
                   ),
                   child: Text(
                     '${i + 1}',
-                    style: TextStyle(
-                      color: step.accent,
+                    style: const TextStyle(
+                      color: _GuideUi.brandDeep,
                       fontWeight: FontWeight.w800,
                       fontSize: 12,
                     ),
@@ -1013,7 +1057,7 @@ class _GuideStepDetail extends StatelessWidget {
                   child: Text(
                     tr(b),
                     style: const TextStyle(
-                      color: Colors.white70,
+                      color: _GuideUi.body,
                       fontSize: 13.5,
                       height: 1.55,
                     ),
@@ -1028,19 +1072,24 @@ class _GuideStepDetail extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: step.accent.withValues(alpha: 0.12),
+              color: _GuideUi.chip,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: step.accent.withValues(alpha: 0.35)),
+              border: Border.all(color: const Color(0xFFBBDEFB)),
             ),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(Icons.tips_and_updates_rounded,
-                  color: step.accent, size: 16),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: Text(tr(step.tip),
-                      style: TextStyle(
-                          color: step.accent, fontSize: 12.5, height: 1.5))),
-            ]),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.tips_and_updates_rounded,
+                    color: _GuideUi.brand, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(tr(step.tip),
+                        style: const TextStyle(
+                            color: _GuideUi.brandDeep,
+                            fontSize: 12.5,
+                            height: 1.5))),
+              ],
+            ),
           ),
         ],
         if (onPrev != null || onNext != null) ...[
@@ -1053,10 +1102,8 @@ class _GuideStepDetail extends StatelessWidget {
                   icon: const Icon(Icons.arrow_back_rounded, size: 16),
                   label: Text(tr('Bước trước')),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                    side: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.2),
-                    ),
+                    foregroundColor: _GuideUi.brand,
+                    side: const BorderSide(color: _GuideUi.brand, width: 1.5),
                   ),
                 ),
               const Spacer(),
@@ -1066,7 +1113,7 @@ class _GuideStepDetail extends StatelessWidget {
                   icon: const Icon(Icons.arrow_forward_rounded, size: 16),
                   label: Text(tr('Bước tiếp')),
                   style: FilledButton.styleFrom(
-                    backgroundColor: step.accent,
+                    backgroundColor: _GuideUi.brand,
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -1095,7 +1142,7 @@ class _GuideVideoPlayerDialog extends StatelessWidget {
     final dialogWidth =
         width > 1280 ? 1100.0 : (width > 900 ? width * 0.82 : width - 24);
     return Dialog(
-      backgroundColor: const Color(0xFF020617),
+      backgroundColor: Colors.white,
       insetPadding: const EdgeInsets.all(16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
@@ -1111,14 +1158,13 @@ class _GuideVideoPlayerDialog extends StatelessWidget {
                   Expanded(
                     child: Text(tr(title),
                         style: const TextStyle(
-                            color: Colors.white,
+                            color: _GuideUi.ink,
                             fontSize: 18,
                             fontWeight: FontWeight.w800)),
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    icon:
-                        const Icon(Icons.close_rounded, color: Colors.white70),
+                    icon: const Icon(Icons.close_rounded, color: _GuideUi.muted),
                   ),
                 ],
               ),
@@ -1140,6 +1186,10 @@ class _GuideVideoPlayerDialog extends StatelessWidget {
                 },
                 icon: const Icon(Icons.open_in_new_rounded, size: 18),
                 label: Text(tr('Xem trên YouTube')),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _GuideUi.brand,
+                  foregroundColor: Colors.white,
+                ),
               ),
             ],
           ),
@@ -1158,12 +1208,13 @@ class _GuideSectionBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
+        color: _GuideUi.chip,
         borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: const Color(0xFFBBDEFB)),
       ),
       child: Text(tr(label),
           style: const TextStyle(
-              color: Colors.white70,
+              color: _GuideUi.brand,
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5)),
@@ -1182,7 +1233,7 @@ class _GuideSectionTitle extends StatelessWidget {
         style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w900,
-            color: Colors.white,
+            color: _GuideUi.ink,
             height: 1.2));
   }
 }
@@ -1196,6 +1247,6 @@ class _GuideSectionSubtext extends StatelessWidget {
     return Text(tr(text),
         textAlign: TextAlign.center,
         style: const TextStyle(
-            color: Colors.white54, fontSize: 15, height: 1.5));
+            color: _GuideUi.muted, fontSize: 15, height: 1.5));
   }
 }

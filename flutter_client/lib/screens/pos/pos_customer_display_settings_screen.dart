@@ -370,10 +370,46 @@ class _PosCustomerDisplaySettingsScreenState
           onChanged:
               busy ? null : (v) => _patchCd((c) => c.copyWith(enabled: v)),
         ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr('Loại màn hình phụ')),
+          subtitle: Text(
+            tr(cd.target.hintVi),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          trailing: DropdownButton<CustomerDisplayTarget>(
+            value: cd.target,
+            items: [
+              for (final t in CustomerDisplayTarget.values)
+                DropdownMenuItem(
+                  value: t,
+                  child: Text(tr(t.labelVi), style: const TextStyle(fontSize: 13)),
+                ),
+            ],
+            onChanged: busy || !cd.enabled
+                ? null
+                : (v) {
+                    if (v == null) return;
+                    _patchCd((c) => c.copyWith(target: v));
+                  },
+          ),
+        ),
+        if (cd.target == CustomerDisplayTarget.t1Native)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              tr('T1: dùng ảnh trình chiếu bên dưới khi chờ khách. '
+                  'Video không chạy trên DSKernel — chọn «Android Flutter» '
+                  'hoặc «Window» nếu cần video.'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+          ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(tr('Tự mở khi vào bán hàng')),
-          subtitle: Text(tr('Android: display phụ · iOS/Web: mở link trình duyệt')),
+          subtitle: Text(tr(cd.target == CustomerDisplayTarget.window
+              ? 'Window: chỉ đẩy state — mở link trên máy/TV khác'
+              : 'Android: display phụ · iOS/Web: mở link trình duyệt')),
           value: cd.autoOpenOnPos,
           onChanged: busy || !cd.enabled
               ? null
@@ -382,7 +418,9 @@ class _PosCustomerDisplaySettingsScreenState
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(tr('Chiếu thêm ảnh sản phẩm khi chờ')),
-          subtitle: Text(tr('Lấy ảnh từ danh mục hàng hóa')),
+          subtitle: Text(tr(cd.target == CustomerDisplayTarget.t1Native
+              ? 'T1: lấy ảnh promo / sản phẩm đầu tiên làm welcome'
+              : 'Lấy ảnh từ danh mục hàng hóa')),
           value: cd.useProductImages,
           onChanged: busy || !cd.enabled
               ? null

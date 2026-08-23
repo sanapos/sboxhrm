@@ -1073,7 +1073,9 @@ class StoresTabState extends State<StoresTab> {
         TextEditingController(text: tr(store['address']?.toString() ?? ''));
     final phoneCtrl =
         TextEditingController(text: tr(store['phone']?.toString() ?? ''));
-    var selectedProvince = store['province']?.toString();
+    var selectedProvince =
+        vnMatchProvinceName(store['province']?.toString()) ??
+            store['province']?.toString();
 
     final result = await showDialog<bool>(
       context: context,

@@ -151,6 +151,8 @@ class PermissionRoleCatalog {
         'PosQrOrder',
         'PosCashierShift',
         'PosPrinters',
+        'PosShipping',
+        'SettingsHub',
         'PosPurchaseReceipts',
         'PosPurchaseReturns',
         'PosStockCounts',
@@ -202,7 +204,7 @@ class PermissionRoleCatalog {
     ),
     PermissionUiGroup(
       id: 'hrm_settings',
-      title: 'Thiết lập HRM',
+      title: 'Thiết lập Sbox',
       description: 'Ca, ngày lễ, máy chấm công, phụ cấp, thuế, chi nhánh',
       icon: Icons.tune,
       color: Color(0xFF64748B),

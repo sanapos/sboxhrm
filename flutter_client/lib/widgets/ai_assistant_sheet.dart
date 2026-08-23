@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -10,11 +10,13 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../providers/permission_provider.dart';
 import '../screens/landing_guide_screen.dart';
+import '../screens/settings_hub_screen.dart';
 import '../services/api_service.dart';
 import '../utils/ai_assistant_permissions.dart';
 import '../utils/landing_guide_url.dart';
 import '../utils/landing_usage_guide.dart';
 import '../utils/navigation_notifier.dart';
+import '../utils/settings_hub_catalog.dart';
 import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -41,6 +43,7 @@ class AiAssistantSheet extends StatefulWidget {
 class _AiAssistantSheetState extends State<AiAssistantSheet> {
   final _api = ApiService();
   final _inputCtrl = TextEditingController();
+  final _inputFocus = FocusNode();
   final _scrollCtrl = ScrollController();
   final _stt = stt.SpeechToText();
   final _tts = FlutterTts();
@@ -51,6 +54,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   bool _isListening = false;
   bool _ttsEnabled = true;
   bool _ttsSpeaking = false;
+  int _speakGen = 0;
   String _partialTranscript = '';
 
   static const _kAiConsentKey = 'ai_assistant_consent_v1';
@@ -63,7 +67,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     _initTts();
     _initStt();
     _messages.add(_ChatMsg('assistant',
-        'Xin chào! Tôi là trợ lý ảo HRM của bạn. Bạn có thể hỏi về phép, chấm công, lương, hoặc nhờ tôi hướng dẫn đăng ký nghỉ / đổi ca / báo quên chấm công. Bấm micro để nói hoặc gõ tin nhắn.'));
+        'Xin chào! Tôi trả lời phép, chấm công, lương và hướng dẫn từ dữ liệu HRM — không cần Gemini. Gemini chỉ dùng khi hỏi câu mở. Bấm micro hoặc gõ tin nhắn.'));
     if (!kIsWeb) {
       _checkAiConsent();
     } else {
@@ -123,10 +127,28 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
 
   Future<void> _initTts() async {
     try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          final engines = await _tts.getEngines;
+          final names = engines is List
+              ? engines.map((e) => e.toString()).toList()
+              : const <String>[];
+          if (names.any((e) => e.contains('com.google.android.tts'))) {
+            await _tts.setEngine('com.google.android.tts');
+          }
+        } catch (_) {}
+      }
       await _tts.setLanguage('vi-VN');
-      await _tts.setSpeechRate(0.5);
+      await _tts.setSpeechRate(0.42);
       await _tts.setVolume(1.0);
-      await _tts.setPitch(1.0);
+      await _tts.setPitch(1.12);
+      if (!kIsWeb) {
+        await _tts.awaitSpeakCompletion(true);
+        try {
+          await _tts.setSharedInstance(true);
+        } catch (_) {}
+      }
+      await _preferVietnameseVoice();
       _tts.setStartHandler(() {
         if (mounted) setState(() => _ttsSpeaking = true);
       });
@@ -137,6 +159,125 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         if (mounted) setState(() => _ttsSpeaking = false);
       });
     } catch (_) {}
+  }
+
+  Future<void> _preferVietnameseVoice() async {
+    try {
+      final raw = await _tts.getVoices;
+      if (raw is! List) return;
+      var bestName = '';
+      var bestLocale = 'vi-VN';
+      var bestScore = -1;
+      for (final e in raw.whereType<Map>()) {
+        final name = (e['name'] ?? '').toString();
+        final locale = (e['locale'] ?? '').toString();
+        final loc = locale.toLowerCase();
+        if (!loc.startsWith('vi')) continue;
+        final n = name.toLowerCase();
+        // Giọng mạng/neural hay mất, đọc đều không nghỉ.
+        if (n.contains('network') ||
+            n.contains('server') ||
+            n.contains('wavenet') ||
+            n.contains('-x-gft-')) {
+          continue;
+        }
+        var s = 10;
+        if (n.contains('local') && !n.contains('server')) s += 25;
+        if (n.contains('vif') || n.contains('female') || n.contains('nữ')) {
+          s += 12;
+        }
+        if (n.contains('natural') && n.contains('local')) s += 6;
+        if (n.contains('vid') || n.contains('male')) s -= 4;
+        if (s > bestScore) {
+          bestScore = s;
+          bestName = name;
+          bestLocale = locale.isEmpty ? 'vi-VN' : locale;
+        }
+      }
+      if (bestName.isEmpty) return;
+      final ok = await _tts.setVoice({'name': bestName, 'locale': bestLocale});
+      if (ok == 0 || ok == false) {
+        await _tts.setLanguage('vi-VN');
+      }
+    } catch (_) {
+      try {
+        await _tts.setLanguage('vi-VN');
+      } catch (_) {}
+    }
+  }
+
+  void _dismissKeyboard() {
+    _inputFocus.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  String _plainForSpeech(String raw) {
+    var t = raw
+        .replaceAll(RegExp(r'\[\[(?:ACTION|CREATE|GUIDE):[^\]]*\]\]'), ' ')
+        .replaceAll(RegExp(r'[🎂🎉🎁⚠️❌✅📅🕐📝📖•·]'), ' ')
+        .replaceAll(RegExp(r'[\u{1F300}-\u{1FAFF}]', unicode: true), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return t;
+  }
+
+  List<String> _splitForSpeech(String raw) {
+    final plain = _plainForSpeech(raw);
+    if (plain.isEmpty) return const [];
+    final parts = plain
+        .split(RegExp(r'(?<=[.!?…])\s+|\n+|;\s+|:\s+|•\s*'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return [plain];
+    final out = <String>[];
+    for (final p in parts) {
+      if (p.length <= 90) {
+        out.add(p);
+        continue;
+      }
+      final words = p.split(' ');
+      var buf = StringBuffer();
+      for (final w in words) {
+        if (buf.length + w.length > 80 && buf.isNotEmpty) {
+          out.add(buf.toString().trim());
+          buf = StringBuffer();
+        }
+        if (buf.isNotEmpty) buf.write(' ');
+        buf.write(w);
+      }
+      final rest = buf.toString().trim();
+      if (rest.isNotEmpty) out.add(rest);
+    }
+    return out;
+  }
+
+  int _pauseMs(String chunk) {
+    if (chunk.endsWith('?') || chunk.endsWith('!')) return 520;
+    if (chunk.endsWith('.') || chunk.endsWith('…')) return 420;
+    if (chunk.endsWith(':') || chunk.endsWith(';')) return 360;
+    return 280;
+  }
+
+  Future<void> _speakReply(String raw) async {
+    if (!_ttsEnabled) return;
+    final chunks = _splitForSpeech(raw);
+    if (chunks.isEmpty) return;
+    final gen = ++_speakGen;
+    try {
+      await _tts.stop();
+    } catch (_) {}
+    for (var i = 0; i < chunks.length; i++) {
+      if (!mounted || gen != _speakGen || !_ttsEnabled) return;
+      try {
+        await _tts.speak(chunks[i]);
+      } catch (_) {
+        break;
+      }
+      if (i < chunks.length - 1) {
+        await Future.delayed(Duration(milliseconds: _pauseMs(chunks[i])));
+      }
+    }
   }
 
   Future<void> _initStt() async {
@@ -159,6 +300,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
 
   @override
   void dispose() {
+    _speakGen++;
+    _inputFocus.dispose();
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
     _tts.stop();
@@ -234,6 +377,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   Future<void> _send() async {
+    _dismissKeyboard();
     // On mobile, require consent before sending any data to AI
     if (!kIsWeb && !_consentGiven) {
       _showConsentDialog();
@@ -273,8 +417,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         });
         _scrollToBottom();
         if (_ttsEnabled && reply.isNotEmpty) {
-          await _tts.stop();
-          await _tts.speak(reply);
+          await _speakReply(reply);
         }
       } else {
         final msg = (result['message'] as String?) ?? 'Lỗi trợ lý AI';
@@ -431,6 +574,29 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       case 'nav_business_trip_report':
         NavigationNotifier.goToModule('BusinessTripReport');
         break;
+      case 'nav_attendance_summary':
+        NavigationNotifier.goToModule('AttendanceSummary');
+        break;
+      case 'nav_penalty_report':
+        NavigationNotifier.goToModule('PenaltyReport');
+        break;
+      case 'nav_pos_sell':
+        NavigationNotifier.goToModule('PosSell');
+        break;
+      case 'nav_pos_reports':
+        NavigationNotifier.goToModule('PosSalesReport');
+        break;
+      case 'nav_pos_products':
+        NavigationNotifier.goToModule('PosProducts');
+        break;
+      case 'nav_pos_printers':
+        final printers = SettingsHubCatalog.allItems
+            .where((e) => e.moduleCode == 'PosPrinters');
+        if (printers.isNotEmpty) {
+          SettingsHubScreen.pendingSubIndex.value = printers.first.index;
+        }
+        NavigationNotifier.goTo(NavigationNotifier.settingsHub);
+        break;
       default:
         NotificationOverlayManager()
             .showInfo(title: 'Thao tác', message: action);
@@ -446,7 +612,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     }
     final mode = parts[0].trim().toLowerCase();
     final stepId = parts[1].trim();
-    if ((mode != 'basic' && mode != 'advanced') || stepId.isEmpty) {
+    if (!LandingGuideData.isKnownSection(mode) || stepId.isEmpty) {
       NotificationOverlayManager()
           .showInfo(title: 'Hướng dẫn', message: guideTag);
       return;
@@ -535,9 +701,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
             _messages.add(_ChatMsg('assistant', reply));
           });
           if (_ttsEnabled) {
-            await _tts.stop();
-            await _tts
-                .speak('Đã tạo yêu cầu sửa giờ thành công. Đang chờ duyệt.');
+            await _speakReply(
+                'Đã tạo yêu cầu sửa giờ thành công. Đang chờ duyệt.');
           }
         } else {
           final msg = (result['message'] as String?) ?? 'Lỗi không xác định';
@@ -707,6 +872,18 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         return ('BC ứng lương', Icons.bar_chart_rounded);
       case 'nav_business_trip_report':
         return ('BC công tác phí', Icons.bar_chart_rounded);
+      case 'nav_attendance_summary':
+        return ('Tổng hợp chấm công', Icons.summarize_rounded);
+      case 'nav_penalty_report':
+        return ('BC phạt', Icons.bar_chart_rounded);
+      case 'nav_pos_sell':
+        return ('Bán hàng POS', Icons.point_of_sale_rounded);
+      case 'nav_pos_reports':
+        return ('Báo cáo POS', Icons.analytics_rounded);
+      case 'nav_pos_products':
+        return ('Hàng hóa', Icons.inventory_2_rounded);
+      case 'nav_pos_printers':
+        return ('Máy in POS', Icons.print_rounded);
       default:
         return (action, Icons.open_in_new);
     }
@@ -717,9 +894,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     if (parts.length != 2) return 'Xem hướng dẫn';
     final mode = parts[0].trim().toLowerCase();
     final stepId = parts[1].trim();
-    final steps = mode == 'advanced'
-        ? LandingGuideData.defaults.advanced
-        : LandingGuideData.defaults.basic;
+    final steps = LandingGuideData.defaults.stepsAt(
+      LandingGuideData.indexForKey(mode),
+    );
     for (final s in steps) {
       if (s.id == stepId) return '📖 ${s.title}';
     }
@@ -793,6 +970,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           IconButton(
             tooltip: tr(_ttsEnabled ? 'Tắt đọc' : 'Bật đọc'),
             onPressed: () async {
+              _speakGen++;
               if (_ttsEnabled && _ttsSpeaking) await _tts.stop();
               setState(() => _ttsEnabled = !_ttsEnabled);
             },
@@ -813,6 +991,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   Widget _buildMessages() {
     return ListView.builder(
       controller: _scrollCtrl,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.all(12),
       itemCount: _messages.length + (_isSending ? 1 : 0),
       itemBuilder: (context, i) {
@@ -990,10 +1169,12 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
             Expanded(
               child: TextField(
                 controller: _inputCtrl,
+                focusNode: _inputFocus,
                 minLines: 1,
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
+                onTapOutside: (_) => _dismissKeyboard(),
                 decoration: InputDecoration(
                   hintText: tr(_isListening
                       ? 'Đang nghe...'

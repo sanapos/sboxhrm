@@ -259,16 +259,13 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
     final localRow = orch.printers
         .where((x) => x.id.toLowerCase() == id.toLowerCase())
         .firstOrNull;
-    final target =
-        localRow == null ? null : orch.preferCloudAgentPrinter(localRow);
-    if (target == null || target.isDeviceLocal) {
-      NotificationOverlayManager().showWarning(
-        title: tr('Gán món trên máy cửa hàng'),
-        message: tr(
-          'Gán sản phẩm chỉ áp dụng cho máy in cửa hàng (Agent/cloud).\n'
-          'Tạo máy cửa hàng cùng cổng/tên với «${p.name}», rồi gán món tại đó. '
-          'Máy nội bộ chỉ để in thử trên thiết bị này.',
-        ),
+    final target = localRow == null
+        ? null
+        : orch.preferCloudAgentPrinter(localRow);
+    if (target == null) {
+      NotificationOverlayManager().showError(
+        title: tr('Không tìm thấy máy in'),
+        message: tr('Đồng bộ lại máy «${p.name}» rồi gán món.'),
       );
       return;
     }

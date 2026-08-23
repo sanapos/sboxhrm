@@ -588,7 +588,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        tr('SBOX HRM'),
+                        tr('SBOX HRM - SBOX POS'),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.6),
                           fontSize: 10,
@@ -801,7 +801,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                 Icon(Icons.verified_rounded,
                     size: 13, color: Colors.blue.shade400),
                 const SizedBox(width: 6),
-                Text(tr('SBOX HRM  •  Quản lý nhân sự thời gian thực'),
+                Text(tr('SBOX HRM - SBOX POS  •  Giải pháp quản lý toàn diện cho doanh nghiệp'),
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 11,

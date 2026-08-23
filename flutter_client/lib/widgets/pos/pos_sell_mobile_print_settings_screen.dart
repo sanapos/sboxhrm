@@ -10,6 +10,7 @@ import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_label_printer_service.dart';
 import '../../utils/pos_label_printer_settings.dart';
 import '../../utils/pos_print_template_loader.dart';
+import '../../utils/pos_print_config_session.dart';
 import '../../utils/pos_sell_print_settings.dart';
 import '../../utils/pos_printer_transport.dart';
 import '../../utils/pos_thermal_printer_service.dart';
@@ -183,16 +184,20 @@ class _PosSellMobilePrintSettingsScreenState
             ),
             ...templates.map(
               (t) => ListTile(
-                title: Text(tr(t.name)),
-                subtitle: Text(
-                  tr(PosPrintPaperSizes.displayLabel(t.paperSize)),
-                ),
+                title: Text(tr(t.shortLabel)),
+                subtitle: t.isDefault
+                    ? Text(tr('Mặc định cửa hàng'))
+                    : Text(tr(PosPrintPaperSizes.shortLabel(t.paperSize))),
                 trailing: selectedId == t.id
                     ? const Icon(Icons.check, color: _blue)
                     : null,
-                onTap: () {
+                onTap: () async {
                   onPick(t.id);
-                  Navigator.pop(ctx);
+                  try {
+                    await _api.setDefaultPosPrintTemplate(t.id);
+                    PosPrintConfigSession.instance.invalidate();
+                  } catch (_) {}
+                  if (ctx.mounted) Navigator.pop(ctx);
                 },
               ),
             ),
@@ -231,9 +236,7 @@ class _PosSellMobilePrintSettingsScreenState
         title: 'In thử thất bại',
         message: draft.connectionType == PosThermalConnectionType.usb
             ? tr('Kiểm tra cáp USB OTG, cấp quyền thiết bị, chọn đúng cổng đã lưu')
-            : tr(!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
-                ? 'Kiểm tra kết nối máy in và quyền Bluetooth'
-                : 'Kiểm tra kết nối máy in và quyền Bluetooth/USB'),
+            : tr('Kiểm tra kết nối máy in và quyền Bluetooth/USB'),
       );
     }
   }
@@ -507,10 +510,14 @@ class _PosSellMobilePrintSettingsScreenState
                                         trailing: _resolveTemplateId() == t.id
                                             ? const Icon(Icons.check, color: _blue)
                                             : null,
-                                        onTap: () {
+                                        onTap: () async {
                                           setState(() =>
                                               _print = _print.copyWith(templateId: t.id));
-                                          Navigator.pop(ctx);
+                                          try {
+                                            await _api.setDefaultPosPrintTemplate(t.id);
+                                            PosPrintConfigSession.instance.invalidate();
+                                          } catch (_) {}
+                                          if (ctx.mounted) Navigator.pop(ctx);
                                         },
                                       ),
                                     ),
@@ -715,7 +722,7 @@ class _PosSellMobilePrintSettingsScreenState
                     leading: const Icon(Icons.phone_android, color: _blue),
                     title: Text(tr('Máy in nội bộ')),
                     subtitle: Text(
-                      tr('Thêm máy → Lưu → In thử ngay. Gán vai trò Hóa đơn / Báo bếp / Báo kho / Tem ly / Tem SP.'),
+                      tr('Thêm máy → In thử. Gán món và vai trò Hóa đơn / Báo bếp — bán trên máy này in ngay, không cần Agent.'),
                       style: const TextStyle(fontSize: 12),
                     ),
                     trailing: const Icon(Icons.chevron_right),
@@ -735,7 +742,7 @@ class _PosSellMobilePrintSettingsScreenState
                     leading: const Icon(Icons.cloud_outlined, color: _blue),
                     title: Text(tr('Máy in cửa hàng')),
                     subtitle: Text(
-                      tr('Máy in qua Print Agent hoặc máy dùng chung cửa hàng — không gắn trực tiếp máy POS này.'),
+                      tr('Máy dùng chung cửa hàng. A7/web in được khi máy cắm cổng bật Agent.'),
                       style: const TextStyle(fontSize: 12),
                     ),
                     trailing: const Icon(Icons.chevron_right),

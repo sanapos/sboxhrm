@@ -17,6 +17,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../pos_products_screen.dart';
 import '../pos_sale_order_list_screen.dart';
+import 'pos_qr_online_orders_screen.dart';
 import '../pos_sell_screen.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'pos_more_screen.dart';
@@ -49,12 +50,19 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   void initState() {
     super.initState();
     NavigationNotifier.posHubTab.addListener(_onExternalTab);
+    NavigationNotifier.pendingOpenQrOnlineOrders
+        .addListener(_onPendingQrOnlineNav);
     MobileBottomNavPrefs.revision.addListener(_onNavPrefsChanged);
     NavigationNotifier.reportScreen(
       _labelForTab(_tab),
       moduleCode: _moduleForTab(_tab),
     );
     if (widget.restoreLastTab) unawaited(_restoreLastTab());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (NavigationNotifier.pendingOpenQrOnlineOrders.value) {
+        _onPendingQrOnlineNav();
+      }
+    });
   }
 
   Future<void> _restoreLastTab() async {
@@ -98,7 +106,38 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   void dispose() {
     MobileBottomNavPrefs.revision.removeListener(_onNavPrefsChanged);
     NavigationNotifier.posHubTab.removeListener(_onExternalTab);
+    NavigationNotifier.pendingOpenQrOnlineOrders
+        .removeListener(_onPendingQrOnlineNav);
     super.dispose();
+  }
+
+  void _onPendingQrOnlineNav() {
+    if (!NavigationNotifier.pendingOpenQrOnlineOrders.value || !mounted) {
+      return;
+    }
+    final highlight = NavigationNotifier.notificationHighlightId.value;
+    setState(() {
+      _activatedTabs.add(2);
+      _tab = 2;
+    });
+    NavigationNotifier.reportScreen(
+      _labelForTab(2),
+      moduleCode: _moduleForTab(2),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!NavigationNotifier.pendingOpenQrOnlineOrders.value) return;
+      NavigationNotifier.pendingOpenQrOnlineOrders.value = false;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PosHubScope(
+            embeddedInHub: true,
+            pushedSubPage: true,
+            child: PosQrOnlineOrdersScreen(highlightOrderId: highlight),
+          ),
+        ),
+      );
+    });
   }
 
   void _onNavPrefsChanged() {
@@ -313,10 +352,10 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     final layout = _resolvedPosLayout();
-    // Bán hàng = fullscreen: không bottom nav, không rail dọc.
+    // Landscape: ẩn rail khi đang Bán hàng (fullscreen thu ngân).
     final sellFullscreen = _tab == 2;
     final useVerticalRail =
-        !sellFullscreen && PosHubNavRail.shouldShow(context);
+        PosHubNavRail.shouldShow(context) && !sellFullscreen;
     final stack = PosHubScope(
       embeddedInHub: true,
       child: IndexedStack(
@@ -357,7 +396,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
               )
             : stack,
       ),
-      bottomNavigationBar: sellFullscreen || useVerticalRail
+      bottomNavigationBar: useVerticalRail || sellFullscreen
           ? null
           : _buildBottomNavBar(perm, layout),
     );

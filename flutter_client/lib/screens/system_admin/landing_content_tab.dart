@@ -954,11 +954,12 @@ class _GuideSubTabState extends State<_GuideSubTab>
   late final TabController _guideTab;
   List<_GuideStepEditor> _basicSteps = [];
   List<_GuideStepEditor> _advancedSteps = [];
+  List<_GuideStepEditor> _posSteps = [];
 
   @override
   void initState() {
     super.initState();
-    _guideTab = TabController(length: 2, vsync: this);
+    _guideTab = TabController(length: 3, vsync: this);
     _guideTab.addListener(() {
       if (!_guideTab.indexIsChanging && mounted) setState(() {});
     });
@@ -968,18 +969,19 @@ class _GuideSubTabState extends State<_GuideSubTab>
   @override
   void dispose() {
     _guideTab.dispose();
-    for (final s in [..._basicSteps, ..._advancedSteps]) {
+    for (final s in [..._basicSteps, ..._advancedSteps, ..._posSteps]) {
       s.dispose();
     }
     super.dispose();
   }
 
   void _setFromDocument(LandingGuideData doc) {
-    for (final s in [..._basicSteps, ..._advancedSteps]) {
+    for (final s in [..._basicSteps, ..._advancedSteps, ..._posSteps]) {
       s.dispose();
     }
     _basicSteps = doc.basic.map(_GuideStepEditor.fromStep).toList();
     _advancedSteps = doc.advanced.map(_GuideStepEditor.fromStep).toList();
+    _posSteps = doc.pos.map(_GuideStepEditor.fromStep).toList();
   }
 
   Future<void> _load() async {
@@ -1005,6 +1007,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
       final doc = LandingGuideData(
         basic: _basicSteps.map((e) => e.toStep()).toList(),
         advanced: _advancedSteps.map((e) => e.toStep()).toList(),
+        pos: _posSteps.map((e) => e.toStep()).toList(),
       );
       final res = await widget.api.updateAppSettingsBatch([
         {'key': 'landing_guide_json', 'value': doc.toJsonString()}
@@ -1030,20 +1033,29 @@ class _GuideSubTabState extends State<_GuideSubTab>
   }
 
   void _resetCurrentSection() {
-    final isBasic = _guideTab.index == 0;
-    final defaults =
-        isBasic ? LandingGuideData.defaults.basic : LandingGuideData.defaults.advanced;
+    final idx = _guideTab.index;
     setState(() {
-      if (isBasic) {
+      if (idx == 0) {
         for (final s in _basicSteps) {
           s.dispose();
         }
-        _basicSteps = defaults.map(_GuideStepEditor.fromStep).toList();
-      } else {
+        _basicSteps = LandingGuideData.defaults.basic
+            .map(_GuideStepEditor.fromStep)
+            .toList();
+      } else if (idx == 1) {
         for (final s in _advancedSteps) {
           s.dispose();
         }
-        _advancedSteps = defaults.map(_GuideStepEditor.fromStep).toList();
+        _advancedSteps = LandingGuideData.defaults.advanced
+            .map(_GuideStepEditor.fromStep)
+            .toList();
+      } else {
+        for (final s in _posSteps) {
+          s.dispose();
+        }
+        _posSteps = LandingGuideData.defaults.pos
+            .map(_GuideStepEditor.fromStep)
+            .toList();
       }
     });
   }
@@ -1057,12 +1069,15 @@ class _GuideSubTabState extends State<_GuideSubTab>
           color: AdminHelpers.bgLight,
           child: TabBar(
             controller: _guideTab,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             labelColor: AdminHelpers.primary,
             unselectedLabelColor: Colors.grey,
             indicatorColor: AdminHelpers.primary,
             tabs: [
               Tab(text: tr('Triển khai (${_basicSteps.length})')),
               Tab(text: tr('Nâng cao (${_advancedSteps.length})')),
+              Tab(text: tr('POS (${_posSteps.length})')),
             ],
           ),
         ),
@@ -1072,9 +1087,11 @@ class _GuideSubTabState extends State<_GuideSubTab>
             children: [
               Expanded(
                 child: Text(
-                  tr(_guideTab.index == 0
-                      ? '12 bước triển khai từ đăng ký đến báo cáo'
-                      : '11 tính năng vận hành nâng cao sau triển khai'),
+                  tr(switch (_guideTab.index) {
+                    1 => 'Vận hành HRM sau triển khai (lịch, KPI, phép…)',
+                    2 => 'POS: A6/A7, in, bếp, kho, báo cáo bán hàng',
+                    _ => 'Triển khai từ đăng ký đến báo cáo HRM',
+                  }),
                   style: const TextStyle(
                       fontWeight: FontWeight.w600, fontSize: 13),
                 ),
@@ -1093,6 +1110,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
             children: [
               _buildStepList(_basicSteps, 'basic'),
               _buildStepList(_advancedSteps, 'advanced'),
+              _buildStepList(_posSteps, 'pos'),
             ],
           ),
         ),

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/hrm.dart';
 import '../services/signalr_service.dart';
+import '../utils/navigation_notifier.dart';
 import '../widgets/notification_overlay.dart';
 
 class PosTtsVoiceOption {
@@ -128,9 +129,6 @@ class PosQrOrderVoiceAlert {
       await tts.setPitch(1.0);
       if (!kIsWeb) {
         await tts.awaitSpeakCompletion(false);
-        try {
-          await tts.setSharedInstance(true);
-        } catch (_) {}
       }
       await _applyVoiceAndRate(tts);
       _voiceApplied = true;
@@ -452,6 +450,19 @@ class PosQrOrderVoiceAlert {
                 ? 'Có khách đặt món tại bàn'
                 : 'Có khách đặt món $table');
         break;
+      case 'qronlineorder':
+        playAlertSound = true;
+        title = 'Đơn online — gọi lại khách';
+        spoken = extra.isNotEmpty
+            ? 'Có đơn đặt online. $extra. Gọi lại khách để xác nhận.'
+            : 'Có đơn đặt hàng online. Gọi lại khách để xác nhận.';
+        break;
+      case 'qronlinestatus':
+        title = 'Cập nhật đơn online';
+        spoken = extra.isNotEmpty
+            ? 'Đơn online. $extra'
+            : 'Trạng thái đơn online đã cập nhật';
+        break;
       case 'qrcallpayment':
         title = 'Gọi thanh toán';
         spoken =
@@ -491,12 +502,20 @@ class PosQrOrderVoiceAlert {
     _lastKey = key;
     _lastAt = now;
     unawaited(speak(spoken));
+    final isOnlineOrder = reason == 'qronlineorder';
     NotificationOverlayManager().show(
       title: title,
       message: spoken,
       type: NotificationType.info,
       duration: const Duration(seconds: 5),
       playSound: playAlertSound,
+      onTap: isOnlineOrder
+          ? () {
+              NavigationNotifier.pendingOpenQrOnlineOrders.value = true;
+              NavigationNotifier.posHubTab.value = 2;
+              NavigationNotifier.goToModule('PosSell');
+            }
+          : null,
     );
   }
 

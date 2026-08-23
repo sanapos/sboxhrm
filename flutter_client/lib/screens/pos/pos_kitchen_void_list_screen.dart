@@ -310,6 +310,18 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
                                         .toString()
                                         .isNotEmpty)
                                       '${e['voidedBy'] ?? e['VoidedBy']}',
+                                    if ((e['reason'] ?? e['Reason'] ?? '')
+                                        .toString()
+                                        .trim()
+                                        .isNotEmpty)
+                                      'Lý do: ${e['reason'] ?? e['Reason']}',
+                                    if ((e['detailNote'] ??
+                                            e['DetailNote'] ??
+                                            '')
+                                        .toString()
+                                        .trim()
+                                        .isNotEmpty)
+                                      '${e['detailNote'] ?? e['DetailNote']}',
                                     after ? '⚠ Sau tạm tính' : 'Trước tạm tính',
                                   ].join(' · '))),
                                 ),

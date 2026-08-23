@@ -139,6 +139,18 @@ class NavigationNotifier {
     return true;
   }
 
+  /// Mở màn Đơn online QR sau khi vào POS (từ thông báo).
+  static final ValueNotifier<bool> pendingOpenQrOnlineOrders =
+      ValueNotifier<bool>(false);
+
+  /// Mở đơn online cụ thể trên màn bán hàng (thanh toán / in).
+  static final ValueNotifier<String?> pendingOpenQrOnlineDraftId =
+      ValueNotifier<String?>(null);
+
+  /// Kèm [pendingOpenQrOnlineDraftId]: vào thẳng bước thanh toán.
+  static final ValueNotifier<bool> pendingOpenQrOnlinePay =
+      ValueNotifier<bool>(false);
+
   static void goTo(int screenIndex) {
     navigateTo.value = screenIndex;
     debugPrint('📍 Navigation requested to screen index: $screenIndex');
@@ -338,6 +350,9 @@ class NavigationNotifier {
     navigateToModule.value = null;
     posHubTab.value = null;
     pendingOpenOvertime.value = false;
+    pendingOpenQrOnlineOrders.value = false;
+    pendingOpenQrOnlineDraftId.value = null;
+    pendingOpenQrOnlinePay.value = false;
     pendingAiOpenCreate.value = null;
     notificationHighlightId.value = null;
     mobileDrawerModuleActive.value = false;

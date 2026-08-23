@@ -10,6 +10,7 @@ import '../utils/permission_navigation.dart';
 import '../services/api_service.dart';
 import '../utils/web_marketing_gate_stub.dart'
     if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
+import '../widgets/sbox_hrm_brand.dart';
 import '../widgets/store_agent_support_card.dart';
 import 'store_success_screen.dart';
 import 'login_screen.dart';
@@ -479,12 +480,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    tr('SBOX HRM'),
+                    tr(SboxBrand.productLine),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 2,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ),
@@ -1072,7 +1073,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(tr('@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ'),
+                        Text(tr('@2026 SBOX HRM - SBOX POS'),
                           style: TextStyle(
                               color: Colors.grey.shade400,
                               fontSize: 10,
@@ -1113,7 +1114,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Text(tr('@2026 SBOX HRM HỆ THỐNG QUẢN TRỊ NHÂN SỰ'),
+                        Text(tr('@2026 SBOX HRM - SBOX POS'),
                           style: TextStyle(
                               color: Colors.grey.shade400,
                               fontSize: 10,
@@ -1132,23 +1133,14 @@ class _RegisterScreenState extends State<RegisterScreen>
   // ===== Reusable widgets matching login screen =====
 
   Widget _buildLogo({bool isDesktop = false}) {
-    return Row(
-      mainAxisAlignment:
+    return SboxBrandLockup(
+      expandText: true,
+      showSlogan: true,
+      logoSize: 44,
+      titleSize: isDesktop ? 22 : 18,
+      sloganSize: 11,
+      alignment:
           isDesktop ? MainAxisAlignment.start : MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.bubble_chart, color: Color(0xFF0C56D0), size: 44),
-        SizedBox(width: 14),
-        Text(
-          tr('SBOX HRM'),
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF0C56D0),
-            letterSpacing: -0.5,
-          ),
-        ),
-      ],
     );
   }
 

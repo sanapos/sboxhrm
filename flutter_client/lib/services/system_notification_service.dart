@@ -91,9 +91,15 @@ class SystemNotificationService {
     }
     ScreenRefreshNotifier.refreshNotificationCount();
 
+    String? title;
+    if (parts.length > 3 && parts[3].isNotEmpty) {
+      title = Uri.decodeComponent(parts[3]);
+    }
+
     navigateFromNotification(
       relatedEntityType: entityType.isEmpty ? null : entityType,
       relatedEntityId: highlightId,
+      title: title,
     );
   }
 
@@ -159,20 +165,28 @@ class SystemNotificationService {
     );
   }
 
-  /// payload: entityType|notificationRowId|highlightEntityId (phần 3 tùy chọn)
+  /// payload: entityType|notificationRowId|highlightEntityId|title (phần 3–4 tùy chọn)
   String _makePayload(
     String entityType, {
     String? notificationRowId,
     String? highlightEntityId,
+    String? title,
   }) {
-    if (notificationRowId == null) return entityType;
-    final highlight = highlightEntityId;
-    if (highlight != null &&
-        highlight.isNotEmpty &&
-        highlight != notificationRowId) {
-      return '$entityType|$notificationRowId|$highlight';
+    final parts = <String>[entityType];
+    if (notificationRowId != null && notificationRowId.isNotEmpty) {
+      parts.add(notificationRowId);
+      final highlight = highlightEntityId;
+      if (highlight != null &&
+          highlight.isNotEmpty &&
+          highlight != notificationRowId) {
+        parts.add(highlight);
+      }
     }
-    return '$entityType|$notificationRowId';
+    if (title != null && title.trim().isNotEmpty) {
+      while (parts.length < 3) parts.add('');
+      parts.add(Uri.encodeComponent(title.trim()));
+    }
+    return parts.join('|');
   }
 
   /// Thông báo thiết bị kết nối/ngắt kết nối
@@ -232,6 +246,7 @@ class SystemNotificationService {
         relatedEntityType ?? 'Notification',
         notificationRowId: notificationId,
         highlightEntityId: relatedEntityId,
+        title: title,
       ),
     );
   }

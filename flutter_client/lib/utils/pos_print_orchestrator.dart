@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -19,7 +19,9 @@ import 'pos_local_printers_store.dart';
 import 'pos_print_agent_settings.dart';
 import 'pos_print_config_session.dart';
 import 'pos_print_role.dart';
+import 'pos_print_template_renderer.dart';
 import 'pos_print_template_runtime.dart';
+import 'pos_sell_store_settings.dart';
 import 'pos_printer_readiness.dart';
 import 'pos_printer_transport.dart';
 import 'pos_store_printer_mapper.dart';
@@ -28,6 +30,8 @@ import 'pos_thermal_printer_service.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_usb_printer.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'pos_print_template_v2_codec.dart';
+import 'pos_print_template_compiler.dart';
 
 String _kdsCutRef(String? base, int i, String name) {
   var s = '${base ?? 'k'}|i$i|${name.trim()}';
@@ -44,16 +48,16 @@ String _hhmm(DateTime t) {
 
 void _notifyPrintDedupSkip({String? detail}) {
   NotificationOverlayManager().showWarning(
-    title: 'Đã gửi lệnh in',
+    title: 'Bá» qua lá»‡nh trÃ¹ng',
     message: tr(
       detail ??
-          'Lệnh gần đây đang chờ máy in — không gửi trùng (tránh bấm nhiều lần)',
+          'Lá»‡nh gáº§n Ä‘Ã¢y Ä‘ang chá» mÃ¡y in â€” khÃ´ng gá»­i trÃ¹ng (trÃ¡nh báº¥m nhiá»u láº§n)',
     ),
     relatedEntityType: kPosPrintNotifyKind,
     duration: const Duration(seconds: 3),
   );
 }
-/// Job cloud chưa xong sau [PosPrintOrchestrator.hangAfterDefault] → phiếu treo.
+/// Job cloud chÆ°a xong sau [PosPrintOrchestrator.hangAfterDefault] â†’ phiáº¿u treo.
 typedef PosPrintHangCallback = void Function({
   required String jobId,
   required String documentType,
@@ -62,19 +66,19 @@ typedef PosPrintHangCallback = void Function({
   String? referenceNo,
 });
 
-/// Điều phối in cloud qua Máy in cửa hàng + Print Agent.
-/// In LAN/BT cục bộ: dùng [dispatchLocalEscPos] / [dispatchLocalEscPosByRole].
+/// Äiá»u phá»‘i in cloud qua MÃ¡y in cá»­a hÃ ng + Print Agent.
+/// In LAN/BT cá»¥c bá»™: dÃ¹ng [dispatchLocalEscPos] / [dispatchLocalEscPosByRole].
 class PosPrintOrchestrator {
   PosPrintOrchestrator._();
   static final PosPrintOrchestrator instance = PosPrintOrchestrator._();
 
-  /// Thời gian chờ Agent in trước khi đưa phiếu vào hàng treo (máy gửi).
+  /// Thá»i gian chá» Agent in trÆ°á»›c khi Ä‘Æ°a phiáº¿u vÃ o hÃ ng treo (mÃ¡y gá»­i).
   static const hangAfterDefault = Duration(seconds: 60);
 
-  /// Job còn Claimed/Printing thì kiểm tra lại sau chừng này thay vì bỏ theo dõi.
+  /// Job cÃ²n Claimed/Printing thÃ¬ kiá»ƒm tra láº¡i sau chá»«ng nÃ y thay vÃ¬ bá» theo dÃµi.
   static const hangWatchRecheck = Duration(seconds: 20);
 
-  /// Trần theo dõi — dài hơn mốc server hủy job kẹt (180s) để bắt được Cancelled.
+  /// Tráº§n theo dÃµi â€” dÃ i hÆ¡n má»‘c server há»§y job káº¹t (180s) Ä‘á»ƒ báº¯t Ä‘Æ°á»£c Cancelled.
   static const hangWatchMaxWait = Duration(seconds: 240);
 
   final _api = ApiService();
@@ -83,14 +87,14 @@ class PosPrintOrchestrator {
   /// True = server-side Cancelled (operator cancel / idempotency dedup / replaced).
   /// Distinguishes Cancelled from Failed so caller can suppress re-queue.
   final _cancelledJobs = <String>{};
-  /// Policy chờ Completed (false = không coi Claimed/Printing là thành công).
+  /// Policy chá» Completed (false = khÃ´ng coi Claimed/Printing lÃ  thÃ nh cÃ´ng).
   final _acceptClaimedByJob = <String, bool>{};
-  /// showFeedback khi SignalR cập nhật status (tránh báo đỏ phiếu bếp fire-and-forget).
+  /// showFeedback khi SignalR cáº­p nháº­t status (trÃ¡nh bÃ¡o Ä‘á» phiáº¿u báº¿p fire-and-forget).
   final _showFeedbackByJob = <String, bool>{};
   final _jobMeta = <String, _JobFeedbackMeta>{};
   final _feedbackSent = <String>{};
   final _hangTimers = <String, Timer>{};
-  /// Callback phiếu treo theo job — giữ khi fire-and-forget để Failed/Expired vẫn treo.
+  /// Callback phiáº¿u treo theo job â€” giá»¯ khi fire-and-forget Ä‘á»ƒ Failed/Expired váº«n treo.
   final _hangCallbacks = <String, _HangWatch>{};
 
   List<PosStorePrinter> _printers = [];
@@ -99,7 +103,7 @@ class PosPrintOrchestrator {
   StreamSubscription<Map<String, dynamic>>? _statusSub;
   bool _listening = false;
 
-  static const _cacheTtl = Duration(minutes: 3);
+  static const _cacheTtl = Duration(seconds: 60);
   static const _jobTimeout = Duration(seconds: 120);
 
   StreamSubscription<bool>? _connSub;
@@ -111,7 +115,7 @@ class PosPrintOrchestrator {
     _connSub?.cancel();
     _connSub = _signalR.onConnectionStateChanged.listen((connected) {
       if (connected) {
-        debugPrint('📡 Print orchestrator: SignalR reconnected — re-arming status subscription');
+        debugPrint('ðŸ“¡ Print orchestrator: SignalR reconnected â€” re-arming status subscription');
         _statusSub?.cancel();
         _statusSub = _signalR.onPrintJobStatusChanged.listen(_onJobStatus);
         PosPrintAgentService.instance.nudgeClaim();
@@ -130,7 +134,7 @@ class PosPrintOrchestrator {
     _hangCallbacks.clear();
     for (final c in _pendingJobs.values) {
       if (!c.isCompleted) {
-        c.complete(const _JobOutcome(false, 'Đã hủy'));
+        c.complete(const _JobOutcome(false, 'ÄÃ£ há»§y'));
       }
     }
     _pendingJobs.clear();
@@ -154,9 +158,9 @@ class PosPrintOrchestrator {
     Duration hangAfter = hangAfterDefault,
     PosPrintHangCallback? onHang,
   }) {
-    // Trước đây thiếu onHang là bỏ theo dõi luôn: tem ly, phiếu kho, tạm tính,
-    // in lại từ danh sách… gửi lên cloud xong coi như xong. Agent chết là mất
-    // giấy mà không ai biết. Giờ vẫn theo dõi, chỉ khác cách xử lý khi treo.
+    // TrÆ°á»›c Ä‘Ã¢y thiáº¿u onHang lÃ  bá» theo dÃµi luÃ´n: tem ly, phiáº¿u kho, táº¡m tÃ­nh,
+    // in láº¡i tá»« danh sÃ¡châ€¦ gá»­i lÃªn cloud xong coi nhÆ° xong. Agent cháº¿t lÃ  máº¥t
+    // giáº¥y mÃ  khÃ´ng ai biáº¿t. Giá» váº«n theo dÃµi, chá»‰ khÃ¡c cÃ¡ch xá»­ lÃ½ khi treo.
     _cancelHangWatch(jobId);
     _hangCallbacks[jobId] = _HangWatch(
       documentType: documentType,
@@ -173,11 +177,11 @@ class PosPrintOrchestrator {
     );
   }
 
-  /// Agent nhận job rồi treo là trường hợp mất phiếu tệ nhất: server dọn bằng
-  /// Cancelled sau ~3 phút, còn máy gửi thì đã bỏ theo dõi từ giây thứ 60 vì
-  /// thấy trạng thái Claimed. Thu ngân không thấy lỗi, không có phiếu chờ, và
-  /// hóa đơn/phiếu bếp biến mất. Vì vậy vẫn còn Claimed/Printing thì hẹn lại
-  /// giờ kiểm tra thay vì bỏ, và Cancelled cũng tính là treo để in lại được.
+  /// Agent nháº­n job rá»“i treo lÃ  trÆ°á»ng há»£p máº¥t phiáº¿u tá»‡ nháº¥t: server dá»n báº±ng
+  /// Cancelled sau ~3 phÃºt, cÃ²n mÃ¡y gá»­i thÃ¬ Ä‘Ã£ bá» theo dÃµi tá»« giÃ¢y thá»© 60 vÃ¬
+  /// tháº¥y tráº¡ng thÃ¡i Claimed. Thu ngÃ¢n khÃ´ng tháº¥y lá»—i, khÃ´ng cÃ³ phiáº¿u chá», vÃ 
+  /// hÃ³a Ä‘Æ¡n/phiáº¿u báº¿p biáº¿n máº¥t. VÃ¬ váº­y váº«n cÃ²n Claimed/Printing thÃ¬ háº¹n láº¡i
+  /// giá» kiá»ƒm tra thay vÃ¬ bá», vÃ  Cancelled cÅ©ng tÃ­nh lÃ  treo Ä‘á»ƒ in láº¡i Ä‘Æ°á»£c.
   void _armHangTimer({
     required String jobId,
     required Duration hangAfter,
@@ -194,7 +198,7 @@ class PosPrintOrchestrator {
               ? (res['data'] as Map)['status']?.toString() ?? ''
               : '';
         } catch (_) {
-          // Lỗi mạng khi poll — giữ callback; SignalR Failed vẫn có thể treo.
+          // Lá»—i máº¡ng khi poll â€” giá»¯ callback; SignalR Failed váº«n cÃ³ thá»ƒ treo.
           return;
         }
 
@@ -204,8 +208,8 @@ class PosPrintOrchestrator {
         }
         if (status == 'Claimed' || status == 'Printing') {
           if (acceptClaimedAsSuccess && DateTime.now().isAfter(deadline)) {
-            // Hết hạn theo dõi mà Agent vẫn giữ job: coi như đã in xong để
-            // không dựng phiếu chờ gây in trùng.
+            // Háº¿t háº¡n theo dÃµi mÃ  Agent váº«n giá»¯ job: coi nhÆ° Ä‘Ã£ in xong Ä‘á»ƒ
+            // khÃ´ng dá»±ng phiáº¿u chá» gÃ¢y in trÃ¹ng.
             _hangCallbacks.remove(jobId);
             return;
           }
@@ -224,7 +228,7 @@ class PosPrintOrchestrator {
           return;
         }
 
-        // Queued / Failed / Expired / Cancelled / không rõ → chắc chắn chưa ra giấy.
+        // Queued / Failed / Expired / Cancelled / khÃ´ng rÃµ â†’ cháº¯c cháº¯n chÆ°a ra giáº¥y.
         _invokeHangCallback(jobId);
       }());
     });
@@ -247,34 +251,34 @@ class PosPrintOrchestrator {
     );
   }
 
-  /// Caller không có hàng chờ riêng: ít nhất phải nói cho thu ngân biết tờ giấy
-  /// đó chưa ra, kèm tên máy in để còn kiểm tra hoặc in lại.
+  /// Caller khÃ´ng cÃ³ hÃ ng chá» riÃªng: Ã­t nháº¥t pháº£i nÃ³i cho thu ngÃ¢n biáº¿t tá» giáº¥y
+  /// Ä‘Ã³ chÆ°a ra, kÃ¨m tÃªn mÃ¡y in Ä‘á»ƒ cÃ²n kiá»ƒm tra hoáº·c in láº¡i.
   void _notifyHangWithoutQueue(_HangWatch watch) {
     final ref = watch.referenceNo?.trim() ?? '';
     NotificationOverlayManager().showError(
-      title: '${_documentLabel(watch.documentType)} chưa in',
+      title: '${_documentLabel(watch.documentType)} chÆ°a in',
       message: ref.isEmpty
-          ? 'Máy ${watch.printerName} không phản hồi — kiểm tra máy in rồi in lại'
-          : '$ref → ${watch.printerName} không phản hồi — in lại nếu cần',
+          ? 'MÃ¡y ${watch.printerName} khÃ´ng pháº£n há»“i â€” kiá»ƒm tra mÃ¡y in rá»“i in láº¡i'
+          : '$ref â†’ ${watch.printerName} khÃ´ng pháº£n há»“i â€” in láº¡i náº¿u cáº§n',
       relatedEntityType: kPosPrintNotifyKind,
     );
   }
 
   static String _documentLabel(String documentType) => switch (documentType) {
-        'SaleInvoice' => 'Hóa đơn',
-        'SaleReturn' => 'Phiếu trả',
-        'KitchenSlip' => 'Phiếu bếp',
-        'KitchenVoid' => 'Phiếu hủy bếp',
+        'SaleInvoice' => 'HÃ³a Ä‘Æ¡n',
+        'SaleReturn' => 'Phiáº¿u tráº£',
+        'KitchenSlip' => 'Phiáº¿u báº¿p',
+        'KitchenVoid' => 'Phiáº¿u há»§y báº¿p',
         'KitchenLabel' => 'Tem',
-        'BarcodeLabel' => 'Tem mã vạch',
-        'StockIssue' => 'Phiếu kho',
-        _ => 'Chứng từ',
+        'BarcodeLabel' => 'Tem mÃ£ váº¡ch',
+        'StockIssue' => 'Phiáº¿u kho',
+        _ => 'Chá»©ng tá»«',
       };
 
   void _finishJob(String jobId, _JobOutcome outcome, {bool showFeedback = true}) {
     _hangTimers.remove(jobId)?.cancel();
-    // Thành công / Cancelled: bỏ treo. Failed/Expired: gọi onHang (fire-and-forget
-    // trước đây cancel hang → mất phiếu treo dù job đã Failed).
+    // ThÃ nh cÃ´ng / Cancelled: bá» treo. Failed/Expired: gá»i onHang (fire-and-forget
+    // trÆ°á»›c Ä‘Ã¢y cancel hang â†’ máº¥t phiáº¿u treo dÃ¹ job Ä‘Ã£ Failed).
     if (outcome.ok || outcome.isCancelled) {
       _hangCallbacks.remove(jobId);
     } else {
@@ -302,8 +306,8 @@ class PosPrintOrchestrator {
     if (outcome.ok) {
       final name = outcome.printerName?.trim() ?? '';
       NotificationOverlayManager().showSuccess(
-        title: 'In thành công',
-        message: name.isNotEmpty ? name : 'Đã in xong trên Print Agent',
+        title: 'In thÃ nh cÃ´ng',
+        message: name.isNotEmpty ? name : 'ÄÃ£ in xong trÃªn Print Agent',
         relatedEntityType: kPosPrintNotifyKind,
       );
       return;
@@ -312,17 +316,17 @@ class PosPrintOrchestrator {
       return;
     }
     NotificationOverlayManager().showError(
-      title: queueExpired ? 'Phiếu in chưa ra giấy' : 'In thất bại',
-      message: outcome.error ?? 'Không in được chứng từ',
+      title: queueExpired ? 'Phiáº¿u in chÆ°a ra giáº¥y' : 'In tháº¥t báº¡i',
+      message: outcome.error ?? 'KhÃ´ng in Ä‘Æ°á»£c chá»©ng tá»«',
       relatedEntityType: kPosPrintNotifyKind,
     );
   }
 
   static bool _isQueueExpiredError(String? error) {
     final e = (error ?? '').toLowerCase();
-    return e.contains('quá hạn hàng đợi') ||
+    return e.contains('quÃ¡ háº¡n hÃ ng Ä‘á»£i') ||
         e.contains('stale_queued') ||
-        e.contains('offline quá 5') ||
+        e.contains('offline quÃ¡ 5') ||
         e.contains('stuck_no_requeue') ||
         e.contains('max_attempts');
   }
@@ -339,13 +343,13 @@ class PosPrintOrchestrator {
     final acceptClaimed = _acceptClaimedByJob[jobId] ?? true;
     final showFeedback = _showFeedbackByJob[jobId] ?? true;
 
-    // Agent nhả job (Queued lại) — tiếp tục chờ, không báo thất bại.
+    // Agent nháº£ job (Queued láº¡i) â€” tiáº¿p tá»¥c chá», khÃ´ng bÃ¡o tháº¥t báº¡i.
     if (status == 'Queued') return;
 
     if (status == 'Completed' ||
         (acceptClaimed && (status == 'Claimed' || status == 'Printing'))) {
-      // Claimed/Printing chỉ OK khi caller cho phép (hóa đơn thường).
-      // Phiếu bếp: bắt Completed — tránh báo thành công rồi Agent fail → sót bếp.
+      // Claimed/Printing chá»‰ OK khi caller cho phÃ©p (hÃ³a Ä‘Æ¡n thÆ°á»ng).
+      // Phiáº¿u báº¿p: báº¯t Completed â€” trÃ¡nh bÃ¡o thÃ nh cÃ´ng rá»“i Agent fail â†’ sÃ³t báº¿p.
       _finishJob(
         jobId,
         _JobOutcome(true, null, printerName: printerName),
@@ -353,15 +357,15 @@ class PosPrintOrchestrator {
       );
     } else if (status == 'Cancelled') {
       // Cancelled = server-side cancel (operator / idempotency / replaced).
-      // Không đưa vào pending queue — không báo thất bại giả.
-      // Trừ hủy vì Agent treo / hết hạn hàng đợi: giấy KHÔNG ra mà im lặng thì
-      // bếp mất món. Coi như thất bại để thu ngân thấy phiếu chờ và in lại.
+      // KhÃ´ng Ä‘Æ°a vÃ o pending queue â€” khÃ´ng bÃ¡o tháº¥t báº¡i giáº£.
+      // Trá»« há»§y vÃ¬ Agent treo / háº¿t háº¡n hÃ ng Ä‘á»£i: giáº¥y KHÃ”NG ra mÃ  im láº·ng thÃ¬
+      // báº¿p máº¥t mÃ³n. Coi nhÆ° tháº¥t báº¡i Ä‘á»ƒ thu ngÃ¢n tháº¥y phiáº¿u chá» vÃ  in láº¡i.
       if (_isNothingPrintedCancel(errorCode)) {
         _finishJob(
           jobId,
           _JobOutcome(
             false,
-            'Phiếu chưa in — máy in/Agent offline quá 5 phút. In lại từ hàng chờ.',
+            'Phiáº¿u chÆ°a in â€” mÃ¡y in/Agent offline quÃ¡ 5 phÃºt. In láº¡i tá»« hÃ ng chá».',
             printerName: printerName,
           ),
           showFeedback: true,
@@ -371,20 +375,20 @@ class PosPrintOrchestrator {
       _cancelledJobs.add(jobId);
       _finishJob(
         jobId,
-        _JobOutcome(false, error ?? 'Lệnh in đã bị hủy phía máy chủ',
+        _JobOutcome(false, error ?? 'Lá»‡nh in Ä‘Ã£ bá»‹ há»§y phÃ­a mÃ¡y chá»§',
             printerName: printerName, isCancelled: true),
         showFeedback: showFeedback,
       );
     } else if (status == 'Failed' || status == 'Expired') {
       _finishJob(
         jobId,
-        _JobOutcome(false, error ?? 'In thất bại', printerName: printerName),
+        _JobOutcome(false, error ?? 'In tháº¥t báº¡i', printerName: printerName),
         showFeedback: showFeedback,
       );
     }
   }
 
-  /// Hủy do server dọn hàng đợi — chắc chắn chưa có giấy nào ra.
+  /// Há»§y do server dá»n hÃ ng Ä‘á»£i â€” cháº¯c cháº¯n chÆ°a cÃ³ giáº¥y nÃ o ra.
   static bool _isNothingPrintedCancel(String? errorCode) {
     final code = (errorCode ?? '').toUpperCase();
     return code == 'STUCK_NO_REQUEUE' ||
@@ -432,8 +436,23 @@ class PosPrintOrchestrator {
 
   List<PosStorePrinter> get printers => List.unmodifiable(_printers);
 
-  /// Đổi máy device-local → bản cloud/Agent cùng cổng (USB/LAN/BT/Sunmi).
-  /// Job gửi ID nội bộ sẽ không được Agent claim.
+  /// ÄÃ¡nh dáº¥u outbound chá»‰ khi mÃ¡y nÃ y KHÃ”NG pháº£i Agent cá»§a [printerId].
+  /// A6 vá»«a gá»­i vá»«a Agent: mark â†’ OUTBOUND_SKIP â†’ khÃ´ng ra giáº¥y.
+  Future<void> _registerCloudJobForAgent({
+    required String jobId,
+    required String printerId,
+  }) async {
+    if (jobId.isEmpty) return;
+    final selfAgent =
+        !kIsWeb && await PosPrintRole.isAgentForPrinter(printerId);
+    if (!selfAgent) {
+      PosPrintSessionRegistry.markOutbound(jobId);
+    }
+    PosPrintAgentService.instance.nudgeClaim();
+  }
+
+  /// Äá»•i mÃ¡y device-local â†’ báº£n cloud/Agent cÃ¹ng cá»•ng (USB/LAN/BT/Sunmi).
+  /// Job gá»­i ID ná»™i bá»™ sáº½ khÃ´ng Ä‘Æ°á»£c Agent claim.
   PosStorePrinter preferCloudAgentPrinter(PosStorePrinter printer) {
     if (!printer.isDeviceLocal) return printer;
     final cloud = _printers
@@ -495,12 +514,20 @@ class PosPrintOrchestrator {
         }
       }
     } else if (printer.isSunmi) {
-      twin = cloud.where((p) => p.requiresAgent).firstOrNull ??
-          cloud.firstOrNull;
+      // Chá»‰ map sang twin Sunmi cÃ¹ng tÃªn â€” khÃ´ng láº¥y mÃ¡y Agent/LAN báº¥t ká»³.
+      final want = _stripLocalName(printer.name);
+      final sunmiCloud = cloud.where((p) => p.isSunmi).toList();
+      for (final p in sunmiCloud) {
+        if (_stripLocalName(p.name) == want) {
+          twin = p;
+          break;
+        }
+      }
+      twin ??= sunmiCloud.length == 1 ? sunmiCloud.first : null;
     }
     if (twin != null) {
       debugPrint(
-        'Print remap device-local ${printer.id} → cloud ${twin.id} (${twin.name})',
+        'Print remap device-local ${printer.id} â†’ cloud ${twin.id} (${twin.name})',
       );
       return twin;
     }
@@ -523,8 +550,8 @@ class PosPrintOrchestrator {
 
   static String _stripLocalName(String name) {
     var n = name.trim();
-    if (n.toLowerCase().startsWith('[nội bộ]')) {
-      n = n.substring('[nội bộ]'.length).trim();
+    if (n.toLowerCase().startsWith('[ná»™i bá»™]')) {
+      n = n.substring('[ná»™i bá»™]'.length).trim();
     }
     return n.toLowerCase();
   }
@@ -534,8 +561,8 @@ class PosPrintOrchestrator {
     return list.isEmpty ? null : list.first;
   }
 
-  /// Tất cả máy in gán cho loại chứng từ (in đa máy).
-  /// Không fallback máy mặc định / máy duy nhất — tránh hóa đơn nhận báo bếp.
+  /// Táº¥t cáº£ mÃ¡y in gÃ¡n cho loáº¡i chá»©ng tá»« (in Ä‘a mÃ¡y).
+  /// KhÃ´ng fallback mÃ¡y máº·c Ä‘á»‹nh / mÃ¡y duy nháº¥t â€” trÃ¡nh hÃ³a Ä‘Æ¡n nháº­n bÃ¡o báº¿p.
   List<PosStorePrinter> resolvePrinters(String documentType) {
     if (_printers.isEmpty) return const [];
 
@@ -556,13 +583,13 @@ class PosPrintOrchestrator {
       final bl = b.isDeviceLocal ? 1 : 0;
       return al.compareTo(bl);
     });
-    // Hóa đơn: chỉ 1 máy (tránh 2 bản ghi «sunmi» cùng SaleInvoice → in 2 liên).
+    // HÃ³a Ä‘Æ¡n: chá»‰ 1 mÃ¡y (trÃ¡nh 2 báº£n ghi Â«sunmiÂ» cÃ¹ng SaleInvoice â†’ in 2 liÃªn).
     if (documentType == PosCloudDocumentTypes.saleInvoice &&
         unique.length > 1) {
       final defaults = unique.where((p) => p.isDefault).toList();
       if (defaults.isNotEmpty) return [defaults.first];
       debugPrint(
-        'SaleInvoice: ${unique.length} máy → chỉ in «${unique.first.name}» '
+        'SaleInvoice: ${unique.length} mÃ¡y â†’ chá»‰ in Â«${unique.first.name}Â» '
         '(${unique.first.id})',
       );
       return [unique.first];
@@ -594,10 +621,10 @@ class PosPrintOrchestrator {
     return route?.defaultCopies ?? fallback;
   }
 
-  /// Gửi byte ESC/POS qua cloud (Máy in cửa hàng → Print Agent).
+  /// Gá»­i byte ESC/POS qua cloud (MÃ¡y in cá»­a hÃ ng â†’ Print Agent).
   ///
-  /// [forceCloud]: bỏ qua in trực tiếp trên Agent — luôn enqueue cloud
-  /// (dùng cho «Test in qua cloud» trên chính máy Sunmi).
+  /// [forceCloud]: bá» qua in trá»±c tiáº¿p trÃªn Agent â€” luÃ´n enqueue cloud
+  /// (dÃ¹ng cho Â«Test in qua cloudÂ» trÃªn chÃ­nh mÃ¡y Sunmi).
   Future<bool> dispatchEscPos({
     required String documentType,
     required List<int> bytes,
@@ -642,11 +669,10 @@ class PosPrintOrchestrator {
     if (printer != null) {
       final n = copies.clamp(1, 10);
 
-      // Agent trên thiết bị thật → in trực tiếp chỉ khi cổng thật sự có.
-      // A7 bật Agent + chip USB nhưng không gắn cáp: phải cloud → A6.
+      // CÃ³ cá»•ng tháº­t trÃªn mÃ¡y nÃ y â†’ in local (khÃ´ng cáº§n báº­t Agent).
+      // A7/web khÃ´ng cáº¯m mÃ¡y â†’ false â†’ cloud cho Agent.
       if (!kIsWeb &&
           !forceCloud &&
-          await PosPrintRole.isAgentForPrinter(printer.id) &&
           await _canDispatchLocallyNow(printer)) {
         return _printDirectOnStorePrinter(
           printer: printer,
@@ -659,13 +685,13 @@ class PosPrintOrchestrator {
       }
 
       if (!hasCloud) {
-        debugPrint('Kitchen DBG dispatchEscPos: ABORT — hasCloud=false');
+        debugPrint('Kitchen DBG dispatchEscPos: ABORT â€” hasCloud=false');
         return false;
       }
 
-      // Test qua cloud trên chính máy Agent (Zywell USB/LAN/BT): pause claim
-      // NGAY trước khi tạo job — tránh SignalR/timer claim job này song song
-      // với nhánh in nội bộ bên dưới (in ra 2 bản cùng lúc).
+      // Test qua cloud trÃªn chÃ­nh mÃ¡y Agent (Zywell USB/LAN/BT): pause claim
+      // NGAY trÆ°á»›c khi táº¡o job â€” trÃ¡nh SignalR/timer claim job nÃ y song song
+      // vá»›i nhÃ¡nh in ná»™i bá»™ bÃªn dÆ°á»›i (in ra 2 báº£n cÃ¹ng lÃºc).
       final localTestOnAgent = forceCloud &&
           !kIsWeb &&
           await PosPrintRole.isAgentForPrinter(printer.id) &&
@@ -689,8 +715,8 @@ class PosPrintOrchestrator {
         if (localTestOnAgent) PosPrintAgentService.instance.resumeClaims();
         if (showFeedback) {
           NotificationOverlayManager().showError(
-            title: 'Không gửi lệnh in',
-            message: res['message']?.toString() ?? 'Lỗi máy chủ',
+            title: 'KhÃ´ng gá»­i lá»‡nh in',
+            message: res['message']?.toString() ?? 'Lá»—i mÃ¡y chá»§',
             relatedEntityType: kPosPrintNotifyKind,
           );
         }
@@ -704,9 +730,9 @@ class PosPrintOrchestrator {
         return false;
       }
 
-      // Fail nhanh khi chắc chắn không có Agent nào online cho máy in này —
-      // tránh báo "Đã gửi lệnh in" giả khi job sẽ nằm hàng đợi rồi tự hủy
-      // sau 20 phút mà không ai biết (trang lưu hóa đơn "in không ra").
+      // Fail nhanh khi cháº¯c cháº¯n khÃ´ng cÃ³ Agent nÃ o online cho mÃ¡y in nÃ y â€”
+      // trÃ¡nh bÃ¡o "ÄÃ£ gá»­i lá»‡nh in" giáº£ khi job sáº½ náº±m hÃ ng Ä‘á»£i rá»“i tá»± há»§y
+      // sau 20 phÃºt mÃ  khÃ´ng ai biáº¿t (trang lÆ°u hÃ³a Ä‘Æ¡n "in khÃ´ng ra").
       if (_failFastNoAgent(printer, data, jobId, showFeedback: showFeedback)) {
         if (localTestOnAgent) PosPrintAgentService.instance.resumeClaims();
         return false;
@@ -723,15 +749,8 @@ class PosPrintOrchestrator {
         );
       }
 
-      // Chỉ mark outbound khi máy này KHÔNG phải Agent của máy in —
-      // A6 vừa gửi vừa Agent: mark → OUTBOUND_SKIP → không ra giấy.
-      final selfAgent =
-          !kIsWeb && await PosPrintRole.isAgentForPrinter(printer.id);
-      if (!selfAgent) {
-        PosPrintSessionRegistry.markOutbound(jobId);
-      } else {
-        PosPrintAgentService.instance.nudgeClaim();
-      }
+      // A6 vá»«a gá»­i vá»«a Agent: khÃ´ng mark outbound (OUTBOUND_SKIP).
+      await _registerCloudJobForAgent(jobId: jobId, printerId: printer.id);
 
       _jobMeta[jobId] = _JobFeedbackMeta(
         referenceNo: referenceNo,
@@ -741,10 +760,10 @@ class PosPrintOrchestrator {
       if (showFeedback) {
         final ref = referenceNo?.trim() ?? '';
         NotificationOverlayManager().show(
-          title: 'Đã gửi lệnh in',
+          title: 'ÄÃ£ gá»­i lá»‡nh in',
           message: ref.isNotEmpty
-              ? 'Đơn $ref → ${printer.name}'
-              : 'Đã gửi tới Print Agent (${printer.name})',
+              ? 'ÄÆ¡n $ref â†’ ${printer.name}'
+              : 'ÄÃ£ gá»­i tá»›i Print Agent (${printer.name})',
           type: NotificationType.success,
           duration: const Duration(seconds: 3),
           relatedEntityType: kPosPrintNotifyKind,
@@ -761,8 +780,8 @@ class PosPrintOrchestrator {
           hangAfter: hangAfter,
           onHang: onHang,
         );
-        // Không chặn UI. Không toast lỗi nền — trước đây showFeedback:true khiến
-        // báo «In thất bại» dù Agent đã in (race reclaim/DUP/timeout sau giấy ra).
+        // KhÃ´ng cháº·n UI. KhÃ´ng toast lá»—i ná»n â€” trÆ°á»›c Ä‘Ã¢y showFeedback:true khiáº¿n
+        // bÃ¡o Â«In tháº¥t báº¡iÂ» dÃ¹ Agent Ä‘Ã£ in (race reclaim/DUP/timeout sau giáº¥y ra).
         unawaited(
           _waitJob(
             jobId,
@@ -787,7 +806,7 @@ class PosPrintOrchestrator {
     return false;
   }
 
-  /// In cùng lúc lên mọi máy in được gán cho [documentType].
+  /// In cÃ¹ng lÃºc lÃªn má»i mÃ¡y in Ä‘Æ°á»£c gÃ¡n cho [documentType].
   Future<bool> dispatchEscPosToAll({
     required String documentType,
     required Future<List<int>> Function(PosStorePrinter printer) buildBytes,
@@ -833,7 +852,9 @@ class PosPrintOrchestrator {
           printerId: printer.id,
           showFeedback: false,
           successTitle: successTitle,
-          waitForCompletion: isAgent,
+          waitForCompletion: isAgent ||
+              (!kIsWeb && await _canDispatchLocallyNow(printer)),
+          acceptClaimedAsSuccess: false,
           skipDedup: true,
         );
         if (ok) {
@@ -853,18 +874,18 @@ class PosPrintOrchestrator {
       if (okCount > 0) {
         final names = okNames.join(', ');
         NotificationOverlayManager().show(
-          title: okCount > 1 ? 'Đã gửi lệnh in ($okCount máy)' : 'Đã gửi lệnh in',
-          message: ref.isNotEmpty ? 'Đơn $ref → $names' : names,
+          title: okCount > 1 ? 'ÄÃ£ gá»­i lá»‡nh in ($okCount mÃ¡y)' : 'ÄÃ£ gá»­i lá»‡nh in',
+          message: ref.isNotEmpty ? 'ÄÆ¡n $ref â†’ $names' : names,
           type: NotificationType.success,
           duration: const Duration(seconds: 4),
         );
       }
       if (failCount > 0) {
         NotificationOverlayManager().showError(
-          title: 'In thất bại',
+          title: 'In tháº¥t báº¡i',
           message: failCount == printers.length
-              ? 'Không in được trên máy in đã chọn'
-              : '$failCount/${printers.length} máy in không in được',
+              ? 'KhÃ´ng in Ä‘Æ°á»£c trÃªn mÃ¡y in Ä‘Ã£ chá»n'
+              : '$failCount/${printers.length} mÃ¡y in khÃ´ng in Ä‘Æ°á»£c',
         );
       }
     }
@@ -872,7 +893,7 @@ class PosPrintOrchestrator {
     return okCount > 0;
   }
 
-  /// In hóa đơn qua cloud — Sunmi dùng native (giống máy in nội bộ), máy khác ESC/POS.
+  /// In hÃ³a Ä‘Æ¡n qua cloud â€” Sunmi dÃ¹ng native (giá»‘ng mÃ¡y in ná»™i bá»™), mÃ¡y khÃ¡c ESC/POS.
   Future<bool> dispatchSaleOrder({
     required PosSaleOrder order,
     required Future<List<int>> Function(PosStorePrinter printer) buildEscPos,
@@ -887,11 +908,12 @@ class PosPrintOrchestrator {
     bool showFeedback = true,
     String? successTitle,
     bool skipDedup = false,
-    /// In lại chọn máy — chỉ gửi đúng máy này (bỏ route mặc định).
+    /// In láº¡i chá»n mÃ¡y â€” chá»‰ gá»­i Ä‘Ãºng mÃ¡y nÃ y (bá» route máº·c Ä‘á»‹nh).
     String? overridePrinterId,
     PosStorePrinter? overridePrinter,
     PosPrintHangCallback? onHang,
     Duration hangAfter = hangAfterDefault,
+    bool? vatIncludedInPrice,
   }) async {
     if (!skipDedup &&
         PosPrintDedup.shouldSkip(
@@ -917,7 +939,7 @@ class PosPrintOrchestrator {
       printers = hit != null ? [hit] : const [];
     } else {
       printers = resolvePrinters(PosCloudDocumentTypes.saleInvoice);
-      // Sau TT: 1 máy đủ — tránh Sunmi + USB cùng role → lúc 1 lúc 2 bill.
+      // Sau TT: 1 mÃ¡y Ä‘á»§ â€” trÃ¡nh Sunmi + USB cÃ¹ng role â†’ lÃºc 1 lÃºc 2 bill.
       if (printers.length > 1) {
         final defaults = printers.where((p) => p.isDefault).toList();
         printers = [defaults.isNotEmpty ? defaults.first : printers.first];
@@ -936,17 +958,15 @@ class PosPrintOrchestrator {
           printerId: printer.id,
           fallback: copies,
         );
-        // Tránh in 2 lần: settings copies=1 nhưng route defaultCopies=2 (hoặc ngược).
+        // TrÃ¡nh in 2 láº§n: settings copies=1 nhÆ°ng route defaultCopies=2 (hoáº·c ngÆ°á»£c).
         final n = (routeN < copies ? routeN : copies).clamp(1, 10);
-        // Web: luôn enqueue cloud (Agent Android nhận in). Không native/local.
-        final isAgent =
-            !kIsWeb && await PosPrintRole.isAgentForPrinter(printer.id);
+        // Web: luÃ´n enqueue cloud (Agent Android nháº­n in). KhÃ´ng native/local.
         final onSunmiHw =
             !kIsWeb && await PosPrinterTransport.isSunmiDevice();
-        final useNative = printer.isSunmi && (isAgent ? onSunmiHw : true);
+        final canLocal = !kIsWeb && await _canDispatchLocallyNow(printer);
 
         bool ok;
-        if (useNative && isAgent && onSunmiHw) {
+        if (printer.isSunmi && onSunmiHw && canLocal) {
           ok = await _printSaleNativeOnThisDevice(
             printer: printer,
             order: order,
@@ -960,7 +980,9 @@ class PosPrintOrchestrator {
             showFeedback: false,
             successTitle: successTitle,
           );
-        } else if (useNative && !isAgent) {
+        } else if (printer.isSunmi) {
+          // A7/web â†’ Agent Sunmi: JSON native. EscPosBase64 bá»‹ Agent tá»« chá»‘i
+          // (UNSUPPORTED_ON_SUNMI) â€” mÃ¡y Â«nháº­n lá»‡nhÂ» nhÆ°ng khÃ´ng ra giáº¥y.
           ok = await _enqueueSaleOrderJson(
             printer: printer,
             order: order,
@@ -973,10 +995,10 @@ class PosPrintOrchestrator {
             referenceNo: referenceNo,
             referenceId: referenceId,
             showFeedback: false,
-            // Agent off: fire-and-forget + hang/Failed → phiếu treo (không chờ 120s).
-            waitForCompletion: false,
+            waitForCompletion: true,
             onHang: onHang,
             hangAfter: hangAfter,
+            vatIncludedInPrice: vatIncludedInPrice,
           );
         } else {
           final bytes = await buildEscPos(printer);
@@ -989,7 +1011,7 @@ class PosPrintOrchestrator {
             printerId: printer.id,
             showFeedback: false,
             successTitle: successTitle,
-            waitForCompletion: isAgent,
+            waitForCompletion: canLocal,
             skipDedup: true,
             onHang: onHang,
             hangAfter: hangAfter,
@@ -1013,8 +1035,8 @@ class PosPrintOrchestrator {
       if (okCount > 0) {
         final names = okNames.join(', ');
         NotificationOverlayManager().show(
-          title: okCount > 1 ? 'Đã gửi lệnh in ($okCount máy)' : 'Đã gửi lệnh in',
-          message: ref.isNotEmpty ? 'Đơn $ref → $names' : names,
+          title: okCount > 1 ? 'ÄÃ£ gá»­i lá»‡nh in ($okCount mÃ¡y)' : 'ÄÃ£ gá»­i lá»‡nh in',
+          message: ref.isNotEmpty ? 'ÄÆ¡n $ref â†’ $names' : names,
           type: NotificationType.success,
           duration: const Duration(seconds: 3),
           relatedEntityType: kPosPrintNotifyKind,
@@ -1022,10 +1044,10 @@ class PosPrintOrchestrator {
       }
       if (failCount > 0) {
         NotificationOverlayManager().showError(
-          title: 'In thất bại',
+          title: 'In tháº¥t báº¡i',
           message: failCount == printers.length
-              ? 'Không in được trên máy in đã chọn'
-              : '$failCount/${printers.length} máy in không in được',
+              ? 'KhÃ´ng in Ä‘Æ°á»£c trÃªn mÃ¡y in Ä‘Ã£ chá»n'
+              : '$failCount/${printers.length} mÃ¡y in khÃ´ng in Ä‘Æ°á»£c',
           relatedEntityType: kPosPrintNotifyKind,
         );
       }
@@ -1051,25 +1073,43 @@ class PosPrintOrchestrator {
     final ref = referenceNo?.trim() ?? '';
     if (showFeedback) {
       NotificationOverlayManager().show(
-        title: 'Đã nhận lệnh in',
+        title: 'ÄÃ£ nháº­n lá»‡nh in',
         message: ref.isNotEmpty
-            ? 'Đơn $ref — đang in trên ${printer.name}…'
-            : 'Đang in trên ${printer.name}…',
+            ? 'ÄÆ¡n $ref â€” Ä‘ang in trÃªn ${printer.name}â€¦'
+            : 'Äang in trÃªn ${printer.name}â€¦',
         duration: const Duration(seconds: 4),
       );
     }
 
     var ok = true;
+    final template = await resolvePosPrintTemplate(
+      documentType: PosPrintDocumentTypes.saleInvoice,
+    );
+    final v2 = PosPrintTemplateRuntime.resolveOrPreset(
+      template: template,
+      documentType: PosPrintDocumentTypes.saleInvoice,
+      paperSize: template?.paperSize ??
+          (settings.paperWidthMm <= 58
+              ? PosPrintPaperSizes.k58
+              : PosPrintPaperSizes.k80),
+      printerProfile: settings.paperWidthMm <= 58
+          ? PosPrintPrinterProfiles.sunmiK58
+          : PosPrintPrinterProfiles.sunmiK80,
+    );
     for (var i = 0; i < copies.clamp(1, 10); i++) {
-      final sent = await PosSunmiNativePrint.printSaleOrder(
-        order,
-        settings: settings,
+      final output = PosPrintTemplateRuntime.compileSaleOrder(
+        template: v2,
+        order: order,
         storeName: storeName,
         storeAddress: storeAddress,
         storePhone: storePhone,
         mergeSameItems: mergeSameItems,
+        titleOverride: documentTitle,
+      );
+      final sent = await PosPrintTemplateRuntime.printCompiledSunmi(
+        output: output,
+        settings: settings,
         copies: 1,
-        documentTitle: documentTitle,
       );
       if (!sent) {
         ok = false;
@@ -1082,7 +1122,7 @@ class PosPrintOrchestrator {
       if (showFeedback) {
         NotificationOverlayManager().showSuccess(
           title: successTitle ?? 'In xong',
-          message: ref.isNotEmpty ? 'Đơn $ref — ${printer.name}' : printer.name,
+          message: ref.isNotEmpty ? 'ÄÆ¡n $ref â€” ${printer.name}' : printer.name,
         );
       }
       return true;
@@ -1094,8 +1134,8 @@ class PosPrintOrchestrator {
     ));
     if (showFeedback) {
       NotificationOverlayManager().showError(
-        title: 'In thất bại',
-        message: tr('Không in được trên ${printer.name}'),
+        title: 'In tháº¥t báº¡i',
+        message: tr('KhÃ´ng in Ä‘Æ°á»£c trÃªn ${printer.name}'),
       );
     }
     return false;
@@ -1116,8 +1156,12 @@ class PosPrintOrchestrator {
     bool waitForCompletion = true,
     PosPrintHangCallback? onHang,
     Duration hangAfter = hangAfterDefault,
+    bool? vatIncludedInPrice,
   }) async {
-    // Gửi kèm full order — Agent in native giống Oppo, không phụ thuộc getPosSale.
+    // Gá»­i kÃ¨m full order â€” Agent in native giá»‘ng Oppo, khÃ´ng phá»¥ thuá»™c getPosSale.
+    final included = vatIncludedInPrice ??
+        (await PosSellStoreSettings.load()).taxMode ==
+            PosSellTaxMode.includedInPrice;
     final payload = jsonEncode({
       'orderId': order.id,
       'order': order.toPrintAgentJson(),
@@ -1126,6 +1170,7 @@ class PosPrintOrchestrator {
       'storePhone': storePhone,
       'mergeSameItems': mergeSameItems,
       'documentTitle': documentTitle,
+      'vatIncludedInPrice': included,
     });
     final res = await _api.createPosPrintJob(
       documentType: PosCloudDocumentTypes.saleInvoice,
@@ -1139,8 +1184,8 @@ class PosPrintOrchestrator {
     if (res['isSuccess'] != true) {
       if (showFeedback) {
         NotificationOverlayManager().showError(
-          title: 'Không gửi lệnh in',
-          message: res['message']?.toString() ?? 'Lỗi máy chủ',
+          title: 'KhÃ´ng gá»­i lá»‡nh in',
+          message: res['message']?.toString() ?? 'Lá»—i mÃ¡y chá»§',
           relatedEntityType: kPosPrintNotifyKind,
         );
       }
@@ -1154,14 +1199,14 @@ class PosPrintOrchestrator {
       return false;
     }
 
-    PosPrintSessionRegistry.markOutbound(jobId);
+    await _registerCloudJobForAgent(jobId: jobId, printerId: printer.id);
     if (showFeedback) {
       final ref = referenceNo?.trim() ?? '';
       NotificationOverlayManager().show(
-        title: 'Đã gửi lệnh in',
+        title: 'ÄÃ£ gá»­i lá»‡nh in',
         message: ref.isNotEmpty
-            ? 'Đơn $ref → ${printer.name}'
-            : 'Đã gửi tới Print Agent (${printer.name})',
+            ? 'ÄÆ¡n $ref â†’ ${printer.name}'
+            : 'ÄÃ£ gá»­i tá»›i Print Agent (${printer.name})',
         type: NotificationType.success,
         duration: const Duration(seconds: 3),
         relatedEntityType: kPosPrintNotifyKind,
@@ -1173,25 +1218,33 @@ class PosPrintOrchestrator {
         documentType: PosCloudDocumentTypes.saleInvoice,
         printer: printer,
         referenceNo: referenceNo,
-        acceptClaimedAsSuccess: true,
+        acceptClaimedAsSuccess: false,
         hangAfter: hangAfter,
         onHang: onHang,
       );
       unawaited(
-        _waitJob(jobId, showFeedback: false).whenComplete(
+        _waitJob(
+          jobId,
+          showFeedback: false,
+          acceptClaimedAsSuccess: false,
+        ).whenComplete(
           () => PosPrintSessionRegistry.clearOutbound(jobId),
         ),
       );
       return true;
     }
-    final outcome = await _waitJob(jobId, showFeedback: showFeedback);
+    final outcome = await _waitJob(
+      jobId,
+      showFeedback: showFeedback,
+      acceptClaimedAsSuccess: false,
+    );
     PosPrintSessionRegistry.clearOutbound(jobId);
     return outcome.ok;
   }
 
-  /// Không hủy job khi heartbeat Agent «lệch» — demopos tái hiện:
-  /// `agentOnlineForPrinter=0` nhưng Agent vẫn Claim + in trong vài giây.
-  /// Fail-fast cũ → UI «Đã báo bếp — chưa in phiếu» dù giấy đã ra.
+  /// KhÃ´ng há»§y job khi heartbeat Agent Â«lá»‡chÂ» â€” demopos tÃ¡i hiá»‡n:
+  /// `agentOnlineForPrinter=0` nhÆ°ng Agent váº«n Claim + in trong vÃ i giÃ¢y.
+  /// Fail-fast cÅ© â†’ UI Â«ÄÃ£ bÃ¡o báº¿p â€” chÆ°a in phiáº¿uÂ» dÃ¹ giáº¥y Ä‘Ã£ ra.
   bool _failFastNoAgent(
     PosStorePrinter printer,
     Map<String, dynamic>? data,
@@ -1204,12 +1257,12 @@ class PosPrintOrchestrator {
         agentsOnline.toInt() > 0) {
       return false;
     }
-    // Chỉ cảnh báo mềm — vẫn chờ Claimed/Printing/Completed.
+    // Chá»‰ cáº£nh bÃ¡o má»m â€” váº«n chá» Claimed/Printing/Completed.
     if (showFeedback) {
       NotificationOverlayManager().show(
-        title: 'Đang chờ Print Agent…',
+        title: 'Äang chá» Print Agentâ€¦',
         message: tr(
-            '${printer.name}: chưa thấy heartbeat tươi — vẫn gửi lệnh, mở app Agent nếu lâu không in.'),
+            '${printer.name}: chÆ°a tháº¥y heartbeat tÆ°Æ¡i â€” váº«n gá»­i lá»‡nh, má»Ÿ app Agent náº¿u lÃ¢u khÃ´ng in.'),
         duration: const Duration(seconds: 4),
         relatedEntityType: kPosPrintNotifyKind,
       );
@@ -1217,7 +1270,7 @@ class PosPrintOrchestrator {
     return false;
   }
 
-  /// Phiếu xuất kho / báo chế biến kho → Agent Sunmi native (không ESC/POS).
+  /// Phiáº¿u xuáº¥t kho / bÃ¡o cháº¿ biáº¿n kho â†’ Agent Sunmi native (khÃ´ng ESC/POS).
   Future<bool> enqueueWarehouseSlipJson({
     required PosStorePrinter printer,
     required PosSaleOrder order,
@@ -1253,8 +1306,8 @@ class PosPrintOrchestrator {
     if (res['isSuccess'] != true) {
       if (showFeedback) {
         NotificationOverlayManager().showError(
-          title: 'Không gửi phiếu kho',
-          message: res['message']?.toString() ?? 'Lỗi máy chủ',
+          title: 'KhÃ´ng gá»­i phiáº¿u kho',
+          message: res['message']?.toString() ?? 'Lá»—i mÃ¡y chá»§',
         );
       }
       return false;
@@ -1267,8 +1320,7 @@ class PosPrintOrchestrator {
       return false;
     }
 
-    PosPrintSessionRegistry.markOutbound(jobId);
-    PosPrintAgentService.instance.nudgeClaim();
+    await _registerCloudJobForAgent(jobId: jobId, printerId: printer.id);
     if (!waitForCompletion) {
       _armHangWatch(
         jobId: jobId,
@@ -1278,21 +1330,29 @@ class PosPrintOrchestrator {
         acceptClaimedAsSuccess: false,
       );
       unawaited(
-        _waitJob(jobId, showFeedback: false).whenComplete(
+        _waitJob(
+          jobId,
+          showFeedback: false,
+          acceptClaimedAsSuccess: false,
+        ).whenComplete(
           () => PosPrintSessionRegistry.clearOutbound(jobId),
         ),
       );
       return true;
     }
-    final outcome = await _waitJob(jobId, showFeedback: showFeedback);
+    final outcome = await _waitJob(
+      jobId,
+      showFeedback: showFeedback,
+      acceptClaimedAsSuccess: false,
+    );
     PosPrintSessionRegistry.clearOutbound(jobId);
     return outcome.ok;
   }
 
-  /// In phiếu báo chế biến / hủy — Sunmi dùng native (UTF-8), máy khác ESC/POS.
+  /// In phiáº¿u bÃ¡o cháº¿ biáº¿n / há»§y â€” Sunmi dÃ¹ng native (UTF-8), mÃ¡y khÃ¡c ESC/POS.
   ///
-  /// [preferDirectPrint]: in lại / chọn máy — ưu tiên in thẳng trên thiết bị này
-  /// (không bắt buộc Agent đã gán máy), rồi mới fallback cloud.
+  /// [preferDirectPrint]: in láº¡i / chá»n mÃ¡y â€” Æ°u tiÃªn in tháº³ng trÃªn thiáº¿t bá»‹ nÃ y
+  /// (khÃ´ng báº¯t buá»™c Agent Ä‘Ã£ gÃ¡n mÃ¡y), rá»“i má»›i fallback cloud.
   Future<bool> dispatchKitchenSlip({
     required PosStorePrinter printer,
     required String tableName,
@@ -1312,7 +1372,7 @@ class PosPrintOrchestrator {
     bool skipDedup = false,
     bool waitForCompletion = true,
     bool preferDirectPrint = false,
-    /// A7 / máy thu ngân: luôn enqueue cloud (không thử USB/LAN local).
+    /// A7 / mÃ¡y thu ngÃ¢n: luÃ´n enqueue cloud (khÃ´ng thá»­ USB/LAN local).
     bool forceCloud = false,
     PosPrintHangCallback? onHang,
     Duration hangAfter = hangAfterDefault,
@@ -1345,13 +1405,13 @@ class PosPrintOrchestrator {
       if (showFeedback) {
         if (ok) {
           NotificationOverlayManager().showSuccess(
-            title: successTitle ?? (isCancel ? 'Hủy bếp' : 'Báo bếp'),
-            message: '${printer.name} · ${lines.length} phiếu',
+            title: successTitle ?? (isCancel ? 'Há»§y báº¿p' : 'BÃ¡o báº¿p'),
+            message: '${printer.name} Â· ${lines.length} phiáº¿u',
           );
         } else {
           NotificationOverlayManager().showError(
-            title: 'In thất bại',
-            message: tr('Không in hết món trên ${printer.name}'),
+            title: 'In tháº¥t báº¡i',
+            message: tr('KhÃ´ng in háº¿t mÃ³n trÃªn ${printer.name}'),
           );
         }
       }
@@ -1366,8 +1426,8 @@ class PosPrintOrchestrator {
           referenceNo: referenceNo,
           printerId: printer.id,
         )) {
-      // Báo bếp thường showFeedback=true; sau TT có thể false — vẫn cảnh báo
-      // để user biết vì sao lần 2 không in.
+      // BÃ¡o báº¿p thÆ°á»ng showFeedback=true; sau TT cÃ³ thá»ƒ false â€” váº«n cáº£nh bÃ¡o
+      // Ä‘á»ƒ user biáº¿t vÃ¬ sao láº§n 2 khÃ´ng in.
       _notifyPrintDedupSkip();
       return true;
     }
@@ -1375,69 +1435,64 @@ class PosPrintOrchestrator {
     final isAgent =
         !kIsWeb && await PosPrintRole.isAgentForPrinter(printer.id);
     final onSunmiHw = !kIsWeb && await PosPrinterTransport.isSunmiDevice();
-    // A6 vừa Agent vừa gửi: không forceCloud + không markOutbound (nếu vẫn cloud).
-    // Trước đây forceCloud → markOutbound → Agent bỏ claim → không ra giấy.
+    final canLocal = !kIsWeb && await _canDispatchLocallyNow(printer);
+    // CÃ³ cá»•ng trÃªn mÃ¡y nÃ y â†’ in local dÃ¹ Agent táº¯t. forceCloud chá»‰ khi
+    // Â«Test qua cloudÂ» (mÃ¡y khÃ¡c in há»™). KhÃ´ng cÃ³ cá»•ng â†’ JSON cho Agent.
     var effectiveForceCloud = forceCloud;
     var effectivePreferDirect = preferDirectPrint;
-    // A7 / máy thu ngân: máy cloud (requiresAgent) luôn enqueue Agent —
-    // không thử USB/LAN «ảo» từ SharedPreferences (A7 hay còn profile LAN/USB
-    // khớp tên → preferDirect → compile EscPos nặng rồi fail → phiếu chờ, không tạo job).
-    if (!isAgent && printer.requiresAgent) {
-      effectiveForceCloud = true;
-      effectivePreferDirect = false;
-    }
-    // A6 vừa Agent vừa gửi: chỉ bỏ forceCloud khi CỔNG IN THẬT SỰ có trên máy này.
-    // A7 bật nhầm Agent + chip USB → trước đây bỏ cloud, fail local → phiếu treo ngay
-    // dù A6 vẫn đang online và in được.
-    if (effectiveForceCloud && isAgent) {
-      final canLocal = await _canDispatchLocallyNow(printer);
-      if (canLocal) {
-        effectiveForceCloud = false;
-        effectivePreferDirect = true;
-      } else {
-        debugPrint(
-          'Kitchen DBG: isAgent nhưng chưa có cổng local cho ${printer.name} — giữ forceCloud',
-        );
-      }
-    }
-    // A7 / HRM (không phải Sunmi, không phải Agent): luôn gửi JSON cho Agent.
-    // Profile USB/LAN «ảo» trên C20Lite từng làm compile ESC/POS bitmap trên UI → đơ.
-    if (!isAgent && !onSunmiHw) {
+    if (canLocal && !forceCloud) {
+      effectiveForceCloud = false;
+      effectivePreferDirect = true;
+    } else if (!canLocal) {
       effectiveForceCloud = true;
       effectivePreferDirect = false;
     }
     debugPrint(
       'Kitchen DBG dispatchKitchenSlip: printer=${printer.name} isSunmi=${printer.isSunmi} '
-      'isAgent=$isAgent onSunmiHw=$onSunmiHw forceCloud=$effectiveForceCloud '
-      'preferDirect=$effectivePreferDirect isDeviceLocal=${printer.isDeviceLocal}',
+      'isAgent=$isAgent onSunmiHw=$onSunmiHw canLocal=$canLocal '
+      'forceCloud=$effectiveForceCloud preferDirect=$effectivePreferDirect '
+      'isDeviceLocal=${printer.isDeviceLocal}',
     );
 
-    // Sunmi trên chính máy này: in native (Agent hoặc in lại chọn máy).
+    // MÃ¡y in trong Sunmi: chá»‰ khi Ä‘Ã­ch tháº­t sá»± lÃ  Sunmi VÃ€ khÃ´ng map sang
+    // cá»•ng USB/LAN (A6 hay gÃ¡n nháº§m chip sunmi â†’ phiáº¿u preset khÃ¡c máº«u gá»‘c).
     if (!effectiveForceCloud &&
         !kIsWeb &&
         printer.isSunmi &&
-        onSunmiHw &&
-        (effectivePreferDirect || isAgent)) {
-      return _printKitchenNativeOnThisDevice(
-        printer: printer,
-        tableName: tableName,
-        isCancel: isCancel,
-        lines: lines,
-        senderName: senderName,
-        sentAt: sentAt,
-        orderNo: orderNo,
-        showFeedback: showFeedback,
-        successTitle: successTitle,
+        onSunmiHw) {
+      final role = isCancel
+          ? PosLocalPrinterRoles.kitchenVoid
+          : PosLocalPrinterRoles.kitchenSlip;
+      final ownedLocal = await PosLocalPrintersStore.instance
+          .resolveOnDeviceForStorePrinter(printer, documentRole: role);
+      final localIsSunmi = ownedLocal == null ||
+          ownedLocal.connectionType == PosThermalConnectionType.sunmi;
+      if (localIsSunmi) {
+        return _printKitchenNativeOnThisDevice(
+          printer: printer,
+          tableName: tableName,
+          isCancel: isCancel,
+          lines: lines,
+          senderName: senderName,
+          sentAt: sentAt,
+          orderNo: orderNo,
+          showFeedback: showFeedback,
+          successTitle: successTitle,
+        );
+      }
+      debugPrint(
+        'Kitchen DBG: bá» native Sunmi â€” ${printer.name} map cá»•ng '
+        '${ownedLocal!.connectionType} (${ownedLocal.name})',
       );
     }
 
-    // In local trên thiết bị này (USB/BT/LAN nội bộ) khi không force cloud.
-    // Cloud/Agent: luôn KitchenSlipJson — payload nhỏ; Agent tự dựng ESC/POS.
-    // Trước đây A7 compile EscPos bitmap VN rồi gửi base64: 2+ món rất nặng →
-    // Agent USB chậm/timeout → phiếu treo; hủy từng món (payload nhỏ) lại in được.
+    // In local trÃªn thiáº¿t bá»‹ nÃ y (USB/BT/LAN ná»™i bá»™) khi khÃ´ng force cloud.
+    // Cloud/Agent: luÃ´n KitchenSlipJson â€” payload nhá»; Agent tá»± dá»±ng ESC/POS.
+    // TrÆ°á»›c Ä‘Ã¢y A7 compile EscPos bitmap VN rá»“i gá»­i base64: 2+ mÃ³n ráº¥t náº·ng â†’
+    // Agent USB cháº­m/timeout â†’ phiáº¿u treo; há»§y tá»«ng mÃ³n (payload nhá») láº¡i in Ä‘Æ°á»£c.
     if (!effectiveForceCloud && !kIsWeb) {
       final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
-      final table = tableName.trim().isEmpty ? 'Bàn' : tableName.trim();
+      final table = tableName.trim().isEmpty ? 'BÃ n' : tableName.trim();
       final sender = senderName.trim().isEmpty ? 'admin' : senderName.trim();
       final code = (orderNo ?? '').trim().isEmpty ? '-' : orderNo!.trim();
       final kitchenDoc = isCancel
@@ -1445,9 +1500,10 @@ class PosPrintOrchestrator {
           : PosCloudDocumentTypes.kitchenSlip;
       final settings = toThermalSettings(printer).copyWith(
         openCashDrawer: false,
+        compactCutFeed: true,
       );
       final tpl = await PosPrintConfigSession.instance
-          .kitchenTemplate(isCancel: isCancel);
+          .kitchenTemplate(isCancel: isCancel, force: true);
       final v2 = PosPrintTemplateRuntime.resolveOrPreset(
         template: tpl,
         documentType: isCancel
@@ -1471,7 +1527,7 @@ class PosPrintOrchestrator {
               name: l.productName,
               qty: qtyFmt.format(l.qty),
               unit: l.unitName,
-              note: l.note,
+              note: PosPrintTemplateRuntime.kitchenCallNote(l.note, sentAt),
             ),
         ],
         senderName: sender,
@@ -1499,9 +1555,9 @@ class PosPrintOrchestrator {
         );
         if (localOk) return true;
         debugPrint(
-          'Kitchen DBG: on-device local fail ${printer.name} — fallback cloud JSON',
+          'Kitchen DBG: on-device local fail ${printer.name} â€” fallback cloud JSON',
         );
-      } else if (effectivePreferDirect && isAgent) {
+      } else if (effectivePreferDirect && canLocal) {
         final canPort = await _canDispatchLocallyNow(printer);
         if (canPort &&
             (printer.isUsb || printer.isBluetooth || printer.isSunmi)) {
@@ -1516,15 +1572,15 @@ class PosPrintOrchestrator {
           );
           if (ok) return true;
           debugPrint(
-            'Kitchen DBG: agent direct fail ${printer.name} — fallback cloud JSON',
+            'Kitchen DBG: agent direct fail ${printer.name} â€” fallback cloud JSON',
           );
         }
       }
     }
 
     debugPrint(
-      'Kitchen DBG: cloud KitchenSlipJson → ${printer.name} '
-      '(${lines.length} món, forceCloud=$effectiveForceCloud)',
+      'Kitchen DBG: cloud KitchenSlipJson â†’ ${printer.name} '
+      '(${lines.length} mÃ³n, forceCloud=$effectiveForceCloud)',
     );
     return _enqueueKitchenSlipJson(
       printer: printer,
@@ -1560,10 +1616,26 @@ class PosPrintOrchestrator {
   }) async {
     final settings = toThermalSettings(printer).copyWith(
       openCashDrawer: false,
+      compactCutFeed: true,
     );
     final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
-    final ok = await PosSunmiNativePrint.printKitchenSlip(
-      tableName: tableName,
+    final tpl = await PosPrintConfigSession.instance
+        .kitchenTemplate(isCancel: isCancel, force: true);
+    final v2 = PosPrintTemplateRuntime.resolveOrPreset(
+      template: tpl,
+      documentType: isCancel
+          ? PosPrintDocumentTypes.kitchenVoid
+          : PosPrintDocumentTypes.kitchenSlip,
+      paperSize: settings.paperSize,
+      printerProfile: PosPrintPrinterProfiles.forPaperAndBrand(
+        paperSize: settings.paperSize,
+        isSunmi: true,
+        isZywell: false,
+      ),
+    );
+    final output = PosPrintTemplateRuntime.compileKitchenSlip(
+      template: v2,
+      tableName: tableName.trim().isEmpty ? 'BÃ n' : tableName.trim(),
       isCancel: isCancel,
       lines: [
         for (final l in lines)
@@ -1571,22 +1643,26 @@ class PosPrintOrchestrator {
             name: l.productName,
             qty: qtyFmt.format(l.qty),
             unit: l.unitName,
-            note: l.note,
+            note: PosPrintTemplateRuntime.kitchenCallNote(l.note, sentAt),
           ),
       ],
-      senderName: senderName,
-      orderNo: orderNo ?? '',
+      senderName: senderName.trim().isEmpty ? 'admin' : senderName.trim(),
+      orderNo: (orderNo ?? '').trim(),
       sentAt: sentAt,
+    );
+    final ok = await PosPrintTemplateRuntime.printCompiledSunmi(
+      output: output,
       settings: settings.copyWith(
         connectionType: PosThermalConnectionType.sunmi,
         printerBrand: PosThermalPrinterBrand.sunmi,
       ),
+      kitchenFeed: true,
     );
     if (ok) {
       unawaited(_api.reportPosPrinterHealth(printer.id, status: 'Online'));
       if (showFeedback) {
         NotificationOverlayManager().showSuccess(
-          title: successTitle ?? (isCancel ? 'Hủy bếp' : 'Báo bếp'),
+          title: successTitle ?? (isCancel ? 'Há»§y báº¿p' : 'BÃ¡o báº¿p'),
           message: printer.name,
         );
       }
@@ -1599,8 +1675,8 @@ class PosPrintOrchestrator {
     ));
     if (showFeedback) {
       NotificationOverlayManager().showError(
-        title: 'In thất bại',
-        message: tr('Không in được trên ${printer.name}'),
+        title: 'In tháº¥t báº¡i',
+        message: tr('KhÃ´ng in Ä‘Æ°á»£c trÃªn ${printer.name}'),
       );
     }
     return false;
@@ -1640,7 +1716,8 @@ class PosPrintOrchestrator {
             'qty': l.qty,
             if (l.unitName != null && l.unitName!.trim().isNotEmpty)
               'unitName': l.unitName!.trim(),
-            if (l.note != null && l.note!.trim().isNotEmpty) 'note': l.note!.trim(),
+            'note': PosPrintTemplateRuntime.kitchenCallNote(l.note, sentAt),
+            'calledAt': sentAt.toUtc().toIso8601String(),
           },
       ],
     });
@@ -1653,15 +1730,15 @@ class PosPrintOrchestrator {
       payload: payload,
       copies: 1,
       referenceNo: referenceNo,
-      // Idempotency server (ReferenceNo + active job) — chống bấm nhiều lần.
+      // Idempotency server (ReferenceNo + active job) â€” chá»‘ng báº¥m nhiá»u láº§n.
       referenceId: null,
       printerId: printer.id,
     );
     if (res['isSuccess'] != true) {
       if (showFeedback) {
         NotificationOverlayManager().showError(
-          title: 'Không gửi lệnh in',
-          message: res['message']?.toString() ?? 'Lỗi máy chủ',
+          title: 'KhÃ´ng gá»­i lá»‡nh in',
+          message: res['message']?.toString() ?? 'Lá»—i mÃ¡y chá»§',
           relatedEntityType: kPosPrintNotifyKind,
         );
       }
@@ -1675,27 +1752,22 @@ class PosPrintOrchestrator {
       return false;
     }
 
-    final selfAgent =
-        !kIsWeb && await PosPrintRole.isAgentForPrinter(printer.id);
-    if (!selfAgent) {
-      PosPrintSessionRegistry.markOutbound(jobId);
-    }
-    PosPrintAgentService.instance.nudgeClaim();
+    await _registerCloudJobForAgent(jobId: jobId, printerId: printer.id);
     if (showFeedback) {
       final ref = referenceNo?.trim() ?? '';
       NotificationOverlayManager().show(
-        title: isCancel ? 'Hủy bếp' : 'Báo bếp',
+        title: isCancel ? 'Há»§y báº¿p' : 'BÃ¡o báº¿p',
         message: ref.isNotEmpty
-            ? '$ref → ${printer.name}'
-            : 'Đã gửi tới Print Agent (${printer.name})',
+            ? '$ref â†’ ${printer.name}'
+            : 'ÄÃ£ gá»­i tá»›i Print Agent (${printer.name})',
         type: NotificationType.success,
         duration: const Duration(seconds: 3),
         relatedEntityType: kPosPrintNotifyKind,
       );
     }
     if (!waitForCompletion) {
-      // Không coi Claimed = OK: web→A6 hay kẹt Claimed rồi STUCK/Busy,
-      // toast «đã in» giả + phiếu hủy không ra giấy.
+      // KhÃ´ng coi Claimed = OK: webâ†’A6 hay káº¹t Claimed rá»“i STUCK/Busy,
+      // toast Â«Ä‘Ã£ inÂ» giáº£ + phiáº¿u há»§y khÃ´ng ra giáº¥y.
       _armHangWatch(
         jobId: jobId,
         documentType: kitchenDoc,
@@ -1716,7 +1788,7 @@ class PosPrintOrchestrator {
       );
       return true;
     }
-    // Phiếu bếp: chỉ Completed mới OK — Claimed sớm dễ để job kẹt rồi reclaim in trùng.
+    // Phiáº¿u báº¿p: chá»‰ Completed má»›i OK â€” Claimed sá»›m dá»… Ä‘á»ƒ job káº¹t rá»“i reclaim in trÃ¹ng.
     final outcome = await _waitJob(
       jobId,
       showFeedback: showFeedback,
@@ -1726,15 +1798,15 @@ class PosPrintOrchestrator {
     return outcome.ok;
   }
 
-  /// Phiếu ra món / trả món KDS — layout kiểu báo chế biến, tối giản giấy.
-  /// [lines] gom nhiều món cùng bàn thành 1 phiếu.
+  /// Phiáº¿u ra mÃ³n / tráº£ mÃ³n KDS â€” layout kiá»ƒu bÃ¡o cháº¿ biáº¿n, tá»‘i giáº£n giáº¥y.
+  /// [lines] gom nhiá»u mÃ³n cÃ¹ng bÃ n thÃ nh 1 phiáº¿u.
   Future<bool> dispatchKdsReadySlip({
     required PosStorePrinter printer,
     required String tableName,
     String? areaName,
     String? orderNo,
     DateTime? readyAt,
-    /// Một món (tương thích cũ) — dùng khi [lines] rỗng.
+    /// Má»™t mÃ³n (tÆ°Æ¡ng thÃ­ch cÅ©) â€” dÃ¹ng khi [lines] rá»—ng.
     String? productName,
     double qty = 1,
     DateTime? calledAt,
@@ -1776,7 +1848,7 @@ class PosPrintOrchestrator {
             'productName': it.productName,
             'qty': it.qty,
             'calledAt': it.calledAt.toUtc().toIso8601String(),
-            'note': 'Gọi ${_hhmm(it.calledAt)} · Ra ${_hhmm(at)}',
+            'note': 'Gá»i ${_hhmm(it.calledAt)} Â· Ra ${_hhmm(at)}',
           },
       ],
     });
@@ -1797,21 +1869,20 @@ class PosPrintOrchestrator {
     final data = res['data'] as Map<String, dynamic>?;
     final jobId = data?['jobId']?.toString() ?? '';
     if (jobId.isEmpty) return false;
-    final selfAgent =
-        !kIsWeb && await PosPrintRole.isAgentForPrinter(printer.id);
-    if (!selfAgent) {
-      PosPrintSessionRegistry.markOutbound(jobId);
-    }
-    PosPrintAgentService.instance.nudgeClaim();
+    await _registerCloudJobForAgent(jobId: jobId, printerId: printer.id);
     unawaited(
-      _waitJob(jobId, showFeedback: false).whenComplete(
+      _waitJob(
+        jobId,
+        showFeedback: false,
+        acceptClaimedAsSuccess: false,
+      ).whenComplete(
         () => PosPrintSessionRegistry.clearOutbound(jobId),
       ),
     );
     return true;
   }
 
-  /// In trực tiếp trên thiết bị Agent (máy in gắn tại đây).
+  /// In trá»±c tiáº¿p trÃªn thiáº¿t bá»‹ Agent (mÃ¡y in gáº¯n táº¡i Ä‘Ã¢y).
   Future<bool> _printDirectOnStorePrinter({
     required PosStorePrinter printer,
     required List<int> bytes,
@@ -1820,7 +1891,7 @@ class PosPrintOrchestrator {
     bool showFeedback = true,
     String? successTitle,
   }) async {
-    // Giống Agent: ưu tiên cấu hình máy nội bộ (id hoặc khớp cổng USB/BT/LAN).
+    // Giá»‘ng Agent: Æ°u tiÃªn cáº¥u hÃ¬nh mÃ¡y ná»™i bá»™ (id hoáº·c khá»›p cá»•ng USB/BT/LAN).
     final local =
         await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
     final settings = local != null
@@ -1830,19 +1901,19 @@ class PosPrintOrchestrator {
 
     if (showFeedback) {
       NotificationOverlayManager().show(
-        title: 'Đã nhận lệnh in',
+        title: 'ÄÃ£ nháº­n lá»‡nh in',
         message: ref.isNotEmpty
-            ? 'Đơn $ref — đang in trên ${printer.name}…'
-            : 'Đang in trên ${printer.name}…',
+            ? 'ÄÆ¡n $ref â€” Ä‘ang in trÃªn ${printer.name}â€¦'
+            : 'Äang in trÃªn ${printer.name}â€¦',
         duration: const Duration(seconds: 4),
       );
     }
 
-    // Tôn trọng feed cấu hình máy (không ép 4 dòng riêng cho Sunmi).
+    // TÃ´n trá»ng feed cáº¥u hÃ¬nh mÃ¡y (khÃ´ng Ã©p 4 dÃ²ng riÃªng cho Sunmi).
     final sunmiFeed = settings.resolvedFeedBeforeCut;
 
     var ok = true;
-    // Tem TSPL đã có PRINT trong payload — không nhân bản theo copies job.
+    // Tem TSPL Ä‘Ã£ cÃ³ PRINT trong payload â€” khÃ´ng nhÃ¢n báº£n theo copies job.
     final effectiveCopies = printer.isLabelPrinter ? 1 : copies.clamp(1, 10);
     for (var i = 0; i < effectiveCopies; i++) {
       final sent = await PosPrinterTransport.send(
@@ -1866,7 +1937,7 @@ class PosPrintOrchestrator {
         NotificationOverlayManager().showSuccess(
           title: successTitle ?? 'In xong',
           message: ref.isNotEmpty
-              ? 'Đơn $ref — ${printer.name}'
+              ? 'ÄÆ¡n $ref â€” ${printer.name}'
               : printer.name,
         );
       }
@@ -1876,21 +1947,21 @@ class PosPrintOrchestrator {
     unawaited(_api.reportPosPrinterHealth(
       printer.id,
       status: 'Offline',
-      errorMessage: 'Không kết nối được máy in',
+      errorMessage: 'KhÃ´ng káº¿t ná»‘i Ä‘Æ°á»£c mÃ¡y in',
     ));
     if (showFeedback) {
       NotificationOverlayManager().showError(
-        title: 'In thất bại',
-        message: tr('Không kết nối được ${printer.name}'),
+        title: 'In tháº¥t báº¡i',
+        message: tr('KhÃ´ng káº¿t ná»‘i Ä‘Æ°á»£c ${printer.name}'),
       );
     }
     return false;
   }
 
-  /// In trực tiếp trên thiết bị này (Thiết lập máy in nhiệt — LAN/BT/USB cục bộ).
+  /// In trá»±c tiáº¿p trÃªn thiáº¿t bá»‹ nÃ y (Thiáº¿t láº­p mÃ¡y in nhiá»‡t â€” LAN/BT/USB cá»¥c bá»™).
   ///
-  /// Nếu [documentRole] có: in tới **tất cả** máy nội bộ mang vai trò đó.
-  /// Không có role: dùng [settingsOverride] hoặc singleton legacy.
+  /// Náº¿u [documentRole] cÃ³: in tá»›i **táº¥t cáº£** mÃ¡y ná»™i bá»™ mang vai trÃ² Ä‘Ã³.
+  /// KhÃ´ng cÃ³ role: dÃ¹ng [settingsOverride] hoáº·c singleton legacy.
   Future<bool> dispatchLocalEscPos({
     required List<int> bytes,
     int copies = 1,
@@ -1938,8 +2009,8 @@ class PosPrintOrchestrator {
         if (!ok) {
           if (showFeedback) {
             NotificationOverlayManager().showError(
-              title: 'In thất bại',
-              message: tr('Không kết nối được máy in cục bộ'),
+              title: 'In tháº¥t báº¡i',
+              message: tr('KhÃ´ng káº¿t ná»‘i Ä‘Æ°á»£c mÃ¡y in cá»¥c bá»™'),
             );
           }
           return false;
@@ -1947,8 +2018,8 @@ class PosPrintOrchestrator {
       }
       if (showFeedback) {
         NotificationOverlayManager().showSuccess(
-          title: successTitle ?? 'In thành công',
-          message: tr('Máy in cục bộ (cùng mạng)'),
+          title: successTitle ?? 'In thÃ nh cÃ´ng',
+          message: tr('MÃ¡y in cá»¥c bá»™ (cÃ¹ng máº¡ng)'),
         );
       }
       return true;
@@ -1960,7 +2031,7 @@ class PosPrintOrchestrator {
     return run();
   }
 
-  /// In tới mọi máy nội bộ có [role] (SaleInvoice / KitchenSlip / StockIssue…).
+  /// In tá»›i má»i mÃ¡y ná»™i bá»™ cÃ³ [role] (SaleInvoice / KitchenSlip / StockIssueâ€¦).
   Future<bool> dispatchLocalEscPosByRole({
     required String role,
     required List<int> bytes,
@@ -1972,7 +2043,7 @@ class PosPrintOrchestrator {
     if (kIsWeb) return false;
     final printers = await PosLocalPrintersStore.instance.forRole(role);
     if (printers.isEmpty) {
-      // Không fallback singleton — tránh máy chỉ hóa đơn vẫn nhận báo bếp.
+      // KhÃ´ng fallback singleton â€” trÃ¡nh mÃ¡y chá»‰ hÃ³a Ä‘Æ¡n váº«n nháº­n bÃ¡o báº¿p.
       return false;
     }
 
@@ -1985,34 +2056,34 @@ class PosPrintOrchestrator {
           if (ok) printerOk = true;
         }
         if (printerOk) {
-          // Một máy đủ — tránh in đôi khi nhiều profile cùng role.
+          // Má»™t mÃ¡y Ä‘á»§ â€” trÃ¡nh in Ä‘Ã´i khi nhiá»u profile cÃ¹ng role.
           anyOk = true;
           break;
         }
       }
       if (!anyOk && showFeedback) {
         NotificationOverlayManager().showError(
-          title: 'In thất bại',
-          message: tr('Không kết nối được máy in nội bộ ($role)'),
+          title: 'In tháº¥t báº¡i',
+          message: tr('KhÃ´ng káº¿t ná»‘i Ä‘Æ°á»£c mÃ¡y in ná»™i bá»™ ($role)'),
         );
       } else if (anyOk && showFeedback) {
         NotificationOverlayManager().showSuccess(
-          title: successTitle ?? 'In thành công',
-          message: tr('Máy in nội bộ'),
+          title: successTitle ?? 'In thÃ nh cÃ´ng',
+          message: tr('MÃ¡y in ná»™i bá»™'),
         );
       }
       return anyOk;
     }
 
     if (!waitForCompletion) {
-      // Luôn await — soft-OK (unawaited+true) gây lúc in lúc không.
+      // LuÃ´n await â€” soft-OK (unawaited+true) gÃ¢y lÃºc in lÃºc khÃ´ng.
       return run();
     }
     return run();
   }
 
-  /// In theo máy gán sản phẩm: nếu là máy nội bộ trên thiết bị này → local;
-  /// ngược lại trả false để caller đi cloud/agent.
+  /// In theo mÃ¡y gÃ¡n sáº£n pháº©m: náº¿u lÃ  mÃ¡y ná»™i bá»™ trÃªn thiáº¿t bá»‹ nÃ y â†’ local;
+  /// ngÆ°á»£c láº¡i tráº£ false Ä‘á»ƒ caller Ä‘i cloud/agent.
   Future<bool> dispatchLocalEscPosForStorePrinterId({
     required String storePrinterId,
     required List<int> bytes,
@@ -2037,7 +2108,7 @@ class PosPrintOrchestrator {
           await PosPrinterReadiness.resolveUsbForPrint(settings.usbDeviceName);
       if (resolved == null) {
         debugPrint(
-          'Local print blocked: usb không khớp cổng '
+          'Local print blocked: usb khÃ´ng khá»›p cá»•ng '
           '(usb=${settings.usbDeviceName})',
         );
         return false;
@@ -2111,8 +2182,8 @@ class PosPrintOrchestrator {
 
     Timer(_jobTimeout, () {
       if (!completer.isCompleted) {
-        // Soft-timeout: nếu Agent đã nhận (Claimed/Printing) thì coi OK —
-        // tránh báo lỗi sau khi giấy đã ra mà Complete chậm.
+        // Soft-timeout: náº¿u Agent Ä‘Ã£ nháº­n (Claimed/Printing) thÃ¬ coi OK â€”
+        // trÃ¡nh bÃ¡o lá»—i sau khi giáº¥y Ä‘Ã£ ra mÃ  Complete cháº­m.
         unawaited(() async {
           try {
             final res = await _api.getPosPrintJob(jobId);
@@ -2135,8 +2206,8 @@ class PosPrintOrchestrator {
               jobId,
               const _JobOutcome(
                 false,
-                'Print Agent không nhận lệnh trong 120 giây. '
-                'Kiểm tra Sunmi: Agent BẬT + đã chọn chip máy in + app đang mở.',
+                'Print Agent khÃ´ng nháº­n lá»‡nh trong 120 giÃ¢y. '
+                'Kiá»ƒm tra Sunmi: Agent Báº¬T + Ä‘Ã£ chá»n chip mÃ¡y in + app Ä‘ang má»Ÿ.',
               ),
               showFeedback: showFeedback,
             );
@@ -2158,7 +2229,7 @@ class PosPrintOrchestrator {
     bool showFeedback = true,
     bool acceptClaimedAsSuccess = true,
   }) async {
-    for (var i = 0; i < 24; i++) {  // 24 × 5s = 120s, match _jobTimeout
+    for (var i = 0; i < 24; i++) {  // 24 Ã— 5s = 120s, match _jobTimeout
       if (!_pendingJobs.containsKey(jobId)) return;
       await Future<void>.delayed(const Duration(seconds: 5));
       if (!_pendingJobs.containsKey(jobId)) return;
@@ -2179,7 +2250,7 @@ class PosPrintOrchestrator {
             _finishJob(
               jobId,
               _JobOutcome(false,
-                  'Phiếu chưa in — máy in/Agent offline quá 5 phút. In lại từ hàng chờ.'),
+                  'Phiáº¿u chÆ°a in â€” mÃ¡y in/Agent offline quÃ¡ 5 phÃºt. In láº¡i tá»« hÃ ng chá».'),
               showFeedback: true,
             );
             continue;
@@ -2187,7 +2258,7 @@ class PosPrintOrchestrator {
           _cancelledJobs.add(jobId);
           _finishJob(
             jobId,
-            _JobOutcome(false, err ?? 'Lệnh in đã bị hủy phía máy chủ',
+            _JobOutcome(false, err ?? 'Lá»‡nh in Ä‘Ã£ bá»‹ há»§y phÃ­a mÃ¡y chá»§',
                 isCancelled: true),
             showFeedback: showFeedback,
           );
@@ -2200,7 +2271,7 @@ class PosPrintOrchestrator {
           );
         } else if (acceptClaimedAsSuccess &&
             (status == 'Claimed' || status == 'Printing')) {
-          // Agent đã nhận — coi thành công ngay (không chờ i>=2 ~15s).
+          // Agent Ä‘Ã£ nháº­n â€” coi thÃ nh cÃ´ng ngay (khÃ´ng chá» i>=2 ~15s).
           _finishJob(
             jobId,
             const _JobOutcome(true, null),
@@ -2224,25 +2295,177 @@ class PosPrintOrchestrator {
         bytes: jobs[i],
         referenceNo: referenceNo,
         showFeedback: showFeedback && i == jobs.length - 1,
-        successTitle: 'In tem thành công',
+        successTitle: 'In tem thÃ nh cÃ´ng',
         skipDedup: skipDedup,
+        // KhÃ´ng coi Claimed = OK â€” tem USB/TSPL hay káº¹t rá»“i timeout.
+        waitForCompletion: false,
+        acceptClaimedAsSuccess: false,
       );
       if (!ok) return false;
     }
     return true;
   }
 
-  /// [forceRemote]: bỏ qua in native cục bộ — gửi cloud như máy thu ngân (Oppo).
+  /// [forceRemote]: bá» qua in native cá»¥c bá»™ â€” gá»­i cloud nhÆ° mÃ¡y thu ngÃ¢n (Oppo).
+
+  /// In thá»­ máº«u V2 qua Agent (Sunmi native / ESC) â€” gá»­i Ä‘Ãºng draft editor.
+  Future<bool> dispatchTemplatePreview({
+    required PosPrintTemplateV2 template,
+    required PosStorePrinter printer,
+    required Map<String, String> data,
+    List<Map<String, String>> lineItems = const [],
+    String mode = 'sale',
+    Map<String, dynamic>? kitchen,
+    bool kitchenFeed = false,
+    bool showFeedback = true,
+    String? successTitle,
+  }) async {
+    await ensureListening();
+    final hasCloud = await refreshConfig();
+
+    // Cá»•ng local trÃªn mÃ¡y nÃ y â†’ in tháº³ng, khÃ´ng qua cloud.
+    if (!kIsWeb && await _canDispatchLocallyNow(printer)) {
+      final settings = toThermalSettings(printer).copyWith(
+        enabled: true,
+        paperSize: template.paperSize,
+      );
+      late final PosPrintCompiledOutput output;
+      if (mode == 'kitchenSlip') {
+        final km = kitchen ?? {};
+        final linesRaw = km['lines'];
+        final lines = <({String name, String qty, String? unit, String? note})>[];
+        if (linesRaw is List) {
+          for (final e in linesRaw) {
+            if (e is! Map) continue;
+            lines.add((
+              name: e['name']?.toString() ?? '',
+              qty: e['qty']?.toString() ?? '1',
+              unit: e['unit']?.toString(),
+              note: e['note']?.toString(),
+            ));
+          }
+        }
+        output = PosPrintTemplateRuntime.compileKitchenSlip(
+          template: template,
+          tableName: km['tableName']?.toString() ?? 'BÃ n',
+          isCancel: km['isCancel'] == true,
+          lines: lines,
+          senderName: km['senderName']?.toString() ?? 'NV',
+          orderNo: km['orderNo']?.toString() ?? 'DH0001',
+          sentAt: DateTime.now(),
+        );
+      } else {
+        output = PosPrintTemplateCompiler.compile(
+          template: template,
+          data: data,
+          lineItems: lineItems,
+        );
+      }
+      if (printer.isSunmi && await PosPrinterTransport.isSunmiDevice()) {
+        return PosPrintTemplateRuntime.printCompiledSunmi(
+          output: output,
+          settings: settings.copyWith(
+            connectionType: PosThermalConnectionType.sunmi,
+            printerBrand: PosThermalPrinterBrand.sunmi,
+          ),
+          kitchenFeed: kitchenFeed || mode == 'kitchenSlip',
+        );
+      }
+      final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
+        output: output,
+        settings: settings,
+      );
+      return _printDirectOnStorePrinter(
+        printer: printer,
+        bytes: bytes,
+        copies: 1,
+        showFeedback: showFeedback,
+        successTitle: successTitle ?? 'In thá»­',
+      );
+    }
+
+    if (!hasCloud) {
+      if (showFeedback) {
+        NotificationOverlayManager().showError(
+          title: 'In thá»­ tháº¥t báº¡i',
+          message: tr('ChÆ°a cáº¥u hÃ¬nh in cloud / Print Agent'),
+        );
+      }
+      return false;
+    }
+
+    final payload = jsonEncode({
+      'templateContent': PosPrintTemplateV2Codec.encode(template),
+      'documentType': template.documentType,
+      'paperSize': template.paperSize,
+      'mode': mode,
+      'data': data,
+      'lineItems': lineItems,
+      if (kitchen != null) 'kitchen': kitchen,
+      'kitchenFeed': kitchenFeed || mode == 'kitchenSlip',
+    });
+
+    final res = await _api.createPosPrintJob(
+      documentType: template.documentType,
+      payloadFormat: 'TemplatePreviewJson',
+      payload: payload,
+      copies: 1,
+      referenceNo: 'TPL-${DateTime.now().millisecondsSinceEpoch}',
+      printerId: printer.id,
+    );
+    if (res['isSuccess'] != true) {
+      if (showFeedback) {
+        NotificationOverlayManager().showError(
+          title: 'KhÃ´ng gá»­i lá»‡nh in',
+          message: res['message']?.toString() ?? 'Lá»—i mÃ¡y chá»§',
+        );
+      }
+      return false;
+    }
+    final jobData = res['data'] as Map<String, dynamic>?;
+    final jobId = jobData?['jobId']?.toString() ?? '';
+    if (jobId.isEmpty) return false;
+
+    if (_failFastNoAgent(printer, jobData, jobId, showFeedback: showFeedback)) {
+      return false;
+    }
+
+    await _registerCloudJobForAgent(jobId: jobId, printerId: printer.id);
+    _armHangWatch(
+      jobId: jobId,
+      documentType: template.documentType,
+      printer: printer,
+      referenceNo: 'TPL',
+      acceptClaimedAsSuccess: false,
+    );
+    if (showFeedback) {
+      NotificationOverlayManager().show(
+        title: successTitle ?? 'In thá»­',
+        message: tr('ÄÃ£ gá»­i máº«u â†’ Agent (${printer.name})'),
+        type: NotificationType.success,
+        duration: const Duration(seconds: 3),
+      );
+    }
+    unawaited(
+      _waitJob(
+        jobId,
+        showFeedback: false,
+        acceptClaimedAsSuccess: false,
+      ).whenComplete(
+        () => PosPrintSessionRegistry.clearOutbound(jobId),
+      ),
+    );
+    return true;
+  }
+
   Future<bool> testPrinter(
     PosStorePrinter printer, {
     bool forceRemote = false,
   }) async {
     if (printer.isLabelPrinter) {
       final settings = toLabelSettings(printer);
-      // A7 «Test qua cloud» / không gắn USB tem → đẩy Agent (TSPL), không in local.
-      if (!forceRemote &&
-          await PosPrintRole.isAgentForPrinter(printer.id) &&
-          await _canDispatchLocallyNow(printer)) {
+      // A7 Â«Test qua cloudÂ» / khÃ´ng gáº¯n USB tem â†’ Ä‘áº©y Agent (TSPL), khÃ´ng in local.
+      if (!forceRemote && await _canDispatchLocallyNow(printer)) {
         return PosLabelPrinterService.testPrint(settings);
       }
       final bytes = await PosLabelPrinterService.buildTestBytes(settings);
@@ -2259,7 +2482,7 @@ class PosPrintOrchestrator {
       );
     }
 
-    // Sunmi trên chính máy → in native cục bộ (không qua cloud).
+    // Sunmi trÃªn chÃ­nh mÃ¡y â†’ in native cá»¥c bá»™ (khÃ´ng qua cloud).
     if (!forceRemote &&
         printer.isSunmi &&
         await PosPrinterTransport.isSunmiDevice()) {
@@ -2278,8 +2501,8 @@ class PosPrintOrchestrator {
       return ok;
     }
 
-    // Chip Sunmi (Oppo / hoặc «Test qua cloud» trên V2s) → JSON native trên Agent.
-    // Tránh ESC/POS (lỗi font / in ra lệnh ESC @… / lần 2 bị dedup).
+    // Chip Sunmi (Oppo / hoáº·c Â«Test qua cloudÂ» trÃªn V2s) â†’ JSON native trÃªn Agent.
+    // TrÃ¡nh ESC/POS (lá»—i font / in ra lá»‡nh ESC @â€¦ / láº§n 2 bá»‹ dedup).
     if (printer.isSunmi) {
       return _enqueueTestPrintJson(
         printer: printer,
@@ -2303,7 +2526,7 @@ class PosPrintOrchestrator {
     );
   }
 
-  /// Test in Sunmi qua cloud — Agent in native UTF-8.
+  /// Test in Sunmi qua cloud â€” Agent in native UTF-8.
   Future<bool> _enqueueTestPrintJson({
     required PosStorePrinter printer,
     bool forceCloud = false,
@@ -2312,8 +2535,8 @@ class PosPrintOrchestrator {
     await ensureListening();
     final hasCloud = await refreshConfig();
 
-    // Agent trên chính máy + không forceCloud → native trực tiếp.
-    if (!forceCloud && await PosPrintRole.isAgentForPrinter(printer.id)) {
+    // Agent trÃªn chÃ­nh mÃ¡y + khÃ´ng forceCloud â†’ native trá»±c tiáº¿p.
+    if (!forceCloud && await PosPrinterTransport.isSunmiDevice()) {
       final settings = toThermalSettings(printer);
       final ok = await PosSunmiNativePrint.printTest(
         storeLabel: printer.name,
@@ -2332,8 +2555,8 @@ class PosPrintOrchestrator {
     if (!hasCloud) {
       if (showFeedback) {
         NotificationOverlayManager().showError(
-          title: 'Test thất bại',
-          message: tr('Chưa cấu hình in cloud / Print Agent'),
+          title: 'Test tháº¥t báº¡i',
+          message: tr('ChÆ°a cáº¥u hÃ¬nh in cloud / Print Agent'),
         );
       }
       return false;
@@ -2347,9 +2570,9 @@ class PosPrintOrchestrator {
       'feedLines': settings.resolvedFeedBeforeCut,
     });
 
-    // Trên chính máy Agent (V2s): pause claim NGAY trước khi tạo job —
-    // tránh SignalR/timer claim + in song song với nhánh in nội bộ bên dưới
-    // (in ra 2 bản cùng lúc).
+    // TrÃªn chÃ­nh mÃ¡y Agent (V2s): pause claim NGAY trÆ°á»›c khi táº¡o job â€”
+    // trÃ¡nh SignalR/timer claim + in song song vá»›i nhÃ¡nh in ná»™i bá»™ bÃªn dÆ°á»›i
+    // (in ra 2 báº£n cÃ¹ng lÃºc).
     final localTestOnAgent = await PosPrintRole.isAgentForPrinter(printer.id);
     if (localTestOnAgent) {
       PosPrintAgentService.instance.pauseClaims();
@@ -2364,7 +2587,7 @@ class PosPrintOrchestrator {
       printerId: printer.id,
     );
 
-    // Server cũ chưa có TestPrintJson → EscPos; Agent Sunmi vẫn in native theo prefix TEST-.
+    // Server cÅ© chÆ°a cÃ³ TestPrintJson â†’ EscPos; Agent Sunmi váº«n in native theo prefix TEST-.
     if (res['isSuccess'] != true) {
       final bytes =
           await PosThermalPrinterService.buildTestEscPosBytes(settings);
@@ -2381,8 +2604,8 @@ class PosPrintOrchestrator {
       if (localTestOnAgent) PosPrintAgentService.instance.resumeClaims();
       if (showFeedback) {
         NotificationOverlayManager().showError(
-          title: 'Không gửi lệnh in',
-          message: res['message']?.toString() ?? 'Lỗi máy chủ',
+          title: 'KhÃ´ng gá»­i lá»‡nh in',
+          message: res['message']?.toString() ?? 'Lá»—i mÃ¡y chá»§',
         );
       }
       return false;
@@ -2395,8 +2618,8 @@ class PosPrintOrchestrator {
       return false;
     }
 
-    // Trên chính máy Agent (V2s): tự claim + in native ngay.
-    // Không chờ SignalR/timer — hay bị kẹt Claimed khiến «test cloud không ra».
+    // TrÃªn chÃ­nh mÃ¡y Agent (V2s): tá»± claim + in native ngay.
+    // KhÃ´ng chá» SignalR/timer â€” hay bá»‹ káº¹t Claimed khiáº¿n Â«test cloud khÃ´ng raÂ».
     if (localTestOnAgent) {
       return _completeCloudTestOnLocalAgent(
         jobId: jobId,
@@ -2406,10 +2629,10 @@ class PosPrintOrchestrator {
       );
     }
 
-    // Không hủy job khi heartbeat DB lệch — Agent vẫn Claim được (demopos).
+    // KhÃ´ng há»§y job khi heartbeat DB lá»‡ch â€” Agent váº«n Claim Ä‘Æ°á»£c (demopos).
     _failFastNoAgent(printer, data, jobId, showFeedback: showFeedback);
 
-    PosPrintSessionRegistry.markOutbound(jobId);
+    await _registerCloudJobForAgent(jobId: jobId, printerId: printer.id);
     _jobMeta[jobId] = _JobFeedbackMeta(
       referenceNo: 'TEST',
       printerName: printer.name,
@@ -2417,20 +2640,23 @@ class PosPrintOrchestrator {
 
     if (showFeedback) {
       NotificationOverlayManager().show(
-        title: 'Đã gửi lệnh in',
-        message: 'Test → Print Agent (${printer.name})',
+        title: 'ÄÃ£ gá»­i lá»‡nh in',
+        message: 'Test â†’ Print Agent (${printer.name})',
         type: NotificationType.success,
         duration: const Duration(seconds: 3),
       );
     }
 
-    PosPrintAgentService.instance.nudgeClaim();
-    final outcome = await _waitJob(jobId, showFeedback: showFeedback);
+    final outcome = await _waitJob(
+      jobId,
+      showFeedback: showFeedback,
+      acceptClaimedAsSuccess: false,
+    );
     PosPrintSessionRegistry.clearOutbound(jobId);
     return outcome.ok;
   }
 
-  /// V2s vừa là máy gửi vừa là Agent — in ngay, claim/complete nhanh (không chờ 5–10s).
+  /// V2s vá»«a lÃ  mÃ¡y gá»­i vá»«a lÃ  Agent â€” in ngay, claim/complete nhanh (khÃ´ng chá» 5â€“10s).
   Future<bool> _completeCloudTestOnLocalAgent({
     required String jobId,
     required PosStorePrinter printer,
@@ -2438,14 +2664,14 @@ class PosPrintOrchestrator {
     bool showFeedback = true,
   }) async {
     final agent = PosPrintAgentService.instance;
-    // Heartbeat nhẹ — không refresh toàn bộ máy in.
+    // Heartbeat nháº¹ â€” khÃ´ng refresh toÃ n bá»™ mÃ¡y in.
     await agent.forceRegister(refreshPrinters: false);
     if (!agent.isRegistered || agent.agentId == null) {
       if (showFeedback) {
         NotificationOverlayManager().showError(
-          title: 'Test cloud thất bại',
+          title: 'Test cloud tháº¥t báº¡i',
           message: agent.lastRegisterError ??
-              'Agent chưa đăng ký server — bật Agent + chọn chip máy in',
+              'Agent chÆ°a Ä‘Äƒng kÃ½ server â€” báº­t Agent + chá»n chip mÃ¡y in',
         );
       }
       return false;
@@ -2457,7 +2683,7 @@ class PosPrintOrchestrator {
 
     agent.pauseClaims();
     try {
-      // In native trước — người dùng thấy giấy ngay (~1s).
+      // In native trÆ°á»›c â€” ngÆ°á»i dÃ¹ng tháº¥y giáº¥y ngay (~1s).
       final ok = await PosSunmiNativePrint.printTest(
         storeLabel: printer.name,
         feedLines: settings.resolvedFeedBeforeCut,
@@ -2468,19 +2694,19 @@ class PosPrintOrchestrator {
           jobId,
           agentId,
           errorCode: 'PRINT_FAILED',
-          errorMessage: 'Sunmi native test thất bại',
+          errorMessage: 'Sunmi native test tháº¥t báº¡i',
         );
         if (showFeedback) {
           NotificationOverlayManager().showError(
-            title: 'Test cloud thất bại',
-            message: tr('Không in được trên Sunmi'),
+            title: 'Test cloud tháº¥t báº¡i',
+            message: tr('KhÃ´ng in Ä‘Æ°á»£c trÃªn Sunmi'),
           );
         }
         return false;
       }
 
-      // Claim đúng job test — KHÔNG claimNext generic (tránh fail SUPERSEDED
-      // đè hóa đơn/phiếu bếp đang chờ → sót bill).
+      // Claim Ä‘Ãºng job test â€” KHÃ”NG claimNext generic (trÃ¡nh fail SUPERSEDED
+      // Ä‘Ã¨ hÃ³a Ä‘Æ¡n/phiáº¿u báº¿p Ä‘ang chá» â†’ sÃ³t bill).
       Map<String, dynamic>? claimed;
       for (var i = 0; i < 5 && claimed == null; i++) {
         final byId = await _api.claimPosPrintJobById(jobId, agentId);
@@ -2500,12 +2726,12 @@ class PosPrintOrchestrator {
         await _api.markPosPrintJobPrinting(jobId, agentId);
         await _api.completePosPrintJob(jobId, agentId);
       } else {
-        // Đánh Failed để không bị Agent in lần 2.
+        // ÄÃ¡nh Failed Ä‘á»ƒ khÃ´ng bá»‹ Agent in láº§n 2.
         await _api.failPosPrintJob(
           jobId,
           agentId,
           errorCode: 'LOCAL_TEST_DONE',
-          errorMessage: 'Đã in trên máy Agent (claim bỏ qua)',
+          errorMessage: 'ÄÃ£ in trÃªn mÃ¡y Agent (claim bá» qua)',
         );
       }
       await _api.reportPosPrinterHealth(printer.id, status: 'Online');
@@ -2513,7 +2739,7 @@ class PosPrintOrchestrator {
       if (showFeedback) {
         NotificationOverlayManager().showSuccess(
           title: 'Test cloud OK',
-          message: '${printer.name} (qua cloud → Agent)',
+          message: '${printer.name} (qua cloud â†’ Agent)',
         );
       }
       return true;
@@ -2522,7 +2748,7 @@ class PosPrintOrchestrator {
     }
   }
 
-  /// Test EscPos qua cloud trên máy Agent (Zywell USB/LAN/BT) — in cổng nội bộ rồi complete job.
+  /// Test EscPos qua cloud trÃªn mÃ¡y Agent (Zywell USB/LAN/BT) â€” in cá»•ng ná»™i bá»™ rá»“i complete job.
   Future<bool> _completeEscPosCloudTestOnLocalAgent({
     required String jobId,
     required PosStorePrinter printer,
@@ -2536,9 +2762,9 @@ class PosPrintOrchestrator {
     if (!agent.isRegistered || agent.agentId == null) {
       if (showFeedback) {
         NotificationOverlayManager().showError(
-          title: 'Test cloud thất bại',
+          title: 'Test cloud tháº¥t báº¡i',
           message: agent.lastRegisterError ??
-              'Agent chưa đăng ký — bật Agent + chọn chip máy in',
+              'Agent chÆ°a Ä‘Äƒng kÃ½ â€” báº­t Agent + chá»n chip mÃ¡y in',
         );
       }
       return false;
@@ -2579,17 +2805,17 @@ class PosPrintOrchestrator {
           jobId,
           agentId,
           errorCode: 'PRINT_FAILED',
-          errorMessage: 'Không kết nối được ${printer.name} (USB/LAN/BT)',
+          errorMessage: 'KhÃ´ng káº¿t ná»‘i Ä‘Æ°á»£c ${printer.name} (USB/LAN/BT)',
         );
         await _api.reportPosPrinterHealth(
           printer.id,
           status: 'Offline',
-          errorMessage: 'Test cloud thất bại',
+          errorMessage: 'Test cloud tháº¥t báº¡i',
         );
         if (showFeedback) {
           NotificationOverlayManager().showError(
-            title: 'Test cloud thất bại',
-            message: tr('Không kết nối được ${printer.name}'),
+            title: 'Test cloud tháº¥t báº¡i',
+            message: tr('KhÃ´ng káº¿t ná»‘i Ä‘Æ°á»£c ${printer.name}'),
           );
         }
         return false;
@@ -2618,7 +2844,7 @@ class PosPrintOrchestrator {
           jobId,
           agentId,
           errorCode: 'LOCAL_TEST_DONE',
-          errorMessage: 'Đã in trên máy Agent (claim bỏ qua)',
+          errorMessage: 'ÄÃ£ in trÃªn mÃ¡y Agent (claim bá» qua)',
         );
       }
       await _api.reportPosPrinterHealth(printer.id, status: 'Online');
@@ -2626,7 +2852,7 @@ class PosPrintOrchestrator {
       if (showFeedback) {
         NotificationOverlayManager().showSuccess(
           title: successTitle ?? 'Test cloud OK',
-          message: '${printer.name} (qua cloud → Agent)',
+          message: '${printer.name} (qua cloud â†’ Agent)',
         );
       }
       return true;
@@ -2635,23 +2861,32 @@ class PosPrintOrchestrator {
     }
   }
 
-  /// Cổng in thẳng từ máy gửi lệnh.
-  /// LAN chỉ true khi thiết bị này đã cài máy nội bộ LAN (không dùng lanHost cloud/Agent).
+  /// Cá»•ng in tháº³ng tá»« mÃ¡y gá»­i lá»‡nh: pháº£i cÃ³ profile ná»™i bá»™ khá»›p mÃ¡y
+  /// (USB/BT/LAN/Sunmi). KhÃ´ng dÃ¹ng lanHost/USB cloud khi mÃ¡y nÃ y khÃ´ng cáº¯m.
+  /// Sunmi built-in: in native náº¿u Ä‘Ã¢y lÃ  mÃ¡y Sunmi.
+  /// Public cho mÃ n Máº«u in â€” quyáº¿t Ä‘á»‹nh In thá»­ local vs Agent.
+  Future<bool> canProbeLocalPortForTest(PosStorePrinter printer) =>
+      _canDispatchLocallyNow(printer);
+
   Future<bool> _canDispatchLocallyNow(PosStorePrinter printer) async {
+    if (kIsWeb) return false;
     final local =
         await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
+    if (local == null ||
+        !PosLocalPrintersStore.profileAllowsDirectLocal(local)) {
+      return printer.isSunmi && await PosPrinterTransport.isSunmiDevice();
+    }
     if (printer.isLan ||
-        local?.connectionType == PosThermalConnectionType.lan) {
-      return local != null &&
-          PosLocalPrintersStore.profileAllowsDirectLocal(local) &&
-          local.connectionType == PosThermalConnectionType.lan &&
+        local.connectionType == PosThermalConnectionType.lan) {
+      return local.connectionType == PosThermalConnectionType.lan &&
           (local.lanHost ?? '').trim().isNotEmpty;
     }
-    final settings = local != null
-        ? local.toThermalSettings()
-        : toThermalSettings(printer);
+    final settings = local.toThermalSettings();
     if (settings.connectionType == PosThermalConnectionType.bluetooth) {
       return (settings.bluetoothAddress ?? '').trim().isNotEmpty;
+    }
+    if (settings.connectionType == PosThermalConnectionType.sunmi) {
+      return PosPrinterTransport.isSunmiDevice();
     }
     final usbList = await PosPrinterReadiness.listUsbDevices();
     return PosPrinterReadiness.probePort(
@@ -2667,7 +2902,7 @@ class PosPrintOrchestrator {
   static Future<String> stableDeviceId() async {
     final settings = await PosPrintAgentSettings.load();
     final existing = settings.deviceId?.trim() ?? '';
-    // Bỏ android.id ngắn kiểu "235" — dùng UUID ổn định.
+    // Bá» android.id ngáº¯n kiá»ƒu "235" â€” dÃ¹ng UUID á»•n Ä‘á»‹nh.
     if (existing.length >= 16) return existing;
 
     final identity = await PosDeviceIdentity.get();
@@ -2691,7 +2926,7 @@ class _HangWatch {
   final String printerName;
   final String? referenceNo;
 
-  /// Null = caller không dựng phiếu chờ riêng; orchestrator chỉ báo lỗi.
+  /// Null = caller khÃ´ng dá»±ng phiáº¿u chá» riÃªng; orchestrator chá»‰ bÃ¡o lá»—i.
   final PosPrintHangCallback? onHang;
 }
 
@@ -2701,7 +2936,7 @@ class _JobOutcome {
   final bool ok;
   final String? error;
   final String? printerName;
-  /// True when server-side Cancelled — caller can suppress re-queue.
+  /// True when server-side Cancelled â€” caller can suppress re-queue.
   final bool isCancelled;
 }
 

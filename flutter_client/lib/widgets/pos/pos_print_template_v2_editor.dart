@@ -111,22 +111,39 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     return blocks;
   }
 
-  void _addBlock(PosPrintBlockType type) {
+  void _addBlock(PosPrintBlockType type, {List<String>? fields}) {
     final block = switch (type) {
       PosPrintBlockType.text => PosPrintBlock(type: PosPrintBlockType.text, text: tr('Dòng mới')),
-      PosPrintBlockType.field => const PosPrintBlock(type: PosPrintBlockType.field, field: 'Ghi_Chu'),
+      PosPrintBlockType.field => PosPrintBlock(
+        type: PosPrintBlockType.field,
+        field: _tpl.documentType == PosPrintDocumentTypes.kitchenLabel ||
+                _tpl.documentType == PosPrintDocumentTypes.barcodeLabel
+            ? 'Ten_Hang_Hoa'
+            : 'Ghi_Chu',
+        style: const PosPrintTextStyle(bold: true, fontSize: 28),
+      ),
       PosPrintBlockType.pair => const PosPrintBlock(
           type: PosPrintBlockType.pair,
           leftField: 'Ma_Don_Hang',
           rightField: 'Ngay',
         ),
       PosPrintBlockType.divider => const PosPrintBlock(type: PosPrintBlockType.divider),
-      PosPrintBlockType.lineItems => const PosPrintBlock(type: PosPrintBlockType.lineItems),
+      PosPrintBlockType.lineItems => PosPrintBlock(
+          type: PosPrintBlockType.lineItems,
+          fields: fields,
+        ),
       PosPrintBlockType.lineItemsKitchen =>
         const PosPrintBlock(type: PosPrintBlockType.lineItemsKitchen),
       PosPrintBlockType.totals => PosPrintBlock(
           type: PosPrintBlockType.totals,
-          fields: const ['Tong_Cong'],
+          fields: const [
+            'Tong_Tien_Hang',
+            'Chiet_Khau_Hoa_Don',
+            'Tien_Thue',
+            'Phu_Thu',
+            'Phi_Giao_Hang',
+            'Tong_Cong',
+          ],
         ),
       PosPrintBlockType.spacer => const PosPrintBlock(type: PosPrintBlockType.spacer),
       PosPrintBlockType.vietQr => const PosPrintBlock(type: PosPrintBlockType.vietQr),
@@ -142,6 +159,31 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     setState(() => _selectedIndex = nextIndex);
     _mobileTabs?.animateTo(1);
   }
+
+
+  void _addProductNameBlock() {
+    final isLabelDoc = _tpl.documentType == PosPrintDocumentTypes.kitchenLabel ||
+        _tpl.documentType == PosPrintDocumentTypes.barcodeLabel;
+    if (isLabelDoc) {
+      const block = PosPrintBlock(
+        type: PosPrintBlockType.field,
+        field: 'Ten_Hang_Hoa',
+        style: PosPrintTextStyle(bold: true, fontSize: 28),
+      );
+      final nextIndex = _tpl.blocks.length;
+      _update(_tpl.copyWith(blocks: [..._tpl.blocks, block]));
+      setState(() => _selectedIndex = nextIndex);
+      _mobileTabs?.animateTo(1);
+      return;
+    }
+    _addBlock(
+      PosPrintBlockType.lineItems,
+      fields: const ['Ten_Hang_Hoa'],
+    );
+  }
+
+
+
 
   void _removeBlock(int i) {
     if (_tpl.blocks.length <= 1) return;
@@ -364,38 +406,45 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         Container(
           color: Colors.white,
           padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
-          child: Row(
+          child: Column(
             children: [
-              IconButton(
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                onPressed: i > 0 ? () => setState(() => _selectedIndex = i - 1) : null,
-                icon: const Icon(Icons.chevron_left),
+              Row(
+                children: [
+                  IconButton(
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    onPressed: i > 0 ? () => setState(() => _selectedIndex = i - 1) : null,
+                    icon: const Icon(Icons.chevron_left),
+                  ),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        Text(
+                          tr(_blockLabel(sel)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                        ),
+                        Text(tr('Khối ${i + 1}/${blocks.length}'),
+                          style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    onPressed: i < blocks.length - 1 ? () => setState(() => _selectedIndex = i + 1) : null,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
               ),
-              Expanded(
-                child: Column(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+                child: Row(
                   children: [
-                    Text(
-                      tr(_blockLabel(sel)),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                    ),
-                    Text(tr('Khối ${i + 1}/${blocks.length}'),
-                      style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-                    ),
+                    Expanded(child: _expandEditorButton()),
+                    if (!widget.readOnly) _deleteBlockButton(i),
                   ],
                 ),
-              ),
-              IconButton(
-                tooltip: tr('Phóng to chỉnh sửa'),
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                onPressed: () => _openExpandedPropertiesEditor(),
-                icon: const Icon(Icons.open_in_full, size: 20),
-              ),
-              IconButton(
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                onPressed: i < blocks.length - 1 ? () => setState(() => _selectedIndex = i + 1) : null,
-                icon: const Icon(Icons.chevron_right),
               ),
             ],
           ),
@@ -433,6 +482,10 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
             setState(() => _selectedIndex = index);
           },
           syncTemplate: () => widget.template,
+          syncIndex: () => _selectedIndex,
+          onMoveBlock: _moveBlock,
+          onAddBlock: _showAddBlockSheet,
+          onRemoveBlock: _removeBlock,
         );
       },
     );
@@ -616,15 +669,9 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                                             ),
                                           ),
                                         ),
-                                        IconButton(
-                                          tooltip: tr('Phóng to chỉnh sửa'),
-                                          onPressed: () =>
-                                              _openExpandedPropertiesEditor(),
-                                          icon: const Icon(
-                                            Icons.open_in_full,
-                                            size: 20,
-                                          ),
-                                        ),
+                                        _expandEditorButton(compact: true),
+                                        if (!widget.readOnly)
+                                          _deleteBlockButton(_selectedIndex),
                                       ],
                                     ),
                                   ),
@@ -763,6 +810,97 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
             },
     );
 
+    final frameField = DropdownButtonFormField<PosPrintFrameStyle>(
+      value: _tpl.frameStyle,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: tr('Khung bao'),
+        isDense: true,
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        helperText: tr('Viền in quanh bill — chỉnh lề bên dưới'),
+        helperMaxLines: 2,
+      ),
+      items: [
+        DropdownMenuItem(
+          value: PosPrintFrameStyle.none,
+          child: Text(tr('Không khung')),
+        ),
+        DropdownMenuItem(
+          value: PosPrintFrameStyle.rectangle,
+          child: Text(tr('Chữ nhật')),
+        ),
+        DropdownMenuItem(
+          value: PosPrintFrameStyle.rounded,
+          child: Text(tr('Bo góc')),
+        ),
+      ],
+      onChanged: widget.readOnly
+          ? null
+          : (v) {
+              if (v == null) return;
+              _update(_tpl.copyWith(frameStyle: v));
+            },
+    );
+
+    Widget frameGapSlider({
+      required String label,
+      required double value,
+      required double min,
+      required double max,
+      required ValueChanged<double> onChanged,
+    }) {
+      final px = PosPrintPaperSizes.mmToPrintPx(_tpl.paperSize, value);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(tr(label),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              ),
+              Text(
+                tr('${value.toStringAsFixed(1)} mm · $px px'),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              ),
+            ],
+          ),
+          Slider(
+            value: value.clamp(min, max),
+            min: min,
+            max: max,
+            divisions: ((max - min) * 2).round(),
+            label: '${value.toStringAsFixed(1)} mm',
+            onChanged: widget.readOnly ? null : onChanged,
+          ),
+        ],
+      );
+    }
+
+    final frameGaps = _tpl.frameStyle == PosPrintFrameStyle.none
+        ? const SizedBox.shrink()
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 4),
+              frameGapSlider(
+                label: 'Lề mép giấy → viền',
+                value: _tpl.frameMarginMm.clamp(0.5, 8.0),
+                min: 0.5,
+                max: 8.0,
+                onChanged: (v) => _update(_tpl.copyWith(frameMarginMm: v)),
+              ),
+              frameGapSlider(
+                label: 'Lề viền → chữ',
+                value: _tpl.frameInsetMm.clamp(1.0, 12.0),
+                min: 1.0,
+                max: 12.0,
+                onChanged: (v) => _update(_tpl.copyWith(frameInsetMm: v)),
+              ),
+            ],
+          );
+
     final restoreBtn = !widget.readOnly
         ? OutlinedButton.icon(
             onPressed: () {
@@ -794,21 +932,32 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                   paperField,
                   const SizedBox(height: 8),
                   printerField,
+                  const SizedBox(height: 8),
+                  frameField,
+                  frameGaps,
                   if (restoreBtn != null) ...[
                     const SizedBox(height: 8),
                     restoreBtn,
                   ],
                 ],
               )
-            : Row(
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: paperField),
-                  const SizedBox(width: 8),
-                  Expanded(child: printerField),
-                  if (restoreBtn != null) ...[
-                    const SizedBox(width: 8),
-                    restoreBtn,
-                  ],
+                  Row(
+                    children: [
+                      Expanded(child: paperField),
+                      const SizedBox(width: 8),
+                      Expanded(child: printerField),
+                      const SizedBox(width: 8),
+                      Expanded(child: frameField),
+                      if (restoreBtn != null) ...[
+                        const SizedBox(width: 8),
+                        restoreBtn,
+                      ],
+                    ],
+                  ),
+                  frameGaps,
                 ],
               ),
       ),
@@ -866,17 +1015,47 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     );
   }
 
-  Widget _addChip(String label, PosPrintBlockType type) => ActionChip(
+  Widget _addChip(
+    String label,
+    PosPrintBlockType type, {
+    List<String>? fields,
+  }) =>
+      ActionChip(
         label: Text(tr(label), style: const TextStyle(fontSize: 11)),
-        onPressed: () => _addBlock(type),
+        onPressed: () => _addBlock(type, fields: fields),
       );
+
+  Widget _expandEditorButton({bool compact = false}) {
+    return FilledButton.tonalIcon(
+      onPressed: () => _openExpandedPropertiesEditor(),
+      icon: const Icon(Icons.open_in_full, size: 18),
+      label: Text(tr(compact ? 'Phóng to chỉnh' : 'Phóng to chỉnh sửa')),
+      style: FilledButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+    );
+  }
+
+  Widget _deleteBlockButton(int i) {
+    final can = !widget.readOnly && _tpl.blocks.length > 1;
+    return IconButton(
+      tooltip: tr(can ? 'Xóa khối này' : 'Cần giữ ít nhất 1 khối'),
+      onPressed: can ? () => _removeBlock(i) : null,
+      icon: Icon(
+        Icons.delete_outline,
+        color: can ? Colors.red.shade700 : Colors.grey,
+      ),
+    );
+  }
 
   static String _blockLabel(PosPrintBlock b) => switch (b.type) {
         PosPrintBlockType.text => b.text ?? 'Văn bản',
         PosPrintBlockType.field => '{${b.field ?? '?'}}',
         PosPrintBlockType.pair => '${b.leftField} | ${b.rightField}',
         PosPrintBlockType.divider => '━━━',
-        PosPrintBlockType.lineItems => 'Danh sách hàng',
+        PosPrintBlockType.lineItems =>
+          b.usesCustomLineFields ? 'Tên hàng' : 'Danh sách hàng',
         PosPrintBlockType.lineItemsKitchen => 'Hàng bếp',
         PosPrintBlockType.totals => 'Tổng cộng',
         PosPrintBlockType.spacer => 'Khoảng trống',
@@ -919,6 +1098,10 @@ class _ExpandedBlockEditorSheet extends StatefulWidget {
     required this.onBlockChanged,
     required this.onIndexChanged,
     required this.syncTemplate,
+    this.syncIndex,
+    this.onMoveBlock,
+    this.onAddBlock,
+    this.onRemoveBlock,
   });
 
   final int initialIndex;
@@ -927,6 +1110,10 @@ class _ExpandedBlockEditorSheet extends StatefulWidget {
   final void Function(int index, PosPrintBlock block) onBlockChanged;
   final ValueChanged<int> onIndexChanged;
   final PosPrintTemplateV2 Function() syncTemplate;
+  final int Function()? syncIndex;
+  final void Function(int index, int delta)? onMoveBlock;
+  final Future<void> Function(BuildContext context)? onAddBlock;
+  final void Function(int index)? onRemoveBlock;
 
   @override
   State<_ExpandedBlockEditorSheet> createState() =>
@@ -951,7 +1138,8 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
       if (_tpl.blocks.isEmpty) {
         _index = 0;
       } else {
-        _index = _index.clamp(0, _tpl.blocks.length - 1);
+        final fromParent = widget.syncIndex?.call();
+        _index = (fromParent ?? _index).clamp(0, _tpl.blocks.length - 1);
       }
     });
   }
@@ -1008,6 +1196,70 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           actions: [
+            if (!widget.readOnly) ...[
+              IconButton(
+                tooltip: tr('Đưa khối lên'),
+                onPressed: i <= 0
+                    ? null
+                    : () {
+                        widget.onMoveBlock?.call(i, -1);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          _refreshFromParent();
+                          widget.onIndexChanged(_index);
+                        });
+                      },
+                icon: const Icon(Icons.arrow_upward),
+              ),
+              IconButton(
+                tooltip: tr('Đưa khối xuống'),
+                onPressed: i >= blocks.length - 1
+                    ? null
+                    : () {
+                        widget.onMoveBlock?.call(i, 1);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          _refreshFromParent();
+                          widget.onIndexChanged(_index);
+                        });
+                      },
+                icon: const Icon(Icons.arrow_downward),
+              ),
+              IconButton(
+                tooltip: tr('Thêm khối / trường dữ liệu'),
+                onPressed: widget.onAddBlock == null
+                    ? null
+                    : () async {
+                        await widget.onAddBlock!(context);
+                        if (!mounted) return;
+                        _refreshFromParent();
+                        widget.onIndexChanged(_index);
+                      },
+                icon: const Icon(Icons.add),
+              ),
+              IconButton(
+                tooltip: tr('Xóa khối này'),
+                onPressed: widget.readOnly ||
+                        widget.onRemoveBlock == null ||
+                        blocks.length <= 1
+                    ? null
+                    : () {
+                        widget.onRemoveBlock!(i);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          _refreshFromParent();
+                          if (_tpl.blocks.isEmpty) {
+                            Navigator.of(context).pop();
+                            return;
+                          }
+                          widget.onIndexChanged(
+                            _index.clamp(0, _tpl.blocks.length - 1),
+                          );
+                        });
+                      },
+                icon: Icon(Icons.delete_outline, color: Colors.red.shade700),
+              ),
+            ],
             IconButton(
               tooltip: tr('Khối trước'),
               onPressed: i > 0
@@ -1103,6 +1355,9 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
   static const _totalKeys = [
     'Tong_Tien_Hang',
     'Chiet_Khau_Hoa_Don',
+    'Tien_Thue',
+    'Phu_Thu',
+    'Phi_Giao_Hang',
     'Tong_Cong',
     'Khach_Can_Tra',
     'Khach_Thanh_Toan',
@@ -1112,6 +1367,14 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
   ];
 
   static const _colKeys = ['Ten_Hang_Hoa', 'Don_Gia', 'So_Luong', 'Thanh_Tien'];
+
+  PosPrintBlock _withLineField(PosPrintBlock block, String key, bool on) {
+    final next = List<String>.from(block.fields ?? const ['Ten_Hang_Hoa', 'So_Luong']);
+    if (!next.contains('Ten_Hang_Hoa')) next.insert(0, 'Ten_Hang_Hoa');
+    next.remove(key);
+    if (on) next.add(key);
+    return block.copyWith(fields: next, showColumnHeader: false);
+  }
 
   @override
   void initState() {
@@ -1215,6 +1478,17 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
     ));
   }
 
+  void _moveTotalField(String key, int delta) {
+    final cur = List<String>.from(widget.block.fields ?? const []);
+    final i = cur.indexOf(key);
+    final j = i + delta;
+    if (i < 0 || j < 0 || j >= cur.length) return;
+    final tmp = cur[i];
+    cur[i] = cur[j];
+    cur[j] = tmp;
+    _emitTotalsFields(cur);
+  }
+
   @override
   Widget build(BuildContext context) {
     final block = widget.block;
@@ -1260,6 +1534,37 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
               clearLabel: v.trim().isEmpty,
             )),
           ),
+          if (block.field == 'Ten_Hang_Hoa') ...[
+            const SizedBox(height: 8),
+            Text(
+              tr('Tem: tên chiếm ~3/4 khổ, SL góc phải. Ghi chú in trong ().'),
+              style: const TextStyle(fontSize: 11, color: Colors.black54),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Số lượng')),
+              value: block.showsLineField('So_Luong'),
+              onChanged: readOnly
+                  ? null
+                  : (v) => onChanged(_withLineField(block, 'So_Luong', v)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Đơn vị tính')),
+              value: block.showsLineField('Don_Vi_Tinh'),
+              onChanged: readOnly
+                  ? null
+                  : (v) => onChanged(_withLineField(block, 'Don_Vi_Tinh', v)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Ghi chú (trong ngoặc)')),
+              value: block.showsLineField('Ghi_Chu'),
+              onChanged: readOnly
+                  ? null
+                  : (v) => onChanged(_withLineField(block, 'Ghi_Chu', v)),
+            ),
+          ],
         ],
         if (block.type == PosPrintBlockType.pair) ...[
           _tokenField('Trái', block.leftField, (v) => onChanged(block.copyWith(leftField: v))),
@@ -1302,74 +1607,113 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
             },
           ),
         ],
-        if (block.type == PosPrintBlockType.totals) ...[
-          Text(tr('Dòng tổng & nhãn hiển thị'),
-              style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(
-            tr('Bật/tắt dòng và sửa chữ in (vd. Tổng cộng → Tổng tiền)'),
-            style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-          ),
-          const SizedBox(height: 8),
-          ..._totalKeys.map((key) {
-            final selected = (block.fields ?? const <String>[]).contains(key);
-            final def = PosPrintTemplateCompiler.defaultTotalLabels[key] ?? key;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Checkbox(
-                    value: selected,
-                    onChanged: readOnly
-                        ? null
-                        : (v) {
-                            final cur = List<String>.from(block.fields ?? const []);
-                            if (v == true) {
-                              if (!cur.contains(key)) cur.add(key);
-                            } else {
-                              cur.remove(key);
-                            }
-                            // Giữ thứ tự theo _totalKeys
-                            cur.sort((a, b) =>
-                                _totalKeys.indexOf(a).compareTo(_totalKeys.indexOf(b)));
-                            _emitTotalsFields(cur);
-                          },
-                  ),
-                  Expanded(
-                    child: TextField(
-                      readOnly: readOnly || !selected,
-                      controller: _totalLabelCtrls[key],
-                      decoration: InputDecoration(
-                        labelText: tr(def),
-                        isDense: true,
-                        border: const OutlineInputBorder(),
-                      ),
-                      onChanged: selected
-                          ? (_) {
-                              _emitTotalsFields(
-                                List<String>.from(block.fields ?? const []),
-                              );
-                            }
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
+        if (block.type == PosPrintBlockType.totals)
+          ..._totalsEditor(block, readOnly),
         if (block.type == PosPrintBlockType.lineItems) ...[
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            title: Text(tr('Tùy chọn cột hàng')),
+            subtitle: Text(
+              tr('Tên hàng luôn in. Bật từng mục: số lượng, ĐVT, đơn giá, ghi chú'),
+            ),
+            value: block.usesCustomLineFields,
+            onChanged: readOnly
+                ? null
+                : (v) => onChanged(block.copyWith(
+                      fields: v ? const ['Ten_Hang_Hoa'] : null,
+                      clearFields: !v,
+                      showColumnHeader: v ? false : block.showColumnHeader,
+                    )),
+          ),
+          if (block.usesCustomLineFields) ...[
+            const SizedBox(height: 4),
+            Text(tr('Hiện trên mỗi dòng'),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(tr('Số lượng')),
+              value: block.showsLineField('So_Luong'),
+              onChanged: readOnly
+                  ? null
+                  : (v) => onChanged(_withLineField(block, 'So_Luong', v)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(tr('Đơn vị tính')),
+              value: block.showsLineField('Don_Vi_Tinh'),
+              onChanged: readOnly
+                  ? null
+                  : (v) => onChanged(_withLineField(block, 'Don_Vi_Tinh', v)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(tr('Đơn giá')),
+              value: block.showsLineField('Don_Gia'),
+              onChanged: readOnly
+                  ? null
+                  : (v) => onChanged(_withLineField(block, 'Don_Gia', v)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(tr('Ghi chú / topping')),
+              value: block.showsLineField('Ghi_Chu'),
+              onChanged: readOnly
+                  ? null
+                  : (v) => onChanged(_withLineField(block, 'Ghi_Chu', v)),
+            ),
+          ],
+          if (!block.usesCustomLineFields) ...[
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
             title: Text(tr('Hiện tiêu đề cột')),
-            subtitle: Text(tr('Tên hàng / Đ.giá / SL / TT')),
+            subtitle: Text(tr('Tên hàng / SL / Đơn giá / Thanh toán — chỉnh riêng cỡ chữ, đậm')),
             value: block.showColumnHeader,
             onChanged: readOnly
                 ? null
-                : (v) => onChanged(block.copyWith(showColumnHeader: v)),
+                : (v) => onChanged(block.copyWith(
+                      showColumnHeader: v,
+                      rightStyle: v
+                          ? (block.rightStyle ??
+                              block.style.copyWith(
+                                fontSize: (block.style.fontSize - 4).clamp(14, 48),
+                                bold: false,
+                              ))
+                          : block.rightStyle,
+                    )),
           ),
           if (block.showColumnHeader) ...[
+            const SizedBox(height: 8),
+            Text(tr(
+                'Cỡ chữ tiêu đề cột: ${(block.rightStyle ?? block.style).fontSize.toInt()}')),
+            Slider(
+              value: (block.rightStyle ?? block.style).fontSize.clamp(14, 48),
+              min: 14,
+              max: 48,
+              divisions: 17,
+              label: (block.rightStyle ?? block.style).fontSize.toInt().toString(),
+              onChanged: readOnly
+                  ? null
+                  : (v) => onChanged(block.copyWith(
+                        rightStyle: (block.rightStyle ?? block.style)
+                            .copyWith(fontSize: v),
+                      )),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Tiêu đề cột in đậm')),
+              subtitle: Text(tr('Không ảnh hưởng cỡ / đậm của từng hàng hóa')),
+              value: (block.rightStyle ?? block.style).bold,
+              onChanged: readOnly
+                  ? null
+                  : (v) => onChanged(block.copyWith(
+                        rightStyle: (block.rightStyle ?? block.style)
+                            .copyWith(bold: v),
+                      )),
+            ),
             const SizedBox(height: 8),
             ..._colKeys.map((key) {
               final def = PosPrintTemplateCompiler.defaultColumnLabels[key] ?? key;
@@ -1399,6 +1743,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
                 ),
               );
             }),
+          ],
           ],
         ],
         if (block.type == PosPrintBlockType.barcode) ...[
@@ -1513,11 +1858,15 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: Text(
-                tr('Áp dụng cho toàn bộ dòng trong bảng in'),
+                tr(block.type == PosPrintBlockType.lineItems
+                    ? 'Cỡ chữ / đậm bên dưới áp dụng cho từng hàng hóa — tiêu đề cột chỉnh riêng phía trên'
+                    : 'Áp dụng cho toàn bộ dòng trong bảng in'),
                 style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
               ),
             ),
-          Text(tr('Cỡ chữ: ${block.style.fontSize.toInt()}')),
+          Text(tr(block.type == PosPrintBlockType.lineItems
+              ? 'Cỡ chữ hàng hóa: ${block.style.fontSize.toInt()}'
+              : 'Cỡ chữ: ${block.style.fontSize.toInt()}')),
           Slider(
             value: block.style.fontSize.clamp(14, 48),
             min: 14,
@@ -1530,7 +1879,9 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('In đậm')),
+            title: Text(tr(block.type == PosPrintBlockType.lineItems
+                ? 'Hàng hóa in đậm'
+                : 'In đậm')),
             value: block.style.bold,
             onChanged: readOnly
                 ? null
@@ -1550,7 +1901,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
                   ? null
                   : (v) => onChanged(block.copyWith(
                         rightStyle: (block.rightStyle ?? block.style)
-                            .copyWith(fontSize: v, bold: true),
+                            .copyWith(fontSize: v),
                       )),
             ),
           ],
@@ -1583,6 +1934,101 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
         const SizedBox(height: 24),
       ],
     );
+  }
+
+  List<Widget> _totalsEditor(PosPrintBlock block, bool readOnly) {
+    final selectedKeys = List<String>.from(block.fields ?? const []);
+    final unselectedKeys =
+        _totalKeys.where((k) => !selectedKeys.contains(k)).toList();
+
+    Widget totalRow(String key, {required bool selected}) {
+      final def = PosPrintTemplateCompiler.defaultTotalLabels[key] ?? key;
+      final idx = selectedKeys.indexOf(key);
+      final ctrl = _totalLabelCtrls.putIfAbsent(
+        key,
+        () => TextEditingController(
+          text: block.fieldLabels?[key] ?? def,
+        ),
+      );
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: selected,
+              onChanged: readOnly
+                  ? null
+                  : (v) {
+                      final cur = List<String>.from(block.fields ?? const []);
+                      if (v == true) {
+                        if (!cur.contains(key)) cur.add(key);
+                      } else {
+                        cur.remove(key);
+                      }
+                      _emitTotalsFields(cur);
+                    },
+            ),
+            Expanded(
+              child: selected
+                  ? TextField(
+                      readOnly: readOnly,
+                      controller: ctrl,
+                      decoration: InputDecoration(
+                        labelText: tr(def),
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (_) {
+                        _emitTotalsFields(
+                          List<String>.from(block.fields ?? const []),
+                        );
+                      },
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(tr(def), style: const TextStyle(fontSize: 14)),
+                    ),
+            ),
+            if (selected && !readOnly) ...[
+              IconButton(
+                tooltip: tr('Lên'),
+                visualDensity: VisualDensity.compact,
+                onPressed: idx <= 0 ? null : () => _moveTotalField(key, -1),
+                icon: const Icon(Icons.arrow_upward, size: 18),
+              ),
+              IconButton(
+                tooltip: tr('Xuống'),
+                visualDensity: VisualDensity.compact,
+                onPressed: idx < 0 || idx >= selectedKeys.length - 1
+                    ? null
+                    : () => _moveTotalField(key, 1),
+                icon: const Icon(Icons.arrow_downward, size: 18),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+
+    return [
+      Text(tr('Dòng tổng & nhãn hiển thị'),
+          style: const TextStyle(fontWeight: FontWeight.w600)),
+      const SizedBox(height: 4),
+      Text(
+        tr('Thêm trường, sửa nhãn, đưa lên/xuống. Số 0 không in ra giấy.'),
+        style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+      ),
+      const SizedBox(height: 8),
+      for (final key in selectedKeys) totalRow(key, selected: true),
+      if (unselectedKeys.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Text(tr('Thêm trường dữ liệu'),
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        for (final key in unselectedKeys) totalRow(key, selected: false),
+      ],
+    ];
   }
 
   Widget _tokenField(String label, String? value, ValueChanged<String> onField) {

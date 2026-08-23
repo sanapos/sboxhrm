@@ -70,7 +70,7 @@ class ZKTecoApp extends StatelessWidget {
           Provider.of<PermissionProvider>(context, listen: false),
         );
         return MaterialApp(
-          title: 'SBOX HRM',
+          title: 'SBOX HRM - SBOX POS',
           debugShowCheckedModeBanner: false,
           theme: themeProvider.lightTheme,
           darkTheme: themeProvider.darkTheme,

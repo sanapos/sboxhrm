@@ -3,8 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/navigation_notifier.dart';
+import '../../utils/permission_navigation.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_kiot_time_filter.dart';
@@ -12,6 +14,8 @@ import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'pos_qr_menu_screen.dart';
+import 'pos_qr_online_orders_screen.dart';
 
 /// Tổng quan POS mobile — layout đồng bộ với tab Nhiều hơn.
 class PosOverviewScreen extends StatefulWidget {
@@ -88,6 +92,18 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
 
   void _goHubTab(int index) {
     NavigationNotifier.posHubTab.value = index;
+  }
+
+  void _pushPosPage(Widget child) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PosHubScope(
+          embeddedInHub: false,
+          pushedSubPage: true,
+          child: child,
+        ),
+      ),
+    );
   }
 
   double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
@@ -177,8 +193,10 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
   }
 
   Widget _buildQuickAccessSection() {
-    // Tổng quan = điều hướng tab chính + số liệu.
-    // Module nghiệp vụ đầy đủ nằm ở tab «Nhiều hơn» (không trùng).
+    // Tổng quan = điều hướng tab chính + QR hay dùng.
+    // Module đầy đủ nằm ở tab «Nhiều hơn».
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canQr = PermissionNavigation.canNavigate(perm, 'PosQrOrder');
     final items = <PosMobileHubGridItem>[
       PosMobileHubGridItem(
         label: 'Bán hàng',
@@ -195,6 +213,18 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
         icon: Icons.receipt_long_outlined,
         onTap: () => _goHubTab(3),
       ),
+      if (canQr)
+        PosMobileHubGridItem(
+          label: 'Menu QR',
+          icon: Icons.restaurant_menu,
+          onTap: () => _pushPosPage(const PosQrMenuScreen()),
+        ),
+      if (canQr)
+        PosMobileHubGridItem(
+          label: 'Đơn online',
+          icon: Icons.delivery_dining_outlined,
+          onTap: () => _pushPosPage(const PosQrOnlineOrdersScreen()),
+        ),
       PosMobileHubGridItem(
         label: 'Nhiều hơn',
         icon: Icons.apps_outlined,

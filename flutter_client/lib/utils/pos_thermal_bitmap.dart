@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import 'vietnamese_font.dart';
 import '../l10n/app_tr.dart';
+import '../models/pos_print_template_v2.dart';
 
 /// Một dòng trên hóa đơn cần render ảnh.
 class PosReceiptImageLine {
@@ -18,6 +19,7 @@ class PosReceiptImageLine {
     this.rightSlotFrac,
     this.bold = false,
     this.center = false,
+    this.right = false,
     this.fontSize = 22,
     this.isDivider = false,
   });
@@ -33,6 +35,7 @@ class PosReceiptImageLine {
   final double? rightSlotFrac;
   final bool bold;
   final bool center;
+  final bool right;
   final double fontSize;
   /// Vẽ đường kẻ ngang đặc bằng chiều rộng giấy (không dùng ===== / -----).
   final bool isDivider;
@@ -80,11 +83,17 @@ class PosThermalBitmapEncoder {
     List<PosReceiptImageLine> lines, {
     required int paperDots,
     double lineGap = 3,
+    PosPrintFrameStyle frameStyle = PosPrintFrameStyle.none,
+    double frameInsetMm = 2.5,
+    double frameMarginMm = 1.5,
   }) async {
     final image = await _renderReceiptImage(
       lines,
       paperDots: paperDots,
       lineGap: lineGap,
+      frameStyle: frameStyle,
+      frameInsetMm: frameInsetMm,
+      frameMarginMm: frameMarginMm,
     );
     if (image == null) return null;
     final bd = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -97,11 +106,17 @@ class PosThermalBitmapEncoder {
     List<PosReceiptImageLine> lines, {
     required int paperDots,
     double lineGap = 3,
+    PosPrintFrameStyle frameStyle = PosPrintFrameStyle.none,
+    double frameInsetMm = 2.5,
+    double frameMarginMm = 1.5,
   }) async {
     final image = await _renderReceiptImage(
       lines,
       paperDots: paperDots,
       lineGap: lineGap,
+      frameStyle: frameStyle,
+      frameInsetMm: frameInsetMm,
+      frameMarginMm: frameMarginMm,
     );
     if (image == null) return null;
     return _imageToEscPos(image, initPrinter: true);
@@ -113,21 +128,85 @@ class PosThermalBitmapEncoder {
     double priceW,
     double totalW,
     double gap,
-  }) _saleColWidths(double contentW) {
-    // K80 raster (~1152px @2x): ưu tiên cột tên; SL/tiền hẹp hơn để khỏi tràn xuống hàng.
+  }) _saleColWidths(
+    double contentW, {
+    TextStyle? style,
+    List<PosReceiptImageLine> saleLines = const [],
+  }) {
     final k58 = contentW < 900;
-    final gap = k58 ? 12.0 : 16.0;
-    final qtyW = k58 ? 56.0 : 72.0;
-    final moneyW = k58 ? 120.0 : 148.0;
+    final gap = k58 ? 8.0 : 12.0;
+    final measureStyle = style ??
+        const TextStyle(fontSize: 20, fontWeight: FontWeight.w700);
+    double measure(String s, double minW, double maxW) {
+      final tp = TextPainter(
+        text: TextSpan(text: s.isEmpty ? '0' : s, style: measureStyle),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+      return (tp.width + 10).clamp(minW, maxW);
+    }
+
+    final anyQty = saleLines.any((l) => l.colQty != null);
+    final anyPrice = saleLines.any((l) => l.colPrice != null);
+    final anyTotal = saleLines.any((l) => l.colTotal != null);
+    final qtyW = anyQty ? measure('999', k58 ? 36.0 : 44.0, k58 ? 64.0 : 80.0) : 0.0;
+    var priceW = 0.0;
+    var totalW = 0.0;
+    final capPrice = k58 ? 200.0 : 268.0;
+    final capTotal = k58 ? 216.0 : 288.0;
+    if (anyPrice) {
+      priceW = k58 ? 64.0 : 80.0;
+      if (saleLines.isEmpty) {
+        priceW = measure('000.000', priceW, capPrice);
+      } else {
+        for (final line in saleLines) {
+          final p = (line.colPrice ?? '').trim();
+          if (p.isNotEmpty) priceW = measure(p, priceW, capPrice);
+        }
+      }
+    }
+    if (anyTotal) {
+      totalW = k58 ? 72.0 : 88.0;
+      if (saleLines.isEmpty) {
+        totalW = measure('000.000', totalW, capTotal);
+      } else {
+        for (final line in saleLines) {
+          final t = (line.colTotal ?? '').trim();
+          if (t.isNotEmpty) totalW = measure(t, totalW, capTotal);
+        }
+      }
+    }
+    final colCount = (anyQty ? 1 : 0) + (anyPrice ? 1 : 0) + (anyTotal ? 1 : 0);
     final nameW =
-        (contentW - qtyW - moneyW * 2 - gap * 3).clamp(160.0, contentW);
+        (contentW - qtyW - priceW - totalW - gap * colCount).clamp(96.0, contentW);
     return (
       nameW: nameW,
       qtyW: qtyW,
-      priceW: moneyW,
-      totalW: moneyW,
+      priceW: priceW,
+      totalW: totalW,
       gap: gap,
     );
+  }
+
+  static ({double leftW, double rightW, double gap}) _pairSlotWidths({
+    required double contentW,
+    required TextStyle style,
+    required String left,
+    required String right,
+    double? rightFrac,
+  }) {
+    final gap = contentW < 900 ? 16.0 : 24.0;
+    final maxRight = contentW * 0.62;
+    final minRight = contentW * ((rightFrac ?? 0.22).clamp(0.16, 0.40));
+    final rightTp = TextPainter(
+      text: TextSpan(text: right, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+    )..layout();
+    final needed = rightTp.width + 12;
+    final rightW = needed.clamp(minRight, maxRight);
+    final leftW = (contentW - rightW - gap).clamp(48.0, contentW);
+    return (leftW: leftW, rightW: rightW, gap: gap);
   }
 
   static TextPainter _tp(
@@ -136,14 +215,15 @@ class PosThermalBitmapEncoder {
     required double maxWidth,
     TextAlign align = TextAlign.left,
     int maxLines = 3,
+    bool ellipsis = true,
   }) {
     return TextPainter(
       text: TextSpan(text: tr(text), style: style),
       textAlign: align,
       textDirection: TextDirection.ltr,
       maxLines: maxLines,
-      ellipsis: maxLines == 1 ? '…' : null,
-    )..layout(maxWidth: maxWidth);
+      ellipsis: (ellipsis && maxLines == 1) ? '…' : null,
+    )..layout(maxWidth: maxWidth.clamp(1.0, 10000.0));
   }
 
   static void _paintInSlot(
@@ -171,14 +251,26 @@ class PosThermalBitmapEncoder {
     List<PosReceiptImageLine> lines, {
     required int paperDots,
     double lineGap = 3,
+    PosPrintFrameStyle frameStyle = PosPrintFrameStyle.none,
+    double frameInsetMm = 2.5,
+    double frameMarginMm = 1.5,
   }) async {
     if (lines.isEmpty) return null;
     await ensureFont();
 
     final scale = 2;
     final renderW = paperDots * scale;
-    final pad = 8.0 * scale;
+    final framed = frameStyle != PosPrintFrameStyle.none;
+    final mm = paperDots <= 384 ? 58.0 : 80.0;
+    final margin = framed
+        ? (paperDots / mm * frameMarginMm.clamp(0.5, 8.0) * scale)
+        : 0.0;
+    final inset = framed
+        ? (paperDots / mm * frameInsetMm.clamp(1.0, 12.0) * scale)
+        : 0.0;
+    final pad = framed ? (margin + inset) : (8.0 * scale);
     final contentW = renderW - pad * 2;
+    final saleColLines = lines.where((l) => l.hasSaleColumns).toList();
     final painters = <TextPainter?>[];
     var totalH = 0.0;
 
@@ -193,7 +285,11 @@ class PosThermalBitmapEncoder {
         bold: line.bold,
       );
       if (line.hasSaleColumns) {
-        final cols = _saleColWidths(contentW);
+        final cols = _saleColWidths(
+          contentW,
+          style: style,
+          saleLines: saleColLines,
+        );
         final nameTp = _tp(
           line.text,
           style: style,
@@ -205,10 +301,18 @@ class PosThermalBitmapEncoder {
         continue;
       }
       if ((line.rightText ?? '').trim().isNotEmpty) {
+        final slots = _pairSlotWidths(
+          contentW: contentW,
+          style: style,
+          left: line.text,
+          right: line.rightText!.trim(),
+          rightFrac: line.rightSlotFrac,
+        );
         final leftTp = _tp(
           line.text,
           style: style,
-          maxWidth: contentW * 0.58,
+          maxWidth: slots.leftW,
+          maxLines: 2,
         );
         painters.add(leftTp);
         totalH += leftTp.height + lineGap * scale;
@@ -224,7 +328,11 @@ class PosThermalBitmapEncoder {
         line.text,
         style: style,
         maxWidth: contentW,
-        align: line.center ? TextAlign.center : TextAlign.left,
+        align: line.center
+            ? TextAlign.center
+            : line.right
+                ? TextAlign.right
+                : TextAlign.left,
         maxLines: 4,
       );
 
@@ -236,7 +344,7 @@ class PosThermalBitmapEncoder {
       totalH += tp.height + lineGap * scale;
     }
 
-    final hHi = totalH.ceil().clamp(1, 16000);
+    final hHi = (totalH + (framed ? pad * 2 : 0)).ceil().clamp(1, 16000);
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawRect(
@@ -244,7 +352,7 @@ class PosThermalBitmapEncoder {
       Paint()..color = const Color(0xFFFFFFFF),
     );
 
-    var y = 0.0;
+    var y = framed ? pad : 0.0;
     for (var i = 0; i < painters.length; i++) {
       final line = lines[i];
       if (line.isDivider) {
@@ -262,7 +370,11 @@ class PosThermalBitmapEncoder {
         bold: line.bold,
       );
       if (line.hasSaleColumns) {
-        final cols = _saleColWidths(contentW);
+        final cols = _saleColWidths(
+          contentW,
+          style: style,
+          saleLines: saleColLines,
+        );
         final nameTp = _tp(
           line.text,
           style: style,
@@ -275,6 +387,7 @@ class PosThermalBitmapEncoder {
           maxWidth: cols.qtyW,
           align: TextAlign.right,
           maxLines: 1,
+          ellipsis: false,
         );
         final priceTp = _tp(
           line.colPrice ?? '',
@@ -282,6 +395,7 @@ class PosThermalBitmapEncoder {
           maxWidth: cols.priceW,
           align: TextAlign.right,
           maxLines: 1,
+          ellipsis: false,
         );
         final totalTp = _tp(
           line.colTotal ?? '',
@@ -289,58 +403,69 @@ class PosThermalBitmapEncoder {
           maxWidth: cols.totalW,
           align: TextAlign.right,
           maxLines: 1,
+          ellipsis: false,
         );
         nameTp.paint(canvas, Offset(pad, y));
         var x = pad + cols.nameW + cols.gap;
-        _paintInSlot(
-          canvas,
-          qtyTp,
-          slotLeft: x,
-          slotW: cols.qtyW,
-          y: y,
-          align: TextAlign.center,
-        );
-        x += cols.qtyW + cols.gap;
-        _paintInSlot(
-          canvas,
-          priceTp,
-          slotLeft: x,
-          slotW: cols.priceW,
-          y: y,
-          align: TextAlign.right,
-        );
-        x += cols.priceW + cols.gap;
-        _paintInSlot(
-          canvas,
-          totalTp,
-          slotLeft: x,
-          slotW: cols.totalW,
-          y: y,
-          align: TextAlign.right,
-        );
+        if (cols.qtyW > 0) {
+          _paintInSlot(
+            canvas,
+            qtyTp,
+            slotLeft: x,
+            slotW: cols.qtyW,
+            y: y,
+            align: TextAlign.center,
+          );
+          x += cols.qtyW + cols.gap;
+        }
+        if (cols.priceW > 0) {
+          _paintInSlot(
+            canvas,
+            priceTp,
+            slotLeft: x,
+            slotW: cols.priceW,
+            y: y,
+            align: TextAlign.right,
+          );
+          x += cols.priceW + cols.gap;
+        }
+        if (cols.totalW > 0) {
+          _paintInSlot(
+            canvas,
+            totalTp,
+            slotLeft: x,
+            slotW: cols.totalW,
+            y: y,
+            align: TextAlign.right,
+          );
+        }
         y += nameTp.height + lineGap * scale;
         continue;
       }
       final right = (line.rightText ?? '').trim();
       if (right.isNotEmpty) {
-        final pairGap = contentW < 900 ? 20.0 : 32.0;
-        final rightFrac = (line.rightSlotFrac ?? 0.38).clamp(0.16, 0.48);
-        final rightW = contentW * rightFrac;
-        final leftW = contentW - rightW - pairGap;
-        final leftTp = _tp(line.text, style: style, maxWidth: leftW);
+        final slots = _pairSlotWidths(
+          contentW: contentW,
+          style: style,
+          left: line.text,
+          right: right,
+          rightFrac: line.rightSlotFrac,
+        );
+        final leftTp = _tp(line.text, style: style, maxWidth: slots.leftW, maxLines: 2);
         final rightTp = _tp(
           right,
           style: style,
-          maxWidth: rightW,
+          maxWidth: slots.rightW,
           align: TextAlign.right,
-          maxLines: 2,
+          maxLines: 1,
+          ellipsis: false,
         );
         leftTp.paint(canvas, Offset(pad, y));
         _paintInSlot(
           canvas,
           rightTp,
-          slotLeft: pad + leftW + pairGap,
-          slotW: rightW,
+          slotLeft: pad + slots.leftW + slots.gap,
+          slotW: slots.rightW,
           y: y,
           align: TextAlign.right,
         );
@@ -355,9 +480,31 @@ class PosThermalBitmapEncoder {
       }
       final x = tp.textAlign == TextAlign.center
           ? pad + ((contentW - tp.width) / 2).clamp(0.0, contentW)
-          : pad;
+          : tp.textAlign == TextAlign.right
+              ? pad + (contentW - tp.width).clamp(0.0, contentW)
+              : pad;
       tp.paint(canvas, Offset(x, y));
       y += tp.height + lineGap * scale;
+    }
+
+    if (framed) {
+      final stroke = 2.2 * scale;
+      final rect = Rect.fromLTWH(
+        margin,
+        margin,
+        renderW - margin * 2,
+        hHi - margin * 2,
+      );
+      final rrect = frameStyle == PosPrintFrameStyle.rounded
+          ? RRect.fromRectAndRadius(rect, Radius.circular(10.0 * scale))
+          : RRect.fromRectAndRadius(rect, Radius.zero);
+      canvas.drawRRect(
+        rrect,
+        Paint()
+          ..color = const Color(0xFF000000)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke,
+      );
     }
 
     final picture = recorder.endRecording();

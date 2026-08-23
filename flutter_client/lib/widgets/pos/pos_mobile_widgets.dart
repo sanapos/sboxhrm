@@ -1058,6 +1058,11 @@ class PosMobileKiotHeader extends StatelessWidget {
               if (compactHeader)
                 _buildCompactActions(context)
               else ...[
+              if (filterChips != null)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 160),
+                  child: filterChips!,
+                ),
               if (onRefresh != null)
                 IconButton(
                   visualDensity: VisualDensity.compact,
@@ -1100,15 +1105,6 @@ class PosMobileKiotHeader extends StatelessWidget {
             ],
           ),
         ),
-        if (filterChips != null && !compactHeader)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
-            child: Row(
-              children: [
-                Expanded(child: filterChips!),
-              ],
-            ),
-          ),
         const Divider(height: 1, color: PosTheme.border),
       ],
     );
@@ -1124,6 +1120,11 @@ class PosMobileKiotHeader extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (filterChips != null)
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 140),
+            child: filterChips!,
+          ),
         if (onRefresh != null)
           IconButton(
             visualDensity: VisualDensity.compact,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/pos_sell_industry.dart';
+import '../../providers/permission_provider.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../services/api_service.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -57,9 +59,25 @@ class _PosSellIndustrySettingsHubScreenState
 
   @override
   Widget build(BuildContext context) {
+    final canEdit = context.watch<PermissionProvider>().canEditPosSetup();
     final body = ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 48),
       children: [
+        if (!canEdit)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Material(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Text(
+                  tr('Chỉ xem — không có quyền sửa thiết lập POS.'),
+                  style: TextStyle(fontSize: 12, color: Colors.orange.shade900),
+                ),
+              ),
+            ),
+          ),
         Text(
           tr('Chọn nhóm thiết lập'),
           style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
@@ -70,8 +88,8 @@ class _PosSellIndustrySettingsHubScreenState
           icon: Icons.storefront_outlined,
           title: 'Ngành hàng & chế độ bán',
           subtitle: _settings == null
-              ? 'Bán lẻ, nhà hàng, salon, karaoke, gym, khách sạn'
-              : '${_settings!.sellProfile.label} · ${_settings!.sellProfile.featureHints.join(' · ')}',
+              ? 'Bán lẻ, nhà hàng, salon… · ca thu ngân · khóa đơn tạm'
+              : '${_settings!.sellProfile.label} · ca thu ngân · khóa đơn tạm · ${_settings!.sellProfile.featureHints.take(2).join(' · ')}',
           onTap: () => _open(
             context,
             const PosSellIndustrySettingsScreen(section: 'profile'),
@@ -84,8 +102,8 @@ class _PosSellIndustrySettingsHubScreenState
               ? '${_settings!.sellProfile.floorTabLabel} / tạm tính'
               : 'Tạm tính & tồn kho',
           subtitle: _settings?.sellProfile.usesFloorPlan == true
-              ? 'Sơ đồ ${_settings!.sellProfile.resourceNoun}, tính giờ, ca thu ngân'
-              : 'Tạm tính, bán khi hết hàng, ca thu ngân, ngày KD',
+              ? 'Sơ đồ ${_settings!.sellProfile.resourceNoun}, tính giờ, tạm tính'
+              : 'Tạm tính, bán khi hết hàng, ngày KD',
           onTap: () => _open(
             context,
             const PosSellIndustrySettingsScreen(section: 'resources'),

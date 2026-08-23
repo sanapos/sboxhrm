@@ -13,7 +13,7 @@ class LandingGuideSearchHit {
     required this.matchedIn,
   });
 
-  /// 0 = Triển khai (basic), 1 = Nâng cao (advanced).
+  /// 0 = Triển khai (basic), 1 = Nâng cao (advanced), 2 = POS.
   final int sectionIndex;
   final int stepIndex;
   final LandingUsageGuideStep step;
@@ -21,7 +21,7 @@ class LandingGuideSearchHit {
   /// Ví dụ: "Tiêu đề", "Từ khóa", "Nội dung".
   final String matchedIn;
 
-  String get sectionLabel => sectionIndex == 0 ? 'Triển khai' : 'Nâng cao';
+  String get sectionLabel => LandingGuideData.labelForIndex(sectionIndex);
 }
 
 /// Một bước hướng dẫn trên landing (có metadata hiển thị + nội dung chỉnh từ CMS).
@@ -149,22 +149,55 @@ class LandingUsageGuideStep {
   }
 }
 
-/// Toàn bộ hướng dẫn landing: triển khai cơ bản + nâng cao.
+/// Toàn bộ hướng dẫn landing: triển khai HRM + vận hành nâng cao + POS.
 class LandingGuideData {
   const LandingGuideData({
     required this.basic,
     required this.advanced,
+    this.pos = const [],
   });
 
   final List<LandingUsageGuideStep> basic;
   final List<LandingUsageGuideStep> advanced;
+  final List<LandingUsageGuideStep> pos;
 
   int get basicCount => basic.length;
   int get advancedCount => advanced.length;
+  int get posCount => pos.length;
+
+  List<LandingUsageGuideStep> stepsAt(int sectionIndex) => switch (sectionIndex) {
+        1 => advanced,
+        2 => pos,
+        _ => basic,
+      };
+
+  static String keyForIndex(int sectionIndex) => switch (sectionIndex) {
+        1 => 'advanced',
+        2 => 'pos',
+        _ => 'basic',
+      };
+
+  static int indexForKey(String section) => switch (section.trim().toLowerCase()) {
+        'advanced' => 1,
+        'pos' => 2,
+        _ => 0,
+      };
+
+  static String labelForIndex(int sectionIndex) => switch (sectionIndex) {
+        1 => 'Nâng cao',
+        2 => 'POS',
+        _ => 'Triển khai',
+      };
+
+  static bool isKnownSection(String section) {
+    final k = section.trim().toLowerCase();
+    return k == 'basic' || k == 'advanced' || k == 'pos';
+  }
 
   Map<String, dynamic> toJson() => {
         'basic': basic.map((e) => e.toJson()).toList(),
         'advanced': advanced.map((e) => e.toJson()).toList(),
+        'pos': pos.map((e) => e.toJson()).toList(),
       };
 
   String toJsonString() => jsonEncode(toJson());
@@ -173,6 +206,7 @@ class LandingGuideData {
         basic: _withKeywords(LandingUsageGuide.basicSteps, _basicKeywords),
         advanced:
             _withKeywords(LandingUsageGuide.advancedSteps, _advancedKeywords),
+        pos: _withKeywords(LandingUsageGuide.posSteps, _posKeywords),
       );
 
   static List<LandingUsageGuideStep> _withKeywords(
@@ -211,10 +245,16 @@ class LandingGuideData {
     'Nghỉ phép',
     'Đổi ca',
     'Báo cáo',
+    'Tổng kết cuối ngày',
     'KPI',
     'POS',
+    'Máy in',
+    'Mẫu in',
+    'Gửi bếp',
+    'Bàn phòng',
     'Công tác',
     'Quên mật khẩu',
+    'Quên chấm',
   ];
 
   List<LandingGuideSearchHit> search(String query, {int limit = 12}) {
@@ -237,6 +277,7 @@ class LandingGuideData {
 
     scan(0, basic);
     scan(1, advanced);
+    scan(2, pos);
     hits.sort((a, b) {
       final ra = _rank(a.matchedIn);
       final rb = _rank(b.matchedIn);
@@ -391,6 +432,23 @@ class LandingGuideData {
       'xuất excel',
       'tổng hợp chấm công',
       'báo cáo phạt',
+      'xem báo cáo',
+      'dashboard',
+    ],
+    'daily_ops': [
+      'hàng ngày',
+      'cuối tháng',
+      'quy trình ngày',
+      'duyệt đơn',
+      'vận hành hrm',
+    ],
+    'common_hrm': [
+      'đi trễ',
+      'quên chấm',
+      'thiếu chấm',
+      'quên mật khẩu',
+      'máy offline',
+      'tình huống',
     ],
   };
 
@@ -424,9 +482,62 @@ class LandingGuideData {
     'communication': ['truyền thông', 'thông báo nội bộ', 'tin tức'],
     'feedback': ['góp ý', 'khiếu nại', 'phản ánh'],
     'notifications': ['thông báo', 'push', 'nhắc việc'],
-    'pos_setup': ['pos', 'bán hàng', 'thiết lập pos', 'ngành hàng'],
-    'pos_sales': ['pos', 'bán hàng', 'hóa đơn', 'thu ngân', 'order'],
-    'pos_inventory': ['kho', 'nhập hàng', 'tồn kho', 'kiểm kho'],
+  };
+
+  static const _posKeywords = <String, List<String>>{
+    'pos_devices': [
+      'a6',
+      'a7',
+      'sunmi',
+      'flutter_pos',
+      'hrm pos',
+      'thiết bị',
+    ],
+    'pos_setup': [
+      'pos',
+      'bán hàng',
+      'thiết lập pos',
+      'ngành hàng',
+      'cửa hàng',
+    ],
+    'pos_products': ['hàng hóa', 'sản phẩm', 'giá bán', 'danh mục món'],
+    'pos_tables': ['bàn', 'phòng', 'sơ đồ bàn', 'đặt bàn', 'đặt lịch'],
+    'pos_printers': [
+      'máy in',
+      'mẫu in',
+      'k80',
+      'k58',
+      'print agent',
+      'usb',
+      'bluetooth',
+    ],
+    'pos_kitchen': ['bếp', 'gửi bếp', 'phiếu bếp', 'tem ly', 'kds'],
+    'pos_sales': [
+      'bán hàng',
+      'thu ngân',
+      'thanh toán',
+      'hóa đơn',
+      'order',
+    ],
+    'pos_customers': ['khách hàng', 'điểm', 'công nợ khách', 'crm'],
+    'pos_inventory': ['kho', 'nhập hàng', 'tồn kho', 'kiểm kho', 'ncc'],
+    'pos_einvoice': ['hóa đơn điện tử', 'viettel', 'misa', 'einvoice'],
+    'pos_reports': [
+      'báo cáo pos',
+      'doanh thu',
+      'tồn kho',
+      'lợi nhuận',
+      '14 báo cáo',
+    ],
+    'pos_eod': ['cuối ngày', 'chốt ca', 'tổng kết', 'end of day'],
+    'pos_common': [
+      'không in',
+      'in sai',
+      'lệch tiền',
+      'hủy đơn',
+      'trả hàng',
+      'tình huống pos',
+    ],
   };
 
   static LandingGuideData fromApiJson(dynamic raw) {
@@ -473,7 +584,11 @@ class LandingGuideData {
       }
       merged.add(step);
     }
-    return LandingGuideData(basic: merged, advanced: base.advanced);
+    return LandingGuideData(
+      basic: merged,
+      advanced: base.advanced,
+      pos: base.pos,
+    );
   }
 
   static LandingGuideData _mergeSections(
@@ -483,6 +598,7 @@ class LandingGuideData {
     return LandingGuideData(
       basic: _mergeStepList(base.basic, map['basic']),
       advanced: _mergeStepList(base.advanced, map['advanced']),
+      pos: _mergeStepList(base.pos, map['pos']),
     );
   }
 
@@ -524,10 +640,11 @@ class LandingUsageGuide {
         'Ngày 5: Tạo tài khoản app cho quản lý/NV cần đăng nhập; phân quyền theo vai trò',
         'Ngày 5–6: Cấu hình phạt đi trễ/về sớm (nếu dùng) → kiểm tra vài ngày chấm thử trên Chấm công thô',
         'Cuối tháng: Duyệt phép / phiếu thưởng–phạt–ứng → xem Tổng hợp theo ca → chốt Tổng hợp lương',
+        'Nếu gói có POS: sang tab POS — ngành hàng → hàng hóa → máy in → bán thử → xem Báo cáo POS',
         'Hotline hỗ trợ: 0973 024 042 (Zalo hỗ trợ từ xa)',
       ],
       tip:
-          'Chưa cần làm hết tính năng nâng cao (KPI, POS, tài sản…) trong tuần đầu — ưu tiên nhân sự → ca → chấm công → lương.',
+          'Tuần đầu ưu tiên nhân sự → ca → chấm công → lương. POS và KPI làm sau khi chấm công đã ổn.',
       accent: Color(0xFF0C56D0),
     ),
     const LandingUsageGuideStep(
@@ -806,24 +923,68 @@ class LandingUsageGuide {
     const LandingUsageGuideStep(
       id: 'reports',
       icon: Icons.assessment_rounded,
-      title: 'Các báo cáo thường dùng',
+      title: 'Cách xem báo cáo HRM',
       desc:
-          'Menu Báo cáo giúp đối soát vận hành hàng ngày và cuối tháng. Phiếu hủy/từ chối thường không tính vào số liệu.',
+          'Mọi báo cáo nhân sự nằm ở nhóm menu Báo cáo (sidebar web, hoặc tìm trên app). Chọn khoảng ngày → lọc phòng ban/NV → xem bảng → Xuất Excel nếu cần gửi kế toán.',
       bullets: [
-        'Tổng hợp chấm công · Tổng hợp theo ca — công, trễ, sớm theo ngày',
-        'Tính lương / Tổng hợp lương — bảng lương kỳ',
-        'Báo cáo phạt · Ứng lương · Thu chi',
-        'Báo cáo nghỉ phép · Tài sản (nếu dùng)',
-        'Bộ lọc theo phòng ban, khoảng ngày, nhân viên',
-        'Xuất Excel khi cần gửi kế toán ngoài hệ thống',
+        'Bước 1 — Mở nhóm Báo cáo trên menu trái (web) hoặc ô tìm kiếm module (app)',
+        'Bước 2 — Chọn kỳ: hôm nay / tuần / tháng, hoặc tự chọn từ ngày–đến ngày',
+        'Bước 3 — Lọc phòng ban hoặc nhân viên nếu chỉ cần một bộ phận',
+        'Tổng hợp chấm công — công, phút công, ngày công theo NV',
+        'Tổng hợp chấm công theo ca — công, đi trễ, về sớm, thiếu chấm theo từng ca',
+        'Đi trễ / Về sớm — danh sách vi phạm giờ (đối chiếu phiếu phạt)',
+        'Tính lương / Tổng hợp lương — bảng lương kỳ; Phiếu lương — bản từng NV',
+        'Báo cáo phạt · Báo cáo ứng lương · Báo cáo thu chi · Báo cáo nghỉ phép',
+        'Báo cáo công tác phí · Báo cáo tài sản · Báo cáo đi đường (nếu dùng)',
+        'Bước cuối — nút Xuất Excel trên từng màn; phiếu hủy/từ chối không tính vào số liệu',
       ],
       tip:
-          'Khi số liệu lệch: kiểm tra lại kiểu chấm công + lịch ca + ân hạn trước khi sửa tay từng dòng.',
+          'Số liệu lệch: kiểm tra kiểu chấm công + lịch ca + ân hạn trước khi sửa tay. Báo cáo bán hàng nằm ở tab POS.',
       accent: Color(0xFF1976D2),
+    ),
+    const LandingUsageGuideStep(
+      id: 'daily_ops',
+      icon: Icons.today_rounded,
+      title: 'Quy trình hàng ngày & cuối tháng',
+      desc:
+          'Lịch làm việc của quản lý cửa hàng sau khi đã triển khai xong: buổi sáng duyệt, giữa ngày theo dõi, cuối tháng chốt.',
+      bullets: [
+        'Sáng: xem Dashboard / chuông thông báo — duyệt phép, đổi ca, chấm mobile chờ duyệt',
+        'Trong ngày: Chấm công thô nếu NV báo thiếu log; tạo phiếu thưởng/phạt/ứng khi phát sinh',
+        'Cuối ca (nếu kiêm thu ngân): đối soát quỹ Thu chi với tiền mặt ngăn kéo — chi tiết POS ở tab POS',
+        'Cuối tuần: rà Tổng hợp theo ca vài ngày; sửa lịch/đổi ca trước khi phát sinh phạt oan',
+        'Trước chốt lương 2–3 ngày: duyệt hết phép, OT, thưởng, phạt, ứng trong kỳ',
+        'Ngày chốt: Tổng hợp theo ca → Tính lương → gửi phiếu lương trên app cho NV kiểm tra',
+        'Sau chốt: hạn chế sửa lịch/ca của kỳ đã khóa; phát sinh kỳ sau ghi vào tháng mới',
+      ],
+      tip:
+          'Một cửa hàng nên có 1 người «chốt kỳ» (kế toán/QL) và 1 người duyệt phép hàng ngày — tránh dồn cuối tháng.',
+      accent: Color(0xFF455A64),
+    ),
+    const LandingUsageGuideStep(
+      id: 'common_hrm',
+      icon: Icons.help_outline_rounded,
+      title: 'Tình huống HRM thường gặp',
+      desc:
+          'Cách xử lý các trường hợp hay hỏi khi mới vận hành chấm công và lương.',
+      bullets: [
+        'Đi trễ bị phạt dù vào sớm vài phút: tăng ân hạn trên Thiết lập ca, không sửa từng phiếu',
+        'Báo «Thiếu chấm» / không tính công: sai kiểu chấm công — cửa hàng chỉ chấm 1 lần chọn «Chấm vào (đủ ca»)',
+        'NV quên chấm: menu Sửa giờ / Báo quên chấm → quản lý duyệt; không xóa log máy',
+        'Máy ZK Offline: kiểm tra mạng máy + SN trên Cài đặt → Máy chấm công; gọi 0973 024 042 nếu vẫn lỗi',
+        'Log hiện PIN lạ: mã trên máy ≠ mã hồ sơ — đồng bộ lại Nhân sự chấm công',
+        'Quên mật khẩu: màn đăng nhập → Quên mật khẩu (cần email đã đăng ký)',
+        'NV nghỉ việc: đổi trạng thái nghỉ + khóa tài khoản app; không xóa hồ sơ nếu đã có công',
+        'Bảng lương lệch: chưa duyệt phép/thưởng/ứng, hoặc đổi ca sau khi đã có phiếu phạt',
+        'Không thấy menu: tài khoản thiếu phân quyền — Admin vào Cài đặt → Phân quyền',
+      ],
+      tip:
+          'Sửa gốc (ca, mode chấm, ân hạn) trước khi xóa hàng loạt phiếu phạt — tránh phạt lại ngày hôm sau.',
+      accent: Color(0xFF6D4C41),
     ),
   ];
 
-  /// Nâng cao: chính sách chuyên sâu, vận hành, hiện trường, POS.
+  /// Nâng cao: chính sách chuyên sâu, vận hành HRM, hiện trường (POS xem tab POS).
   static const advancedSteps = <LandingUsageGuideStep>[
     LandingUsageGuideStep(
       id: 'attendance_modes',
@@ -1108,55 +1269,237 @@ class LandingUsageGuide {
       tip: 'Trên iOS/Android: cho phép thông báo app ngay sau khi cài để nhận duyệt đơn kịp thời.',
       accent: Color(0xFF6D4C41),
     ),
+  ];
+
+  /// POS / bán hàng: máy A6–A7, in, bếp, kho, báo cáo doanh thu.
+  static const posSteps = <LandingUsageGuideStep>[
+    LandingUsageGuideStep(
+      id: 'pos_devices',
+      icon: Icons.devices_rounded,
+      title: 'Máy thu ngân A6 / A7 & app nào dùng',
+      desc:
+          'Cùng một cửa hàng SBOX: máy Sunmi T1 (A6) chạy app POS; máy C20Lite (A7) và web/iOS bán hàng trong app HRM.',
+      bullets: [
+        'A6 Sunmi T1: cài app POS (gói sbox.sana.vn.pos.flutter) — thu ngân + in USB/TSPL + màn hình phụ khách',
+        'A7 C20Lite / điện thoại / web: mở app HRM (sbox.sana.vn) → menu Bán hàng (POS nằm trong HRM)',
+        'Có thể cài APK POS lên A7 chỉ để thử; luồng thật trên A7 vẫn là HRM → POS',
+        'Đăng nhập cùng mã cửa hàng + tài khoản thu ngân đã được phân quyền PosSell',
+        'Cài đặt → Phân quyền: thu ngân cần xem/tạo Bán hàng; quản lý thêm Báo cáo POS, kho, mẫu in',
+        'Sau khi cài POS trên A6: rút USB/ADB trước khi kiểm tra màn hình phụ khách (USB debug hay làm trắng màn 7")',
+      ],
+      tip:
+          'Mẫu in và máy in là theo từng cửa hàng — cấu hình một lần, A6 và A7 cùng store sẽ dùng chung catalog.',
+      accent: Color(0xFFEF6C00),
+    ),
     LandingUsageGuideStep(
       id: 'pos_setup',
       icon: Icons.storefront_rounded,
-      title: 'POS — Thiết lập bán hàng',
+      title: 'Thiết lập POS lần đầu',
       desc:
-          'Bật và cấu hình phân hệ bán hàng: ngành hàng, cửa hàng/kho, máy in, bàn phòng (F&B) trước khi bán.',
+          'Làm đúng thứ tự: ngành hàng → thông tin cửa hàng → hàng hóa → bàn (F&B) → máy in → bán thử.',
       bullets: [
-        'Cài đặt (hub) → mục POS: Ngành hàng, Cửa hàng, Máy in, Mẫu in',
-        'F&B: thiết lập Khu vực / Bàn phòng trước khi mở order',
-        'Tạo danh mục và sản phẩm tại Hàng hóa (mã, giá, đơn vị)',
-        'Phân quyền tài khoản thu ngân / quản lý kho',
-        'In thử hóa đơn / tem tạm trên máy in đã gắn',
+        'Bước 1 — Cài đặt (hub) → Ngành hàng & bán hàng: chọn retail / nhà hàng / salon / phòng…',
+        'Bước 2 — Cài đặt → Thiết lập cửa hàng: tên, địa chỉ, VAT, tài khoản VietQR (nếu thanh toán QR)',
+        'Bước 3 — Menu Hàng hóa: danh mục + món/SP (mã, giá, đơn vị, ảnh)',
+        'Bước 4 — F&B: Cài đặt → Quản lý bàn / phòng: khu vực, bàn, sức chứa',
+        'Bước 5 — Cài đặt → Máy in + Mẫu in (xem bước Máy in bên dưới)',
+        'Bước 6 — Phân quyền tài khoản thu ngân / quản kho / quản lý',
+        'Bước 7 — Mở Bán hàng, tạo 1 đơn test, in thử, thanh toán 0đ hoặc hủy theo quyền',
       ],
-      tip: 'Chọn đúng ngành hàng (retail / F&B…) để hiện đúng luồng bàn và bếp.',
+      tip:
+          'Sai ngành hàng thì không thấy sơ đồ bàn / gửi bếp. Đổi ngành xong mở lại Bán hàng.',
       accent: Color(0xFFEF6C00),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_products',
+      icon: Icons.inventory_2_rounded,
+      title: 'Hàng hóa, giá & combo',
+      desc:
+          'Danh mục bán nằm ở menu POS → Hàng hóa. Giá trên hóa đơn lấy từ đây (hoặc bảng giá nếu cửa hàng dùng nhiều bảng).',
+      bullets: [
+        'Menu: Hàng hóa → Thêm sản phẩm / món: mã, tên, giá bán, đơn vị, nhóm',
+        'Gắn ảnh để thu ngân chọn nhanh trên màn bán',
+        'Combo / món có topping: khai báo thành phần nếu cần trừ kho nguyên liệu',
+        'Ngừng kinh doanh: tắt bán thay vì xóa — giữ lịch sử hóa đơn',
+        'Giá thay đổi: sửa trên Hàng hóa; đơn đang mở giữ giá lúc thêm món',
+      ],
+      tip: 'Mã hàng nên ngắn, không dấu — dễ gõ và in tem.',
+      accent: Color(0xFF00897B),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_tables',
+      icon: Icons.table_restaurant_rounded,
+      title: 'Bàn / phòng & đặt lịch',
+      desc:
+          'Nhà hàng, quán: bán theo sơ đồ bàn. Salon / spa: dùng Đặt lịch. Retail thường bỏ qua bước này.',
+      bullets: [
+        'Cài đặt → Quản lý bàn / phòng: tạo khu (tầng 1, sân vườn…) rồi thêm bàn',
+        'Bán hàng: chọn bàn trống → thêm món → gửi bếp (nếu bật) → khách ngồi → thanh toán',
+        'Ghép / tách / chuyển bàn theo nút trên sơ đồ (đúng quyền)',
+        'Menu Đặt lịch: tạo lịch theo ngày–giờ–dịch vụ–khách (salon, phòng)',
+        'Đặt bàn F&B: chọn giờ, số khách, bàn — đổi trạng thái khi khách đến',
+      ],
+      tip: 'Bàn «đang dùng» phải thanh toán hoặc trả bàn trước khi gán khách mới.',
+      accent: Color(0xFF6A1B9A),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_printers',
+      icon: Icons.print_rounded,
+      title: 'Máy in & mẫu in (K80 / tem)',
+      desc:
+          'Mỗi cửa hàng chọn máy + mẫu mặc định riêng. Hóa đơn thường K80; tem ly/tem hàng khổ nhỏ; bếp dùng mẫu phiếu bếp.',
+      bullets: [
+        'Cài đặt → Máy in (thiết bị): thêm máy USB (A6/Agent), Bluetooth, LAN, hoặc in cloud',
+        'A6 Sunmi: in USB/TSPL qua Print Agent trên máy; HRM A7 thường Bluetooth/LAN/cloud',
+        'Cài đặt → Mẫu in: hóa đơn, phiếu bếp, tem — bấm mặc định cho đúng loại',
+        'Gán mẫu theo cửa hàng (không dùng chung mặc định nhầm store khác)',
+        'In thử từ màn Mẫu in hoặc từ 1 đơn test trên Bán hàng',
+        'Một máy có thể vừa hóa đơn vừa bếp nếu gắn 2 mẫu / 2 máy vật lý khác nhau',
+      ],
+      tip:
+          'A6 và A7 cùng cửa hàng phải thấy cùng mẫu mặc định. Nếu lệch: vào Mẫu in, chọn lại mặc định của store — không copy tay từ máy khác.',
+      accent: Color(0xFF0277BD),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_kitchen',
+      icon: Icons.soup_kitchen_rounded,
+      title: 'Gửi bếp & phiếu chế biến',
+      desc:
+          'F&B: sau khi order, gửi bếp để in phiếu / hiện KDS. Phiếu bếp in giờ gọi một lần ở đầu phiếu.',
+      bullets: [
+        'Trên Bán hàng (bàn đang mở): thêm món → Gửi bếp / In bếp',
+        'Món đã gửi sẽ đánh dấu; thêm món sau thì gửi tiếp phần mới',
+        'Cài đặt mẫu Phiếu bếp / tem ly; máy in bếp (LAN/USB) khác máy hóa đơn nếu cần',
+        'Hủy món đã gửi: theo quyền hủy — bếp nhận phiếu hủy nếu được bật',
+        'Không gửi bếp được: kiểm tra ngành hàng F&B + máy in bếp + mẫu phiếu bếp là mặc định',
+      ],
+      tip:
+          'In hóa đơn lúc thanh toán; in bếp lúc gọi món — đừng gán nhầm một mẫu cho cả hai.',
+      accent: Color(0xFFC62828),
     ),
     LandingUsageGuideStep(
       id: 'pos_sales',
       icon: Icons.point_of_sale_rounded,
-      title: 'POS — Bán hàng & đơn hàng',
+      title: 'Quy trình bán hàng',
       desc:
-          'Tạo đơn bán, thanh toán, trả hàng và theo dõi đơn trong ngày trên màn POS.',
+          'Luồng thu ngân mỗi đơn: chọn hàng (hoặc bàn) → chỉnh SL/giảm giá → thanh toán → in HĐ → (tuỳ) HĐĐT.',
       bullets: [
-        'Menu: Bán hàng / POS Sell — chọn món/sản phẩm, số lượng, giảm giá',
-        'F&B: chọn bàn → order → gửi bếp (nếu bật) → thanh toán',
-        'Thanh toán: tiền mặt / chuyển khoản / kết hợp; in hóa đơn',
-        'Đơn hàng: tra cứu, in lại, hủy/trả theo quyền',
-        'Trả hàng: tạo phiếu trả liên kết đơn gốc',
-        'Báo cáo POS: doanh thu theo ngày, thu ngân, mặt hàng',
+        'Bước 1 — Menu Bán hàng (A7/HRM) hoặc mở app POS (A6)',
+        'Bước 2 — Retail: quét/chọn SP. F&B: chọn bàn rồi chọn món',
+        'Bước 3 — Sửa số lượng, ghi chú món, chiết khấu dòng hoặc cả đơn (cần quyền duyệt giá)',
+        'Bước 4 — Chọn khách (nếu tích điểm / công nợ) → Thanh toán',
+        'Bước 5 — Tiền mặt / chuyển khoản / QR / kết hợp; nhận tiền → hoàn tất',
+        'Bước 6 — In hóa đơn; xuất HĐĐT nếu khách cần (bước Hóa đơn điện tử)',
+        'Đơn hàng: tra cứu, in lại, hủy (đúng quyền). Trả hàng: menu Trả hàng bán, gắn đơn gốc',
       ],
-      tip: 'Cuối ca: đối soát doanh thu POS với Thu chi / tiền mặt ngăn kéo.',
+      tip:
+          'Tài khoản thu ngân cần quyền duyệt PosSell mới thanh toán được. Waiter chỉ order thì không hoàn tất HĐ.',
       accent: Color(0xFFE65100),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_customers',
+      icon: Icons.people_outline_rounded,
+      title: 'Khách hàng, điểm & công nợ',
+      desc:
+          'CRM POS: tạo khách, tích điểm, bán nợ (phải thu) — đối soát trên Báo cáo công nợ.',
+      bullets: [
+        'Menu: Khách hàng POS → Thêm khách (SĐT làm mã nhanh)',
+        'Trên đơn: chọn khách trước khi thanh toán để cộng điểm / ghi nợ',
+        'Công nợ: thanh toán một phần, thu nợ sau tại khách hoặc báo cáo Công nợ',
+        'Cài đặt ngành hàng: bật/tắt điểm, hạn mức nợ nếu cửa hàng dùng',
+      ],
+      tip: 'Không gắn khách thì đơn vẫn bán được — nhưng không tích điểm / không lên công nợ.',
+      accent: Color(0xFF1565C0),
     ),
     LandingUsageGuideStep(
       id: 'pos_inventory',
       icon: Icons.warehouse_rounded,
-      title: 'POS — Kho & nhập xuất',
+      title: 'Kho: nhập, kiểm, xuất',
       desc:
-          'Quản lý tồn kho: nhập nhà cung cấp, trả NCC, kiểm kho, xuất hủy, xuất nội bộ.',
+          'Tồn kho tăng khi nhập NCC hoàn thành; giảm khi bán (nếu trừ kho), xuất hủy, xuất nội bộ.',
       bullets: [
-        'Nhập hàng NCC: tạo phiếu nhập → duyệt/hoàn thành để tăng tồn',
-        'Trả hàng NCC khi hàng lỗi / thừa',
-        'Kiểm kho: tạo phiên đếm → cân bằng lệch',
-        'Xuất hủy / xuất nội bộ theo quy trình cửa hàng',
-        'Theo dõi tồn trên Hàng hóa; bật cảnh báo tồn tối thiểu nếu có',
-        'Công nợ NCC / khách (nếu module được bật)',
+        'Nhà cung cấp → Nhập hàng NCC: tạo phiếu → duyệt/hoàn thành để tăng tồn',
+        'Trả hàng nhập khi hàng lỗi / thừa',
+        'Kiểm kho: tạo phiên đếm → nhập SL thực tế → cân bằng lệch',
+        'Xuất hủy / Xuất dùng nội bộ theo quy trình cửa hàng',
+        'Xem tồn trên Hàng hóa; Báo cáo POS → Tồn kho / Hàng sắp hết hạn',
       ],
-      tip: 'Nhập hàng trước khi bán combo/F&B có trừ nguyên liệu — tránh tồn âm.',
+      tip: 'Nhập hàng trước khi bán món trừ nguyên liệu — tránh tồn âm giữa ca.',
       accent: Color(0xFF5D4037),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_einvoice',
+      icon: Icons.request_quote_rounded,
+      title: 'Hóa đơn điện tử',
+      desc:
+          'Kết nối Viettel SInvoice, Easy Invoice hoặc MISA để xuất HĐĐT sau khi bán.',
+      bullets: [
+        'Cài đặt → Hóa đơn điện tử: nhập tài khoản nhà cung cấp HĐĐT của cửa hàng',
+        'Kiểm tra MST, địa chỉ trên Thiết lập cửa hàng khớp hồ sơ thuế',
+        'Sau thanh toán: nút Xuất HĐĐT trên đơn (đúng quyền)',
+        'Khách lấy hóa đơn: gửi email / tra cứu theo mã cơ quan thuế',
+        'Lỗi xuất: xem log trên màn HĐĐT — thường sai MST, hết serial, hoặc token hết hạn',
+      ],
+      tip: 'Xuất HĐĐT sau khi đơn đã hoàn tất — hủy đơn đã xuất phải xử lý điều chỉnh theo NCC HĐĐT.',
+      accent: Color(0xFF00695C),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_reports',
+      icon: Icons.analytics_rounded,
+      title: 'Cách xem báo cáo POS',
+      desc:
+          'Menu Báo cáo → Báo cáo POS (hub ~14 báo cáo). Trên A7: tab Tổng quan POS hoặc Nhiều hơn → Báo cáo. Chọn khoảng thời gian rồi mở từng loại.',
+      bullets: [
+        'Bước 1 — Vào Báo cáo POS (sidebar «Báo cáo», hoặc POS → Nhiều hơn)',
+        'Bước 2 — Chọn từ ngày–đến ngày (hôm nay / ca / tháng)',
+        'Doanh thu — theo ngày; Hàng hóa bán ra — mặt hàng',
+        'Tồn kho · Nhập hàng · Hàng sắp hết hạn',
+        'Phương thức thanh toán · Công nợ · Sổ quỹ',
+        'Lợi nhuận · Chi phí · Kết quả kinh doanh (P&L)',
+        'Doanh thu theo nhân viên (thu ngân) · Voucher',
+        'Báo cáo hủy / trả (menu riêng) · Thuế hộ kinh doanh (nếu kê khai HKD)',
+        'Xuất Excel trên từng báo cáo khi gửi kế toán',
+      ],
+      tip:
+          'Không thấy một thẻ báo cáo: thiếu quyền module PosReport… — tick trong Phân quyền / gói dịch vụ.',
+      accent: Color(0xFF1976D2),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_eod',
+      icon: Icons.nightlight_round,
+      title: 'Tổng kết cuối ngày / chốt ca',
+      desc:
+          'Đối soát tiền mặt, QR, công nợ trong ca trước khi giao ca. Mở từ Báo cáo POS → Tổng kết cuối ngày, hoặc nút cuối ngày trên màn bán (đúng quyền).',
+      bullets: [
+        'Bước 1 — Xong đơn đang mở / trả bàn còn khách (F&B)',
+        'Bước 2 — Mở Tổng kết cuối ngày, chọn khoảng ca (mở ca–đóng ca)',
+        'Bước 3 — Đối chiếu tiền mặt ngăn kéo với cột tiền mặt trên phiếu tổng kết',
+        'Bước 4 — Kiểm tra chuyển khoản / QR với sao kê ngân hàng',
+        'Bước 5 — Ghi chi phí phát sinh (nếu dùng báo cáo Chi phí / sổ quỹ)',
+        'Bước 6 — In hoặc xuất file tổng kết; giao ca cho thu ngân sau',
+      ],
+      tip:
+          'Lệch tiền: xem Đơn hàng trong ca + Báo cáo hủy/trả + PTTT trước khi «bù» tay vào quỹ.',
+      accent: Color(0xFF37474F),
+    ),
+    LandingUsageGuideStep(
+      id: 'pos_common',
+      icon: Icons.support_agent_rounded,
+      title: 'Tình huống POS thường gặp',
+      desc:
+          'Xử lý nhanh khi không in được, lệch mẫu giữa hai máy, hủy đơn, hoặc A6/A7 khác nhau.',
+      bullets: [
+        'Không in hóa đơn: Máy in đã Online? Mẫu hóa đơn đã đặt mặc định store? In thử từ Cài đặt → Mẫu in',
+        'In được HĐ nhưng không in bếp: gán máy + mẫu phiếu bếp riêng; gửi bếp trước khi thanh toán',
+        'A6 in khác A7: cùng StoreId — vào Mẫu in chọn lại mặc định; catalog mẫu là theo cửa hàng',
+        'Màn hình phụ A6 trắng: rút cáp ADB/USB debug rồi mở lại POS (DSKernel bị USB chặn)',
+        'Không thanh toán được: thiếu quyền duyệt PosSell — nhờ admin tick Approve',
+        'Hủy đơn / trả hàng: Đơn hàng hoặc Trả hàng bán; xem Báo cáo hủy/trả cuối ngày',
+        'Bàn không hiện: ngành hàng chưa phải F&B, hoặc chưa tạo khu/bàn',
+        'Tồn âm: bán trước khi nhập kho hoặc combo chưa khai nguyên liệu',
+      ],
+      tip: 'Hotline 0973 024 042 (Zalo hỗ trợ từ xa) khi máy in Agent USB không nhận job.',
+      accent: Color(0xFF6D4C41),
     ),
   ];
 

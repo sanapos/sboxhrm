@@ -13,12 +13,20 @@ const _itemBegin = '<!--BEGIN_ITEMS-->';
 const _itemEnd = '<!--END_ITEMS-->';
 
 /// Dữ liệu mẫu để xem trước mẫu in.
-Map<String, String> posPrintSampleData({String documentType = PosPrintDocumentTypes.saleInvoice}) {
+Map<String, String> posPrintSampleData({
+  String documentType = PosPrintDocumentTypes.saleInvoice,
+  String? storeName,
+  String? storeAddress,
+  String? storePhone,
+}) {
   final money = NumberFormat('#,##0', 'vi_VN');
+  final shop = (storeName ?? '').trim();
+  final addr = (storeAddress ?? '').trim();
+  final phone = (storePhone ?? '').trim();
   final base = <String, String>{
-    'Ten_Cua_Hang': 'SBOX POS Demo',
-    'Dia_Chi_Chi_Nhanh': '123 Nguyễn Huệ, Q.1, TP.HCM',
-    'Dien_Thoai_Chi_Nhanh': '0901 234 567',
+    'Ten_Cua_Hang': shop.isNotEmpty ? shop : 'Cửa hàng',
+    'Dia_Chi_Chi_Nhanh': addr,
+    'Dien_Thoai_Chi_Nhanh': phone,
     'Tieu_De_In': PosPrintDocumentTypes.all[documentType] ?? 'Hóa đơn',
     'Ma_Don_Hang': 'HD000050',
     'Ngay': '28/06/2026',
@@ -27,10 +35,15 @@ Map<String, String> posPrintSampleData({String documentType = PosPrintDocumentTy
     'SDT': '0909123456',
     'Dia_Chi_Khach_Hang': 'Q.1, TP.HCM',
     'Tong_Tien_Hang': money.format(28200000),
-    'Chiet_Khau_Hoa_Don': money.format(0),
-    'Tong_Cong': money.format(28200000),
-    'Khach_Can_Tra': money.format(28200000),
-    'Khach_Thanh_Toan': money.format(28200000),
+    'Chiet_Khau_Hoa_Don': money.format(500000),
+    'Tien_Thue': money.format(2770000),
+    'Thue': money.format(2770000),
+    'VAT': money.format(2770000),
+    'Phu_Thu': money.format(20000),
+    'Phi_Giao_Hang': money.format(15000),
+    'Tong_Cong': money.format(30505000),
+    'Khach_Can_Tra': money.format(30505000),
+    'Khach_Thanh_Toan': money.format(30505000),
     'Tien_Thua': money.format(0),
     'Con_Lai': money.format(0),
     'Tong_Cong_Bang_Chu': vietnameseMoneyInWords(28200000),
@@ -159,11 +172,25 @@ Map<String, String> buildSaleOrderPrintData(
   String? storePhone,
   String paperSize = PosPrintPaperSizes.k80,
   String? titleOverride,
+  double? vatAmount,
+  /// Giá đã gồm thuế → không cộng Vat vào Tong_Cong / Khach_Can_Tra.
+  bool vatIncludedInPrice = false,
+  double? surchargeAmount,
+  double? deliveryFee,
 }) {
   final money = NumberFormat('#,##0', 'vi_VN');
   final saleDate = order.saleDate?.toLocal() ?? order.createdAt?.toLocal() ?? DateTime.now();
-  final change = (order.paidAmount - order.total).clamp(0, double.infinity);
-  final due = (order.total - order.paidAmount).clamp(0, double.infinity);
+  final rawVat = vatAmount ?? order.vatAmount;
+  // Inclusive: Total đã gồm thuế; VatAmount (nếu còn) chỉ là phần tách — không cộng thêm.
+  final vat = vatIncludedInPrice ? 0.0 : rawVat;
+  final surcharge = surchargeAmount ?? order.surchargeAmount;
+  final ship = deliveryFee ?? order.deliveryFee;
+  final payable = order.total + vat + surcharge + ship;
+  final change = (order.paidAmount - payable).clamp(0, double.infinity);
+  final due = (payable - order.paidAmount).clamp(0, double.infinity);
+  final vatText = money.format(vat);
+  final surchargeText = money.format(surcharge);
+  final shipText = money.format(ship);
 
   return {
     'PaperSize': paperSize,
@@ -175,21 +202,36 @@ Map<String, String> buildSaleOrderPrintData(
             ? 'HÓA ĐƠN BÁN HÀNG — IN LẠI'
             : 'HÓA ĐƠN BÁN HÀNG'),
     'Ma_Don_Hang': order.orderNo.isEmpty
-        ? '—'
+        ? ''
         : PosReceiptLayout.formatSaleInvoiceNo(order.orderNo),
-    'Ngay': DateFormat('dd/MM/yyyy HH:mm').format(saleDate),
-    'Gio': '',
-    'Khach_Hang': order.customerName ?? 'Bán cho người tiêu dùng',
-    'SDT': order.deliveryPhone ?? '',
-    'Dia_Chi_Khach_Hang': order.deliveryAddress ?? '',
+    'Ngay': DateFormat('dd/MM/yyyy').format(saleDate),
+    'Gio': DateFormat('HH:mm').format(saleDate),
+    'Khach_Hang': () {
+      final name = (order.customerName ?? '').trim();
+      if (name.isEmpty) return '';
+      final lower = name.toLowerCase();
+      if (lower == 'bán cho người tiêu dùng' || lower == 'khách lẻ') {
+        return '';
+      }
+      return name;
+    }(),
+    'SDT': (order.deliveryPhone ?? '').trim().isNotEmpty
+        ? order.deliveryPhone!.trim()
+        : (order.customerPhone ?? '').trim(),
+    'Dia_Chi_Khach_Hang': (order.deliveryAddress ?? '').trim(),
     'Tong_Tien_Hang': money.format(order.subTotal),
     'Chiet_Khau_Hoa_Don': money.format(order.discount),
-    'Tong_Cong': money.format(order.total),
-    'Khach_Can_Tra': money.format(order.total),
+    'Tien_Thue': vatText,
+    'Thue': vatText,
+    'VAT': vatText,
+    'Phu_Thu': surchargeText,
+    'Phi_Giao_Hang': shipText,
+    'Tong_Cong': money.format(payable),
+    'Khach_Can_Tra': money.format(payable),
     'Khach_Thanh_Toan': money.format(order.paidAmount),
     'Tien_Thua': money.format(change),
     'Con_Lai': money.format(due),
-    'Tong_Cong_Bang_Chu': _amountInWords(order.total),
+    'Tong_Cong_Bang_Chu': _amountInWords(payable),
     'Hinh_Thuc_Thanh_Toan': order.paymentMethod,
     'Nguoi_Ban': order.soldBy ?? order.createdBy ?? '',
     'Ghi_Chu': order.note ?? '',
@@ -197,8 +239,8 @@ Map<String, String> buildSaleOrderPrintData(
     'Khu_Vuc': (order.serviceAreaName ?? '').trim(),
     'In_Lai': order.printCount > 1
         ? 'Bản in lại — Lần in thứ ${order.printCount} — thông báo chủ cửa hàng'
-        : (order.printCount == 1 ? 'Lần in: 1' : ''),
-    'Lan_In': order.printCount > 0 ? '${order.printCount}' : '',
+        : '',
+    'Lan_In': order.printCount > 1 ? '${order.printCount}' : '',
     'Thu_Tu_Hoa_Don_Ngay': '',
     'Tong_Hoa_Don_Trong_Ngay': '',
   };
@@ -317,27 +359,31 @@ String renderWarehouseSlipTemplate(
   return renderPosPrintTemplateHtml(templateHtml, data: data, lineItems: lines);
 }
 
-/// Tải mẫu in the ưu tiên [templateId] rồi mẫu mặc định theo [documentType].
+/// Mẫu in của cửa hàng: luôn lấy mặc định store (mới nhất), không lệch theo máy.
 Future<PosPrintTemplate?> resolvePosPrintTemplate({
   required String documentType,
   String? templateId,
 }) async {
   final api = ApiService();
-  if (templateId != null && templateId.isNotEmpty) {
-    final res = await api.getPosPrintTemplate(templateId);
-    if (res['isSuccess'] == true && res['data'] is Map) {
-      return PosPrintTemplate.fromJson(res['data'] as Map<String, dynamic>);
-    }
-  }
   var listRes = await api.getPosPrintTemplates(documentType: documentType);
   var list = parsePosPrintTemplatesResponse(listRes);
   if (list.isEmpty) {
     list = await loadPosPrintTemplates(api, documentType);
   }
-  if (list.isNotEmpty) {
-    return list.where((t) => t.isDefault).firstOrNull ?? list.firstOrNull;
+  if (list.isEmpty) return null;
+  DateTime stamp(PosPrintTemplate t) =>
+      t.updatedAt ?? t.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  final defaults = list.where((t) => t.isDefault).toList();
+  if (defaults.isNotEmpty) {
+    defaults.sort((a, b) => stamp(b).compareTo(stamp(a)));
+    return defaults.first;
   }
-  return null;
+  if (templateId != null && templateId.isNotEmpty) {
+    final hit = list.where((t) => t.id == templateId).firstOrNull;
+    if (hit != null) return hit;
+  }
+  list.sort((a, b) => stamp(b).compareTo(stamp(a)));
+  return list.first;
 }
 
 String renderSampleTemplatePreview(

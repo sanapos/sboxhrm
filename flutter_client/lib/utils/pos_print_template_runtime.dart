@@ -56,8 +56,12 @@ abstract final class PosPrintTemplateRuntime {
     bool mergeSameItems = true,
     String? titleOverride,
     String? vietQrImageUrl,
+    double? vatAmount,
+    bool vatIncludedInPrice = false,
+    List<PosSaleOrderLine>? linesOverride,
   }) {
-    final lines = mergeSameItems ? _mergeLines(order.lines) : order.lines;
+    final raw = linesOverride ?? order.lines;
+    final lines = mergeSameItems ? _mergeLines(raw) : raw;
     final data = buildSaleOrderPrintData(
       order,
       storeName: storeName,
@@ -65,12 +69,12 @@ abstract final class PosPrintTemplateRuntime {
       storePhone: storePhone,
       paperSize: template.paperSize,
       titleOverride: titleOverride,
+      vatAmount: vatAmount,
+      vatIncludedInPrice: vatIncludedInPrice,
     );
-    final thermal = template.paperSize == PosPrintPaperSizes.k58 ||
-        template.paperSize == PosPrintPaperSizes.k80;
     final items = buildSaleOrderPrintLines(
       lines,
-      compactLineMoney: thermal,
+      compactLineMoney: false,
     );
     return PosPrintTemplateCompiler.compile(
       template: template,
@@ -78,6 +82,19 @@ abstract final class PosPrintTemplateRuntime {
       lineItems: items,
       vietQrImageUrl: vietQrImageUrl,
     );
+  }
+
+  /// Giờ gọi in một lần ở đầu phiếu — không gắn vào từng món.
+  /// Gỡ luôn dòng «Gọi lúc HH:mm» nếu đã lẫn trong ghi chú món.
+  static String kitchenCallNote(String? note, DateTime calledAt) {
+    final base = (note ?? '').trim();
+    if (base.isEmpty) return '';
+    return base
+        .split(RegExp(r'[\r\n]+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .where((s) => !RegExp(r'^Gọi lúc\s+\d{1,2}:\d{2}').hasMatch(s))
+        .join('\n');
   }
 
   static PosPrintCompiledOutput compileKitchenSlip({
@@ -89,12 +106,14 @@ abstract final class PosPrintTemplateRuntime {
     required String orderNo,
     required DateTime sentAt,
   }) {
+    final local = sentAt.toLocal();
     final data = {
       'Ten_Ban': tableName.trim().isEmpty ? 'Bàn' : tableName.trim(),
       'Ma_Don_Hang': orderNo.isEmpty ? '-' : orderNo,
       'Nguoi_Ban': senderName,
-      'Ngay': DateFormat('dd/MM/yyyy').format(sentAt),
-      'Gio': DateFormat('HH:mm').format(sentAt),
+      'Ngay': DateFormat('dd/MM/yyyy').format(local),
+      'Gio': DateFormat('HH:mm').format(local),
+      'Gio_Goi': DateFormat('HH:mm').format(local),
       'Tieu_De_In': isCancel ? 'PHIẾU HỦY BẾP' : 'PHIẾU CHẾ BIẾN',
     };
     final items = lines
@@ -102,7 +121,7 @@ abstract final class PosPrintTemplateRuntime {
               'Ten_Hang_Hoa': l.name,
               'So_Luong': l.qty,
               'Don_Vi_Tinh': l.unit ?? '',
-              'Ghi_Chu': l.note ?? '',
+              'Ghi_Chu': kitchenCallNote(l.note, sentAt),
             })
         .toList();
     return PosPrintTemplateCompiler.compile(
