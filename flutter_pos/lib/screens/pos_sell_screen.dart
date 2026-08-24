@@ -744,6 +744,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
   bool _parking = false;
   bool _provisionalPrinting = false;
   bool _kitchenSending = false;
+  /// Chip gợi ý giảm giá đơn — chỉ hiện sau khi chạm ô nhập (màn TT gọn hơn).
+  bool _orderDiscountPresetsVisible = false;
   /// Chờ warm-up + slot xong mới vẽ UI — tránh nhảy nháy dữ liệu lúc mở.
   bool _sellReady = false;
   bool _warehousePrinting = false;
@@ -2223,6 +2225,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
       _syncCheckoutKitchenChip();
       _tabletPaymentStage = true;
       _paymentQrOverlayDismissed = false;
+      _orderDiscountPresetsVisible = false;
     });
     _scheduleCustomerDisplayPublish(delayMs: 50);
     if (_hasTingeePaymentSelected()) {
@@ -2397,6 +2400,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
   List<_SellMoreAction> _sellMoreActions({required bool floorCompact}) {
     final tableMode = _isTableOrderMode;
     final actions = <_SellMoreAction>[];
+    if (_qrOnlineFeatureEnabled) {
+      final perm = Provider.of<PermissionProvider>(context, listen: false);
+      if (PermissionNavigation.canNavigate(perm, 'PosQrOrder')) {
+        final n = _qrOnlinePending.length;
+        actions.add(_SellMoreAction(
+          id: 'qr_online_orders',
+          icon: Icons.delivery_dining_outlined,
+          label: 'Đơn online',
+          badge: n > 0 ? (n > 99 ? '99+' : '$n') : null,
+          iconColor: const Color(0xFFC2410C),
+        ));
+      }
+    }
     if (!floorCompact) {
       if (!tableMode &&
           (_tab.resourceSessionId ?? '').isNotEmpty &&
@@ -2597,6 +2613,9 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   Future<void> _runSellMoreAction(String id) async {
     switch (id) {
+      case 'qr_online_orders':
+        await _openQrOnlineOrdersScreen();
+        break;
       case 'kitchen':
         await _kitchenSendCurrentTable();
         break;
@@ -4040,6 +4059,19 @@ class _PosSellScreenState extends State<PosSellScreen> {
 
   int get _kitchenActionCount =>
       _kitchenPendingLineCount + _kitchenCancelPendingCount;
+
+  /// Nhãn nút Thông báo bếp — kèm số món chờ báo (giống «Báo bếp (n)» cũ).
+  String get _kitchenNotifyButtonLabel {
+    if (_kitchenSending) return 'Đang gửi…';
+    if (_kitchenActionCount == 0) return 'Thông báo';
+    if (_kitchenCancelPendingCount > 0 && _kitchenPendingLineCount == 0) {
+      return 'Thông báo hủy ($_kitchenCancelPendingCount)';
+    }
+    if (_kitchenCancelPendingCount > 0) {
+      return 'Thông báo ($_kitchenActionCount)';
+    }
+    return 'Thông báo ($_kitchenPendingLineCount)';
+  }
 
   int get _cupLabelPendingCount {
     var n = 0;
@@ -10631,6 +10663,15 @@ class _PosSellScreenState extends State<PosSellScreen> {
       ),
       items: [
         PopupMenuItem(
+          value: 'go_home',
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.home_outlined, size: 20),
+            title: Text(tr('Trở về trang chủ')),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem(
           value: 'sale_orders',
           child: ListTile(
             dense: true,
@@ -10822,6 +10863,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (!mounted || action == null) return;
 
     switch (action) {
+      case 'go_home':
+        _goMobileSellHome();
       case 'logout':
         await showPosLogoutDialog(context);
       case 'add_product':
@@ -12641,26 +12684,36 @@ class _PosSellScreenState extends State<PosSellScreen> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 ),
                 style: const TextStyle(fontSize: 13),
+                onOpen: () {
+                  if (_orderDiscountPresetsVisible) return;
+                  _orderDiscountPresetsVisible = true;
+                  if (onMutate != null) {
+                    onMutate();
+                  } else {
+                    setState(() {});
+                  }
+                },
                 onChanged: (v) => _onDiscountInputChanged(v, onMutate: onMutate),
                 onSubmitted: (_) => _scheduleDraftAutosave(),
               ),
             ),
           ],
         ),
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: _tab.discountIsPercent
-              ? buildPosDiscountPresetChips(
-                  onPickPercent: (p) =>
-                      _applyOrderDiscountPreset(p, onMutate: onMutate),
-                )
-              : buildPosDiscountMoneyPresetChips(
-                  moneyFmt: _moneyFmt,
-                  baseAmount: _afterLineDiscount,
-                  onPickAmount: (a) =>
-                      _applyOrderDiscountAmountPreset(a, onMutate: onMutate),
-                ),
-        ),
+        if (_orderDiscountPresetsVisible)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: _tab.discountIsPercent
+                ? buildPosDiscountPresetChips(
+                    onPickPercent: (p) =>
+                        _applyOrderDiscountPreset(p, onMutate: onMutate),
+                  )
+                : buildPosDiscountMoneyPresetChips(
+                    moneyFmt: _moneyFmt,
+                    baseAmount: _afterLineDiscount,
+                    onPickAmount: (a) =>
+                        _applyOrderDiscountAmountPreset(a, onMutate: onMutate),
+                  ),
+          ),
         if (_tab.discount > 0)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -14416,13 +14469,14 @@ class _PosSellScreenState extends State<PosSellScreen> {
         child: Row(
           children: [
             const SizedBox(width: 4),
-            IconButton(
-              constraints: _KiotLayout.topBarActionTap,
-              tooltip: tr('Về trang chủ'),
-              icon: const Icon(Icons.home_outlined,
-                  size: 22, color: Colors.white),
-              onPressed: _goMobileSellHome,
-            ),
+            if (!compact)
+              IconButton(
+                constraints: _KiotLayout.topBarActionTap,
+                tooltip: tr('Về trang chủ'),
+                icon: const Icon(Icons.home_outlined,
+                    size: 22, color: Colors.white),
+                onPressed: _goMobileSellHome,
+              ),
             if (!compact) ...[
               _buildFloorMenuModeTabs(compact: true),
               const SizedBox(width: 8),
@@ -14449,7 +14503,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
             ..._spacedTopBarActions([
               if (!compact && _useFloorAsPrimary)
                 _buildBookingToolbarButton(labeled: true),
-              if (_buildOnlineOrdersToolbarButton(labeled: !compact) != null)
+              if (!compact &&
+                  _buildOnlineOrdersToolbarButton(labeled: !compact) != null)
                 _buildOnlineOrdersToolbarButton(labeled: !compact)!,
               _buildSystemNotificationButton(),
               if (_pendingPrintCount > 0)
@@ -14741,7 +14796,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
         ),
         if (showKitchen)
         _invoiceSecondaryButton(
-          label: _kitchenSending ? 'Đang gửi…' : 'Thông báo',
+          label: _kitchenNotifyButtonLabel,
           color: PosTheme.kiotBlue,
           busy: _kitchenSending,
           height: height,
@@ -14968,14 +15023,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   onPressed: () => unawaited(_returnToFloorMap()),
                 ),
               if (tableMode) _KiotLayout.topBarActionGap,
-              // Bottom nav ẩn khi tab Bán hàng → luôn cần Home trên top bar.
-              IconButton(
-                constraints: _KiotLayout.topBarActionTap,
-                tooltip: tr('Về trang chủ'),
-                icon: const Icon(Icons.home_outlined,
-                    color: PosTheme.textPrimary),
-                onPressed: _goMobileSellHome,
-              ),
               Expanded(
                 child: Text(
                   tr(tableMode && (_tab.serviceResourceName ?? '').isNotEmpty
@@ -15146,31 +15193,17 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 Expanded(
                   flex: 2,
                   child: OutlinedButton.icon(
-                    onPressed: _kitchenActionCount == 0 ||
-                            _kitchenSending ||
-                            _checkingOut ||
-                            _parking
+                    onPressed: _checkingOut || _parking
                         ? null
-                        : () => unawaited(_kitchenSendCurrentTable()),
-                    icon: const Icon(Icons.soup_kitchen_outlined, size: 18),
+                        : () => unawaited(_returnToFloorMap()),
+                    icon: const Icon(Icons.table_restaurant_outlined, size: 18),
                     label: Text(
-                      tr(_kitchenActionCount == 0
-                          ? 'Đã báo bếp'
-                          : _kitchenCancelPendingCount > 0 &&
-                                  _kitchenPendingLineCount == 0
-                              ? 'Gửi hủy (${_kitchenCancelPendingCount})'
-                              : _kitchenCancelPendingCount > 0
-                                  ? 'Báo/hủy ($_kitchenActionCount)'
-                                  : 'Báo bếp ($_kitchenPendingLineCount)'),
+                      tr('Phòng bàn'),
                       style: const TextStyle(fontSize: 13),
                     ),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFB45309),
-                      side: BorderSide(
-                        color: _kitchenActionCount == 0
-                            ? PosTheme.border
-                            : const Color(0xFFB45309),
-                      ),
+                      foregroundColor: PosTheme.kiotBlue,
+                      side: const BorderSide(color: PosTheme.kiotBlue),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -15769,6 +15802,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
     if (_tab.cart.isEmpty || _checkingOut) return;
     final canPay = perm.canPosPay();
     var paying = false;
+    _orderDiscountPresetsVisible = false;
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         fullscreenDialog: true,

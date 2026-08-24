@@ -22,6 +22,7 @@ class PosNoSoftKeyboardField extends StatelessWidget {
     this.keypadTitle,
     this.onChanged,
     this.onSubmitted,
+    this.onOpen,
     this.enabled = true,
     this.openKeypadOnTap = true,
   });
@@ -37,11 +38,14 @@ class PosNoSoftKeyboardField extends StatelessWidget {
   final String? keypadTitle;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
+  /// Gọi khi người dùng chạm ô (trước khi mở keypad) — ví dụ hiện chip gợi ý.
+  final VoidCallback? onOpen;
   final bool enabled;
   final bool openKeypadOnTap;
 
   Future<void> _openPad(BuildContext context) async {
     if (!enabled || !openKeypadOnTap) return;
+    onOpen?.call();
     final next = await showPosNumericKeypad(
       context: context,
       title: keypadTitle ?? 'Nhập số',
