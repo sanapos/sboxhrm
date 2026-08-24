@@ -189,7 +189,7 @@ workflows:
         - appstore_credentials
       vars:
         APP_STORE_APP_ID: "6762365741"
-        APP_VERSION: "1.0.479"
+        APP_VERSION: "1.0.480"
 
     scripts:
       - name: Submit processed TestFlight build to App Store review
@@ -241,7 +241,7 @@ workflows:
             --private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY" \
             --version-string "$APP_VERSION" \
             --locale vi \
-            --whats-new "Cập nhật 1.0.479: giao diện thu ngân mobile gọn hơn (Phòng bàn, Thông báo bếp, giảm giá); mật khẩu chủ cửa hàng khi trả bàn; POS và in ấn ổn định hơn." \
+            --whats-new "Cập nhật 1.0.480: quét QR chọn hàng liên tục trên màn bán; thanh thu ngân mobile gọn hơn; thông báo tự cập nhật; In treo trên toolbar." \
             --cancel-previous-submissions \
             --release-type MANUAL
           echo "=== Submitted $APP_VERSION to App Store review ==="

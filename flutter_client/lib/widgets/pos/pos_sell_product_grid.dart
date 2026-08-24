@@ -337,16 +337,27 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           filled: true,
           fillColor: const Color(0xFFF8FAFC),
           prefixIcon: const Icon(Icons.search, size: 20, color: PosTheme.textSecondary),
-          suffixIcon: _searchQuery.isEmpty
-              ? null
-              : IconButton(
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_searchQuery.isNotEmpty)
+                IconButton(
                   visualDensity: VisualDensity.compact,
+                  tooltip: tr('Xóa'),
                   icon: const Icon(Icons.close, size: 18),
                   onPressed: () {
                     _searchCtrl.clear();
                     _onSearchChanged('');
                   },
                 ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: tr('Quét QR / mã vạch liên tục'),
+                icon: const Icon(Icons.qr_code_scanner, size: 22, color: PosTheme.kiotBlue),
+                onPressed: () => unawaited(_scanContinuousAndPick()),
+              ),
+            ],
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: PosTheme.border),
@@ -565,6 +576,21 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     if (code == null || !mounted) return;
     final pick = await lookupOrPickPosProduct(context, widget.api, code);
     if (pick != null && mounted) widget.onPick(pick);
+  }
+
+  /// Quét liên tục trên màn chọn hàng — mỗi mã hợp lệ cộng 1 SP vào bản nháp/giỏ.
+  Future<void> _scanContinuousAndPick() async {
+    await scanBarcodeContinuously(
+      context,
+      onScan: (code) async {
+        if (!mounted) return;
+        final pick = await lookupOrPickPosProduct(context, widget.api, code);
+        if (pick != null && mounted) {
+          widget.onPick(pick);
+        }
+      },
+    );
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadCategories() async {

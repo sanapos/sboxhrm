@@ -671,7 +671,8 @@ class PosSellScreen extends StatefulWidget {
   State<PosSellScreen> createState() => _PosSellScreenState();
 }
 
-class _PosSellScreenState extends State<PosSellScreen> {
+class _PosSellScreenState extends State<PosSellScreen>
+    with WidgetsBindingObserver {
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
@@ -1017,6 +1018,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabs.first.paymentLines
         .add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
     HardwareKeyboard.instance.addHandler(_onKey);
@@ -1056,13 +1058,44 @@ class _PosSellScreenState extends State<PosSellScreen> {
         }
       }
     });
+    _notifSignalSub = SignalRService().onNewNotification.listen((_) {
+      if (mounted) unawaited(_refreshSystemUnreadNotifications());
+    });
+    ScreenRefreshNotifier.notifications
+        .addListener(_onNotificationsRefreshNotifier);
     PosPaymentGatewayListener.instance.addListener(_onTingeePaymentConfirmed);
     NavigationNotifier.pendingOpenQrOnlineOrders
         .addListener(_onPendingQrOnlineOrdersChanged);
     NavigationNotifier.pendingOpenQrOnlineDraftId
         .addListener(_onPendingQrOnlineDraftChanged);
+    _startSellBadgePolling();
     unawaited(PosQrOrderVoiceAlert.instance.start());
     unawaited(_bootstrapSellScreen());
+  }
+
+  void _onNotificationsRefreshNotifier() {
+    if (mounted) unawaited(_refreshSystemUnreadNotifications());
+  }
+
+  void _startSellBadgePolling() {
+    _sellBadgePollTimer?.cancel();
+    _sellBadgePollTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (!mounted) return;
+      unawaited(_refreshSystemUnreadNotifications());
+      if (_qrOnlineFeatureEnabled) {
+        unawaited(_refreshQrOnlinePending());
+      }
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      unawaited(_refreshSystemUnreadNotifications());
+      if (_qrOnlineFeatureEnabled) {
+        unawaited(_refreshQrOnlinePending());
+      }
+    }
   }
 
   void _onPendingQrOnlineOrdersChanged() {
@@ -1645,7 +1678,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
     _floorActiveTotals.dispose();
     _stopDraftLockHeartbeat();
     _floorRealtime.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     _qrOnlineSignalSub?.cancel();
+    _notifSignalSub?.cancel();
+    _sellBadgePollTimer?.cancel();
+    ScreenRefreshNotifier.notifications
+        .removeListener(_onNotificationsRefreshNotifier);
     PosPaymentGatewayListener.instance.removeListener(_onTingeePaymentConfirmed);
     _draftAutosaveTimer?.cancel();
     _draftSyncDebounce?.cancel();
@@ -1915,6 +1953,8 @@ class _PosSellScreenState extends State<PosSellScreen> {
   bool _qrOnlineFeatureEnabled = false;
   List<PosOnlineToolbarOrder> _qrOnlinePending = [];
   StreamSubscription<Map<String, dynamic>>? _qrOnlineSignalSub;
+  StreamSubscription<Map<String, dynamic>>? _notifSignalSub;
+  Timer? _sellBadgePollTimer;
 
   void _scheduleCustomerDisplayPublish({int delayMs = 180}) {
     if (!_hasSecondaryCustomerDisplay &&
@@ -2346,16 +2386,20 @@ class _PosSellScreenState extends State<PosSellScreen> {
     } catch (_) {}
   }
 
-  void _openSystemNotifications() {
+  Future<void> _openSystemNotifications() async {
     if (NavigationNotifier.mainLayoutReady.value) {
       NavigationNotifier.goToNotifications();
+      Future<void>.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) unawaited(_refreshSystemUnreadNotifications());
+      });
       return;
     }
     if (!mounted) return;
     // App POS độc lập: không có MainLayout HRM → mở màn hình thông báo riêng.
-    unawaited(Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const PosNotificationsScreen()),
-    ));
+    );
+    if (mounted) unawaited(_refreshSystemUnreadNotifications());
   }
 
   Widget _buildSystemNotificationButton({
@@ -2369,7 +2413,7 @@ class _PosSellScreenState extends State<PosSellScreen> {
           : 'Thông báo hệ thống'),
       onPressed: () {
         unawaited(_refreshSystemUnreadNotifications());
-        _openSystemNotifications();
+        unawaited(_openSystemNotifications());
       },
       icon: Badge(
         isLabelVisible: _systemUnreadNotifications > 0,
@@ -10680,6 +10724,84 @@ class _PosSellScreenState extends State<PosSellScreen> {
             contentPadding: EdgeInsets.zero,
           ),
         ),
+        if (_qrOnlineFeatureEnabled &&
+            PermissionNavigation.canNavigate(perm, 'PosQrOrder'))
+          PopupMenuItem(
+            value: 'qr_online_orders',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.delivery_dining_outlined, size: 20),
+              title: Text(tr(_qrOnlinePending.isEmpty
+                  ? 'Đơn online'
+                  : 'Đơn online (${_qrOnlinePending.length})')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (_useFloorAsPrimary)
+          PopupMenuItem(
+            value: 'booking',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.calendar_month_outlined, size: 20),
+              title: Text(tr('Đặt lịch')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (_isTableOrderMode)
+          PopupMenuItem(
+            value: 'guests',
+            enabled: !_tab.draftReadOnly,
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.people_outline, size: 20),
+              title: Text(tr(_tab.tableGuestCount > 0
+                  ? 'Số khách (${_tab.tableGuestCount})'
+                  : 'Số khách')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (!_isTableOrderMode &&
+            (_tab.resourceSessionId ?? '').isNotEmpty &&
+            _industrySettings?.sellProfile == PosSellProfile.restaurant)
+          PopupMenuItem(
+            value: 'kitchen',
+            enabled: !_kitchenSending && !_checkingOut && !_parking,
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.soup_kitchen_outlined, size: 20),
+              title: Text(tr('Báo chế biến')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (!_isTableOrderMode) ...[
+          PopupMenuItem(
+            value: 'price_list',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.sell_outlined, size: 20),
+              title: Text(tr('Bảng giá')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          PopupMenuItem(
+            value: 'scan_continuous',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.qr_code_scanner, size: 20),
+              title: Text(tr('Quét liên tục')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+        PopupMenuItem(
+          value: 'customer_display',
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.cast_connected_outlined, size: 20),
+            title: Text(tr('Màn hình khách')),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
         if (_isTableOrderMode &&
             (_tab.splitFromOrderId ?? '').isEmpty &&
             _tab.cart.isNotEmpty)
@@ -10774,16 +10896,6 @@ class _PosSellScreenState extends State<PosSellScreen> {
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        if (PermissionNavigation.canNavigate(perm, 'PosQrOrder'))
-          PopupMenuItem(
-            value: 'qr_online_orders',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.delivery_dining_outlined, size: 20),
-              title: Text(tr('Đơn online')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
         if (_useFloorAsPrimary)
           PopupMenuItem(
             value: 'fullscreen',
@@ -10865,6 +10977,16 @@ class _PosSellScreenState extends State<PosSellScreen> {
     switch (action) {
       case 'go_home':
         _goMobileSellHome();
+      case 'kitchen':
+        await _kitchenSendCurrentTable();
+      case 'price_list':
+        await _openMobilePriceListPicker();
+      case 'scan_continuous':
+        await _openMobileContinuousScan();
+      case 'guests':
+        await _editTableGuestCount();
+      case 'booking':
+        await _openBookingCalendar();
       case 'logout':
         await showPosLogoutDialog(context);
       case 'add_product':
@@ -14507,16 +14629,13 @@ class _PosSellScreenState extends State<PosSellScreen> {
                   _buildOnlineOrdersToolbarButton(labeled: !compact) != null)
                 _buildOnlineOrdersToolbarButton(labeled: !compact)!,
               _buildSystemNotificationButton(),
-              if (_pendingPrintCount > 0)
-                PosPendingPrintIconButton(
-                  pendingCount: _pendingPrintCount,
-                  onTap: _openPendingPrintQueue,
-                  iconColor: Colors.white,
-                  compact: true,
-                ),
-              if (compact)
-                _buildSellMoreButton(floorCompact: true)
-              else ..._buildTopBarScreenActions(),
+              PosPendingPrintIconButton(
+                pendingCount: _pendingPrintCount,
+                onTap: _openPendingPrintQueue,
+                iconColor: Colors.white,
+                compact: true,
+              ),
+              if (!compact) ..._buildTopBarScreenActions(),
               IconButton(
                 constraints: _KiotLayout.topBarActionTap,
                 tooltip: tr('Menu'),
@@ -15040,14 +15159,12 @@ class _PosSellScreenState extends State<PosSellScreen> {
                 _buildSystemNotificationButton(
                   iconColor: PosTheme.textPrimary,
                 ),
-                if (_pendingPrintCount > 0)
-                  PosPendingPrintIconButton(
-                    pendingCount: _pendingPrintCount,
-                    onTap: _openPendingPrintQueue,
-                    iconColor: PosTheme.textPrimary,
-                    compact: true,
-                  ),
-                _buildSellMoreButton(iconColor: PosTheme.textPrimary),
+                PosPendingPrintIconButton(
+                  pendingCount: _pendingPrintCount,
+                  onTap: _openPendingPrintQueue,
+                  iconColor: PosTheme.textPrimary,
+                  compact: true,
+                ),
                 IconButton(
                   constraints: _KiotLayout.topBarActionTap,
                   icon: const Icon(Icons.menu, color: PosTheme.textPrimary),

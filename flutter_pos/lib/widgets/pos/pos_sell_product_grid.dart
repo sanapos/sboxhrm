@@ -240,17 +240,31 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   void applyStockLinePatches(List<PosSellStockLineDelta> lines) {
     if (lines.isEmpty) return;
     final merged = mergeStockLineDeltas(lines);
+    final ids = {for (final l in merged) l.productId};
+    var changed = false;
+    final nextAll = List<PosProduct>.from(_allProducts);
+    for (var i = 0; i < nextAll.length; i++) {
+      final p = nextAll[i];
+      if (!ids.contains(p.id)) continue;
+      nextAll[i] = applyPosSellStockLines(p, merged);
+      changed = true;
+    }
+    if (!changed) return;
     setState(() {
-      _allProducts = _allProducts.map((p) {
-        return applyPosSellStockLines(p, merged);
-      }).toList();
+      _allProducts = nextAll;
       _products = List<PosProduct>.from(_allProducts);
-      _unitViewsCache.clear();
-      _unitViewsLoading.clear();
+      for (final id in ids) {
+        _unitViewsCache.remove(id);
+        _unitViewsLoading.remove(id);
+      }
     });
     final storeId = widget.storeId?.trim();
     if (storeId != null && storeId.isNotEmpty && !_hasActiveFilter) {
-      PosSellCatalogCache.instance.write(storeId, items: _allProducts);
+      PosSellCatalogCache.instance.patchMemoryProducts(
+        storeId,
+        ids,
+        (p) => applyPosSellStockLines(p, merged),
+      );
     }
   }
 
@@ -323,16 +337,27 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           filled: true,
           fillColor: const Color(0xFFF8FAFC),
           prefixIcon: const Icon(Icons.search, size: 20, color: PosTheme.textSecondary),
-          suffixIcon: _searchQuery.isEmpty
-              ? null
-              : IconButton(
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_searchQuery.isNotEmpty)
+                IconButton(
                   visualDensity: VisualDensity.compact,
+                  tooltip: tr('Xóa'),
                   icon: const Icon(Icons.close, size: 18),
                   onPressed: () {
                     _searchCtrl.clear();
                     _onSearchChanged('');
                   },
                 ),
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: tr('Quét QR / mã vạch liên tục'),
+                icon: const Icon(Icons.qr_code_scanner, size: 22, color: PosTheme.kiotBlue),
+                onPressed: () => unawaited(_scanContinuousAndPick()),
+              ),
+            ],
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: PosTheme.border),
@@ -372,6 +397,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           _loading = false;
         });
         _prefetchPageUnitViews();
+        // Cache còn nóng → không gọi API catalog (tránh decode/write lại trên UI).
+        if (!await PosSellCatalogCache.instance.shouldSync(storeId)) {
+          return;
+        }
       }
     }
 
@@ -549,6 +578,21 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     if (pick != null && mounted) widget.onPick(pick);
   }
 
+  /// Quét liên tục trên màn chọn hàng — mỗi mã hợp lệ cộng 1 SP vào bản nháp/giỏ.
+  Future<void> _scanContinuousAndPick() async {
+    await scanBarcodeContinuously(
+      context,
+      onScan: (code) async {
+        if (!mounted) return;
+        final pick = await lookupOrPickPosProduct(context, widget.api, code);
+        if (pick != null && mounted) {
+          widget.onPick(pick);
+        }
+      },
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _loadCategories() async {
     final res = await widget.api.getPosProductCategories();
     if (!mounted) return;
@@ -690,7 +734,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           onTap: () => _selectCategory(id),
           child: Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
@@ -772,17 +816,17 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         child: Text(
           tr(label),
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 13,
             fontWeight: isDefault ? FontWeight.w700 : FontWeight.w600,
             color: isDefault ? _blue : const Color(0xFF475569),
-            height: 1.1,
+            height: 1.15,
           ),
         ),
       ),
@@ -864,7 +908,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                                   tr(_moneyFmt.format(price)),
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w700,
                                     height: 1.1,
                                   ),
@@ -882,9 +926,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            height: 1.25,
+                            height: 1.3,
                             color: PosTheme.textPrimary,
                           ),
                         ),
@@ -920,12 +964,12 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       child: Text(
         tr('Tồn ${_qtyFmt.format(qty)}'),
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
           color: qty <= 0
               ? const Color(0xFFB91C1C)
               : const Color(0xFF1D4ED8),
-          height: 1,
+          height: 1.1,
         ),
       ),
     );
