@@ -555,7 +555,11 @@ class _SellInvoiceTab {
     paymentLines.clear();
   }
 
-  void reset({double defaultVatRate = 8, PosSellStoreSettings? store}) {
+  void reset({
+    double defaultVatRate = 8,
+    PosSellStoreSettings? store,
+    bool keepTableBinding = false,
+  }) {
     for (final line in cart) {
       line.dispose();
     }
@@ -602,18 +606,20 @@ class _SellInvoiceTab {
     serverTotal = 0;
     localDirty = false;
     cartEpoch = 0;
-    serviceResourceId = null;
-    resourceSessionId = null;
-    serviceStartedAt = null;
-    serviceResourceName = null;
-    serviceAreaName = null;
-    splitFromOrderId = null;
+    if (!keepTableBinding) {
+      serviceResourceId = null;
+      resourceSessionId = null;
+      serviceStartedAt = null;
+      serviceResourceName = null;
+      serviceAreaName = null;
+      splitFromOrderId = null;
+      tableGuestCount = 0;
+      accumulatedPauseMinutes = 0;
+      sessionPausedAt = null;
+      sessionIsPaused = false;
+      serviceDefaultHourlyRate = null;
+    }
     orderSalesChannel = null;
-    tableGuestCount = 0;
-    accumulatedPauseMinutes = 0;
-    sessionPausedAt = null;
-    sessionIsPaused = false;
-    serviceDefaultHourlyRate = null;
     _voucherCtrl.clear();
     _pointsCtrl.clear();
     _noteCtrl.clear();
@@ -1933,6 +1939,8 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   /// true = đang xem sơ đồ (chưa vào bàn).
   bool _floorMapVisible = true;
+  /// Mobile F&B: giữ shell bán hàng sau lần mở bàn đầu — tránh dispose/mount lại.
+  bool _mobileSellKept = false;
   /// Tổng tạm tính + số bàn mở — ValueNotifier để không rebuild cả màn bán.
   final ValueNotifier<(double, int)> _floorActiveTotals =
       ValueNotifier((0, 0));
@@ -2590,6 +2598,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         applyPauseMeta(_tab);
         _floorMapVisible = false;
         _catalogPaneKept = true;
+        _mobileSellKept = true;
         _tabletPaymentStage = false;
         _mobileProductPickerOpen = false;
       });
@@ -2652,7 +2661,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
       _refreshTimedLineQtys();
       _scheduleCustomerDisplayPublish();
-      unawaited(_syncHeldDraftTabs());
+      // Đơn bàn không thuộc slot TMP — bỏ sync slot để tránh đơ/đè tab bán lẻ.
       return;
     }
     if (resourceId != null && resourceId.isNotEmpty) {
@@ -2667,6 +2676,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         applyPauseMeta(_tab);
         _floorMapVisible = false;
         _catalogPaneKept = true;
+        _mobileSellKept = true;
         _tabletPaymentStage = false;
         _mobileProductPickerOpen = false;
       });
@@ -2677,6 +2687,10 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   /// Đang trong đơn của một bàn/phòng (không còn dùng tab Hóa đơn 1/2/3).
   bool get _isTableOrderMode => _industryUsesTables && _tab.isTableBound;
+
+  /// Ẩn tab HĐ bán lẻ khi đang vào bàn (kể cả lúc đang hydrate đơn).
+  bool get _showRetailInvoiceTabs =>
+      !_isTableOrderMode && !(_useFloorAsPrimary && !_floorMapVisible);
 
   /// HĐ tách bill — không đóng phiên bàn gốc khi xóa / thanh toán.
   bool get _isSplitBill => (_tab.splitFromOrderId ?? '').isNotEmpty;
@@ -5368,7 +5382,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       return;
     }
     // Đơn bàn: món vừa chọn thuộc bàn đang mở — không tách tab mới (mất món).
-    if (_tab.cart.isNotEmpty && (_tab.serviceResourceId ?? '').isEmpty) {
+    if (_tab.cart.isNotEmpty &&
+        (_tab.serviceResourceId ?? '').isEmpty &&
+        !_useFloorAsPrimary) {
       _newTab();
     }
     await _loadDraftIntoActiveTab(
@@ -6493,9 +6509,11 @@ class _PosSellScreenState extends State<PosSellScreen>
           tab.resourceSessionId = order.resourceSessionId;
         }
       }
-      tab.serviceStartedAt = order.serviceStartedAt;
-      tab.serviceResourceName =
-          order.serviceResourceName ?? order.serviceResourceCode;
+      tab.serviceStartedAt =
+          order.serviceStartedAt ?? tab.serviceStartedAt;
+      tab.serviceResourceName = order.serviceResourceName ??
+          order.serviceResourceCode ??
+          tab.serviceResourceName;
       tab.serviceAreaName = order.serviceAreaName ?? tab.serviceAreaName;
       tab.orderSalesChannel = order.salesChannel;
       if (order.isDelivery ||
@@ -7268,7 +7286,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     setState(() {
       final keepLocalCart = _tab.localDirty && _tab.cart.isNotEmpty;
       if (switchingOrder && !keepLocalCart) {
-        _tab.reset(defaultVatRate: _storeSettings.defaultVatRate, store: _storeSettings);
+        _tab.reset(
+          defaultVatRate: _storeSettings.defaultVatRate,
+          store: _storeSettings,
+          keepTableBinding: _tab.isTableBound,
+        );
       }
       _tab.draftOrderId = order.id;
       _tab.draftOrderNo = order.orderNo;
@@ -10875,48 +10897,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       );
     }
 
-    // F&B mobile: sơ đồ + thanh gọn (Home · In treo · menu).
-    if (_useFloorAsPrimary &&
-        _floorMapVisible &&
-        Responsive.isMobile(context)) {
-      return Scaffold(
-        backgroundColor: PosTheme.background,
-        body: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildFloorOpsTopBar(),
-              Expanded(
-                child: PosResourceFloorScreen(
-                  key: _floorPaneKey,
-                  embedded: true,
-                  showAppBar: false,
-                  manageMode: false,
-                  sellProfile: _industrySettings?.sellProfile,
-                  promptGuestCountOnOpen:
-                      _industrySettings?.promptGuestCountOnOpen == true,
-                  allowProvisionalBill:
-                      _industrySettings?.allowProvisionalBill != false,
-                  searchQuery: _floorSearchQuery,
-                  pendingOpenCode: _floorPendingOpenCode,
-                  pendingOpenToken: _floorPendingOpenToken,
-                  onSelect: (result) => unawaited(_attachFloorResult(result)),
-                  onResourceFreed: _onFloorResourceFreed,
-                  onActiveTotalsChanged: _onFloorActiveTotalsChanged,
-                  zeroPendingKitchenResourceIds: _kitchenClearedResourceIds,
-                  billRequestedResourceIds: _billRequestedResourceIds,
-                  releasedOrderIds: Set<String>.from(_floorReleasedOrderIds),
-                  freedResourceIds: Set<String>.from(_floorFreedResourceIds),
-                  onReconcileOptimisticFlags: _reconcileOptimisticFloorFlags,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return PosBarcodeKeyboardScope(
+    // F&B mobile: giữ sơ đồ Offstage khi vào bàn — tránh dispose/remount (đơ, nháy tab HĐ).
+    final sellBody = PosBarcodeKeyboardScope(
       enabled: !_checkingOut,
       ignoreFocusNodes: [_customerSearchFocus],
       onBarcode: _onBarcodeScanned,
@@ -10948,6 +10930,79 @@ class _PosSellScreenState extends State<PosSellScreen>
       ),
     ),
     );
+
+    if (_useFloorAsPrimary && Responsive.isMobile(context)) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          TickerMode(
+            enabled: _floorMapVisible,
+            child: Offstage(
+              offstage: !_floorMapVisible,
+              child: IgnorePointer(
+                ignoring: !_floorMapVisible,
+                child: Scaffold(
+                  backgroundColor: PosTheme.background,
+                  body: SafeArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildFloorOpsTopBar(),
+                        Expanded(
+                          child: PosResourceFloorScreen(
+                            key: _floorPaneKey,
+                            embedded: true,
+                            showAppBar: false,
+                            manageMode: false,
+                            sellProfile: _industrySettings?.sellProfile,
+                            promptGuestCountOnOpen: _industrySettings
+                                    ?.promptGuestCountOnOpen ==
+                                true,
+                            allowProvisionalBill: _industrySettings
+                                    ?.allowProvisionalBill !=
+                                false,
+                            searchQuery: _floorSearchQuery,
+                            pendingOpenCode: _floorPendingOpenCode,
+                            pendingOpenToken: _floorPendingOpenToken,
+                            paneActive: _floorMapVisible,
+                            onSelect: (result) =>
+                                unawaited(_attachFloorResult(result)),
+                            onResourceFreed: _onFloorResourceFreed,
+                            onActiveTotalsChanged: _onFloorActiveTotalsChanged,
+                            zeroPendingKitchenResourceIds:
+                                _kitchenClearedResourceIds,
+                            billRequestedResourceIds: _billRequestedResourceIds,
+                            releasedOrderIds:
+                                Set<String>.from(_floorReleasedOrderIds),
+                            freedResourceIds:
+                                Set<String>.from(_floorFreedResourceIds),
+                            onReconcileOptimisticFlags:
+                                _reconcileOptimisticFloorFlags,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (!_floorMapVisible || _mobileSellKept)
+            TickerMode(
+              enabled: !_floorMapVisible,
+              child: Offstage(
+                offstage: _floorMapVisible,
+                child: IgnorePointer(
+                  ignoring: _floorMapVisible,
+                  child: sellBody,
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return sellBody;
   }
 
   /// Tab sơ đồ | catalog — thuật ngữ theo ngành (bàn / ghế / phòng).
@@ -11296,7 +11351,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   /// Tab hóa đơn gọn — cùng vị trí/khối với tab Phòng bàn|Thực đơn (F&B).
   Widget _buildDesktopInvoiceTabsCompact() {
-    if (_isTableOrderMode) {
+    if (!_showRetailInvoiceTabs) {
       return ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 200),
         child: Text(
@@ -15127,7 +15182,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             ],
           ),
         ),
-        if (!tableMode)
+        if (_showRetailInvoiceTabs)
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
             child: SizedBox(

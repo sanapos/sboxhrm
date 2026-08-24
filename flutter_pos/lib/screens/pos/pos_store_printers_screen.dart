@@ -789,7 +789,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       return Scaffold(
         backgroundColor: PosTheme.background,
         appBar: AppBar(
-          title: Text(tr('Máy in cửa hàng')),
+          title: Text(tr('Máy in cloud')),
           backgroundColor: PosTheme.kiotBlue,
           foregroundColor: Colors.white,
         ),
@@ -797,7 +797,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Text(
-              tr('Gói dịch vụ chưa bao gồm Máy in cửa hàng. Super Admin có thể bật module này trong Gói dịch vụ.'),
+              tr('Gói dịch vụ chưa bao gồm Máy in cloud. Super Admin có thể bật module này trong Gói dịch vụ.'),
               textAlign: TextAlign.center,
               style: const TextStyle(color: PosTheme.textSecondary, height: 1.4),
             ),
@@ -808,7 +808,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(tr('Máy in cửa hàng')),
+        title: Text(tr('Máy in cloud')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [

@@ -2645,9 +2645,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     if (module == 'PosStorePrinters') {
       switch (action) {
         case 'canView':
-          return 'Xem máy in cửa hàng';
+          return 'Xem máy in cloud';
         case 'canEdit':
-          return 'Sửa máy in cửa hàng';
+          return 'Sửa máy in cloud';
       }
     }
     if (module == 'PosEInvoice') {

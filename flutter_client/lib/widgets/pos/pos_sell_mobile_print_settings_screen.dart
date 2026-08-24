@@ -382,7 +382,7 @@ class _PosSellMobilePrintSettingsScreenState
                 ),
                 if (canStore)
                   IconButton(
-                    tooltip: tr('Máy in cửa hàng'),
+                    tooltip: tr('Máy in cloud'),
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -754,11 +754,11 @@ class _PosSellMobilePrintSettingsScreenState
                 ]),
                 if (canStore) ...[
                   const SizedBox(height: 16),
-                  _sectionTitle('Máy in cửa hàng (Cloud / Agent)'),
+                  _sectionTitle('Máy in cloud'),
                   _card([
                     ListTile(
                       leading: const Icon(Icons.cloud_outlined, color: _blue),
-                      title: Text(tr('Máy in cửa hàng')),
+                      title: Text(tr('Máy in cloud')),
                       subtitle: Text(
                         tr('Máy dùng chung cửa hàng. A7/web in được khi máy cắm cổng bật Agent.'),
                         style: const TextStyle(fontSize: 12),

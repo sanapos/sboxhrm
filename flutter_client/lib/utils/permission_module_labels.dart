@@ -77,7 +77,7 @@ class PermissionModuleLabels {
     'PosQrOrder': 'QR order bàn',
     'PosCashierShift': 'Ca thu ngân',
     'PosPrinters': 'Máy in thiết bị',
-    'PosStorePrinters': 'Máy in cửa hàng',
+    'PosStorePrinters': 'Máy in cloud',
     'PosShipping': 'Đơn vị giao hàng',
     // Tài chính
     'BonusPenalty': 'Phiếu thưởng',

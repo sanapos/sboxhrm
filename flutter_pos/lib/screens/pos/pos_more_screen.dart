@@ -282,7 +282,7 @@ class PosMoreScreen extends StatelessWidget {
                       const PosShippingSettingsScreen(),
                     ),
                     _Item(
-                      'Máy in cửa hàng',
+                      'Máy in cloud',
                       Icons.cloud_outlined,
                       'PosStorePrinters',
                       const PosStorePrintersScreen(),

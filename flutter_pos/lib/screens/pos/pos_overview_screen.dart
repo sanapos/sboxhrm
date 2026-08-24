@@ -11,6 +11,7 @@ import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
+import '../../widgets/pos/pos_theme.dart';
 
 /// Tổng quan POS — một bố cục gắn kết (số liệu + tồn + bán chạy), không trùng bottom nav.
 class PosOverviewScreen extends StatefulWidget {

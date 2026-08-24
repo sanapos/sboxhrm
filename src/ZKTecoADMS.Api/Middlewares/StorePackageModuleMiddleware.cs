@@ -24,6 +24,7 @@ public class StorePackageModuleMiddleware
         "/api/settings/public",
         "/api/publicsettings",
         "/api/webhooks/payment",
+        "/api/webhooks/shipping",
         "/api/upload/public-serve",
         "/api/pos/customer-display/public-state",
         "/api/store/license",
@@ -76,6 +77,7 @@ public class StorePackageModuleMiddleware
         ("/api/reports/performance", "KPI"),
         ("/api/dashboard", "Dashboard"),
         ("/api/pos/payment-gateway", "PosSell"),
+        ("/api/pos/shipping", "PosShipping"),
         ("/api/pos/sales/return-history", "PosSaleReturns"),
         ("/api/pos/sales", "PosSell"),
         ("/api/pos/purchase/receipts", "PosPurchaseReceipts"),
@@ -88,9 +90,9 @@ public class StorePackageModuleMiddleware
         // Ledger / phiếu nhập nhanh / điều chỉnh tồn — thuộc kho hàng (PosProducts).
         ("/api/pos/stock", "PosProducts"),
         ("/api/pos/print-templates", "PosPrintTemplates"),
-        ("/api/pos/printers", "PosPrinters"),
+        ("/api/pos/printers", "PosStorePrinters"),
         ("/api/pos/print-jobs", "PosSell"),
-        ("/api/pos/product-printers", "PosPrinters"),
+        ("/api/pos/product-printers", "PosStorePrinters"),
         ("/api/pos/kds", "PosKds"),
         ("/api/pos/qr-order", "PosQrOrder"),
         ("/api/pos/cashier-shifts", "PosCashierShift"),
@@ -228,9 +230,16 @@ public class StorePackageModuleMiddleware
             path.StartsWith("/api/pos/customer-display", StringComparison.OrdinalIgnoreCase))
             return true;
 
-        // Gói có PosSell → KDS / QR / ca / máy in / HĐĐT (gói cũ chưa tick addon).
+        // Gói có PosSell → KDS / QR / ca / máy in thiết bị / HĐĐT / ĐVVC (gói cũ chưa tick addon).
         if (allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase) &&
-            module is "PosKds" or "PosQrOrder" or "PosCashierShift" or "PosPrinters" or "PosEInvoice")
+            module is "PosKds" or "PosQrOrder" or "PosCashierShift" or "PosPrinters"
+                or "PosEInvoice" or "PosShipping")
+            return true;
+
+        // Máy in cloud: Super Admin tick PosStorePrinters. Gói cũ chỉ có PosPrinters vẫn dùng được.
+        if (module.Equals("PosStorePrinters", StringComparison.OrdinalIgnoreCase) &&
+            (allowed.Contains("PosStorePrinters", StringComparer.OrdinalIgnoreCase) ||
+             allowed.Contains("PosPrinters", StringComparer.OrdinalIgnoreCase)))
             return true;
 
         // POS A6: tạo thu ngân + phân quyền báo cáo (API /permission-management).

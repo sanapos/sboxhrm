@@ -147,7 +147,7 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111104"), Module = "PosQrOrder", ModuleDisplayName = "QR order bàn", Description = "In/sao QR gọi món tại bàn, bật/tắt QR order", DisplayOrder = 69 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111105"), Module = "PosCashierShift", ModuleDisplayName = "Ca thu ngân", Description = "Mở/đóng ca, đối soát tiền mặt", DisplayOrder = 70 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111106"), Module = "PosPrinters", ModuleDisplayName = "Máy in thiết bị", Description = "Máy in trên máy này: Bluetooth / LAN / USB, tem ly", DisplayOrder = 71 },
-            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111123"), Module = "PosStorePrinters", ModuleDisplayName = "Máy in cửa hàng", Description = "Máy in Cloud / Print Agent dùng chung cửa hàng — bật theo gói dịch vụ", DisplayOrder = 87 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111123"), Module = "PosStorePrinters", ModuleDisplayName = "Máy in cloud", Description = "Máy in Cloud / Print Agent dùng chung cửa hàng — bật theo gói dịch vụ", DisplayOrder = 87 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111102"), Module = "HkdBooks", ModuleDisplayName = "Thuế hộ kinh doanh", Description = "Sổ thuế HKD dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ (TT 152/2025)", DisplayOrder = 72 }
         );
     }

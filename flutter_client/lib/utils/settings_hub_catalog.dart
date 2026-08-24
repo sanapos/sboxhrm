@@ -239,7 +239,7 @@ class SettingsHubCatalog {
     SettingsHubItemDef(
       index: 29,
       icon: Icons.cloud_outlined,
-      label: 'Máy in cửa hàng',
+      label: 'Máy in cloud',
       desc: 'Cloud / Print Agent — bật theo gói dịch vụ',
       accent: HrmPageChrome.primaryNavy,
       groupTitle: 'POS / Bán hàng',

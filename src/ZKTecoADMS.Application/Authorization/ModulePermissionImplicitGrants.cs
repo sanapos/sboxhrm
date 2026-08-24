@@ -251,7 +251,7 @@ public static class ModulePermissionImplicitGrants
             HasAction(map, "PosSell", ModulePermissionAction.View))
             return true;
 
-        // Máy in cửa hàng: xem thiết lập khi đã có SettingsHub / máy in thiết bị (gói vẫn tick riêng).
+        // Máy in cloud: xem thiết lập khi đã có SettingsHub / máy in thiết bị (gói vẫn tick riêng).
         if (module.Equals("PosStorePrinters", StringComparison.Ordinal) &&
             action == ModulePermissionAction.View &&
             (HasAction(map, "SettingsHub", ModulePermissionAction.View) ||

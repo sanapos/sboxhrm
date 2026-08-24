@@ -206,7 +206,7 @@ class PosMoreScreen extends StatelessWidget {
                       altModules: const ['PosSell', 'SettingsHub'],
                     ),
                     _Item(
-                      'Máy in cửa hàng',
+                      'Máy in cloud',
                       Icons.cloud_outlined,
                       'PosStorePrinters',
                       const PosStorePrintersScreen(),

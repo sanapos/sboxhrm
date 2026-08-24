@@ -201,7 +201,7 @@ class PermissionNavigation {
       case 'PosPrinters':
         return 'Máy in thiết bị';
       case 'PosStorePrinters':
-        return 'Máy in cửa hàng';
+        return 'Máy in cloud';
       case 'PosShipping':
         return 'Đơn vị giao hàng';
       case 'PenaltyReport':

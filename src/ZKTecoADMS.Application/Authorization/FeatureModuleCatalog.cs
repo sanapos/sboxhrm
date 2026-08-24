@@ -130,7 +130,7 @@ public static class FeatureModuleCatalog
         new("PosQrOrder", "QR order bàn", "In/sao QR gọi món tại bàn, menu online, đơn online", "POS / Bán hàng", 69),
         new("PosCashierShift", "Ca thu ngân", "Mở/đóng ca, đối soát tiền mặt", "POS / Bán hàng", 70),
         new("PosPrinters", "Máy in thiết bị", "Máy in trên máy này: Bluetooth / LAN / USB, tem ly", "POS / Bán hàng", 71),
-        new("PosStorePrinters", "Máy in cửa hàng", "Máy in Cloud / Print Agent dùng chung cửa hàng — bật theo gói dịch vụ", "POS / Bán hàng", 87),
+        new("PosStorePrinters", "Máy in cloud", "Máy in Cloud / Print Agent dùng chung cửa hàng — bật theo gói dịch vụ", "POS / Bán hàng", 87),
         new("PosShipping", "Đơn vị giao hàng", "GHN / GHTK / Viettel Post / AhaMove — cấu hình, so sánh cước, tạo vận đơn", "POS / Bán hàng", 72),
         new("HkdBooks", "Thuế hộ kinh doanh", "Sổ thuế HKD dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ (TT 152/2025)", "Báo cáo", 73),
 

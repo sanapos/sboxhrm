@@ -35,7 +35,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     (code: 'PosSalesReport', label: 'Báo cáo POS / cuối ngày', group: 'Menu bán hàng'),
     (code: 'SettingsHub', label: 'Thiết lập POS (cửa hàng, ngành hàng, cổng CK)', group: 'Thiết lập POS'),
     (code: 'PosPrinters', label: 'Máy in thiết bị', group: 'Thiết lập POS'),
-    (code: 'PosStorePrinters', label: 'Máy in cửa hàng (Cloud)', group: 'Thiết lập POS'),
+    (code: 'PosStorePrinters', label: 'Máy in cloud', group: 'Thiết lập POS'),
     (code: 'PosPrintTemplates', label: 'Mẫu in', group: 'Thiết lập POS'),
     (code: 'PosEInvoice', label: 'Hóa đơn điện tử', group: 'Thiết lập POS'),
     (code: 'UserManagement', label: 'Tài khoản', group: 'Thiết lập POS'),
