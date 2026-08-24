@@ -11311,7 +11311,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           );
           final padded = PosImeAvoidingPadding(child: body);
           if (PosHubScope.of(context)) return padded;
-          return SafeArea(bottom: false, child: padded);
+          return SafeArea(child: padded);
         },
       ),
     ),

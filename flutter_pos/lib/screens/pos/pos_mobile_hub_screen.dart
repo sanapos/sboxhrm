@@ -374,7 +374,9 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       body: SafeArea(
-        bottom: false,
+        // Fullscreen bán hàng / rail ẩn tab đáy — không để nút Thanh toán
+        // chui xuống thanh điều hướng Android (edge-to-edge).
+        bottom: sellFullscreen || useVerticalRail,
         child: useVerticalRail
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -398,7 +400,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
       ),
       bottomNavigationBar: useVerticalRail || sellFullscreen
           ? null
-          : _buildBottomNavBar(perm, layout),
+          : SafeArea(top: false, child: _buildBottomNavBar(perm, layout)),
     );
   }
 
