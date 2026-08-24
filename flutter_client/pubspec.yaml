@@ -1,9 +1,9 @@
-name: zkteco_flutter_client
+﻿name: zkteco_flutter_client
 description: ZKTeco ADMS Flutter Client - He thong quan ly cham cong
 
 publish_to: 'none'
 
-version: 1.0.478+12478
+version: 1.0.479+12479
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
