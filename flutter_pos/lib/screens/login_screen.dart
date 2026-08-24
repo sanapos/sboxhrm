@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File, Platform;
 import 'dart:math' as math;
@@ -14,6 +14,7 @@ import '../services/api_service.dart';
 import '../services/app_permission_service.dart';
 import '../services/pos_app_update_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/sbox_hrm_brand.dart';
 import '../widgets/pos/pos_form_keyboard.dart';
 import '../widgets/pos_app_update_dialog.dart';
 import '../widgets/store_agent_support_card.dart';
@@ -462,12 +463,12 @@ class _LoginScreenState extends State<LoginScreen>
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    tr('SBOX POS'),
+                    tr(SboxBrand.productLine),
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 2,
+                      letterSpacing: 1.2,
                     ),
                   ),
                 ),
@@ -484,7 +485,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
                 const SizedBox(height: 16),
                 // Description - text-white/80 text-lg
-                Text(tr('Bán hàng, kho và máy in trên một app POS.\nĐồng bộ hoá đơn nhanh — vận hành cửa hàng chuẩn.'),
+                Text(tr(SboxBrand.slogan),
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.8),
                     fontSize: 15,
@@ -1003,7 +1004,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   /// Footer nằm trong panel đăng nhập (cuộn theo form), không cố định viewport.
   Widget _buildLoginFooter({required bool isDesktop}) {
-    const copyright = '@2026 SBOX POS — BÁN HÀNG & KHO';
+    const copyright = '@2026 SBOX HRM - SBOX POS';
     final copyrightStyle = TextStyle(
       color: Colors.grey.shade400,
       fontSize: 11,
@@ -1079,26 +1080,14 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildLogo({bool isDesktop = false}) {
-    return Row(
-      mainAxisAlignment:
+    return SboxBrandLockup(
+      expandText: false,
+      showSlogan: true,
+      logoSize: 44,
+      titleSize: isDesktop ? 22 : 18,
+      sloganSize: 11,
+      alignment:
           isDesktop ? MainAxisAlignment.start : MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.asset('assets/logo.png', width: 44, height: 44),
-        ),
-        const SizedBox(width: 14),
-        Text(
-          tr('SBOX POS'),
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF0C56D0),
-            letterSpacing: -0.3,
-          ),
-        ),
-      ],
     );
   }
 

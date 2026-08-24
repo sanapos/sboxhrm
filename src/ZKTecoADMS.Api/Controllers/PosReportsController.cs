@@ -371,7 +371,7 @@ public partial class PosReportsController(
             ws.Cell(row, 6).Value = o.Discount;
             ws.Cell(row, 7).Value = o.Total;
             ws.Cell(row, 8).Value = o.VatAmount;
-            ws.Cell(row, 9).Value = o.Total + o.VatAmount;
+            ws.Cell(row, 9).Value = o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee;
             ws.Cell(row, 10).Value = o.PaidAmount;
             ws.Cell(row, 11).Value = o.PaymentMethod;
             ws.Cell(row, 12).Value = o.Status.ToString();
@@ -994,7 +994,7 @@ public partial class PosReportsController(
         var netSales = await completedQuery.SumAsync(o => (decimal?)o.Total) ?? 0;
         var vat = await completedQuery.SumAsync(o => (decimal?)o.VatAmount) ?? 0;
         var actualReceived = await completedQuery.SumAsync(o => (decimal?)o.PaidAmount) ?? 0;
-        var debtTotal = await completedQuery.SumAsync(o => (decimal?)(o.Total + o.VatAmount - o.PaidAmount)) ?? 0;
+        var debtTotal = await completedQuery.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee - o.PaidAmount)) ?? 0;
         if (debtTotal < 0) debtTotal = 0;
 
         var canceledCount = await canceledQuery.CountAsync();
@@ -1373,11 +1373,11 @@ public partial class PosReportsController(
                 .Where(o => o.StoreId == storeId && o.Deleted == null &&
                             o.Status == PosSaleOrderStatus.Completed &&
                             o.CustomerId != null && customerIds.Contains(o.CustomerId.Value) &&
-                            o.Total + o.VatAmount > o.PaidAmount)
+                            o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee > o.PaidAmount)
                 .Select(o => new
                 {
                     CustomerId = o.CustomerId!.Value,
-                    Due = o.Total + o.VatAmount - o.PaidAmount,
+                    Due = o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee - o.PaidAmount,
                     BizAt = o.SaleDate ?? o.CreatedAt,
                 })
                 .ToListAsync();

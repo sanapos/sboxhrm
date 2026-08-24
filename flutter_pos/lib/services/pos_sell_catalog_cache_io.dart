@@ -17,7 +17,7 @@ Future<String?> readCatalogJson(String storeId) async {
 Future<void> writeCatalogJson(String storeId, String payload) async {
   final file = File(await _pathFor(storeId));
   await file.parent.create(recursive: true);
-  await file.writeAsString(payload, flush: true);
+  await file.writeAsString(payload);
 }
 
 Future<void> deleteCatalogJson(String storeId) async {

@@ -91,14 +91,14 @@ public static class PosOverviewQuery
         var todaySales = completed.Where(o => (o.SaleDate ?? o.CreatedAt) >= today && (o.SaleDate ?? o.CreatedAt) < tomorrow);
         var periodSales = completed.Where(o => (o.SaleDate ?? o.CreatedAt) >= periodFrom && (o.SaleDate ?? o.CreatedAt) < periodTo);
 
-        var todayRevenue = await todaySales.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0;
+        var todayRevenue = await todaySales.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee), ct) ?? 0;
         var todayOrders = await todaySales.CountAsync(ct);
         var todayCancelled = await kpiOrders.CountAsync(o =>
             o.Status == PosSaleOrderStatus.Cancelled &&
             (o.SaleDate ?? o.CreatedAt) >= today && (o.SaleDate ?? o.CreatedAt) < tomorrow, ct);
         var todayQr = await todaySales.CountAsync(o => o.SalesChannel == "QR bàn", ct);
 
-        var periodRevenue = await periodSales.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0;
+        var periodRevenue = await periodSales.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee), ct) ?? 0;
         var periodOrders = await periodSales.CountAsync(ct);
         var periodQr = await periodSales.CountAsync(o => o.SalesChannel == "QR bàn", ct);
         var storesWithSales = await periodSales.Select(o => o.StoreId).Distinct().CountAsync(ct);
@@ -109,7 +109,7 @@ public static class PosOverviewQuery
             .Select(g => new
             {
                 StoreId = g.Key,
-                Revenue = g.Sum(x => x.Total + x.VatAmount),
+                Revenue = g.Sum(x => x.Total + x.VatAmount + x.SurchargeAmount + x.DeliveryFee),
                 Orders = g.Count()
             })
             .OrderByDescending(x => x.Revenue)
@@ -228,12 +228,12 @@ public static class PosOverviewQuery
         var todayBy = await completed
             .Where(o => (o.SaleDate ?? o.CreatedAt) >= today && (o.SaleDate ?? o.CreatedAt) < tomorrow)
             .GroupBy(o => o.StoreId)
-            .Select(g => new { g.Key, Revenue = g.Sum(x => x.Total + x.VatAmount), Orders = g.Count() })
+            .Select(g => new { g.Key, Revenue = g.Sum(x => x.Total + x.VatAmount + x.SurchargeAmount + x.DeliveryFee), Orders = g.Count() })
             .ToDictionaryAsync(x => x.Key, x => x, ct);
         var periodBy = await completed
             .Where(o => (o.SaleDate ?? o.CreatedAt) >= periodFrom && (o.SaleDate ?? o.CreatedAt) < periodTo)
             .GroupBy(o => o.StoreId)
-            .Select(g => new { g.Key, Revenue = g.Sum(x => x.Total + x.VatAmount), Orders = g.Count() })
+            .Select(g => new { g.Key, Revenue = g.Sum(x => x.Total + x.VatAmount + x.SurchargeAmount + x.DeliveryFee), Orders = g.Count() })
             .ToDictionaryAsync(x => x.Key, x => x, ct);
         var agentTotalBy = await agents.GroupBy(a => a.StoreId)
             .Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.Count, ct);

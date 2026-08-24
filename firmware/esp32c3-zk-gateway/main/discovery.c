@@ -1,11 +1,13 @@
 #include "discovery.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
 #include "app_config.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "gateway.h"
@@ -16,10 +18,26 @@
 static const char *TAG = "disco";
 
 static char s_host[32];
+static char s_suffix[8];
 
 static void build_host(void)
 {
-    strlcpy(s_host, "sboxadms", sizeof(s_host));
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
+    snprintf(s_suffix, sizeof(s_suffix), "%02X%02X", mac[4], mac[5]);
+    /* Hostname riêng từng mạch — nhiều gateway cùng LAN không còn tranh sboxadms.local */
+    snprintf(s_host, sizeof(s_host), "sboxgw-%s", s_suffix);
+    /* Chuẩn hoá chữ thường cho mDNS (RFC khuyến nghị). */
+    for (char *p = s_host; *p; p++) {
+        if (*p >= 'A' && *p <= 'Z') {
+            *p = (char)(*p - 'A' + 'a');
+        }
+    }
+}
+
+const char *discovery_hostname(void)
+{
+    return s_host[0] ? s_host : "sboxgw";
 }
 
 /* Một dòng JSON đủ để app dựng thẻ thiết bị mà chưa cần gọi /api/status. */
@@ -31,10 +49,10 @@ static int build_announce(char *out, size_t cap)
 
     return snprintf(out, cap,
                     "{\"product\":\"sbox-zk-gateway\",\"host\":\"%s\",\"ip\":\"%s\","
-                    "\"name\":\"%s\",\"serial\":\"%s\",\"deviceIp\":\"%s\","
+                    "\"name\":\"%s\",\"serial\":\"%s\",\"deviceIp\":\"%s\",\"apSsid\":\"%s\","
                     "\"deviceOnline\":%s,\"serverOnline\":%s,\"provisioned\":%s,\"locked\":%s}",
                     s_host, wifi_mgr_sta_ip(), cfg->gw_name,
-                    app_config_effective_serial(), cfg->device_ip,
+                    app_config_effective_serial(), cfg->device_ip, wifi_mgr_ap_ssid(),
                     st.device_online ? "true" : "false",
                     st.server_online ? "true" : "false",
                     app_config_is_provisioned() ? "true" : "false",
@@ -49,7 +67,7 @@ static void udp_responder_task(void *arg)
 
     int sock = -1;
     char rx[64];
-    char tx[512];
+    char tx[640];
 
     for (;;) {
         if (sock < 0) {
@@ -103,17 +121,31 @@ static void start_mdns(void)
     }
 
     mdns_hostname_set(s_host);
-    mdns_instance_name_set("SBOX ZK Gateway");
 
-    /* Cho app biết cổng web và vài thuộc tính để lọc trước khi gọi HTTP. */
+    char instance[40];
+    const char *gw = app_config_get()->gw_name;
+    if (gw != NULL && gw[0] != '\0') {
+        strlcpy(instance, gw, sizeof(instance));
+    } else {
+        snprintf(instance, sizeof(instance), "SBOX-GW-%s", s_suffix);
+    }
+    mdns_instance_name_set(instance);
+
+    static char txt_host[32];
+    static char txt_ap[32];
+    strlcpy(txt_host, s_host, sizeof(txt_host));
+    strlcpy(txt_ap, wifi_mgr_ap_ssid(), sizeof(txt_ap));
+
     mdns_txt_item_t txt[] = {
         {"product", "sbox-zk-gateway"},
         {"path", "/"},
+        {"host", txt_host},
+        {"ap", txt_ap},
     };
-    mdns_service_add(NULL, "_sboxgw", "_tcp", 80, txt, sizeof(txt) / sizeof(txt[0]));
-    mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
+    mdns_service_add(instance, "_sboxgw", "_tcp", 80, txt, sizeof(txt) / sizeof(txt[0]));
+    mdns_service_add(instance, "_http", "_tcp", 80, NULL, 0);
 
-    ESP_LOGI(TAG, "mDNS: http://%s.local", s_host);
+    ESP_LOGI(TAG, "mDNS: http://%s.local (instance=%s)", s_host, instance);
 }
 
 esp_err_t discovery_start(void)

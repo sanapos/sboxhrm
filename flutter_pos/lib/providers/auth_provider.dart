@@ -272,6 +272,11 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      try {
+        await FcmService.instance.unregisterForLogout();
+      } catch (e) {
+        debugPrint('FCM pre-login unregister: $e');
+      }
       await SessionReset.clearForAccountSwitch();
 
       debugPrint('🔐 AuthProvider: Attempting login for $storeCode / $email');
@@ -283,14 +288,6 @@ class AuthProvider extends ChangeNotifier {
 
       if (response['isSuccess'] == true && response['data'] != null) {
         final data = response['data'];
-        // Hủy FCM token của phiên cũ trước khi ghi token mới (tránh push nhầm tài khoản).
-        try {
-          await FcmService.instance.unregisterForLogout();
-        } catch (e) {
-          debugPrint('FCM pre-login unregister: $e');
-        }
-
-        // Hỗ trợ cả accessToken và token
         _token = data['accessToken'] ?? data['token'];
 
         if (_token != null) {

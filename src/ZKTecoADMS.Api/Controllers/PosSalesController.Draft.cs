@@ -60,6 +60,18 @@ public partial class PosSalesController
         // Draft clear: cho phép lines rỗng — xóa hàng + nhả khóa (đồng bộ đa máy).
         if (!dto.Complete && (dto.Lines == null || dto.Lines.Count == 0))
         {
+            var priorClearLines = order.Lines?
+                .Where(l => l.Deleted == null)
+                .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+                .ToList() ?? [];
+            if (priorClearLines.Count > 0)
+            {
+                var releaseClearErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                    dbContext, storeId, priorClearLines, [], allowNegativeStock: true);
+                if (releaseClearErr != null)
+                    return BadRequest(AppResponse<SaleOrderDto>.Fail(releaseClearErr));
+            }
+
             dbContext.PosSaleOrderLines.RemoveRange(order.Lines);
             order.SubTotal = 0;
             order.Discount = dto.Discount;
@@ -127,12 +139,14 @@ public partial class PosSalesController
             dto.Lines, dto.Discount, dto.PaidAmount, dto.PaymentMethod,
             dto.CustomerName, dto.CustomerId, dto.Note, dto.Complete,
             dto.IsDelivery, dto.DeliveryAddress, dto.DeliveryPhone,
-            dto.DeliveryPartner, dto.DeliveryStatus, dto.DeliveryDate,
+            dto.DeliveryPartner, dto.DeliveryProvince, dto.DeliveryDistrict, dto.DeliveryWard,
+            dto.DeliveryStatus, dto.DeliveryDate,
             dto.SoldBy, dto.SoldByEmployeeId, dto.SalesChannel, dto.PriceListName,
             dto.PriceListId, dto.Payments, dto.VoucherCode, dto.PointsToRedeem,
             dto.ServiceResourceId, dto.ResourceSessionId, dto.ServiceStartedAt, dto.ServiceEndedAt,
             dto.ExpectedLockVersion, dto.DeviceId, dto.DeviceName, dto.InvoiceSlot,
-            dto.VatAmount, dto.IssueEInvoice, dto.EInvoiceBuyer);
+            dto.VatAmount, dto.IssueEInvoice, dto.EInvoiceBuyer,
+            dto.SurchargeAmount, dto.DeliveryFee);
 
         // Thanh toán: RepeatableRead + retry serialization/unique (giống CreateSale) —
         // tránh 500 «lỗi hệ thống» khi autosave/máy khác tranh chấp tồn hoặc mã HD/phiếu thu.
@@ -711,6 +725,14 @@ public partial class PosSalesController
             .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
         if (order == null)
             return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
+        // Idempotent: máy khác / double-tap đã hoàn thành → trả đơn hiện tại.
+        if (order.Status == PosSaleOrderStatus.Completed)
+        {
+            SaleOrderDto already;
+            try { already = await MapOrderAsync(storeId, order); }
+            catch { already = MapOrder(order, order.Lines?.ToList() ?? [], viewerUserId: CurrentUserId); }
+            return Ok(AppResponse<SaleOrderDto>.Success(already));
+        }
         if (order.Status != PosSaleOrderStatus.Draft)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn không ở trạng thái tạm"));
         if (order.Lines.Count == 0)
@@ -735,10 +757,10 @@ public partial class PosSalesController
         var lineInputs = order.Lines
             .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
             .ToList();
-        // Validate stock sớm (ngoài tx) để trả lỗi nhanh; prepare thật nằm trong RR tx bên dưới.
+        // Validate cấu trúc sớm (ngoài tx); kiểm tra tồn thật sau khi nhả ReservedQty trong RR tx.
         var (_, earlyStockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
             dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(lineInputs),
-            allowNegativeStock: allowNegComplete);
+            allowNegativeStock: true);
         if (earlyStockErr != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(earlyStockErr));
         // Bỏ entity tracked từ prepare sớm — tránh OnHand cũ dính change tracker.
         dbContext.ChangeTracker.Clear();
@@ -808,6 +830,22 @@ public partial class PosSalesController
             await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
             try
             {
+                // Nhả giữ chỗ draft TRONG tx trước khi trừ tồn — tránh ReservedQty rò rỉ đa máy.
+                var priorReserve = order.Lines
+                    .Where(l => l.Deleted == null)
+                    .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+                    .ToList();
+                if (priorReserve.Count > 0)
+                {
+                    var releaseErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                        dbContext, storeId, priorReserve, [], allowNegativeStock: true);
+                    if (releaseErr != null)
+                    {
+                        await tx.RollbackAsync();
+                        return BadRequest(AppResponse<SaleOrderDto>.Fail(releaseErr));
+                    }
+                }
+
                 // Prepare tồn TRONG RepeatableRead — tránh đọc OnHand ngoài tx rồi ghi đè mất cập nhật đồng thời.
                 await PosSaleStockHelper.EnsureLineUnitIdsAsync(dbContext, order.Lines);
                 string? stockErr;
@@ -1072,17 +1110,42 @@ public partial class PosSalesController
             return (null, null, "Cần chọn bàn/phòng trước khi lưu đơn");
 
         SaleStockPlan? plan = null;
+        var allowNeg = sellSettings?.AllowNegativeStock == true;
+        var lineInputs = dto.Lines
+            .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+            .ToList();
+
+        // Giữ chỗ tồn cho draft mở (bàn A order → bàn B không lấy hết tồn còn lại).
+        List<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId, string? ToppingsJson)> priorInputs = [];
+        if (existing != null && existing.Status == PosSaleOrderStatus.Draft)
+        {
+            priorInputs = await dbContext.PosSaleOrderLines.AsNoTracking()
+                .Where(l => l.SaleOrderId == existing.Id && l.Deleted == null)
+                .Select(l => new ValueTuple<Guid, decimal, Guid?, Guid?, string?>(
+                    l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+                .ToListAsync();
+        }
+
         if (complete)
         {
-            var allowNeg = sellSettings?.AllowNegativeStock == true;
-            var lineInputs = dto.Lines
-                .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
-                .ToList();
+            // Nhả giữ chỗ draft trước khi kiểm tra/trừ tồn thanh toán.
+            if (priorInputs.Count > 0)
+            {
+                var releaseErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                    dbContext, storeId, priorInputs, [], allowNegativeStock: true);
+                if (releaseErr != null) return (null, null, releaseErr);
+            }
             var (p, stockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
                 dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(lineInputs),
                 allowNegativeStock: allowNeg);
             if (stockErr != null) return (null, null, stockErr);
             plan = p;
+        }
+        else
+        {
+            var reserveErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                dbContext, storeId, priorInputs, lineInputs, allowNeg);
+            if (reserveErr != null) return (null, null, reserveErr);
         }
 
         var productIds = dto.Lines.Select(l => l.ProductId).Distinct().ToList();
@@ -1165,6 +1228,9 @@ public partial class PosSalesController
 
         order.Discount = dto.Discount;
         order.PaymentMethod = string.IsNullOrWhiteSpace(dto.PaymentMethod) ? "Tiền mặt" : dto.PaymentMethod.Trim();
+        var qrGuest = existing != null && PosOnlineOrderHelper.IsQrOnlineOrder(existing)
+            ? PosOnlineOrderHelper.CaptureGuestMeta(existing)
+            : (PosOnlineOrderHelper.GuestMetaSnapshot?)null;
         order.CustomerId = dto.CustomerId;
         order.CustomerName = dto.CustomerName?.Trim();
         if (dto.CustomerId.HasValue && string.IsNullOrWhiteSpace(order.CustomerName))
@@ -1180,6 +1246,9 @@ public partial class PosSalesController
         order.DeliveryAddress = dto.DeliveryAddress?.Trim();
         order.DeliveryPhone = dto.DeliveryPhone?.Trim();
         order.DeliveryPartner = dto.DeliveryPartner?.Trim();
+        order.DeliveryProvince = dto.DeliveryProvince?.Trim();
+        order.DeliveryDistrict = dto.DeliveryDistrict?.Trim();
+        order.DeliveryWard = dto.DeliveryWard?.Trim();
         order.DeliveryStatus = dto.IsDelivery
             ? (string.IsNullOrWhiteSpace(dto.DeliveryStatus) ? "Chờ giao" : dto.DeliveryStatus.Trim())
             : null;
@@ -1187,6 +1256,12 @@ public partial class PosSalesController
         order.SaleDate = complete ? now : order.SaleDate;
         await ResolveSoldByAsync(storeId, order, dto.SoldByEmployeeId, dto.SoldBy);
         order.SalesChannel = dto.SalesChannel?.Trim() ?? "Bán trực tiếp";
+        if (qrGuest.HasValue)
+        {
+            PosOnlineOrderHelper.RestoreGuestMetaAfterDraftDto(
+                order, qrGuest.Value, dto.CustomerName, dto.DeliveryPhone,
+                dto.DeliveryAddress, dto.IsDelivery);
+        }
         order.ServiceResourceId = dto.ServiceResourceId ?? order.ServiceResourceId;
         order.ResourceSessionId = dto.ResourceSessionId ?? order.ResourceSessionId;
         order.ServiceStartedAt = dto.ServiceStartedAt ?? order.ServiceStartedAt;
@@ -1472,8 +1547,15 @@ public partial class PosSalesController
         }
 
         order.Total = Math.Max(0, afterVoucher - order.PointsDiscount);
-        if (complete)
-            order.VatAmount = Math.Max(0, dto.VatAmount);
+        // Giá đã gồm thuế: không lưu VatAmount tách (tránh PayableTotal/in cộng thêm).
+        {
+            var sellTaxMode = QrOrderTaxHelper.Resolve(sellSettings?.ExtraJson, null).Mode;
+            order.VatAmount = sellTaxMode is "included" or "none"
+                ? 0
+                : Math.Max(0, dto.VatAmount);
+        }
+        order.SurchargeAmount = Math.Max(0, dto.SurchargeAmount);
+        order.DeliveryFee = Math.Max(0, dto.DeliveryFee);
         order.PointsEarned = complete && dto.CustomerId.HasValue
             ? PosCustomerFinanceHelper.CalcPointsEarn(order.Total)
             : 0;
@@ -1507,7 +1589,7 @@ public partial class PosSalesController
         if (paymentInputs.Count > 0)
         {
             // App mới: payments = phần còn lại; app cũ: payments = cả hóa đơn (gồm cọc).
-            var paymentsIncludeDeposit = seatedDeposit > 0 && paySum >= order.Total - 0.05m;
+            var paymentsIncludeDeposit = seatedDeposit > 0 && paySum >= order.PayableTotal - 0.05m;
             order.PaidAmount = paymentsIncludeDeposit ? paySum : paySum + seatedDeposit;
             order.PaymentMethod = string.Join(" + ", paymentInputs.Select(p => p.PaymentMethod));
         }
@@ -1519,7 +1601,7 @@ public partial class PosSalesController
         var paymentSync = paymentInputs
             .Select(p => new PosFinanceSyncHelper.SalePaymentSync(p.Amount, p.PaymentMethod, p.BankAccountId))
             .ToList();
-        if (seatedDeposit > 0 && paySum >= order.Total - 0.05m)
+        if (seatedDeposit > 0 && paySum >= order.PayableTotal - 0.05m)
             paymentSync = PosFinanceSyncHelper.SubtractAlreadyCashed(paymentSync, seatedDeposit);
 
         if (complete && plan != null)
@@ -1716,6 +1798,16 @@ public partial class PosSalesController
                 .ToListAsync();
             if (leftoverIds.Count > 0)
             {
+                var leftoverLines = await dbContext.PosSaleOrderLines.AsNoTracking()
+                    .Where(l => leftoverIds.Contains(l.SaleOrderId) && l.Deleted == null)
+                    .Select(l => new ValueTuple<Guid, decimal, Guid?, Guid?, string?>(
+                        l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+                    .ToListAsync();
+                if (leftoverLines.Count > 0)
+                {
+                    await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                        dbContext, storeId, leftoverLines, [], allowNegativeStock: true);
+                }
                 await dbContext.PosSaleOrders
                     .Where(o => leftoverIds.Contains(o.Id) && o.StoreId == storeId)
                     .ExecuteUpdateAsync(o => o

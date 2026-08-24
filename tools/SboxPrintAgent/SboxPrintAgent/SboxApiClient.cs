@@ -104,13 +104,14 @@ public sealed class SboxApiClient
         {
             name,
             connectionType = 3, // Usb
-            printerBrand = "Windows",
+            // Xprinter + auto → app in ảnh (tiếng Việt). Utf8 làm XP-80C lỗi font.
+            printerBrand = "xprinter",
             paperSize,
-            textMode = "Utf8",
+            textMode = "auto",
             lanHost = (string?)null,
             lanPort = 9100,
             usbDeviceName = windowsPrinterName,
-            feedBeforeCut = paperSize.StartsWith("Label", StringComparison.OrdinalIgnoreCase) ? 2 : 8,
+            feedBeforeCut = paperSize.StartsWith("Label", StringComparison.OrdinalIgnoreCase) ? 2 : 3,
             partialCut = true,
             openCashDrawer = false,
             openDrawerCashOnly = true,
@@ -121,6 +122,32 @@ public sealed class SboxApiClient
         };
         using var doc = await PostDataAsync("api/pos/printers", payload, ct);
         return Guid.Parse(doc.RootElement.GetProperty("id").GetString()!);
+    }
+
+    public async Task UpdateUsbPrinterAsync(
+        Guid id, string name, string windowsPrinterName, string paperSize,
+        bool isDefault, bool isActive, CancellationToken ct)
+    {
+        var payload = new
+        {
+            name,
+            connectionType = 3,
+            printerBrand = "xprinter",
+            paperSize,
+            textMode = "auto",
+            lanHost = (string?)null,
+            lanPort = 9100,
+            usbDeviceName = windowsPrinterName,
+            feedBeforeCut = paperSize.StartsWith("Label", StringComparison.OrdinalIgnoreCase) ? 2 : 3,
+            partialCut = true,
+            openCashDrawer = false,
+            openDrawerCashOnly = true,
+            beepOnPrint = false,
+            isDefault,
+            sortOrder = 0,
+            isActive,
+        };
+        await PutOkAsync($"api/pos/printers/{id}", payload, ct);
     }
 
     public async Task DeletePrinterAsync(Guid id, CancellationToken ct)
@@ -201,7 +228,7 @@ public sealed class SboxApiClient
 
     public async Task MarkOfflineAsync(string deviceId, CancellationToken ct)
     {
-        try { await PostDataAsync("api/pos/print-jobs/agents/offline", new { deviceId }, ct); }
+        try { await PostDataAsync("api/pos/print-jobs/agents/offline", new { deviceId, forceStop = false }, ct); }
         catch { /* ignore */ }
     }
 
@@ -296,6 +323,19 @@ public sealed class SboxApiClient
             new { errorCode, errorMessage }, ct);
     }
 
+    /// <summary>Nhả job về Queued để Agent khác claim (parity Flutter).</summary>
+    public async Task ReleaseAsync(Guid jobId, Guid agentId, string errorCode, string errorMessage, CancellationToken ct)
+    {
+        await PostDataAsync($"api/pos/print-jobs/{jobId}/release?agentId={agentId}",
+            new { errorCode, errorMessage }, ct);
+    }
+
+    public async Task<ClaimJob?> GetJobAsync(Guid jobId, CancellationToken ct)
+    {
+        using var doc = await GetDataAsync($"api/pos/print-jobs/{jobId}", ct);
+        return ParseClaim(doc.RootElement);
+    }
+
     public async Task<Guid> CreateTestJobAsync(Guid printerId, CancellationToken ct)
     {
         var bytes = EscPosBuilder.TestSlip("Cloud test");
@@ -318,12 +358,12 @@ public sealed class SboxApiClient
     {
         name,
         connectionType = 1,
-        printerBrand = "Auto",
+        printerBrand = "xprinter",
         paperSize,
-        textMode = "Utf8",
+        textMode = "auto",
         lanHost = host,
         lanPort = port,
-        feedBeforeCut = paperSize.StartsWith("Label", StringComparison.OrdinalIgnoreCase) ? 2 : 8,
+        feedBeforeCut = paperSize.StartsWith("Label", StringComparison.OrdinalIgnoreCase) ? 2 : 3,
         partialCut = true,
         openCashDrawer = false,
         openDrawerCashOnly = true,
@@ -339,47 +379,105 @@ public sealed class SboxApiClient
         if (e.TryGetProperty("documentTypes", out var dts) && dts.ValueKind == JsonValueKind.Array)
         {
             foreach (var d in dts.EnumerateArray())
-                docs.Add(d.GetString() ?? "");
+                docs.Add(ReadString(d) ?? "");
         }
         return new PrinterItem(
-            Guid.Parse(e.GetProperty("id").GetString()!),
-            e.GetProperty("name").GetString() ?? "",
-            e.TryGetProperty("lanHost", out var h) ? h.GetString() : null,
-            e.TryGetProperty("lanPort", out var p) && p.ValueKind == JsonValueKind.Number ? p.GetInt32() : 9100,
-            e.TryGetProperty("connectionType", out var c) ? c.GetString() ?? "Lan" : "Lan",
-            e.TryGetProperty("paperSize", out var ps) ? ps.GetString() ?? "K80" : "K80",
-            e.TryGetProperty("isDefault", out var idf) && idf.GetBoolean(),
-            !e.TryGetProperty("isActive", out var ia) || ia.GetBoolean(),
-            e.TryGetProperty("requiresAgent", out var ra) && ra.GetBoolean(),
-            e.TryGetProperty("healthStatus", out var hs) ? hs.GetString() ?? "Unknown" : "Unknown",
+            Guid.Parse(ReadString(e.GetProperty("id"))!),
+            ReadString(e.GetProperty("name")) ?? "",
+            e.TryGetProperty("lanHost", out var h) ? ReadString(h) : null,
+            e.TryGetProperty("lanPort", out var p) ? ReadInt(p, 9100) : 9100,
+            e.TryGetProperty("connectionType", out var c) ? ReadConnType(c) : "Lan",
+            e.TryGetProperty("paperSize", out var ps) ? ReadString(ps) ?? "K80" : "K80",
+            e.TryGetProperty("isDefault", out var idf) && ReadBool(idf),
+            !e.TryGetProperty("isActive", out var ia) || ReadBool(ia, defaultIfMissing: true),
+            e.TryGetProperty("requiresAgent", out var ra) && ReadBool(ra),
+            e.TryGetProperty("isDeviceLocal", out var idl) && ReadBool(idl),
+            e.TryGetProperty("ownerDeviceId", out var od) ? ReadString(od) : null,
+            e.TryGetProperty("healthStatus", out var hs) ? ReadString(hs) ?? "Unknown" : "Unknown",
             docs,
-            e.TryGetProperty("defaultCopies", out var dc) && dc.ValueKind == JsonValueKind.Number ? dc.GetInt32() : 1,
-            e.TryGetProperty("feedBeforeCut", out var fb) && fb.ValueKind == JsonValueKind.Number ? fb.GetInt32() : 8,
-            e.TryGetProperty("partialCut", out var pc) && pc.GetBoolean(),
-            e.TryGetProperty("printerBrand", out var pb) ? pb.GetString() : null,
-            e.TryGetProperty("textMode", out var tm) ? tm.GetString() : null,
-            e.TryGetProperty("usbDeviceName", out var usb) ? usb.GetString() : null);
+            e.TryGetProperty("defaultCopies", out var dc) ? ReadInt(dc, 1) : 1,
+            e.TryGetProperty("feedBeforeCut", out var fb) ? ReadInt(fb, 3) : 3,
+            e.TryGetProperty("partialCut", out var pc) && ReadBool(pc),
+            e.TryGetProperty("printerBrand", out var pb) ? ReadString(pb) : null,
+            e.TryGetProperty("textMode", out var tm) ? ReadString(tm) : null,
+            e.TryGetProperty("usbDeviceName", out var usb) ? ReadString(usb) : null);
     }
+
+    static string ReadConnType(JsonElement c) => c.ValueKind switch
+    {
+        JsonValueKind.String => c.GetString() ?? "Lan",
+        JsonValueKind.Number => c.GetInt32() switch
+        {
+            1 => "Lan",
+            2 => "Bluetooth",
+            3 => "Usb",
+            4 => "Sunmi",
+            _ => "Lan",
+        },
+        _ => "Lan",
+    };
+
+    static string? ReadString(JsonElement e) => e.ValueKind switch
+    {
+        JsonValueKind.String => e.GetString(),
+        JsonValueKind.Number => e.GetRawText(),
+        JsonValueKind.True => "true",
+        JsonValueKind.False => "false",
+        JsonValueKind.Null or JsonValueKind.Undefined => null,
+        _ => e.ToString(),
+    };
+
+    static int ReadInt(JsonElement e, int fallback) => e.ValueKind switch
+    {
+        JsonValueKind.Number => e.TryGetInt32(out var n) ? n : fallback,
+        JsonValueKind.String when int.TryParse(e.GetString(), out var n) => n,
+        _ => fallback,
+    };
+
+    static bool ReadBool(JsonElement e, bool defaultIfMissing = false) => e.ValueKind switch
+    {
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.String when bool.TryParse(e.GetString(), out var b) => b,
+        JsonValueKind.Number => e.GetInt32() != 0,
+        _ => defaultIfMissing,
+    };
 
     static ClaimJob? ParseClaim(JsonElement root)
     {
         if (root.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined) return null;
         if (root.ValueKind != JsonValueKind.Object) return null;
-        if (!root.TryGetProperty("jobId", out var jid)) return null;
+        JsonElement jid;
+        if (root.TryGetProperty("jobId", out jid) || root.TryGetProperty("id", out jid) ||
+            root.TryGetProperty("Id", out jid))
+        {
+            // ok
+        }
+        else return null;
+
+        var jobIdStr = ReadString(jid);
+        if (!Guid.TryParse(jobIdStr, out var jobId)) return null;
+        if (!root.TryGetProperty("printerId", out var pidEl) &&
+            !root.TryGetProperty("PrinterId", out pidEl))
+            return null;
+        if (!Guid.TryParse(ReadString(pidEl), out var printerId)) return null;
+
         return new ClaimJob(
-            Guid.Parse(jid.GetString()!),
-            Guid.Parse(root.GetProperty("printerId").GetString()!),
-            root.TryGetProperty("documentType", out var dt) ? dt.GetString() ?? "" : "",
-            root.TryGetProperty("payloadFormat", out var pf) ? pf.GetString() ?? "" : "",
-            root.TryGetProperty("payload", out var p) ? p.GetString() : null,
-            root.TryGetProperty("copies", out var c) && c.ValueKind == JsonValueKind.Number ? c.GetInt32() : 1,
-            root.TryGetProperty("referenceNo", out var rn) ? rn.GetString() : null);
+            jobId,
+            printerId,
+            root.TryGetProperty("documentType", out var dt) ? ReadString(dt) ?? "" : "",
+            root.TryGetProperty("payloadFormat", out var pf) ? ReadString(pf) ?? "" : "",
+            root.TryGetProperty("payload", out var p) ? ReadString(p) : null,
+            root.TryGetProperty("copies", out var c) ? ReadInt(c, 1) : 1,
+            root.TryGetProperty("referenceNo", out var rn) ? ReadString(rn) : null);
     }
 
     async Task<JsonDocument> GetDataAsync(string path, CancellationToken ct)
     {
         var res = await _http.GetAsync(path, ct);
         var body = await res.Content.ReadAsStringAsync(ct);
+        if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            throw new ApiException(Trunc(body, 240).Length > 0 ? Trunc(body, 240) : "HTTP 401 Unauthorized", isAuth: true);
         return Unpack(body, res.IsSuccessStatusCode);
     }
 
@@ -387,6 +485,8 @@ public sealed class SboxApiClient
     {
         var res = await _http.PostAsJsonAsync(path, payload, _json, ct);
         var body = await res.Content.ReadAsStringAsync(ct);
+        if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            throw new ApiException(Trunc(body, 240).Length > 0 ? Trunc(body, 240) : "HTTP 401 Unauthorized", isAuth: true);
         return Unpack(body, res.IsSuccessStatusCode);
     }
 
@@ -407,16 +507,67 @@ public sealed class SboxApiClient
         {
             if (!ok.GetBoolean())
             {
-                var msg = root.TryGetProperty("message", out var m) ? m.GetString() : body;
-                throw new InvalidOperationException(msg ?? "API lỗi");
+                var msg = root.TryGetProperty("message", out var m) ? m.GetString() : null;
+                if (string.IsNullOrWhiteSpace(msg))
+                    msg = Trunc(body, 240);
+                if (string.IsNullOrWhiteSpace(msg))
+                    msg = "API trả isSuccess=false (không có message)";
+                throw new ApiException(msg, isAuth: LooksLikeAuth(msg, body));
             }
             if (root.TryGetProperty("data", out var data))
                 return JsonDocument.Parse(data.GetRawText());
             return JsonDocument.Parse("null");
         }
-        if (!httpOk) throw new InvalidOperationException(body);
+        if (!httpOk)
+        {
+            var snippet = Trunc(body, 240);
+            var auth = LooksLikeAuth(snippet, body) ||
+                       snippet.Contains("401", StringComparison.Ordinal) ||
+                       snippet.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase);
+            throw new ApiException(
+                string.IsNullOrWhiteSpace(snippet) ? "HTTP lỗi (body trống)" : snippet,
+                isAuth: auth);
+        }
         return JsonDocument.Parse(root.GetRawText());
     }
+
+    static bool LooksLikeAuth(string? msg, string? body)
+    {
+        var s = (msg ?? "") + " " + (body ?? "");
+        return s.Contains("401", StringComparison.Ordinal) ||
+               s.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase) ||
+               s.Contains("đăng nhập", StringComparison.OrdinalIgnoreCase) ||
+               (s.Contains("token", StringComparison.OrdinalIgnoreCase) &&
+                (s.Contains("hết hạn", StringComparison.OrdinalIgnoreCase) ||
+                 s.Contains("expired", StringComparison.OrdinalIgnoreCase) ||
+                 s.Contains("invalid", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    static string Trunc(string? s, int max)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return "";
+        s = s.Replace('\r', ' ').Replace('\n', ' ').Trim();
+        return s.Length <= max ? s : s[..max] + "…";
+    }
+
+    public static string FormatError(Exception ex)
+    {
+        var parts = new List<string>();
+        for (Exception? e = ex; e != null; e = e.InnerException)
+        {
+            if (!string.IsNullOrWhiteSpace(e.Message))
+                parts.Add(e.Message.Trim());
+            else
+                parts.Add(e.GetType().Name);
+        }
+        return parts.Count == 0 ? ex.GetType().Name : string.Join(" → ", parts.Distinct());
+    }
+}
+
+public sealed class ApiException : InvalidOperationException
+{
+    public bool IsAuth { get; }
+    public ApiException(string message, bool isAuth = false) : base(message) => IsAuth = isAuth;
 }
 
 static class JwtStoreId

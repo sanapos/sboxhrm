@@ -19,7 +19,9 @@ internal static class PosFloorRealtimeHelper
         Guid? resourceId = null,
         Guid? sessionId = null,
         string? tableName = null,
-        string? message = null)
+        string? message = null,
+        string? orderNo = null,
+        string? externalOrderId = null)
     {
         if (hub == null || storeId == Guid.Empty || string.IsNullOrWhiteSpace(reason))
             return;
@@ -35,6 +37,8 @@ internal static class PosFloorRealtimeHelper
                 sessionId,
                 tableName,
                 message,
+                orderNo,
+                externalOrderId,
                 at = DateTime.UtcNow,
             });
     }

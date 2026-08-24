@@ -12,7 +12,6 @@ import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'pos_html_print.dart';
 import 'pos_local_printers_store.dart';
-import 'pos_print_role.dart';
 import 'pos_print_template_loader.dart';
 import 'pos_pdf_fonts.dart';
 import 'pos_print_orchestrator.dart';
@@ -26,6 +25,7 @@ import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_print_template_runtime.dart';
+import 'pos_sell_store_settings.dart';
 import 'pos_printer_peripheral.dart';
 import 'pos_vietqr_helper.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -274,7 +274,7 @@ Future<PosPrintTemplate?> _resolveSalePrintTemplate(
   final storeDefault = list.where((t) => t.isDefault).firstOrNull ?? list.first;
   if (templateId != null && templateId.isNotEmpty) {
     final hit = list.where((t) => t.id == templateId).firstOrNull;
-    if (hit != null && hit.id == storeDefault.id) return hit;
+    if (hit != null) return hit;
   }
   return storeDefault;
 }
@@ -342,6 +342,7 @@ Future<List<int>> _buildSaleEscPosMatchingLocal({
       mergeSameItems: mergeSameItems,
       titleOverride: documentTitle,
       vietQrImageUrl: vietQrImageUrl,
+      vatAmount: vatAmount,
     );
     return PosPrintTemplateRuntime.buildCompiledEscPosBytes(
       output: output,
@@ -404,9 +405,10 @@ Future<bool> printPosSaleOrder({
     documentType: documentType,
   );
   final effectiveVat = vatAmount ?? printOrder.vatAmount;
-  // VAT > 0 = chế độ cộng thêm; = 0 giữ flag caller (giá đã gồm / không thuế).
-  final effectiveIncluded =
-      vatIncludedInPrice ?? (effectiveVat <= 0);
+  // Ưu tiên flag caller; không có thì theo thiết lập cửa hàng (giá đã gồm → không cộng VAT).
+  final storeTaxMode = (await PosSellStoreSettings.load()).taxMode;
+  final effectiveIncluded = vatIncludedInPrice ??
+      (storeTaxMode == PosSellTaxMode.includedInPrice);
 
   // Luôn lấy tên/địa chỉ/SĐT cửa hàng từ thiết lập POS nếu caller không truyền.
   if (branchName == null ||
@@ -463,6 +465,7 @@ Future<bool> printPosSaleOrder({
       storePhone: storePhone,
       mergeSameItems: mergeSameItems,
       documentTitle: documentTitle,
+      vatIncludedInPrice: effectiveIncluded,
       overridePrinter: target,
       buildEscPos: (printer) async {
         var settings = toThermalSettings(printer);
@@ -499,11 +502,9 @@ Future<bool> printPosSaleOrder({
   final cloudPrinters = PosPrintOrchestrator.instance
       .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
 
-  // App: chỉ in local khi ĐANG là Print Agent (A6). A7/Oppo có profile LAN/USB
-  // «ảo» khớp tên → thử local fail/treo → phiếu chờ, không gửi Agent.
-  final isAgentDevice =
-      !kIsWeb && await PosPrintRole.isPrintAgentDevice();
-  if (!kIsWeb && isAgentDevice) {
+  // App: in local khi máy này có cổng hóa đơn (không cần bật Agent).
+  // A7/web không có profile → cloud.
+  if (!kIsWeb) {
     final saleLocals = await PosLocalPrintersStore.instance
         .forRoleOnDevice(PosLocalPrinterRoles.saleInvoice);
     final thermalCandidates = <PosThermalPrinterSettings>[
@@ -551,6 +552,8 @@ Future<bool> printPosSaleOrder({
           skipDedup: skipDedup || i > 0,
           documentTitle: documentTitle,
           documentType: documentType,
+          vatAmount: effectiveIncluded ? 0 : effectiveVat,
+          vatIncludedInPrice: effectiveIncluded,
         );
         if (printed) {
           // Chỉ 1 máy nội bộ — tránh 2 bill khi Sunmi + USB cùng role Hóa đơn.
@@ -597,6 +600,7 @@ Future<bool> printPosSaleOrder({
       storePhone: storePhone,
       mergeSameItems: mergeSameItems,
       documentTitle: documentTitle,
+      vatIncludedInPrice: effectiveIncluded,
       overridePrinterId: overridePrinterId,
       overridePrinter: overridePrinter,
       onHang: onCloudHang,
@@ -748,8 +752,7 @@ Future<bool> _tryLocalSalePrint({
   bool vatIncludedInPrice = true,
   double vatRate = 0,
 }) async {
-  // Sunmi: ưu tiên mẫu V2 khi không có VAT cộng thêm.
-  // Có VAT > 0 → layout native (V2 hiện chưa có token VAT).
+  // Sunmi: luôn in mẫu V2 đã thiết kế. Native chỉ là fallback khi V2 lỗi.
   // Chỉ native khi connectionType = sunmi — không ép máy USB/BT/LAN trên thiết bị Sunmi.
   if (settings.connectionType == PosThermalConnectionType.sunmi) {
     try {
@@ -767,40 +770,41 @@ Future<bool> _tryLocalSalePrint({
         'preset=${v2.blocks.length}blks vat=$vatAmount '
         'tpl=${template?.id ?? "-"} paper=${template?.paperSize ?? "-"}',
       );
-      if (vatAmount <= 0) {
-        final output = PosPrintTemplateRuntime.compileSaleOrder(
-          template: v2,
-          order: printOrder,
-          storeName: branchName,
-          storeAddress: storeAddress,
-          storePhone: storePhone,
-          mergeSameItems: mergeSameItems,
-          titleOverride: documentTitle,
-          vietQrImageUrl: vietQrImageUrl,
+      // Luôn in theo mẫu V2 đã thiết kế (kể cả khi có VAT / phụ thu / phí GH).
+      final output = PosPrintTemplateRuntime.compileSaleOrder(
+        template: v2,
+        order: printOrder,
+        storeName: branchName,
+        storeAddress: storeAddress,
+        storePhone: storePhone,
+        mergeSameItems: mergeSameItems,
+        titleOverride: documentTitle,
+        vietQrImageUrl: vietQrImageUrl,
+        vatAmount: vatAmount,
+        vatIncludedInPrice: vatIncludedInPrice,
+      );
+      final sunmiOk = await PosPrintTemplateRuntime.printCompiledSunmi(
+        output: output,
+        settings: settings.copyWith(
+          connectionType: PosThermalConnectionType.sunmi,
+          printerBrand: PosThermalPrinterBrand.sunmi,
+        ),
+        copies: copies,
+      );
+      if (sunmiOk) {
+        await PosPrinterPeripheral.afterSunmiNativePrint(
+          settings,
+          openDrawer: settings.openCashDrawer,
         );
-        final sunmiOk = await PosPrintTemplateRuntime.printCompiledSunmi(
-          output: output,
-          settings: settings.copyWith(
-            connectionType: PosThermalConnectionType.sunmi,
-            printerBrand: PosThermalPrinterBrand.sunmi,
-          ),
-          copies: copies,
-        );
-        if (sunmiOk) {
-          await PosPrinterPeripheral.afterSunmiNativePrint(
-            settings,
-            openDrawer: settings.openCashDrawer,
+        if (showFeedback) {
+          NotificationOverlayManager().showSuccess(
+            title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
+            message: tr('Máy in Sunmi (mẫu V2)'),
           );
-          if (showFeedback) {
-            NotificationOverlayManager().showSuccess(
-              title: printOrder.isReprint ? 'In lại hóa đơn' : 'In hóa đơn',
-              message: tr('Máy in Sunmi (mẫu V2)'),
-            );
-          }
-          return true;
         }
+        return true;
       }
-      final sunmiOk = await PosSunmiNativePrint.printSaleOrder(
+      final nativeOk = await PosSunmiNativePrint.printSaleOrder(
         printOrder,
         settings: settings.copyWith(
           connectionType: PosThermalConnectionType.sunmi,
@@ -813,7 +817,7 @@ Future<bool> _tryLocalSalePrint({
         copies: copies,
         documentTitle: documentTitle,
       );
-      if (sunmiOk) {
+      if (nativeOk) {
         await PosPrinterPeripheral.afterSunmiNativePrint(
           settings,
           openDrawer: settings.openCashDrawer,
@@ -850,6 +854,8 @@ Future<bool> _tryLocalSalePrint({
         mergeSameItems: mergeSameItems,
         titleOverride: documentTitle,
         vietQrImageUrl: qr ?? vietQrImageUrl,
+        vatAmount: vatAmount,
+        vatIncludedInPrice: vatIncludedInPrice,
       );
       final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
         output: output,

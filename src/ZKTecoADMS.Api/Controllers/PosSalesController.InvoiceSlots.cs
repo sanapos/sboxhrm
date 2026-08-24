@@ -125,6 +125,18 @@ public partial class PosSalesController
         if (lineCount > 0 && !force)
             return Conflict(AppResponse<object>.Fail("Hóa đơn còn hàng — xác nhận xóa hết rồi đóng"));
 
+        var priorLines = (order.Lines ?? [])
+            .Where(l => l.Deleted == null)
+            .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+            .ToList();
+        if (priorLines.Count > 0)
+        {
+            var releaseErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                dbContext, storeId, priorLines, [], allowNegativeStock: true);
+            if (releaseErr != null)
+                return BadRequest(AppResponse<object>.Fail(releaseErr));
+        }
+
         if (order.Lines != null && order.Lines.Count > 0)
             dbContext.PosSaleOrderLines.RemoveRange(order.Lines.Where(l => l.Deleted == null));
 

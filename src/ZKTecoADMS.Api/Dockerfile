@@ -41,6 +41,7 @@ COPY --from=publish /app/publish .
 USER root
 RUN mkdir -p /app/wwwroot/uploads /app/wwwroot/stores /app/guest \
     && if [ -f /app/wwwroot/qr-order.html ]; then cp /app/wwwroot/qr-order.html /app/guest/qr-order.html; fi \
+    && if [ -f /app/wwwroot/assets/sbox-pos-logo.png ]; then cp /app/wwwroot/assets/sbox-pos-logo.png /app/guest/sbox-pos-logo.png; fi \
     && chown -R $APP_UID:$APP_UID /app/wwwroot /app/guest
 USER $APP_UID
 

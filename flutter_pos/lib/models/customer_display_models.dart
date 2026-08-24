@@ -96,9 +96,9 @@ extension CustomerDisplayTargetX on CustomerDisplayTarget {
   String get labelVi {
     switch (this) {
       case CustomerDisplayTarget.t1Native:
-        return 'Sunmi T1 (DSKernel — bill text)';
+        return 'Sunmi T1 (ảnh welcome + bill)';
       case CustomerDisplayTarget.androidFlutter:
-        return 'Android Flutter (đầy đủ — media)';
+        return 'Android Flutter (đầy đủ — media/video)';
       case CustomerDisplayTarget.window:
         return 'Window / trình duyệt (link máy khác)';
     }
@@ -107,7 +107,7 @@ extension CustomerDisplayTargetX on CustomerDisplayTarget {
   String get hintVi {
     switch (this) {
       case CustomerDisplayTarget.t1Native:
-        return 'T1 7″ qua Sunmi DSKernel (không phải Presentation) — bill text nhẹ';
+        return 'T1 7″ DSKernel: ảnh trình chiếu khi chờ + bill/VietQR khi bán';
       case CustomerDisplayTarget.androidFlutter:
         return 'Engine Flutter thứ 2 + video/ảnh — máy mạnh / màn phụ chuẩn Android';
       case CustomerDisplayTarget.window:

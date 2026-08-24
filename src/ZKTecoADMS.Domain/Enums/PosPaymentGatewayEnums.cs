@@ -35,3 +35,14 @@ public enum PosNotificationCreditPurchaseStatus
     Cancelled = 2,
     Failed = 3,
 }
+
+public enum PosPlatformCreditLedgerSource
+{
+    /// <summary>SuperAdmin nạp kho (mua gói Tingee).</summary>
+    TingeePurchase = 0,
+
+    /// <summary>Cấp/bán cho cửa hàng.</summary>
+    StoreAllocation = 1,
+
+    AdminAdjust = 2,
+}

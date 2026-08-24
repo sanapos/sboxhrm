@@ -6,14 +6,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
-import io.flutter.embedding.android.FlutterActivity
+import androidx.activity.enableEdgeToEdge
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
     private val FILE_CHANNEL = "com.sboxhrm/file_saver"
     private val SCANNER_CHANNEL = "com.sboxhrm/sunmi_scanner"
 
@@ -25,6 +27,11 @@ class MainActivity : FlutterActivity() {
 
     private val CUSTOMER_DISPLAY_CHANNEL = "com.sboxhrm/customer_display"
     private val CUSTOMER_DISPLAY_EVENTS = "com.sboxhrm/customer_display_events"
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -142,7 +149,7 @@ class MainActivity : FlutterActivity() {
                         ?: intent.getStringExtra("barcode")
                 }
                 if (!code.isNullOrBlank()) {
-                    activity?.runOnUiThread {
+                    runOnUiThread {
                         scannerEvents?.success(code.trim())
                     }
                 }

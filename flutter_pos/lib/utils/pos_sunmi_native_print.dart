@@ -88,9 +88,9 @@ class PosSunmiNativePrint {
     return '${m}p';
   }
 
-  /// Tôn trọng feed cấu hình; phiếu bếp/kho có sàn tối thiểu để khỏi cắt mất món.
-  static const _minFeedSunmi = 8;
-  static const _minFeedKitchen = 6;
+  /// Tôn trọng feed cấu hình; phiếu bếp/kho gọn — khỏi dư đuôi dài.
+  static const _minFeedSunmi = 5;
+  static const _minFeedKitchen = 2;
   static const _maxFeed = 40;
 
   static Future<bool> printSaleOrder(
@@ -209,7 +209,7 @@ class PosSunmiNativePrint {
           bold: true,
         ),
         PosReceiptImageLine(
-          text: 'Ngày: $date',
+          text: 'Gọi lúc: $date',
           fontSize: 20,
           bold: true,
         ),
@@ -435,6 +435,9 @@ class PosSunmiNativePrint {
           final png = await PosThermalBitmapEncoder.receiptToPng(
             List<PosReceiptImageLine>.from(batch),
             paperDots: dots,
+            frameStyle: output.frameStyle,
+            frameInsetMm: output.frameInsetMm,
+            frameMarginMm: output.frameMarginMm,
           );
           batch.clear();
           if (png != null) {
@@ -675,7 +678,7 @@ class PosSunmiNativePrint {
     );
     await _rule(layout);
 
-    String moneyCell(double v) => PosReceiptLayout.moneyItemCompact(v);
+    String moneyCell(double v) => PosReceiptLayout.moneyItem(v);
 
     for (final line in lines) {
       final saleUnit = line.qty > 0 ? line.lineTotal / line.qty : line.unitPrice;

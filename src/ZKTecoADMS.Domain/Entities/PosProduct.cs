@@ -61,6 +61,15 @@ public class PosProduct : AuditableEntity<Guid>
     [MaxLength(20)]
     public string WeightUnit { get; set; } = "g";
 
+    /// <summary>Chiều dài kiện SP (cm) — dùng ước tính cước vận chuyển.</summary>
+    public decimal? LengthCm { get; set; }
+
+    /// <summary>Chiều rộng kiện SP (cm).</summary>
+    public decimal? WidthCm { get; set; }
+
+    /// <summary>Chiều cao kiện SP (cm).</summary>
+    public decimal? HeightCm { get; set; }
+
     [MaxLength(100)]
     public string BaseUnitName { get; set; } = "Cái";
 

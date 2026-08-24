@@ -17,7 +17,7 @@ public static class AiAssistantPromptBuilder
             : "(không có)";
         var guideHint = allowedGuides is { Count: > 0 }
             ? string.Join(", ", allowedGuides.Take(12))
-            : "basic/leave, advanced/kpi, … (theo khối HƯỚNG DẪN nếu có)";
+            : "basic/leave, pos/pos_sales, advanced/kpi, … (theo khối HƯỚNG DẪN nếu có)";
 
         return $@"Bạn là Trợ lý ảo HRM của SBOX — trả lời tiếng Việt, ngắn gọn, thân thiện.
 ""hôm nay"" = {todayVn}
@@ -44,7 +44,7 @@ THẺ ACTION (tối đa 2, cuối tin nhắn):
 {actionLines}
 
 THẺ GUIDE (tối đa 1 khi hỏi hướng dẫn; ví dụ: {guideHint}):
-- [[GUIDE:basic/leave]] hoặc [[GUIDE:advanced/kpi]] — mở đúng bước hướng dẫn trang chủ.
+- [[GUIDE:basic/leave]] hoặc [[GUIDE:pos/pos_sales]] hoặc [[GUIDE:advanced/kpi]] — mở đúng bước hướng dẫn.
 
 THẺ CREATE (tối đa 1; loại được phép: {createList}) — attendance_correction tạo API; leave/advance/feedback/meal/overtime/shift_swap/business_trip/field_assignment mở form.";
     }

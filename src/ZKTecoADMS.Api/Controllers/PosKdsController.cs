@@ -318,9 +318,11 @@ public class PosKdsController(
                 acc[key] = t;
             }
             var reason = (v.Reason ?? "").Trim();
-            var note = string.IsNullOrWhiteSpace(v.LineNote)
-                ? (reason.Length == 0 ? "Hủy" : $"Hủy — {reason}")
-                : v.LineNote;
+            var lineNote = (v.LineNote ?? "").Trim();
+            var noteParts = new List<string>();
+            if (lineNote.Length > 0) noteParts.Add(lineNote);
+            if (reason.Length > 0) noteParts.Add($"Lý do: {reason}");
+            var note = noteParts.Count == 0 ? "Hủy" : string.Join(" — ", noteParts);
             t.Items.Add(new KdsItemAcc
             {
                 Id = v.Id,

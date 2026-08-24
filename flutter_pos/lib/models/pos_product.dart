@@ -411,6 +411,9 @@ class PosProduct {
   final double maxStockQty;
   final double? weight;
   final String weightUnit;
+  final double? lengthCm;
+  final double? widthCm;
+  final double? heightCm;
   final String baseUnitName;
   final bool isDirectSale;
   final bool isFavorite;
@@ -482,6 +485,9 @@ class PosProduct {
     this.maxStockQty = 0,
     this.weight,
     this.weightUnit = 'g',
+    this.lengthCm,
+    this.widthCm,
+    this.heightCm,
     this.baseUnitName = 'Cái',
     this.isDirectSale = true,
     this.isFavorite = false,
@@ -594,6 +600,15 @@ class PosProduct {
           ? numVal(json['weight'] ?? json['Weight'])
           : null,
       weightUnit: (json['weightUnit'] ?? json['WeightUnit'] ?? 'g').toString(),
+      lengthCm: json['lengthCm'] != null || json['LengthCm'] != null
+          ? numVal(json['lengthCm'] ?? json['LengthCm'])
+          : null,
+      widthCm: json['widthCm'] != null || json['WidthCm'] != null
+          ? numVal(json['widthCm'] ?? json['WidthCm'])
+          : null,
+      heightCm: json['heightCm'] != null || json['HeightCm'] != null
+          ? numVal(json['heightCm'] ?? json['HeightCm'])
+          : null,
       baseUnitName:
           (json['baseUnitName'] ?? json['BaseUnitName'] ?? 'Cái').toString(),
       isDirectSale: json['isDirectSale'] == true || json['IsDirectSale'] == true,
@@ -739,6 +754,9 @@ class PosProduct {
       'maxStockQty': maxStockQty,
       'weight': weight,
       'weightUnit': weightUnit,
+      'lengthCm': lengthCm,
+      'widthCm': widthCm,
+      'heightCm': heightCm,
       'baseUnitName': baseUnitName,
       'isDirectSale': isDirectSale,
       'isFavorite': isFavorite,
@@ -801,6 +819,9 @@ class PosProduct {
     double? maxStockQty,
     double? weight,
     String? weightUnit,
+    double? lengthCm,
+    double? widthCm,
+    double? heightCm,
     String? baseUnitName,
     bool? isDirectSale,
     bool? isFavorite,
@@ -839,6 +860,9 @@ class PosProduct {
       maxStockQty: maxStockQty ?? this.maxStockQty,
       weight: weight ?? this.weight,
       weightUnit: weightUnit ?? this.weightUnit,
+      lengthCm: lengthCm ?? this.lengthCm,
+      widthCm: widthCm ?? this.widthCm,
+      heightCm: heightCm ?? this.heightCm,
       baseUnitName: baseUnitName ?? this.baseUnitName,
       isDirectSale: isDirectSale ?? this.isDirectSale,
       isFavorite: isFavorite ?? this.isFavorite,

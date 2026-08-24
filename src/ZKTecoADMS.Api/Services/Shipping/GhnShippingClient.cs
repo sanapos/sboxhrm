@@ -131,7 +131,18 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
         }
 
         if (string.IsNullOrWhiteSpace(province) || string.IsNullOrWhiteSpace(district))
-            return (null, null, "GHN cần Tỉnh + Quận/Huyện (tên hoặc mã).");
+        {
+            // Đơn vị hành chính 2 cấp: chỉ có phường — tìm quận GHN chứa phường đó.
+            if (!string.IsNullOrWhiteSpace(province) && !string.IsNullOrWhiteSpace(ward))
+            {
+                var found = await FindDistrictByWardAsync(settings, province, ward, ct);
+                if (found.DistrictId is > 0)
+                    return (found.DistrictId, found.WardCode ?? ward, null);
+                return (null, null,
+                    found.Error ?? $"GHN không map được phường «{ward}» trong «{province}» (cần quận cũ).");
+            }
+            return (null, null, "GHN cần Tỉnh + Quận/Huyện (hoặc Phường để tự map).");
+        }
 
         var http = Client(settings);
         var baseUrl = BaseUrl(settings);
@@ -140,9 +151,70 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
             return (null, null, $"Không tìm thấy tỉnh GHN: {province}");
         var districtId = await ResolveDistrictIdAsync(http, baseUrl, provinceId.Value, district, ct);
         if (districtId is null or <= 0)
+        {
+            // Quận = tên phường (2 cấp) — thử tìm theo ward trong tỉnh.
+            if (!string.IsNullOrWhiteSpace(ward) || !string.IsNullOrWhiteSpace(district))
+            {
+                var found = await FindDistrictByWardAsync(
+                    settings, province, ward ?? district, ct);
+                if (found.DistrictId is > 0)
+                    return (found.DistrictId, found.WardCode ?? ward, null);
+            }
             return (null, null, $"Không tìm thấy quận GHN: {district}");
+        }
         var wardCodeResolved = await ResolveWardCodeAsync(http, baseUrl, districtId.Value, ward, ct);
         return (districtId, wardCodeResolved ?? ward, null);
+    }
+
+    async Task<(int? DistrictId, string? WardCode, string? Error)> FindDistrictByWardAsync(
+        PosShippingCarrierSetting settings, string province, string? wardName, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(wardName))
+            return (null, null, "Thiếu phường để map quận GHN");
+
+        var http = Client(settings);
+        var baseUrl = BaseUrl(settings);
+        var provinceId = await ResolveProvinceIdAsync(http, baseUrl, province, ct);
+        if (provinceId is null or <= 0)
+            return (null, null, $"Không tìm thấy tỉnh GHN: {province}");
+
+        // Lấy danh sách quận
+        var body = JsonSerializer.Serialize(new { province_id = provinceId.Value });
+        using var distRes = await http.PostAsync(
+            $"{baseUrl}/shiip/public-api/master-data/district",
+            new StringContent(body, Encoding.UTF8, "application/json"), ct);
+        var distRaw = await distRes.Content.ReadAsStringAsync(ct);
+        using var distDoc = JsonDocument.Parse(distRaw);
+        if (!distDoc.RootElement.TryGetProperty("data", out var distArr) ||
+            distArr.ValueKind != JsonValueKind.Array)
+            return (null, null, "GHN không trả danh sách quận");
+
+        foreach (var d in distArr.EnumerateArray())
+        {
+            var districtId = d.TryGetProperty("DistrictID", out var idEl) ? idEl.GetInt32() : 0;
+            if (districtId <= 0) continue;
+            // Ưu tiên: tên quận trùng phường (một số khu 2 cấp).
+            var distName = d.TryGetProperty("DistrictName", out var dn) ? dn.GetString() : null;
+            if (NameMatch(distName, wardName))
+            {
+                var wc = await ResolveWardCodeAsync(http, baseUrl, districtId, wardName, ct);
+                return (districtId, wc ?? wardName, null);
+            }
+        }
+
+        // Quét ward trong từng quận (giới hạn để tránh quá chậm).
+        var scanned = 0;
+        foreach (var d in distArr.EnumerateArray())
+        {
+            if (scanned++ > 40) break;
+            var districtId = d.TryGetProperty("DistrictID", out var idEl) ? idEl.GetInt32() : 0;
+            if (districtId <= 0) continue;
+            var wc = await ResolveWardCodeAsync(http, baseUrl, districtId, wardName, ct);
+            if (!string.IsNullOrWhiteSpace(wc))
+                return (districtId, wc, null);
+        }
+
+        return (null, null, $"Không tìm thấy phường GHN: {wardName}");
     }
 
     public async Task<ShippingQuoteResult> QuoteAsync(
@@ -151,11 +223,37 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
         if (string.IsNullOrWhiteSpace(settings.ApiToken) || string.IsNullOrWhiteSpace(settings.ShopId))
             return new(false, CarrierCode, 0, Message: "Thiếu Token hoặc ShopId GHN");
 
-        if (!int.TryParse(settings.FromDistrictId, out var fromDistrict) || fromDistrict <= 0)
-            return new(false, CarrierCode, 0, Message: "Thiếu FromDistrictId (mã quận GHN) trong cấu hình");
+        int fromDistrict;
+        if (!int.TryParse(settings.FromDistrictId, out fromDistrict) || fromDistrict <= 0)
+        {
+            // Cấu hình thiếu mã quận — thử resolve từ tên tỉnh/quận/phường lấy hàng.
+            if (!string.IsNullOrWhiteSpace(settings.FromProvinceName)
+                && (!string.IsNullOrWhiteSpace(settings.FromDistrictName)
+                    || !string.IsNullOrWhiteSpace(settings.FromWardName)))
+            {
+                var (fid, _, ferr) = await ResolveToAsync(
+                    settings,
+                    settings.FromProvinceName,
+                    settings.FromDistrictName,
+                    settings.FromWardName,
+                    ct);
+                if (fid is > 0)
+                    fromDistrict = fid.Value;
+                else
+                    return new(false, CarrierCode, 0,
+                        Message: ferr ?? "Thiếu FromDistrictId (mã quận lấy hàng GHN) — cấu hình Cài đặt vận chuyển");
+            }
+            else
+            {
+                return new(false, CarrierCode, 0,
+                    Message: "Thiếu mã/tên quận lấy hàng GHN trong Cài đặt vận chuyển");
+            }
+        }
 
+        var recv = ShippingAddressNormalizer.Normalize(
+            request.ToAddress, request.ToProvince, request.ToDistrict, request.ToWard);
         var (toDistrict, toWard, err) = await ResolveToAsync(
-            settings, request.ToProvince, request.ToDistrict, request.ToWard, ct);
+            settings, recv.Province, recv.District, recv.Ward, ct);
         if (toDistrict is null or <= 0)
             return new(false, CarrierCode, 0, Message: err ?? "Không resolve được quận nhận GHN");
 
@@ -219,7 +317,7 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
 
         var body = new Dictionary<string, object?>
         {
-            ["payment_type_id"] = 2,
+            ["payment_type_id"] = ShippingFeePayer.ShopPaysCarrier(request.ShipFeePayer) ? 1 : 2,
             ["note"] = request.Note ?? order.Note ?? $"SBOX {order.OrderNo}",
             ["required_note"] = "KHONGCHOXEMHANG",
             ["client_order_code"] = order.OrderNo,
@@ -238,9 +336,9 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
             ["cod_amount"] = (int)Math.Max(0, request.CodAmount ?? 0),
             ["content"] = $"Đơn {order.OrderNo}",
             ["weight"] = Math.Max(50, request.WeightGrams),
-            ["length"] = 10,
-            ["width"] = 10,
-            ["height"] = 10,
+            ["length"] = Math.Max(1, request.LengthCm),
+            ["width"] = Math.Max(1, request.WidthCm),
+            ["height"] = Math.Max(1, request.HeightCm),
             ["insurance_value"] = (int)Math.Min(order.PayableTotal, 5_000_000),
             ["service_type_id"] = int.TryParse(request.ServiceCode, out var st) ? st : 2,
             ["items"] = new[]

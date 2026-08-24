@@ -437,8 +437,9 @@ public class UploadController : AuthenticatedControllerBase
             return BadRequest(new { isSuccess = false, message = "Đường dẫn không hợp lệ" });
 
         if (!normalized.StartsWith("stores/", StringComparison.OrdinalIgnoreCase)
-            && !normalized.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { isSuccess = false, message = "Chỉ cho phép stores/ hoặc uploads/" });
+            && !normalized.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase)
+            && !normalized.StartsWith("catalog/", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { isSuccess = false, message = "Chỉ cho phép stores/, uploads/ hoặc catalog/" });
 
         if (publicOnly && !IsPublicDisplayPath(normalized))
             return Unauthorized(new { isSuccess = false, message = "File không thuộc media màn hình phụ" });
@@ -515,8 +516,11 @@ public class UploadController : AuthenticatedControllerBase
         var n = normalized.Replace('\\', '/').ToLowerInvariant();
         return n.Contains("/customer-display/", StringComparison.Ordinal)
                || n.StartsWith("uploads/customer-display/", StringComparison.Ordinal)
+               || n.Contains("/qr-order/", StringComparison.Ordinal)
+               || n.Contains("uploads/qr-order", StringComparison.Ordinal)
                || n.Contains("/pos-products/", StringComparison.Ordinal)
-               || n.Contains("uploads/pos-products", StringComparison.Ordinal);
+               || n.Contains("uploads/pos-products", StringComparison.Ordinal)
+               || n.StartsWith("catalog/pos-samples", StringComparison.Ordinal);
     }
 
     /// <summary>

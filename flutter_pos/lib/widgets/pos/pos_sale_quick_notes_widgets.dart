@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'pos_theme.dart';
+import 'pos_form_keyboard.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
@@ -199,7 +200,8 @@ class PosLineQuickNotesPicker extends StatelessWidget {
           const SizedBox(height: 8),
         ] else
           const SizedBox(height: 6),
-        TextField(
+        PosImeAwareFocus(
+          child: TextField(
           controller: extraController,
           maxLines: 2,
           decoration: InputDecoration(
@@ -215,6 +217,7 @@ class PosLineQuickNotesPicker extends StatelessWidget {
           ),
           style: const TextStyle(fontSize: 12),
           onChanged: (_) => onExtraChanged(),
+        ),
         ),
       ],
     );

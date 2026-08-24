@@ -59,10 +59,11 @@ public partial class PosSalesController
 
     async Task<bool> IsMultiDeviceDraftLockEnabledAsync(Guid storeId)
     {
-        // Khóa draft luôn bật (1 máy hay nhiều máy) — đồng bộ bàn/đơn.
-        // Cột EnableMultiDeviceDraftLock giữ tương thích schema, không còn cổng tắt.
-        _ = storeId;
-        return true;
+        // Tôn trọng thiết lập cửa hàng: tắt = nhiều máy cùng sửa draft không claim khóa.
+        return await dbContext.PosStoreSellSettings.AsNoTracking()
+            .Where(s => s.StoreId == storeId && s.Deleted == null)
+            .Select(s => s.EnableMultiDeviceDraftLock)
+            .FirstOrDefaultAsync();
     }
 
     /// <summary>

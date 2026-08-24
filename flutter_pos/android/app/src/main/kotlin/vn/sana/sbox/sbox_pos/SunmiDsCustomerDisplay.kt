@@ -193,7 +193,7 @@ object SunmiDsCustomerDisplay {
             val hasLines = lines.length() > 0
 
             if (!isActive || (!hasLines && table.isEmpty())) {
-                showIdleWelcome(store)
+                showIdleWithPromos(j, store)
                 return
             }
 
@@ -267,6 +267,69 @@ object SunmiDsCustomerDisplay {
     private fun showIdleWelcome(store: String) {
         gen.incrementAndGet()
         showTextTemplate(store.take(40), "Xin chào quý khách")
+    }
+
+    /** Idle: ưu tiên ảnh promo (SHOW_IMG_WELCOME), không có thì TEXT. */
+    private fun showIdleWithPromos(j: JSONObject, store: String) {
+        val ctx = appContext ?: run {
+            showIdleWelcome(store)
+            return
+        }
+        if (kernel == null) {
+            showIdleWelcome(store)
+            return
+        }
+        var imageUrl: String? = null
+        val promos = j.optJSONArray("promoItems")
+        if (promos != null) {
+            for (i in 0 until promos.length()) {
+                val u = promos.optJSONObject(i)?.optString("imageUrl")?.trim()
+                if (!u.isNullOrBlank()) {
+                    imageUrl = u
+                    break
+                }
+            }
+        }
+        if (imageUrl.isNullOrBlank()) {
+            showIdleWelcome(store)
+            return
+        }
+        val token = gen.incrementAndGet()
+        io.execute {
+            if (token != gen.get()) return@execute
+            try {
+                val bmp = downloadBitmap(imageUrl) ?: run {
+                    Log.w(TAG, "idle promo download fail url=$imageUrl")
+                    mainHandler.post { showIdleWelcome(store) }
+                    return@execute
+                }
+                val file = resolveWelcomeFile(ctx, token)
+                FileOutputStream(file).use { out ->
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 88, out)
+                }
+                bmp.recycle()
+                try {
+                    file.setReadable(true, false)
+                    file.setWritable(true, false)
+                } catch (_: Exception) {
+                }
+                if (!file.exists() || file.length() < 100) {
+                    mainHandler.post { showIdleWelcome(store) }
+                    return@execute
+                }
+                Log.i(TAG, "idle welcome image size=${file.length()}")
+                sendFullScreenPicture(
+                    path = file.absolutePath,
+                    token = token,
+                    fallbackTitle = store.take(40),
+                    fallbackBody = listOf("Xin chào quý khách"),
+                    fallbackFooter = null,
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "showIdleWithPromos", e)
+                mainHandler.post { showIdleWelcome(store) }
+            }
+        }
     }
 
     /** Docs 2.1 — two lines of text (7"). */
@@ -598,6 +661,11 @@ object SunmiDsCustomerDisplay {
 
     private fun resolveBillFile(ctx: Context, token: Int): File {
         val name = "sbox_cd_bill_$token.jpg"
+        return resolveMediaFile(ctx, name)
+    }
+
+    private fun resolveWelcomeFile(ctx: Context, token: Int): File {
+        val name = "sbox_cd_welcome_$token.jpg"
         return resolveMediaFile(ctx, name)
     }
 

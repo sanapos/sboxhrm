@@ -82,6 +82,7 @@ class PosThermalPrinterSettings {
     this.openCashDrawer = false,
     this.openDrawerCashOnly = true,
     this.beepOnPrint = false,
+    this.compactCutFeed = false,
   });
 
   final bool enabled;
@@ -113,6 +114,9 @@ class PosThermalPrinterSettings {
 
   /// Gửi lệnh bip loa máy in khi in.
   final bool beepOnPrint;
+
+  /// Phiếu bếp: bỏ sàn feed USB/Sunmi (5–8 dòng) — chỉ 2–3 dòng trước cắt.
+  final bool compactCutFeed;
 
   static const _kEnabled = 'pos_thermal_enabled';
   static const _kType = 'pos_thermal_type';
@@ -156,10 +160,18 @@ class PosThermalPrinterSettings {
     }
   }
 
+  /// Phiếu bếp: 2–3 dòng đủ qua lưỡi cắt, không dư đuôi dài.
+  int get kitchenFeedBeforeCut {
+    final n = feedBeforeCut.clamp(0, 40);
+    if (n == 0) return 2;
+    return n.clamp(2, 3);
+  }
+
   /// Số dòng đẩy giấy trước khi cắt.
   /// 0 = tắt feed. Giá trị thấp (kể cả default cũ = 1) được nâng sàn theo hãng
   /// vì lưỡi cắt nằm sau đầu in — thiếu feed → cắt mất phần món phía dưới.
   int get resolvedFeedBeforeCut {
+    if (compactCutFeed) return kitchenFeedBeforeCut;
     final n = feedBeforeCut.clamp(0, 40);
     if (n == 0) return 0;
     const usbFloor = 5;
@@ -195,6 +207,7 @@ class PosThermalPrinterSettings {
     bool? openCashDrawer,
     bool? openDrawerCashOnly,
     bool? beepOnPrint,
+    bool? compactCutFeed,
     bool clearBluetooth = false,
     bool clearLan = false,
     bool clearUsb = false,
@@ -219,6 +232,7 @@ class PosThermalPrinterSettings {
         openCashDrawer: openCashDrawer ?? this.openCashDrawer,
         openDrawerCashOnly: openDrawerCashOnly ?? this.openDrawerCashOnly,
         beepOnPrint: beepOnPrint ?? this.beepOnPrint,
+        compactCutFeed: compactCutFeed ?? this.compactCutFeed,
       );
 
   static Future<PosThermalPrinterSettings> load() async {

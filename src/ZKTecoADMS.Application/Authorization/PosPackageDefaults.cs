@@ -41,6 +41,7 @@ public static class PosPackageDefaults
         "PosQrOrder",
         "PosCashierShift",
         "PosPrinters",
+        "PosShipping",
     ];
 
     /// <summary>Bán hàng + báo cáo doanh thu.</summary>
@@ -63,6 +64,7 @@ public static class PosPackageDefaults
         "PosQrOrder",
         "PosCashierShift",
         "PosPrinters",
+        "PosShipping",
     ];
 
     /// <summary>Bán hàng + kho (nhập / trả NCC / kiểm / xuất).</summary>
@@ -89,6 +91,7 @@ public static class PosPackageDefaults
         "PosQrOrder",
         "PosCashierShift",
         "PosPrinters",
+        "PosShipping",
     ];
 
     /// <summary>Toàn bộ module POS trong catalog.</summary>
@@ -108,6 +111,7 @@ public static class PosPackageDefaults
         "PosQrOrder",
         "PosCashierShift",
         "PosPrinters",
+        "PosShipping",
     ];
 
     /// <summary>GET paths mapped to PosProducts but allowed when package only has PosSell.</summary>

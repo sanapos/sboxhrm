@@ -51,6 +51,12 @@ public static class AiAssistantPermissionRules
         ["nav_cash_report"] = new("CashReport", false),
         ["nav_advance_report"] = new("AdvanceReport", false),
         ["nav_business_trip_report"] = new("BusinessTripReport", false),
+        ["nav_attendance_summary"] = new("AttendanceSummary", false),
+        ["nav_penalty_report"] = new("PenaltyReport", false),
+        ["nav_pos_sell"] = new("PosSell", false),
+        ["nav_pos_reports"] = new("PosSalesReport", false),
+        ["nav_pos_products"] = new("PosProducts", false),
+        ["nav_pos_printers"] = new("PosPrinters", false),
     };
 
     private static readonly Dictionary<string, Rule> CreateRules = new(StringComparer.Ordinal)

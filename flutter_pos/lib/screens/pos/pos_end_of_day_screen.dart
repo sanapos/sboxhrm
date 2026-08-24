@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -53,6 +53,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   PosStoreSellSettingsDto? _sellSettings;
   bool _savingOvernight = false;
   final _pngKey = GlobalKey();
+  List<Map<String, dynamic>> _cashierShifts = const [];
+  bool _cashierShiftEnabled = false;
 
   @override
   void initState() {
@@ -189,16 +191,53 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       includeProductDetail: _showProductDetail,
       includeTransactions: _format == PosEndOfDayPrintFormat.a4,
     );
+
+    // Ca thu ngân trong cùng kỳ — tham chiếu đếm két, không cộng vào doanh thu EOD.
+    String? openedBy;
+    if (staffKey != null && staffKey.isNotEmpty) {
+      if (_filterBy == 'soldByEmployee') {
+        final hit = _staff.where((s) => s.employeeId == staffKey);
+        openedBy = hit.isNotEmpty ? hit.first.email : null;
+      } else {
+        openedBy = staffKey;
+      }
+    }
+    // Khi lọc theo employeeId mà không có email → không lọc openedBy (manager xem tất cả).
+    final shiftRes = await _api.getPosCashierShifts(
+      from: from,
+      to: to,
+      openedBy: openedBy,
+      dayStartHour: _sellSettings?.reportDayStartHour,
+    );
+
     if (!mounted) return;
+    List<Map<String, dynamic>> shifts = const [];
+    var shiftEnabled = _sellSettings?.enableCashierShift == true;
+    if (shiftRes['isSuccess'] == true && shiftRes['data'] is Map) {
+      final d = Map<String, dynamic>.from(shiftRes['data'] as Map);
+      shiftEnabled = d['enabled'] == true || shiftEnabled;
+      final items = d['items'];
+      if (items is List) {
+        shifts = items
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    }
+
     if (res['isSuccess'] == true && res['data'] is Map) {
       setState(() {
         _report = PosEndOfDayReport.fromJson(
             Map<String, dynamic>.from(res['data'] as Map));
+        _cashierShifts = shifts;
+        _cashierShiftEnabled = shiftEnabled;
         _loading = false;
       });
     } else {
       setState(() {
         _error = res['message']?.toString() ?? 'Không tải được báo cáo';
+        _cashierShifts = shifts;
+        _cashierShiftEnabled = shiftEnabled;
         _loading = false;
       });
     }
@@ -516,21 +555,113 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: PosTheme.border),
-              boxShadow: const [
-                BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_cashierShiftEnabled) _buildCashierShiftsCard(),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: PosTheme.border),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2)),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: _format == PosEndOfDayPrintFormat.a4
+                      ? _buildA4Preview(r)
+                      : _buildBillPreview(r),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCashierShiftsCard() {
+    final timeFmt = DateFormat('HH:mm');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0F9FF),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFBAE6FD)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr('Ca thu ngân trong kỳ (${_cashierShifts.length})'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: Color(0xFF0C4A6E),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                tr(
+                  'Phiếu EOD = doanh thu theo ngày/NV (không nhân đôi khi mở 2 ca). '
+                  'Mỗi dòng dưới = một lần mở→đóng ca (đếm két riêng). '
+                  '«Tiền mặt két» trên phiếu = tiền mặt HĐ + cọc, không gồm tiền đầu ca.',
+                ),
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.35,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+              if (_cashierShifts.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  tr('Không có ca nào trong khoảng đã chọn.'),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ] else ...[
+                const SizedBox(height: 8),
+                for (final s in _cashierShifts)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      () {
+                        final openedAt = DateTime.tryParse('${s['openedAt'] ?? ''}');
+                        final closedAt = DateTime.tryParse('${s['closedAt'] ?? ''}');
+                        final oLocal = openedAt == null
+                            ? null
+                            : (openedAt.isUtc ? openedAt.toLocal() : openedAt);
+                        final cLocal = closedAt == null
+                            ? null
+                            : (closedAt.isUtc ? closedAt.toLocal() : closedAt);
+                        final status = '${s['status'] ?? ''}';
+                        final by = '${s['openedByName'] ?? ''}';
+                        final opening = (s['openingCash'] is num)
+                            ? (s['openingCash'] as num).toDouble()
+                            : 0.0;
+                        final counted = s['countedCash'];
+                        final diff = s['difference'];
+                        final parts = <String>[
+                          if (oLocal != null) timeFmt.format(oLocal),
+                          if (cLocal != null) '→ ${timeFmt.format(cLocal)}',
+                          if (status == 'Open') '(đang mở)',
+                          if (by.isNotEmpty) by,
+                          'đầu ${_money.format(opening)}',
+                          if (counted is num) 'đếm ${_money.format(counted)}',
+                          if (diff is num) 'lệch ${_money.format(diff)}',
+                        ];
+                        return parts.join(' · ');
+                      }(),
+                      style: const TextStyle(fontSize: 12, height: 1.35),
+                    ),
+                  ),
               ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: _format == PosEndOfDayPrintFormat.a4
-                  ? _buildA4Preview(r)
-                  : _buildBillPreview(r),
-            ),
+            ],
           ),
         ),
       ),
@@ -850,3 +981,4 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   String _qty(num v) => _qtyFmt.format(v);
   String _dt(DateTime d) => _dtFmt.format(d);
 }
+

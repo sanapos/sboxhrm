@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
+Allow: /guide.html
 Allow: /privacy-policy.html
 Allow: /sitemap.xml
 Allow: /images/

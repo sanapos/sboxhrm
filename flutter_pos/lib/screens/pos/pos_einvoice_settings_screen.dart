@@ -83,6 +83,13 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   }
 
   Future<void> _save() async {
+    if (_provider == 'Misa') {
+      NotificationOverlayManager().showError(
+        title: 'Nhà cung cấp không hỗ trợ',
+        message: tr('MISA chưa hỗ trợ xuất. Chọn Viettel SInvoice hoặc Easy Invoice.'),
+      );
+      return;
+    }
     setState(() => _saving = true);
     final body = PosEInvoiceSettings(
       enabled: _enabled,
@@ -214,8 +221,11 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
             items: [
               DropdownMenuItem(value: 'Viettel', child: Text(tr('Viettel SInvoice'))),
               DropdownMenuItem(value: 'Easy', child: Text(tr('Easy Invoice'))),
-              DropdownMenuItem(
-                  value: 'Misa', child: Text(tr('MISA Invoice (sắp có)'))),
+              if (_provider == 'Misa')
+                DropdownMenuItem(
+                  value: 'Misa',
+                  child: Text(tr('MISA (chưa hỗ trợ — hãy đổi)')),
+                ),
             ],
             onChanged: (v) {
               if (v == null) return;
@@ -228,7 +238,8 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
                 } else if (v == 'Viettel' &&
                     (url.isEmpty ||
                         url.contains('easyinvoice') ||
-                        url.contains('softdreams'))) {
+                        url.contains('softdreams') ||
+                        url.contains('misa'))) {
                   _urlCtrl.text = 'https://api-vinvoice.viettel.vn';
                 }
               });
@@ -237,8 +248,11 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
           if (_provider == 'Misa') ...[
             const SizedBox(height: 12),
             Text(
-              tr('MISA Invoice chưa hỗ trợ xuất. Chọn Viettel SInvoice hoặc Easy Invoice.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              tr(
+                'Cấu hình đang là MISA (chưa hỗ trợ xuất). '
+                'Chọn Viettel SInvoice hoặc Easy Invoice rồi Lưu.',
+              ),
+              style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
             ),
           ],
           const SizedBox(height: 16),

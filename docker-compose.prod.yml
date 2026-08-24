@@ -111,6 +111,8 @@ services:
       - DatabaseTools__PgRestorePath=pg_restore
       - Fcm__CredentialPath=/app/secrets/fcm-service-account.json
       - Storage__ForceLocal=true
+      - PublicWebBaseUrl=${PUBLIC_WEB_BASE_URL:-https://sbox.sana.vn}
+      - Kestrel__Limits__MaxRequestBodySize=314572800
     depends_on:
       postgres:
         condition: service_healthy
@@ -122,6 +124,7 @@ services:
     volumes:
       - api_uploads:/app/wwwroot
       - /opt/zkteco/secrets/fcm-service-account.json:/app/secrets/fcm-service-account.json:ro
+      - /opt/zkteco/gc:/app/gc
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/7070' 2>/dev/null || exit 1"]
       interval: 30s

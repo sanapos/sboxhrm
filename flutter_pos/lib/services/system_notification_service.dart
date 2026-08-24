@@ -1,3 +1,253 @@
-﻿class SystemNotificationService {
-  static Future<void> init() async {}
+import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../services/api_service.dart';
+import '../utils/notification_display_utils.dart';
+import '../utils/notification_navigation.dart';
+import '../utils/tray_notification_guard.dart';
+
+/// Service để hiển thị thông báo trên thanh notification của Android
+class SystemNotificationService {
+  static final SystemNotificationService _instance =
+      SystemNotificationService._internal();
+  factory SystemNotificationService() => _instance;
+  SystemNotificationService._internal();
+
+  final ApiService _apiService = ApiService();
+
+  final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
+  bool _initialized = false;
+  int _notificationId = 0;
+
+  /// Khởi tạo plugin - gọi 1 lần khi app start
+  Future<void> initialize() async {
+    if (_initialized) return;
+
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    // iOS: do NOT request permissions here — FcmService.registerForCurrentUser()
+    // calls FirebaseMessaging.requestPermission() which is the single iOS prompt.
+    // Requesting again here causes a duplicate dialog.
+    const darwinSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: darwinSettings,
+    );
+
+    await _plugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: _onNotificationTap,
+    );
+
+    // Request notification permission on Android 13+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+
+    _initialized = true;
+    debugPrint('🔔 SystemNotificationService initialized');
+  }
+
+  /// Xử lý khi người dùng bấm vào thông báo hệ thống
+  void _onNotificationTap(NotificationResponse response) async {
+    final payload = response.payload;
+    if (payload == null || payload.isEmpty) {
+      navigateFromNotification(relatedEntityType: null);
+      return;
+    }
+
+    debugPrint('🔔 System notification tapped, payload: $payload');
+
+    // payload = "relatedEntityType|notificationRowId|highlightEntityId" (phần 3 tùy chọn)
+    final parts = payload.split('|');
+    final entityType = parts.isNotEmpty ? parts[0] : '';
+    String? notificationRowId;
+    String? highlightId;
+    if (parts.length > 1 && parts[1].isNotEmpty) {
+      notificationRowId = parts[1];
+      highlightId = notificationRowId;
+    }
+    if (parts.length > 2 && parts[2].isNotEmpty) {
+      highlightId = parts[2];
+    }
+
+    if (notificationRowId != null) {
+      try {
+        await _apiService.getStoredToken();
+        final result =
+            await _apiService.markNotificationAsRead(notificationRowId);
+        debugPrint('🔔 Mark as read result: $result');
+      } catch (e) {
+        debugPrint('🔔 Error marking notification as read: $e');
+      }
+    }
+    ScreenRefreshNotifier.refreshNotificationCount();
+
+    String? title;
+    if (parts.length > 3 && parts[3].isNotEmpty) {
+      title = Uri.decodeComponent(parts[3]);
+    }
+
+    navigateFromNotification(
+      relatedEntityType: entityType.isEmpty ? null : entityType,
+      relatedEntityId: highlightId,
+      title: title,
+    );
+  }
+
+  /// Hiển thị thông báo trên thanh notification Android
+  Future<void> show({
+    required String title,
+    required String body,
+    String? categoryLabel,
+    String? channelId,
+    String? channelName,
+    String? payload,
+  }) async {
+    if (!_initialized) await initialize();
+
+    String? trayId;
+    if (payload != null && payload.contains('|')) {
+      final parts = payload.split('|');
+      if (parts.length > 1 && parts[1].isNotEmpty) trayId = parts[1];
+      if (trayId != null && !TrayNotificationGuard.shouldShow(trayId)) {
+        return;
+      }
+    }
+
+    final androidId = trayId != null && trayId.isNotEmpty
+        ? trayId.hashCode & 0x7fffffff
+        : _notificationId++;
+
+    final androidDetails = AndroidNotificationDetails(
+      channelId ?? 'sbox_hrm_default',
+      channelName ?? 'Thông báo chung',
+      channelDescription: 'Thông báo từ SBOX HRM',
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      enableVibration: true,
+      icon: '@mipmap/ic_launcher',
+      tag: trayId,
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: title,
+        summaryText: categoryLabel ?? 'SBOX HRM',
+      ),
+      autoCancel: true, // Chỉ dismiss khi user tap vào
+    );
+
+    const darwinDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: darwinDetails,
+    );
+
+    await _plugin.show(
+      androidId,
+      title,
+      body,
+      details,
+      payload: payload,
+    );
+  }
+
+  /// payload: entityType|notificationRowId|highlightEntityId|title (phần 3–4 tùy chọn)
+  String _makePayload(
+    String entityType, {
+    String? notificationRowId,
+    String? highlightEntityId,
+    String? title,
+  }) {
+    final parts = <String>[entityType];
+    if (notificationRowId != null && notificationRowId.isNotEmpty) {
+      parts.add(notificationRowId);
+      final highlight = highlightEntityId;
+      if (highlight != null &&
+          highlight.isNotEmpty &&
+          highlight != notificationRowId) {
+        parts.add(highlight);
+      }
+    }
+    if (title != null && title.trim().isNotEmpty) {
+      while (parts.length < 3) parts.add('');
+      parts.add(Uri.encodeComponent(title.trim()));
+    }
+    return parts.join('|');
+  }
+
+  /// Thông báo thiết bị kết nối/ngắt kết nối
+  Future<void> showDeviceStatus({
+    required String deviceName,
+    required bool isOnline,
+    String? notificationId,
+  }) async {
+    await show(
+      title: isOnline ? 'Thiết bị kết nối' : 'Thiết bị ngắt kết nối',
+      body: isOnline
+          ? "Máy chấm công '$deviceName' đã kết nối"
+          : "Máy chấm công '$deviceName' đã ngắt kết nối",
+      channelId: 'sbox_hrm_device',
+      channelName: 'Thiết bị',
+      payload: _makePayload('Device', notificationRowId: notificationId),
+    );
+  }
+
+  /// Thông báo chấm công — title = họ tên (iOS không cắt), body = giờ · chi nhánh/thiết bị
+  Future<void> showAttendance({
+    required String employeeName,
+    required String time,
+    required String deviceName,
+    String? branchName,
+    String? notificationId,
+  }) async {
+    final rawDetail = branchName != null && branchName.trim().isNotEmpty
+        ? '$time - $deviceName tại ${branchName.trim()}'
+        : '$time - $deviceName';
+    await show(
+      title: employeeName,
+      body: compactAttendanceDetailForPush(rawDetail),
+      categoryLabel: 'Chấm công',
+      channelId: 'sbox_hrm_attendance',
+      channelName: 'Chấm công',
+      payload: _makePayload('Attendance', notificationRowId: notificationId),
+    );
+  }
+
+  /// Thông báo chung
+  Future<void> showGeneral({
+    required String title,
+    required String message,
+    String? categoryLabel,
+    String? relatedEntityType,
+    String? notificationId,
+    String? relatedEntityId,
+  }) async {
+    await show(
+      title: title,
+      body: message,
+      categoryLabel: categoryLabel,
+      channelId: 'sbox_hrm_general',
+      channelName: 'Thông báo chung',
+      payload: _makePayload(
+        relatedEntityType ?? 'Notification',
+        notificationRowId: notificationId,
+        highlightEntityId: relatedEntityId,
+        title: title,
+      ),
+    );
+  }
 }

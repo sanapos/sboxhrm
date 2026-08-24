@@ -9,12 +9,15 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
+using ZKTecoADMS.Api.Services.Shipping;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -30,12 +33,16 @@ public class PosQrTableOrderController(
     IHubContext<AttendanceHub> hub,
     IMemoryCache cache,
     IWebHostEnvironment env,
-    IConfiguration config) : AuthenticatedControllerBase
+    IConfiguration config,
+    ISystemNotificationService notificationService,
+    PosShippingService shipping,
+    PosQrMenuService qrMenu) : AuthenticatedControllerBase
 {
     public class QrOrderItemDto
     {
         public Guid ProductId { get; set; }
         public Guid? VariantId { get; set; }
+        public Guid? UnitId { get; set; }
         public List<Guid>? ToppingIds { get; set; }
         public decimal Qty { get; set; }
         public string? Note { get; set; }
@@ -51,12 +58,29 @@ public class PosQrTableOrderController(
     {
         public List<QrOrderItemDto>? Items { get; set; }
         public string? ClientRequestId { get; set; }
+        /// <summary>Đặt online ngoài quán: tên / SĐT / địa chỉ — quán gọi lại.</summary>
+        public string? GuestName { get; set; }
+        public string? GuestPhone { get; set; }
+        public string? GuestAddress { get; set; }
+        public string? GuestProvince { get; set; }
+        public string? GuestWard { get; set; }
+        public string? GuestAddressDetail { get; set; }
+        public string? GuestNote { get; set; }
     }
 
     [HttpGet("/o/{token}")]
     [AllowAnonymous]
     [Produces("text/html")]
     public IActionResult GuestPretty(string token) => GuestPage(token);
+
+    [HttpGet("brand/default-logo")]
+    [AllowAnonymous]
+    public IActionResult DefaultBrandLogo()
+    {
+        var path = ResolveDefaultLogoPath();
+        if (path == null) return NotFound();
+        return PhysicalFile(path, "image/png");
+    }
 
     [HttpGet("{token}/page")]
     [AllowAnonymous]
@@ -81,12 +105,11 @@ public class PosQrTableOrderController(
     [AllowAnonymous]
     public async Task<ActionResult<AppResponse<object>>> GetMenu(string token)
     {
-        var ctx = await ResolveTableAsync(token);
+        var ctx = await ResolveAnyAsync(token);
         if (ctx.Error != null) return ctx.Error;
-        var store = ctx.Table!.Store;
-        var resource = ctx.Table.Resource;
-        var settings = ctx.Table.Settings;
-        var menu = await BuildMenuAsync(store, resource, settings);
+        var store = ctx.Ctx!.Store;
+        var settings = ctx.Ctx.Settings;
+        var menu = await BuildMenuAsync(store, ctx.Ctx.Resource, settings, ctx.Ctx.IsOnline);
         return Ok(AppResponse<object>.Success(menu));
     }
 
@@ -94,32 +117,36 @@ public class PosQrTableOrderController(
     [AllowAnonymous]
     public async Task<ActionResult<AppResponse<object>>> Submit(string token, [FromBody] QrOrderSubmitDto? dto)
     {
-        var ctx = await ResolveTableAsync(token);
+        var ctx = await ResolveAnyAsync(token);
         if (ctx.Error != null) return ctx.Error;
-        var store = ctx.Table!.Store;
-        var resource = ctx.Table.Resource;
-        var settings = ctx.Table.Settings;
+        var store = ctx.Ctx!.Store;
+        var resource = ctx.Ctx.Resource;
+        var settings = ctx.Ctx.Settings;
+        var isOnline = ctx.Ctx.IsOnline;
 
-        var lockFail = await EnforceQrGuestAsync(store.Id, settings, dto?.Lat, dto?.Lng);
-        if (lockFail != null) return lockFail;
-        if (QrOrderLockHelper.Parse(settings.ExtraJson).RequireOpenSession)
+        if (!isOnline)
         {
-            var openSession = await db.PosResourceSessions.AsNoTracking()
-                .Where(s => s.ResourceId == resource.Id && s.Deleted == null
-                    && (s.Status == PosResourceSessionStatus.Open
-                        || s.Status == PosResourceSessionStatus.Paused))
-                .OrderByDescending(s => s.StartedAt)
-                .FirstOrDefaultAsync();
-            var opened = false;
-            if (openSession?.SaleOrderId is Guid openOid)
+            var lockFail = await EnforceQrGuestAsync(store.Id, settings, dto?.Lat, dto?.Lng);
+            if (lockFail != null) return lockFail;
+            if (QrOrderLockHelper.Parse(settings.ExtraJson).RequireOpenSession)
             {
-                opened = await db.PosSaleOrders.AsNoTracking()
-                    .AnyAsync(o => o.Id == openOid && o.Deleted == null
-                        && o.Status == PosSaleOrderStatus.Draft);
+                var openSession = await db.PosResourceSessions.AsNoTracking()
+                    .Where(s => s.ResourceId == resource!.Id && s.Deleted == null
+                        && (s.Status == PosResourceSessionStatus.Open
+                            || s.Status == PosResourceSessionStatus.Paused))
+                    .OrderByDescending(s => s.StartedAt)
+                    .FirstOrDefaultAsync();
+                var opened = false;
+                if (openSession?.SaleOrderId is Guid openOid)
+                {
+                    opened = await db.PosSaleOrders.AsNoTracking()
+                        .AnyAsync(o => o.Id == openOid && o.Deleted == null
+                            && o.Status == PosSaleOrderStatus.Draft);
+                }
+                if (!opened)
+                    return BadRequest(AppResponse<object>.Fail(
+                        "Thu ngân chưa mở bàn — không gọi món từ ngoài quán"));
             }
-            if (!opened)
-                return BadRequest(AppResponse<object>.Fail(
-                    "Thu ngân chưa mở bàn — không gọi món từ ngoài quán"));
         }
 
         var rawItems = dto?.Items?
@@ -153,6 +180,8 @@ public class PosQrTableOrderController(
         }
 
         var storeId = store.Id;
+        var useCustomMenu = PosQrMenuService.UseCustomMenu(settings.ExtraJson);
+        var menuMap = await qrMenu.LoadMapAsync(storeId);
         var productIds = rawItems.Select(i => i.ProductId).Distinct().ToList();
         var products = await db.PosProducts.AsNoTracking()
             .Include(x => x.Category)
@@ -175,6 +204,19 @@ public class PosQrTableOrderController(
             .GroupBy(v => v.ProductId)
             .ToDictionaryAsync(g => g.Key, g => g.Count());
 
+        var unitIds = rawItems.Where(i => i.UnitId.HasValue && i.UnitId != Guid.Empty)
+            .Select(i => i.UnitId!.Value).Distinct().ToList();
+        var allProductUnits = await db.PosProductUnits.AsNoTracking()
+            .Where(u => productIds.Contains(u.ProductId) && u.StoreId == storeId
+                && u.Deleted == null && u.IsDirectSale)
+            .ToListAsync();
+        var units = unitIds.Count == 0
+            ? new Dictionary<Guid, PosProductUnit>()
+            : allProductUnits.Where(u => unitIds.Contains(u.Id))
+                .ToDictionary(u => u.Id);
+        var unitsByProduct = allProductUnits.GroupBy(u => u.ProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var toppingCatalog = await LoadToppingCatalogAsync(storeId, productIds);
 
         var resolved = new List<ResolvedQrLine>();
@@ -182,6 +224,9 @@ public class PosQrTableOrderController(
         {
             if (!byId.TryGetValue(item.ProductId, out var p))
                 return BadRequest(AppResponse<object>.Fail("Có món không bán được trên QR"));
+            if (!PosQrMenuService.IsProductAllowed(p.Id, menuMap, useCustomMenu, isOnline))
+                return BadRequest(AppResponse<object>.Fail($"{p.Name} không có trong menu QR/online"));
+            menuMap.TryGetValue(p.Id, out var menuItem);
             if (p.RequiresSerial)
                 return BadRequest(AppResponse<object>.Fail($"{p.Name} cần thu ngân nhập seri"));
             if (p.ProductType == PosProductType.Service && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode))
@@ -197,6 +242,23 @@ public class PosQrTableOrderController(
             }
             else if (item.VariantId.HasValue && item.VariantId != Guid.Empty)
                 return BadRequest(AppResponse<object>.Fail($"{p.Name} không có biến thể đó"));
+
+            PosProductUnit? unit = null;
+            var productUnits = unitsByProduct.GetValueOrDefault(p.Id) ?? [];
+            var pickUnits = !hasVariants && productUnits.Count > 0
+                ? (productUnits.Count > 1
+                    ? productUnits
+                    : productUnits.Where(u => !u.IsBaseUnit).ToList())
+                : [];
+            var hasUnits = pickUnits.Count > 0;
+            if (hasUnits)
+            {
+                if (item.UnitId is not Guid uid || uid == Guid.Empty
+                    || !units.TryGetValue(uid, out unit) || unit.ProductId != p.Id)
+                    return BadRequest(AppResponse<object>.Fail($"Chọn size / đơn vị cho {p.Name}"));
+            }
+            else if (item.UnitId.HasValue && item.UnitId != Guid.Empty)
+                return BadRequest(AppResponse<object>.Fail($"{p.Name} không có đơn vị đó"));
 
             var allowed = toppingCatalog.GetValueOrDefault(p.Id);
             var toppingIds = (item.ToppingIds ?? [])
@@ -215,10 +277,18 @@ public class PosQrTableOrderController(
             }
 
             var qty = Math.Min(20, item.Qty);
-            var unitPrice = variant?.BasePrice ?? p.BasePrice;
+            var unitPrice = variant != null
+                ? PosQrMenuService.ResolveVariantPrice(p, variant, menuItem)
+                : unit != null
+                    ? PosQrMenuService.ResolveUnitPrice(p, unit, menuItem)
+                    : PosQrMenuService.ResolveProductPrice(p, menuItem);
             if (!settings.AllowNegativeStock && p.ProductType == PosProductType.Goods)
             {
-                var avail = variant != null ? variant.OnHandQty : (p.OnHandQty - p.ReservedQty);
+                var avail = variant != null
+                    ? variant.OnHandQty
+                    : unit != null
+                        ? QrUnitAvailQty(p, unit)
+                        : (p.OnHandQty - p.ReservedQty);
                 if (avail < qty)
                     return BadRequest(AppResponse<object>.Fail($"{p.Name} tạm hết"));
             }
@@ -227,19 +297,26 @@ public class PosQrTableOrderController(
             if (note is { Length: > 200 }) note = note[..200];
             var toppingsJson = CanonicalToppingsJson(toppings);
             var extra = toppings.Sum(t => t.Price);
-            var lineName = variant != null ? $"{p.Name} — {variant.Name}" : p.Name;
+            var lineName = variant != null
+                ? $"{p.Name} — {variant.Name}"
+                : unit != null
+                    ? $"{p.Name} — {unit.UnitName}"
+                    : p.Name;
             resolved.Add(new ResolvedQrLine(
-                p, variant, qty, note, toppingsJson, extra, unitPrice, lineName));
+                p, variant, unit, qty, note, toppingsJson, extra, unitPrice, lineName));
         }
 
         var items = resolved
-            .GroupBy(x => (x.Product.Id, VariantId: x.Variant?.Id, x.ToppingsJson, Note: x.Note ?? ""))
+            .GroupBy(x => (x.Product.Id, VariantId: x.Variant?.Id, UnitId: x.Unit?.Id, x.ToppingsJson, Note: x.Note ?? ""))
             .Select(g =>
             {
                 var first = g.First();
                 return first with { Qty = Math.Min(20, g.Sum(x => x.Qty)) };
             })
             .ToList();
+
+        if (isOnline)
+            return await SubmitOnlineAsync(store, settings, items, dto, token, reqId);
 
         var lockOpts = QrOrderLockHelper.Parse(settings.ExtraJson);
         // Xác nhận đơn (mặc định tắt): ghi món nhưng không tự in / đánh dấu bếp.
@@ -259,7 +336,7 @@ public class PosQrTableOrderController(
             {
                 var now = DateTime.UtcNow;
                 session = await db.PosResourceSessions.AsTracking()
-                    .FirstOrDefaultAsync(s => s.ResourceId == resource.Id && s.Deleted == null
+                    .FirstOrDefaultAsync(s => s.ResourceId == resource!.Id && s.Deleted == null
                         && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused));
                 order = null;
                 if (session?.SaleOrderId is Guid oid)
@@ -306,7 +383,7 @@ public class PosQrTableOrderController(
                     {
                         Id = Guid.NewGuid(),
                         StoreId = storeId,
-                        ResourceId = resource.Id,
+                        ResourceId = resource!.Id,
                         SaleOrderId = order.Id,
                         StartedAt = now,
                         Status = PosResourceSessionStatus.Open,
@@ -344,8 +421,9 @@ public class PosQrTableOrderController(
                         SaleOrderId = order.Id,
                         ProductId = p.Id,
                         VariantId = item.Variant?.Id,
+                        UnitId = item.Unit?.Id,
                         ProductName = item.LineName,
-                        UnitName = p.BaseUnitName,
+                        UnitName = item.Unit?.UnitName ?? p.BaseUnitName,
                         Qty = item.Qty,
                         UnitPrice = item.UnitPrice,
                         LineTotal = Math.Round((item.UnitPrice + item.ToppingExtra) * item.Qty, 0, MidpointRounding.AwayFromZero),
@@ -373,6 +451,21 @@ public class PosQrTableOrderController(
                     }
                 }
 
+                // Giữ chỗ tồn cho món QR vừa thêm (cùng ReservedQty với draft thu ngân).
+                if (added.Count > 0)
+                {
+                    var deltaInputs = added
+                        .Select(a => (a.Product.Id, a.Qty, a.Line.VariantId, a.Line.UnitId, a.Line.ToppingsJson))
+                        .ToList();
+                    var reserveErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                        db, storeId, [], deltaInputs, settings.AllowNegativeStock);
+                    if (reserveErr != null)
+                    {
+                        await tx.RollbackAsync();
+                        return BadRequest(AppResponse<object>.Fail(reserveErr));
+                    }
+                }
+
                 await db.SaveChangesAsync();
 
                 var subTotal = order.Lines.Where(l => l.Deleted == null).Sum(l => l.LineTotal);
@@ -380,7 +473,7 @@ public class PosQrTableOrderController(
                 order.SubTotal = subTotal;
                 order.Total = total;
                 order.ResourceSessionId = session.Id;
-                order.ServiceResourceId = resource.Id;
+                        order.ServiceResourceId = resource!.Id;
                 order.LockVersion += 1;
                 order.UpdatedAt = now;
                 order.UpdatedBy = "QR khách";
@@ -407,7 +500,7 @@ public class PosQrTableOrderController(
         {
             try
             {
-                printJobs = await EnqueueKitchenAsync(storeId, resource, order, added, DateTime.UtcNow);
+                printJobs = await EnqueueKitchenAsync(storeId, resource!, order, added, DateTime.UtcNow);
             }
             catch
             {
@@ -415,9 +508,9 @@ public class PosQrTableOrderController(
             }
         }
 
-        var tableName = TableLabel(resource);
+        var tableName = TableLabel(resource!);
         PosFloorRealtimeHelper.Notify(hub, storeId, "qrOrder",
-            orderId: order.Id, resourceId: resource.Id, sessionId: session.Id,
+            orderId: order.Id, resourceId: resource!.Id, sessionId: session.Id,
             tableName: tableName,
             message: needsConfirm ? "needsConfirm" : null);
 
@@ -450,11 +543,11 @@ public class PosQrTableOrderController(
     [AllowAnonymous]
     public async Task<ActionResult<AppResponse<object>>> CallPayment(string token, [FromBody] QrGuestLocationDto? dto)
     {
-        var ctx = await ResolveTableAsync(token);
+        var ctx = await RequireDineInAsync(token);
         if (ctx.Error != null) return ctx.Error;
-        var store = ctx.Table!.Store;
-        var resource = ctx.Table.Resource;
-        var lockFail = await EnforceQrGuestAsync(store.Id, ctx.Table.Settings, dto?.Lat, dto?.Lng);
+        var store = ctx.Ctx!.Store;
+        var resource = ctx.Ctx.Resource!;
+        var lockFail = await EnforceQrGuestAsync(store.Id, ctx.Ctx.Settings, dto?.Lat, dto?.Lng);
         if (lockFail != null) return lockFail;
 
         var rateKey = $"qr-pay:{token}";
@@ -487,11 +580,11 @@ public class PosQrTableOrderController(
     [AllowAnonymous]
     public async Task<ActionResult<AppResponse<object>>> CallStaff(string token, [FromBody] QrGuestLocationDto? dto)
     {
-        var ctx = await ResolveTableAsync(token);
+        var ctx = await RequireDineInAsync(token);
         if (ctx.Error != null) return ctx.Error;
-        var store = ctx.Table!.Store;
-        var resource = ctx.Table.Resource;
-        var lockFail = await EnforceQrGuestAsync(store.Id, ctx.Table.Settings, dto?.Lat, dto?.Lng);
+        var store = ctx.Ctx!.Store;
+        var resource = ctx.Ctx.Resource!;
+        var lockFail = await EnforceQrGuestAsync(store.Id, ctx.Ctx.Settings, dto?.Lat, dto?.Lng);
         if (lockFail != null) return lockFail;
 
         if (!TryGuestRateLimit($"qr-staff:{token}", 4, out var fail))
@@ -512,11 +605,11 @@ public class PosQrTableOrderController(
     [AllowAnonymous]
     public async Task<ActionResult<AppResponse<object>>> ConfirmQrPaid(string token, [FromBody] QrGuestLocationDto? dto)
     {
-        var ctx = await ResolveTableAsync(token);
+        var ctx = await RequireDineInAsync(token);
         if (ctx.Error != null) return ctx.Error;
-        var store = ctx.Table!.Store;
-        var resource = ctx.Table.Resource;
-        var lockFail = await EnforceQrGuestAsync(store.Id, ctx.Table.Settings, dto?.Lat, dto?.Lng);
+        var store = ctx.Ctx!.Store;
+        var resource = ctx.Ctx.Resource!;
+        var lockFail = await EnforceQrGuestAsync(store.Id, ctx.Ctx.Settings, dto?.Lat, dto?.Lng);
         if (lockFail != null) return lockFail;
 
         if (!TryGuestRateLimit($"qr-paid:{token}", 3, out var fail))
@@ -552,6 +645,70 @@ public class PosQrTableOrderController(
         }));
     }
 
+    public class QrMenuSaveDto
+    {
+        public bool UseCustomMenu { get; set; }
+        public List<QrMenuSaveItemDto>? Items { get; set; }
+    }
+
+    public class QrMenuSaveItemDto
+    {
+        public Guid ProductId { get; set; }
+        public decimal? QrPrice { get; set; }
+        public bool ShowOnTable { get; set; } = true;
+        public bool ShowOnOnline { get; set; } = true;
+        public int SortOrder { get; set; }
+    }
+
+    [HttpGet("menu")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetMenuConfig(CancellationToken ct)
+    {
+        var storeId = RequiredStoreId;
+        var settings = await db.PosStoreSellSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null, ct);
+        var (useCustom, items, catalog) = await qrMenu.LoadAdminAsync(storeId, settings?.ExtraJson, ct);
+        return Ok(AppResponse<object>.Success(new
+        {
+            useCustomMenu = useCustom,
+            items,
+            catalog,
+        }));
+    }
+
+    [HttpPut("menu")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> SaveMenuConfig(
+        [FromBody] QrMenuSaveDto? dto, CancellationToken ct)
+    {
+        var storeId = RequiredStoreId;
+        var settings = await db.PosStoreSellSettings.AsTracking()
+            .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null, ct);
+        if (settings == null)
+            return BadRequest(AppResponse<object>.Fail("Chưa có thiết lập bán hàng POS"));
+        var rawItems = dto?.Items ?? [];
+        if (dto?.UseCustomMenu == true && rawItems.Count == 0)
+            return BadRequest(AppResponse<object>.Fail("Thêm ít nhất một món vào menu QR/online"));
+        var saveItems = rawItems
+            .Where(x => x.ProductId != Guid.Empty)
+            .Select((x, i) => new PosQrMenuSaveItem(
+                x.ProductId,
+                x.QrPrice,
+                x.ShowOnTable,
+                x.ShowOnOnline,
+                x.SortOrder > 0 ? x.SortOrder : i + 1))
+            .ToList();
+        await qrMenu.SaveAsync(storeId, settings, dto?.UseCustomMenu == true, saveItems,
+            CurrentUserEmail, ct);
+        var (useCustom, items, catalog) = await qrMenu.LoadAdminAsync(storeId, settings.ExtraJson, ct);
+        return Ok(AppResponse<object>.Success(new
+        {
+            useCustomMenu = useCustom,
+            items,
+            catalog,
+        }));
+    }
+
     [HttpGet("tables")]
     [RequireModulePermission("PosQrOrder", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> ListTables()
@@ -578,7 +735,24 @@ public class PosQrTableOrderController(
         }
         if (changed) await db.SaveChangesAsync();
 
+        var onlineToken = (lockOpt.OnlineToken ?? "").Trim();
+        if (lockOpt.EnableOnline && onlineToken.Length < 8 && settings != null)
+        {
+            var tracked = await db.PosStoreSellSettings.AsTracking()
+                .FirstOrDefaultAsync(s => s.Id == settings.Id);
+            if (tracked != null)
+            {
+                onlineToken = NewToken();
+                tracked.ExtraJson = QrOrderLockHelper.MergeOnline(tracked.ExtraJson, true, onlineToken);
+                tracked.UpdatedAt = DateTime.UtcNow;
+                await db.SaveChangesAsync();
+            }
+        }
+
         var urlBase = PublicBase();
+        var store = await db.Stores.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == storeId);
+        var brand = QrOrderLockHelper.ParseBrand(settings?.ExtraJson);
         return Ok(AppResponse<object>.Success(new
         {
             enabled,
@@ -588,6 +762,24 @@ public class PosQrTableOrderController(
             requireOrderConfirmation = lockOpt.RequireOrderConfirmation,
             geoConfigured,
             publicBaseUrl = urlBase,
+            storeName = store?.Name ?? "",
+            storePhone = store?.Phone ?? "",
+            storeAddress = store?.Address ?? "",
+            storeProvince = store?.Province ?? "",
+            logoUrl = PublicMediaUrl(urlBase, brand.LogoUrl),
+            defaultLogoUrl = $"{urlBase.TrimEnd('/')}/api/pos/qr-order/brand/default-logo",
+            banners = brand.Banners.Select(b => PublicMediaUrl(urlBase, b)).Where(x => x != null),
+            enableOnline = lockOpt.EnableOnline,
+            onlineToken = onlineToken,
+            onlineUrl = string.IsNullOrWhiteSpace(onlineToken) ? null : QrUrl(urlBase, onlineToken),
+            onlineAutoConfirm = lockOpt.OnlineAutoConfirm,
+            onlineAutoPrintKitchen = lockOpt.OnlineAutoPrintKitchen,
+            onlineAutoPay = lockOpt.OnlineAutoPay,
+            onlineAutoPrintProvisional = lockOpt.OnlineAutoPrintProvisional,
+            onlineAutoCreateShipment = lockOpt.OnlineAutoCreateShipment,
+            onlineDefaultCarrierCode = lockOpt.OnlineDefaultCarrierCode ?? "",
+            storeZalo = lockOpt.StoreZalo ?? store?.Phone ?? "",
+            useCustomMenu = lockOpt.UseCustomMenu,
             tables = resources.Select(r => new
             {
                 id = r.Id,
@@ -621,11 +813,603 @@ public class PosQrTableOrderController(
         }));
     }
 
-    sealed class QrTableCtx(Store Store, PosServiceResource Resource, PosStoreSellSettings Settings)
+    [HttpPost("online")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> SetOnline([FromBody] QrOnlineToggleDto? dto)
+    {
+        var storeId = RequiredStoreId;
+        var s = await db.PosStoreSellSettings.AsTracking()
+            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null);
+        if (s == null)
+            return BadRequest(AppResponse<object>.Fail("Thiếu thiết lập POS"));
+        var enable = dto?.Enabled != false;
+        var opt = QrOrderLockHelper.Parse(s.ExtraJson);
+        var token = (opt.OnlineToken ?? "").Trim();
+        if (enable && token.Length < 8)
+            token = NewToken();
+        if (dto?.Rotate == true)
+            token = NewToken();
+        s.ExtraJson = QrOrderLockHelper.MergeOnline(s.ExtraJson, enable, token);
+        s.UpdatedAt = DateTime.UtcNow;
+        s.UpdatedBy = CurrentUserEmail;
+        await db.SaveChangesAsync();
+        var urlBase = PublicBase();
+        return Ok(AppResponse<object>.Success(new
+        {
+            enableOnline = enable,
+            onlineToken = token,
+            onlineUrl = enable && !string.IsNullOrWhiteSpace(token) ? QrUrl(urlBase, token) : null,
+        }));
+    }
+
+    public class QrOnlineToggleDto
+    {
+        public bool? Enabled { get; set; }
+        public bool? Rotate { get; set; }
+    }
+
+    public class QrOnlineStatusDto
+    {
+        public string? Status { get; set; }
+        /// <summary>Giao nội bộ thay vì tạo AWB hãng (khi chuyển shipping).</summary>
+        public bool? InternalDelivery { get; set; }
+    }
+
+    public class QrOnlineCompleteDto
+    {
+        public string? PaymentMethod { get; set; }
+        public decimal? PaidAmount { get; set; }
+    }
+
+    public class QrOnlineShipmentDto
+    {
+        public string? CarrierCode { get; set; }
+        public int? WeightGrams { get; set; }
+        public int? LengthCm { get; set; }
+        public int? WidthCm { get; set; }
+        public int? HeightCm { get; set; }
+        public decimal? CodAmount { get; set; }
+        public string? ServiceCode { get; set; }
+        public string? Note { get; set; }
+        public string? ShipFeePayer { get; set; }
+        public decimal? FixedShipFee { get; set; }
+    }
+
+    public class QrOnlineLookupDto
+    {
+        public string? Phone { get; set; }
+    }
+
+    [HttpGet("online-orders")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> ListOnlineOrders(
+        [FromQuery] string? status = null,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] string? q = null,
+        [FromQuery] Guid? productId = null)
+    {
+        var storeId = RequiredStoreId;
+        var statusFilter = string.IsNullOrWhiteSpace(status)
+            ? null
+            : QrOnlineOrderStatuses.Normalize(status);
+        var since = from ?? DateTime.UtcNow.AddDays(-45);
+        var until = (to ?? DateTime.UtcNow).Date.AddDays(1).AddTicks(-1);
+        if (until < since) until = since.AddDays(1);
+
+        var query = db.PosSaleOrders.AsNoTracking()
+            .Include(o => o.Lines)
+            .Where(o => o.StoreId == storeId && o.Deleted == null
+                && o.SalesChannel == QrOnlineOrderStatuses.Channel
+                && o.CreatedAt >= since && o.CreatedAt <= until);
+        if (statusFilter == QrOnlineOrderStatuses.Pending)
+        {
+            query = query.Where(o => o.Status != PosSaleOrderStatus.Cancelled
+                && (o.DeliveryStatus == null
+                    || o.DeliveryStatus == ""
+                    || o.DeliveryStatus == QrOnlineOrderStatuses.Pending));
+        }
+        else if (statusFilter != null)
+        {
+            query = query.Where(o => o.DeliveryStatus == statusFilter);
+        }
+
+        if (productId.HasValue && productId != Guid.Empty)
+        {
+            query = query.Where(o => o.Lines.Any(l => l.Deleted == null && l.ProductId == productId));
+        }
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var s = q.Trim().ToLower();
+            query = query.Where(o => o.OrderNo.ToLower().Contains(s)
+                || (o.CustomerName ?? "").ToLower().Contains(s)
+                || (o.DeliveryPhone ?? "").Contains(s)
+                || (o.DeliveryAddress ?? "").ToLower().Contains(s)
+                || o.Lines.Any(l => l.Deleted == null && l.ProductName.ToLower().Contains(s)));
+        }
+
+        var list = await query.OrderByDescending(o => o.CreatedAt).Take(200).ToListAsync();
+        var productFilters = list
+            .SelectMany(o => o.Lines.Where(l => l.Deleted == null))
+            .GroupBy(l => l.ProductId)
+            .Select(g =>
+            {
+                var raw = g.First().ProductName;
+                var dash = raw.IndexOf(" — ", StringComparison.Ordinal);
+                var name = dash > 0 ? raw[..dash].Trim() : raw.Trim();
+                return new { id = g.Key, name };
+            })
+            .OrderBy(p => p.name)
+            .ToList();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            statuses = QrOnlineOrderStatuses.All.Select(c => new
+            {
+                code = c,
+                label = QrOnlineOrderStatuses.Label(c),
+            }),
+            productFilters,
+            from = since,
+            to = until,
+            orders = list.Select(MapOnlineOrder),
+        }));
+    }
+
+    [HttpPost("online-orders/{id:guid}/status")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> SetOnlineOrderStatus(
+        Guid id, [FromBody] QrOnlineStatusDto? dto)
+    {
+        var storeId = RequiredStoreId;
+        var next = QrOnlineOrderStatuses.Normalize(dto?.Status);
+        if (!QrOnlineOrderStatuses.IsValid(next))
+            return BadRequest(AppResponse<object>.Fail("Trạng thái không hợp lệ"));
+
+        var order = await db.PosSaleOrders.AsTracking()
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null
+                && o.SalesChannel == QrOnlineOrderStatuses.Channel);
+        if (order == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn online"));
+
+        var prev = QrOnlineOrderStatuses.Normalize(order.DeliveryStatus);
+        if (prev == next)
+            return Ok(AppResponse<object>.Success(MapOnlineOrder(order)));
+
+        if (QrOnlineOrderStatuses.IsTerminal(prev) && next != prev)
+            return BadRequest(AppResponse<object>.Fail(
+                "Đơn đã kết thúc — không đổi trạng thái nữa"));
+
+        var now = DateTime.UtcNow;
+        order.DeliveryStatus = next;
+        order.UpdatedAt = now;
+        order.UpdatedBy = CurrentUserEmail;
+
+        if (next == QrOnlineOrderStatuses.Cancelled)
+        {
+            if (order.Status == PosSaleOrderStatus.Draft)
+            {
+                var prior = order.Lines.Where(l => l.Deleted == null)
+                    .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+                    .ToList();
+                if (prior.Count > 0)
+                {
+                    var settings = await db.PosStoreSellSettings.AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null);
+                    await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                        db, storeId, prior, [], settings?.AllowNegativeStock == true);
+                }
+                order.Status = PosSaleOrderStatus.Cancelled;
+            }
+            else if (order.Status == PosSaleOrderStatus.Completed)
+            {
+                // Đã thanh toán / trừ kho — hủy online phải hoàn kho + gỡ DT như Hủy hóa đơn.
+                var stockFullyReversed =
+                    await PosSaleStockHelper.IsSaleStockFullyReversedAsync(db, storeId, order);
+                if (!stockFullyReversed)
+                {
+                    var reversed = await PosSaleStockHelper.ReverseSaleOrderAsync(
+                        db, storeId, order, CurrentUserEmail);
+                    if (!reversed)
+                    {
+                        stockFullyReversed =
+                            await PosSaleStockHelper.IsSaleStockFullyReversedAsync(db, storeId, order);
+                        if (!stockFullyReversed)
+                            return BadRequest(AppResponse<object>.Fail(
+                                "Không hoàn được kho khi hủy đơn đã thanh toán"));
+                    }
+                }
+
+                await PosSaleStockHelper.ReverseCustomerOnSaleCancelAsync(db, storeId, order);
+                await PosCustomerFinanceHelper.ReversePointsOnSaleCancelAsync(
+                    db, storeId, order, CurrentUserEmail);
+                if (order.VoucherId.HasValue)
+                {
+                    var vch = await db.PosVouchers.AsTracking()
+                        .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
+                    if (vch != null && vch.UsedCount > 0)
+                    {
+                        vch.UsedCount -= 1;
+                        vch.UpdatedAt = now;
+                    }
+                }
+                await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(db, order);
+                await PosSaleWarrantyHelper.VoidOrderAsync(db, storeId, order.Id, CurrentUserEmail);
+                order.Status = PosSaleOrderStatus.Cancelled;
+            }
+        }
+
+        if (next == QrOnlineOrderStatuses.Delivered)
+            order.DeliveryDate ??= now;
+
+        var printJobs = 0;
+        // Luồng mới: pending → preparing (= «Xác nhận đơn»). Giữ pending → confirmed (cũ).
+        if (prev == QrOnlineOrderStatuses.Pending
+            && (next == QrOnlineOrderStatuses.Confirmed || next == QrOnlineOrderStatuses.Preparing))
+        {
+            var settings = await db.PosStoreSellSettings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null);
+            var opt = QrOrderLockHelper.Parse(settings?.ExtraJson);
+            if (opt.OnlineAutoPrintKitchen)
+            {
+                try
+                {
+                    printJobs = await TryEnqueueOnlineKitchenAsync(storeId, order.Id, DateTime.UtcNow);
+                }
+                catch
+                {
+                    // Đơn vẫn cập nhật — phiếu bếp có thể in lại thủ công.
+                }
+            }
+            await ApplyOnlineConfirmSideEffectsAsync(
+                storeId, order, opt, HttpContext.RequestAborted);
+        }
+
+        if (next == QrOnlineOrderStatuses.Shipping && prev != QrOnlineOrderStatuses.Shipping)
+        {
+            var settings = await db.PosStoreSellSettings.AsNoTracking()
+                .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null);
+            var opt = QrOrderLockHelper.Parse(settings?.ExtraJson);
+            var useInternal = dto?.InternalDelivery == true
+                || PosOnlineOrderHelper.IsInternalCarrier(opt.OnlineDefaultCarrierCode);
+            if (useInternal)
+            {
+                PosOnlineOrderHelper.MarkInternalDelivery(order, CurrentUserEmail);
+            }
+            else if (opt.OnlineAutoCreateShipment
+                     && !string.IsNullOrWhiteSpace(opt.OnlineDefaultCarrierCode)
+                     && string.IsNullOrWhiteSpace(order.DeliveryTrackingCode))
+            {
+                try
+                {
+                    var (ok, tracking, msg) = await PosOnlineOrderHelper.TryCreateShipmentAsync(
+                        shipping, db, storeId, order, opt.OnlineDefaultCarrierCode!,
+                        CurrentUserEmail, HttpContext.RequestAborted);
+                    if (!ok && !string.IsNullOrWhiteSpace(msg))
+                    { /* vận đơn thất bại — tạo lại thủ công */ }
+                    else if (ok && !string.IsNullOrWhiteSpace(tracking))
+                    { /* đã tạo vận đơn */ }
+                }
+                catch
+                {
+                    // Trạng thái vẫn cập nhật — tạo vận đơn lại thủ công.
+                }
+            }
+        }
+
+        await db.SaveChangesAsync();
+        PosFloorRealtimeHelper.Notify(hub, storeId, "qrOnlineStatus",
+            orderId: order.Id, tableName: "Online",
+            message: $"{order.OrderNo} · {QrOnlineOrderStatuses.Label(next)}");
+
+        return Ok(AppResponse<object>.Success(MapOnlineOrder(order)));
+    }
+
+    [HttpPost("online-orders/{id:guid}/complete")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.Approve)]
+    public async Task<ActionResult<AppResponse<object>>> CompleteOnlineOrder(
+        Guid id, [FromBody] QrOnlineCompleteDto? dto)
+    {
+        var storeId = RequiredStoreId;
+        var order = await db.PosSaleOrders.AsTracking()
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null
+                && o.SalesChannel == QrOnlineOrderStatuses.Channel);
+        if (order == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn online"));
+
+        var (ok, err) = await PosOnlineOrderHelper.TryCompleteAsCodAsync(
+            db, storeId, order, CurrentUserEmail, HttpContext.RequestAborted);
+        if (!ok)
+            return BadRequest(AppResponse<object>.Fail(err ?? "Không hoàn thành được đơn"));
+
+        if (dto?.PaidAmount is > 0)
+            order.PaidAmount = dto.PaidAmount.Value;
+        if (!string.IsNullOrWhiteSpace(dto?.PaymentMethod))
+            order.PaymentMethod = dto.PaymentMethod!.Trim();
+        await db.SaveChangesAsync();
+
+        PosFloorRealtimeHelper.Notify(hub, storeId, "saleCompleted",
+            orderId: order.Id, tableName: "Online", message: order.OrderNo);
+
+        return Ok(AppResponse<object>.Success(MapOnlineOrder(order)));
+    }
+
+    [HttpPost("online-orders/{id:guid}/shipment")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> CreateOnlineShipment(
+        Guid id, [FromBody] QrOnlineShipmentDto? dto)
+    {
+        var storeId = RequiredStoreId;
+        var order = await db.PosSaleOrders.AsTracking()
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null
+                && o.SalesChannel == QrOnlineOrderStatuses.Channel);
+        if (order == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn online"));
+
+        var code = (dto?.CarrierCode ?? "").Trim();
+        if (code.Length == 0)
+            return BadRequest(AppResponse<object>.Fail("Chọn đơn vị vận chuyển"));
+
+        var (ok, tracking, msg) = await PosOnlineOrderHelper.TryCreateShipmentAsync(
+            shipping, db, storeId, order, code, CurrentUserEmail, HttpContext.RequestAborted,
+            weightGrams: dto?.WeightGrams,
+            lengthCm: dto?.LengthCm,
+            widthCm: dto?.WidthCm,
+            heightCm: dto?.HeightCm,
+            codAmount: dto?.CodAmount,
+            serviceCode: dto?.ServiceCode,
+            note: dto?.Note,
+            shipFeePayer: dto?.ShipFeePayer,
+            fixedShipFee: dto?.FixedShipFee);
+        if (!ok)
+            return BadRequest(AppResponse<object>.Fail(msg ?? "Không tạo được vận đơn"));
+
+        await db.Entry(order).ReloadAsync();
+
+        if (QrOnlineOrderStatuses.Normalize(order.DeliveryStatus) is var st
+            && st != QrOnlineOrderStatuses.Shipping
+            && st != QrOnlineOrderStatuses.Delivered
+            && !QrOnlineOrderStatuses.IsTerminal(st))
+        {
+            order.DeliveryStatus = QrOnlineOrderStatuses.Shipping;
+        }
+        await db.SaveChangesAsync();
+
+        PosFloorRealtimeHelper.Notify(hub, storeId, "qrOnlineStatus",
+            orderId: order.Id, tableName: "Online",
+            message: $"{order.OrderNo} · vận đơn {(tracking ?? code)}");
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            order = MapOnlineOrder(order),
+            trackingCode = tracking,
+            message = msg,
+        }));
+    }
+
+    /// <summary>
+    /// Xóa mềm đơn online đã hủy (không còn hiện danh sách). Chỉ khi DeliveryStatus/Status = cancelled.
+    /// Nếu còn Status=Completed (bug cũ: hủy giao nhưng chưa hoàn kho) → hoàn kho/DT rồi mới xóa.
+    /// </summary>
+    [HttpDelete("online-orders/{id:guid}")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> DeleteCancelledOnlineOrder(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var order = await db.PosSaleOrders.AsTracking()
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null
+                && o.SalesChannel == QrOnlineOrderStatuses.Channel);
+        if (order == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn online"));
+
+        var delivery = QrOnlineOrderStatuses.Normalize(order.DeliveryStatus);
+        var cancelled = order.Status == PosSaleOrderStatus.Cancelled
+            || delivery == QrOnlineOrderStatuses.Cancelled;
+        if (!cancelled)
+            return BadRequest(AppResponse<object>.Fail(
+                "Chỉ xóa được đơn online đã hủy"));
+
+        var now = DateTime.UtcNow;
+
+        // Hybrid: DeliveryStatus=cancelled nhưng Status vẫn Completed → hoàn kho/DT trước.
+        if (order.Status == PosSaleOrderStatus.Completed)
+        {
+            var stockFullyReversed =
+                await PosSaleStockHelper.IsSaleStockFullyReversedAsync(db, storeId, order);
+            if (!stockFullyReversed)
+            {
+                var reversed = await PosSaleStockHelper.ReverseSaleOrderAsync(
+                    db, storeId, order, CurrentUserEmail);
+                if (!reversed)
+                {
+                    stockFullyReversed =
+                        await PosSaleStockHelper.IsSaleStockFullyReversedAsync(db, storeId, order);
+                    if (!stockFullyReversed)
+                        return BadRequest(AppResponse<object>.Fail(
+                            "Không hoàn được kho — không xóa đơn đã thanh toán"));
+                }
+            }
+
+            await PosSaleStockHelper.ReverseCustomerOnSaleCancelAsync(db, storeId, order);
+            await PosCustomerFinanceHelper.ReversePointsOnSaleCancelAsync(
+                db, storeId, order, CurrentUserEmail);
+            if (order.VoucherId.HasValue)
+            {
+                var vch = await db.PosVouchers.AsTracking()
+                    .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
+                if (vch != null && vch.UsedCount > 0)
+                {
+                    vch.UsedCount -= 1;
+                    vch.UpdatedAt = now;
+                }
+            }
+            await PosFinanceSyncHelper.ReverseSaleOnCancelAsync(db, order);
+            await PosSaleWarrantyHelper.VoidOrderAsync(db, storeId, order.Id, CurrentUserEmail);
+            order.Status = PosSaleOrderStatus.Cancelled;
+            order.DeliveryStatus = QrOnlineOrderStatuses.Cancelled;
+            order.UpdatedAt = now;
+            order.UpdatedBy = CurrentUserEmail;
+            await db.SaveChangesAsync();
+        }
+
+        var deleted = await db.PosSaleOrders
+            .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null
+                && o.SalesChannel == QrOnlineOrderStatuses.Channel)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(o => o.Deleted, now)
+                .SetProperty(o => o.UpdatedAt, now)
+                .SetProperty(o => o.UpdatedBy, CurrentUserEmail));
+
+        if (deleted == 0)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn hoặc đã xóa"));
+
+        PosFloorRealtimeHelper.Notify(hub, storeId, "qrOnlineDeleted",
+            orderId: id, tableName: "Online", message: order.OrderNo);
+
+        return Ok(AppResponse<object>.Success(new { deleted = true, orderNo = order.OrderNo }));
+    }
+
+    [HttpGet("vn-address/units")]
+    [AllowAnonymous]
+    public IActionResult VnAddressUnits()
+    {
+        var asm = typeof(PosQrTableOrderController).Assembly;
+        using var stream = asm.GetManifestResourceStream("Sbox.VnAdminUnits.json");
+        if (stream != null)
+        {
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            var bytes = ms.ToArray();
+            return File(bytes, "application/json; charset=utf-8");
+        }
+        var path = Path.Combine(env.WebRootPath, "data", "vn-admin-units.json");
+        if (System.IO.File.Exists(path))
+            return PhysicalFile(path, "application/json; charset=utf-8");
+        return NotFound(AppResponse<object>.Fail("Thiếu dữ liệu địa chỉ"));
+    }
+
+    [HttpPost("{token}/my-orders")]
+    [AllowAnonymous]
+    public async Task<ActionResult<AppResponse<object>>> GuestMyOrders(
+        string token, [FromBody] QrOnlineLookupDto? dto)
+    {
+        var ctx = await ResolveAnyAsync(token);
+        if (ctx.Error != null) return ctx.Error;
+        if (!ctx.Ctx!.IsOnline)
+            return BadRequest(AppResponse<object>.Fail(
+                "Chỉ tra cứu đơn trên link đặt hàng online"));
+
+        var digits = new string((dto?.Phone ?? "").Where(char.IsDigit).ToArray());
+        if (digits.Length is < 8 or > 15)
+            return BadRequest(AppResponse<object>.Fail("Nhập số điện thoại đã đặt hàng"));
+
+        var rateKey = $"qr-lookup:{token}:{digits}";
+        var n = cache.GetOrCreate(rateKey, e =>
+        {
+            e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1);
+            e.Size = 1;
+            return 0;
+        });
+        if (n >= 12)
+            return BadRequest(AppResponse<object>.Fail("Tra cứu quá nhanh — đợi một phút"));
+        cache.Set(rateKey, n + 1, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1),
+            Size = 1,
+        });
+
+        var storeId = ctx.Ctx.Store.Id;
+        var since = DateTime.UtcNow.AddDays(-30);
+        var orders = await db.PosSaleOrders.AsNoTracking()
+            .Include(o => o.Lines)
+            .Where(o => o.StoreId == storeId && o.Deleted == null
+                && o.SalesChannel == QrOnlineOrderStatuses.Channel
+                && o.CreatedAt >= since
+                && o.DeliveryPhone == digits)
+            .OrderByDescending(o => o.CreatedAt)
+            .Take(20)
+            .ToListAsync();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            phone = digits,
+            orders = orders.Select(MapOnlineOrder),
+        }));
+    }
+
+    static object MapOnlineOrder(PosSaleOrder o)
+    {
+        var status = QrOnlineOrderStatuses.Normalize(o.DeliveryStatus);
+        if (o.Status == PosSaleOrderStatus.Cancelled)
+            status = QrOnlineOrderStatuses.Cancelled;
+        var lines = o.Lines.Where(l => l.Deleted == null)
+            .Select(l => new
+            {
+                productId = l.ProductId,
+                name = l.ProductName,
+                qty = l.Qty,
+                unitPrice = l.UnitPrice,
+                lineTotal = l.LineTotal,
+                note = l.LineNote,
+            })
+            .ToList();
+        var isPaid = o.Status == PosSaleOrderStatus.Completed;
+        return new
+        {
+            id = o.Id,
+            orderNo = o.OrderNo,
+            status,
+            statusLabel = QrOnlineOrderStatuses.Label(status),
+            customerName = o.CustomerName,
+            phone = o.DeliveryPhone,
+            address = o.DeliveryAddress,
+            note = o.Note,
+            subTotal = o.SubTotal,
+            total = o.Total,
+            paidAmount = o.PaidAmount,
+            isPaid,
+            canPay = !isPaid && o.Status == PosSaleOrderStatus.Draft,
+            canPrintProvisional = o.Status == PosSaleOrderStatus.Draft,
+            createdAt = o.CreatedAt,
+            updatedAt = o.UpdatedAt,
+            saleStatus = o.Status.ToString(),
+            trackingCode = o.DeliveryTrackingCode,
+            deliveryPartner = o.DeliveryPartner,
+            deliveryCarrierCode = o.DeliveryCarrierCode,
+            lines,
+        };
+    }
+
+    async Task<string?> ApplyOnlineConfirmSideEffectsAsync(
+        Guid storeId,
+        PosSaleOrder order,
+        QrOrderLockHelper.Options opt,
+        CancellationToken ct)
+    {
+        string? msg = null;
+        if (opt.OnlineAutoPay && order.Status == PosSaleOrderStatus.Draft)
+        {
+            var (ok, err) = await PosOnlineOrderHelper.TryCompleteAsCodAsync(
+                db, storeId, order, CurrentUserEmail, ct);
+            if (ok)
+                msg = "Đã tự hoàn thành đơn (COD)";
+            else if (!string.IsNullOrWhiteSpace(err))
+                msg = err;
+        }
+        return msg;
+    }
+
+    sealed class QrTableCtx(Store Store, PosStoreSellSettings Settings, PosServiceResource? Resource)
     {
         public Store Store { get; } = Store;
-        public PosServiceResource Resource { get; } = Resource;
         public PosStoreSellSettings Settings { get; } = Settings;
+        public PosServiceResource? Resource { get; } = Resource;
+        public bool IsOnline => Resource == null;
     }
 
     sealed record QrToppingPick(Guid Id, string Name, decimal Price);
@@ -633,6 +1417,7 @@ public class PosQrTableOrderController(
     sealed record ResolvedQrLine(
         PosProduct Product,
         PosProductVariant? Variant,
+        PosProductUnit? Unit,
         decimal Qty,
         string? Note,
         string? ToppingsJson,
@@ -640,7 +1425,273 @@ public class PosQrTableOrderController(
         decimal UnitPrice,
         string LineName);
 
-    async Task<(ActionResult<AppResponse<object>>? Error, QrTableCtx? Table)>
+    async Task<ActionResult<AppResponse<object>>> SubmitOnlineAsync(
+        Store store,
+        PosStoreSellSettings settings,
+        List<ResolvedQrLine> items,
+        QrOrderSubmitDto? dto,
+        string token,
+        string reqId)
+    {
+        var name = (dto?.GuestName ?? "").Trim();
+        var phone = (dto?.GuestPhone ?? "").Trim();
+        var province = (dto?.GuestProvince ?? "").Trim();
+        var ward = (dto?.GuestWard ?? "").Trim();
+        var detail = (dto?.GuestAddressDetail ?? "").Trim();
+        var address = (dto?.GuestAddress ?? "").Trim();
+        if (address.Length < 5)
+        {
+            address = string.Join(", ",
+                new[] { detail, ward, province }.Where(x => x.Length > 0));
+        }
+        var extraNote = (dto?.GuestNote ?? "").Trim();
+        if (name.Length is < 2 or > 80)
+            return BadRequest(AppResponse<object>.Fail("Nhập họ tên người nhận (2–80 ký tự)"));
+        var digits = new string(phone.Where(char.IsDigit).ToArray());
+        if (digits.Length is < 8 or > 15)
+            return BadRequest(AppResponse<object>.Fail("Nhập số điện thoại liên hệ"));
+        if (province.Length < 2)
+            return BadRequest(AppResponse<object>.Fail("Chọn tỉnh / thành phố"));
+        if (ward.Length < 2)
+            return BadRequest(AppResponse<object>.Fail("Chọn phường / xã"));
+        if (detail.Length is < 3 or > 300)
+            return BadRequest(AppResponse<object>.Fail("Nhập địa chỉ chi tiết (số nhà, ngõ, tên đường)"));
+        if (address.Length is < 8 or > 400)
+            address = string.Join(", ", new[] { detail, ward, province });
+        if (dto?.Lat is double glat && dto.Lng is double glng
+            && glat is >= -90 and <= 90 && glng is >= -180 and <= 180)
+        {
+            var geo = $"GPS {glat:F5},{glng:F5}";
+            extraNote = string.IsNullOrWhiteSpace(extraNote) ? geo : $"{extraNote} · {geo}";
+        }
+        if (extraNote.Length > 200) extraNote = extraNote[..200];
+
+        var storeId = store.Id;
+        var lockOpt = QrOrderLockHelper.Parse(settings.ExtraJson);
+        var autoConfirm = lockOpt.OnlineAutoConfirm;
+        var autoPrintKitchen = lockOpt.OnlineAutoPrintKitchen;
+        var added = new List<(PosSaleOrderLine Line, decimal Qty, PosProduct Product)>();
+        PosSaleOrder? order = null;
+        var saved = false;
+        for (var attempt = 0; attempt < 5 && !saved; attempt++)
+        {
+            if (attempt > 0)
+                db.ChangeTracker.Clear();
+            added.Clear();
+            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
+            try
+            {
+                var now = DateTime.UtcNow;
+                var orderNo = await PosSaleStockHelper.NextOrderNoAsync(db, storeId, now);
+                var note = "QR online — quán gọi lại xác nhận.";
+                if (!string.IsNullOrWhiteSpace(extraNote))
+                    note = $"{note} {extraNote}";
+                order = new PosSaleOrder
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    OrderNo = orderNo,
+                    Status = PosSaleOrderStatus.Draft,
+                    PaymentMethod = "Liên hệ",
+                    CustomerName = name,
+                    IsDelivery = true,
+                    DeliveryAddress = address,
+                    DeliveryProvince = province,
+                    DeliveryWard = ward,
+                    DeliveryPhone = digits,
+                    DeliveryStatus = autoConfirm
+                        ? QrOnlineOrderStatuses.Confirmed
+                        : QrOnlineOrderStatuses.Pending,
+                    Note = note,
+                    SaleDate = now,
+                    SalesChannel = "QR online",
+                    IsActive = true,
+                    CreatedBy = "QR online",
+                    CreatedAt = now,
+                };
+                db.PosSaleOrders.Add(order);
+                foreach (var item in items)
+                {
+                    var p = item.Product;
+                    var line = new PosSaleOrderLine
+                    {
+                        Id = Guid.NewGuid(),
+                        StoreId = storeId,
+                        SaleOrderId = order.Id,
+                        ProductId = p.Id,
+                        ProductName = item.LineName,
+                        UnitName = item.Unit?.UnitName ?? p.BaseUnitName,
+                        VariantId = item.Variant?.Id,
+                        UnitId = item.Unit?.Id,
+                        Qty = item.Qty,
+                        UnitPrice = item.UnitPrice,
+                        LineTotal = Math.Round((item.UnitPrice + item.ToppingExtra) * item.Qty, 0, MidpointRounding.AwayFromZero),
+                        LineNote = item.Note,
+                        ToppingsJson = item.ToppingsJson,
+                        KitchenSentQty = 0,
+                        IsActive = true,
+                        CreatedBy = "QR online",
+                        CreatedAt = now,
+                    };
+                    db.PosSaleOrderLines.Add(line);
+                    order.Lines.Add(line);
+                    added.Add((line, item.Qty, p));
+                }
+
+                if (added.Count > 0)
+                {
+                    var deltaInputs = added
+                        .Select(a => (a.Product.Id, a.Qty, a.Line.VariantId, a.Line.UnitId, a.Line.ToppingsJson))
+                        .ToList();
+                    var reserveErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                        db, storeId, [], deltaInputs, settings.AllowNegativeStock);
+                    if (reserveErr != null)
+                    {
+                        await tx.RollbackAsync();
+                        return BadRequest(AppResponse<object>.Fail(reserveErr));
+                    }
+                }
+
+                await db.SaveChangesAsync();
+                var subTotal = order.Lines.Where(l => l.Deleted == null).Sum(l => l.LineTotal);
+                order.SubTotal = subTotal;
+                order.Total = Math.Max(0, subTotal - order.Discount);
+                order.LockVersion = 1;
+                order.UpdatedAt = now;
+                order.UpdatedBy = "QR online";
+                await db.SaveChangesAsync();
+                await tx.CommitAsync();
+                saved = true;
+            }
+            catch (Exception ex) when (attempt < 4 && IsQrConcurrencyFailure(ex))
+            {
+                await tx.RollbackAsync();
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        }
+
+        if (!saved || order == null)
+            return Conflict(AppResponse<object>.Fail("Không tạo được đơn — gửi lại"));
+
+        var printJobs = 0;
+        if (autoPrintKitchen && autoConfirm)
+        {
+            try
+            {
+                printJobs = await TryEnqueueOnlineKitchenAsync(storeId, order.Id, DateTime.UtcNow);
+            }
+            catch
+            {
+                // Đơn vẫn lưu — kiểm tra máy in / Agent.
+            }
+        }
+
+        if (autoConfirm)
+        {
+            try
+            {
+                await ApplyOnlineConfirmSideEffectsAsync(
+                    storeId, order, lockOpt, HttpContext.RequestAborted);
+                await db.SaveChangesAsync();
+            }
+            catch
+            {
+                // Đơn vẫn lưu — thanh toán thủ công trên POS.
+            }
+        }
+
+        PosFloorRealtimeHelper.Notify(hub, storeId, "qrOnlineOrder",
+            orderId: order.Id, tableName: "Online",
+            message: $"{name} · {digits}");
+
+        var orderTotal = added.Sum(x => x.Line.LineTotal);
+        await PosNotificationHelper.NotifyQrOnlineOrderAsync(
+            notificationService,
+            db,
+            storeId,
+            order.Id,
+            order.OrderNo,
+            name,
+            digits,
+            orderTotal,
+            HttpContext.RequestAborted);
+
+        var finalStatus = QrOnlineOrderStatuses.Normalize(order.DeliveryStatus);
+        var payload = new
+        {
+            ok = true,
+            orderNo = order.OrderNo,
+            addedLines = added.Count,
+            printJobs,
+            autoPrint = autoPrintKitchen && autoConfirm,
+            needsConfirm = !autoConfirm,
+            channel = "online",
+            orderId = order.Id,
+            onlineStatus = finalStatus,
+            onlineStatusLabel = QrOnlineOrderStatuses.Label(finalStatus),
+            message = autoConfirm
+                ? (printJobs > 0
+                    ? "Đã xác nhận đơn — phiếu bếp đã gửi in"
+                    : autoPrintKitchen
+                        ? "Đã xác nhận đơn — chưa in được phiếu bếp (kiểm tra máy in)"
+                        : "Đã xác nhận đơn")
+                : "Đã gửi đơn. Quán sẽ gọi lại để xác nhận.",
+        };
+        if (reqId.Length is > 8 and < 80)
+            cache.Set($"qr-req:{token}:{reqId}", payload, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
+                Size = 1,
+            });
+        return Ok(AppResponse<object>.Success(payload));
+    }
+
+    async Task<(ActionResult<AppResponse<object>>? Error, QrTableCtx? Ctx)>
+        RequireDineInAsync(string token)
+    {
+        var any = await ResolveAnyAsync(token);
+        if (any.Error != null) return any;
+        if (any.Ctx!.IsOnline)
+            return (BadRequest(AppResponse<object>.Fail(
+                "Đơn online — quán sẽ gọi lại, không dùng chức năng tại bàn")), null);
+        return any;
+    }
+
+    async Task<(ActionResult<AppResponse<object>>? Error, QrTableCtx? Ctx)>
+        ResolveAnyAsync(string token)
+    {
+        token = (token ?? "").Trim();
+        if (token.Length is < 8 or > 32)
+            return (NotFound(AppResponse<object>.Fail("Mã QR không hợp lệ")), null);
+
+        var table = await ResolveTableAsync(token);
+        if (table.Error == null && table.Ctx != null)
+            return table;
+
+        var hits = await db.PosStoreSellSettings.AsNoTracking()
+            .Where(s => s.Deleted == null && s.ExtraJson != null && s.ExtraJson.Contains(token))
+            .ToListAsync();
+        foreach (var s in hits)
+        {
+            var opt = QrOrderLockHelper.Parse(s.ExtraJson);
+            if (!opt.EnableOnline) continue;
+            if (!string.Equals((opt.OnlineToken ?? "").Trim(), token, StringComparison.Ordinal))
+                continue;
+            var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(x => x.Id == s.StoreId);
+            if (store == null) continue;
+            return (null, new QrTableCtx(store, s, null));
+        }
+
+        return table.Error != null
+            ? table
+            : (NotFound(AppResponse<object>.Fail("Không tìm thấy mã QR")), null);
+    }
+
+    async Task<(ActionResult<AppResponse<object>>? Error, QrTableCtx? Ctx)>
         ResolveTableAsync(string token)
     {
         token = (token ?? "").Trim();
@@ -658,7 +1709,7 @@ public class PosQrTableOrderController(
         var store = await db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == resource.StoreId);
         if (store == null)
             return (NotFound(AppResponse<object>.Fail("Không tìm thấy cửa hàng")), null);
-        return (null, new QrTableCtx(store, resource, settings));
+        return (null, new QrTableCtx(store, settings, resource));
     }
 
     async Task<ActionResult<AppResponse<object>>?> EnforceQrGuestAsync(
@@ -682,8 +1733,11 @@ public class PosQrTableOrderController(
         return null;
     }
 
-    async Task<object> BuildMenuAsync(Store store, PosServiceResource resource, PosStoreSellSettings settings)
+    async Task<object> BuildMenuAsync(Store store, PosServiceResource? resource, PosStoreSellSettings settings, bool online = false)
     {
+        var useCustomMenu = PosQrMenuService.UseCustomMenu(settings.ExtraJson);
+        var menuMap = await qrMenu.LoadMapAsync(store.Id);
+
         var products = await db.PosProducts.AsNoTracking()
             .Include(p => p.Category)
             .Where(p => p.StoreId == store.Id && p.Deleted == null && p.IsActive && p.IsDirectSale
@@ -692,6 +1746,8 @@ public class PosQrTableOrderController(
                 && !(p.ProductType == PosProductType.Service && p.ServiceBillingMode != PosServiceBillingMode.Flat))
             .OrderBy(p => p.SortOrder).ThenBy(p => p.Name)
             .ToListAsync();
+
+        products = PosQrMenuService.FilterProducts(products, menuMap, useCustomMenu, online);
 
         var productIds = products.Select(p => p.Id).ToList();
         var variants = productIds.Count == 0
@@ -704,6 +1760,17 @@ public class PosQrTableOrderController(
         var variantsByProduct = variants.GroupBy(v => v.ProductId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        var saleUnits = productIds.Count == 0
+            ? []
+            : await db.PosProductUnits.AsNoTracking()
+                .Where(u => productIds.Contains(u.ProductId) && u.StoreId == store.Id
+                    && u.Deleted == null && u.IsDirectSale)
+                .OrderByDescending(u => u.IsBaseUnit)
+                .ThenBy(u => u.ConversionRate)
+                .ToListAsync();
+        var unitsByProduct = saleUnits.GroupBy(u => u.ProductId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var toppingCatalog = await LoadToppingCatalogGroupedAsync(store.Id, productIds);
 
         var cats = products
@@ -714,159 +1781,196 @@ public class PosQrTableOrderController(
             .ToList();
 
         Guid? orderId = null;
-        var session = await db.PosResourceSessions.AsNoTracking()
-            .Where(s => s.ResourceId == resource.Id && s.Deleted == null
-                && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused))
-            .OrderByDescending(s => s.StartedAt)
-            .FirstOrDefaultAsync();
         object? bill = null;
         PosSaleOrder? openOrder = null;
         decimal billPayable = 0;
-        if (session?.SaleOrderId is Guid oid)
+        if (!online && resource != null)
         {
-            orderId = oid;
-            openOrder = await db.PosSaleOrders.AsNoTracking().Include(o => o.Lines)
-                .FirstOrDefaultAsync(o => o.Id == oid && o.Deleted == null && o.Status == PosSaleOrderStatus.Draft);
-            if (openOrder != null)
+            var session = await db.PosResourceSessions.AsNoTracking()
+                .Where(s => s.ResourceId == resource.Id && s.Deleted == null
+                    && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused))
+                .OrderByDescending(s => s.StartedAt)
+                .FirstOrDefaultAsync();
+            if (session?.SaleOrderId is Guid oid)
             {
-                var started = openOrder.ServiceStartedAt ?? openOrder.SaleDate ?? openOrder.CreatedAt;
-                var vn = VnTimeHelper.UtcToVn(started);
-                var vis = openOrder.Lines.Where(l => l.Deleted == null).ToList();
-                var lines = vis.Select(l =>
+                orderId = oid;
+                openOrder = await db.PosSaleOrders.AsNoTracking().Include(o => o.Lines)
+                    .FirstOrDefaultAsync(o => o.Id == oid && o.Deleted == null && o.Status == PosSaleOrderStatus.Draft);
+                if (openOrder != null)
                 {
-                    var qty = l.Qty;
-                    var unit = qty > 0
-                        ? Math.Round(l.LineTotal / qty, 0, MidpointRounding.AwayFromZero)
-                        : l.UnitPrice;
-                    return new
+                    var started = openOrder.ServiceStartedAt ?? openOrder.SaleDate ?? openOrder.CreatedAt;
+                    var vn = VnTimeHelper.UtcToVn(started);
+                    var vis = openOrder.Lines.Where(l => l.Deleted == null).ToList();
+                    var lines = vis.Select(l =>
                     {
-                        name = l.ProductName,
-                        qty,
-                        unitName = l.UnitName,
-                        unitPrice = unit,
-                        lineTotal = l.LineTotal,
-                        note = KitchenNoteText(l.ToppingsJson, l.LineNote),
+                        var qty = l.Qty;
+                        var unit = qty > 0
+                            ? Math.Round(l.LineTotal / qty, 0, MidpointRounding.AwayFromZero)
+                            : l.UnitPrice;
+                        return new
+                        {
+                            name = l.ProductName,
+                            qty,
+                            unitName = l.UnitName,
+                            unitPrice = unit,
+                            lineTotal = l.LineTotal,
+                            note = KitchenNoteText(l.ToppingsJson, l.LineNote),
+                        };
+                    }).ToList();
+                    var linesTotal = vis.Sum(l => l.LineTotal);
+                    var discount = Math.Max(0, openOrder.Discount);
+                    var net = Math.Max(0, linesTotal - discount);
+                    var einv = await db.PosEInvoiceSettings.AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.StoreId == store.Id && x.Deleted == null);
+                    var tax = QrOrderTaxHelper.Resolve(settings.ExtraJson, einv);
+                    var pids = vis.Select(l => l.ProductId).Distinct().ToList();
+                    var productTax = pids.Count == 0
+                        ? new Dictionary<Guid, (decimal Rate, bool Exempt)>()
+                        : await db.PosProducts.AsNoTracking()
+                            .Where(p => pids.Contains(p.Id))
+                            .ToDictionaryAsync(p => p.Id, p => (Rate: p.VatRate, Exempt: p.VatExempt));
+                    var taxLines = vis.Select(l =>
+                    {
+                        productTax.TryGetValue(l.ProductId, out var pt);
+                        return (l.LineTotal, pt.Rate, pt.Exempt);
+                    }).ToList();
+                    var (vat, payable) = QrOrderTaxHelper.Compute(tax, net, taxLines);
+                    billPayable = payable;
+                    bill = new
+                    {
+                        title = "HÓA ĐƠN TẠM TÍNH",
+                        unpaid = true,
+                        storeName = store.Name,
+                        storeAddress = store.Address,
+                        storePhone = store.Phone,
+                        tableName = resource.Name,
+                        areaName = resource.Area?.Name,
+                        orderNo = openOrder.OrderNo,
+                        dateText = vn.ToString("dd/MM/yyyy"),
+                        timeText = vn.ToString("HH:mm"),
+                        guestCount = session.GuestCount,
+                        lines,
+                        subTotal = linesTotal,
+                        discount,
+                        vatAmount = vat,
+                        vatRate = tax.VatRate,
+                        taxMode = tax.Mode,
+                        total = payable,
                     };
-                }).ToList();
-                var linesTotal = vis.Sum(l => l.LineTotal);
-                var discount = Math.Max(0, openOrder.Discount);
-                var net = Math.Max(0, linesTotal - discount);
-                var einv = await db.PosEInvoiceSettings.AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.StoreId == store.Id && x.Deleted == null);
-                var tax = QrOrderTaxHelper.Resolve(settings.ExtraJson, einv);
-                var pids = vis.Select(l => l.ProductId).Distinct().ToList();
-                var productTax = pids.Count == 0
-                    ? new Dictionary<Guid, (decimal Rate, bool Exempt)>()
-                    : await db.PosProducts.AsNoTracking()
-                        .Where(p => pids.Contains(p.Id))
-                        .ToDictionaryAsync(p => p.Id, p => (Rate: p.VatRate, Exempt: p.VatExempt));
-                var taxLines = vis.Select(l =>
-                {
-                    productTax.TryGetValue(l.ProductId, out var pt);
-                    return (l.LineTotal, pt.Rate, pt.Exempt);
-                }).ToList();
-                var (vat, payable) = QrOrderTaxHelper.Compute(tax, net, taxLines);
-                billPayable = payable;
-                bill = new
-                {
-                    title = "HÓA ĐƠN TẠM TÍNH",
-                    unpaid = true,
-                    storeName = store.Name,
-                    storeAddress = store.Address,
-                    storePhone = store.Phone,
-                    tableName = resource.Name,
-                    areaName = resource.Area?.Name,
-                    orderNo = openOrder.OrderNo,
-                    dateText = vn.ToString("dd/MM/yyyy"),
-                    timeText = vn.ToString("HH:mm"),
-                    guestCount = session.GuestCount,
-                    lines,
-                    subTotal = linesTotal,
-                    discount,
-                    vatAmount = vat,
-                    vatRate = tax.VatRate,
-                    taxMode = tax.Mode,
-                    total = payable,
-                };
+                }
             }
         }
 
         var lockOpt = QrOrderLockHelper.Parse(settings.ExtraJson);
         var tableOpen = openOrder != null;
-        var geoConfigured = await db.Geofences.AsNoTracking()
+        var geoConfigured = !online && await db.Geofences.AsNoTracking()
             .AnyAsync(g => g.StoreId == store.Id && g.Deleted == null && g.IsActive);
-        var canOrder = !lockOpt.RequireOpenSession || tableOpen;
+        var canOrder = online || !lockOpt.RequireOpenSession || tableOpen;
         string? lockMessage = canOrder
             ? null
             : "Thu ngân chưa mở bàn — chưa gọi món được";
         var lockInfo = new
         {
-            requireOpenSession = lockOpt.RequireOpenSession,
+            requireOpenSession = online ? false : lockOpt.RequireOpenSession,
             tableOpen,
-            requireGeofence = lockOpt.RequireGeofence,
+            requireGeofence = online ? false : lockOpt.RequireGeofence,
             geoConfigured,
             canOrder,
             message = lockMessage,
         };
 
         object? payment = null;
-        var bank = await db.BankAccounts.AsNoTracking()
-            .Where(x => x.StoreId == store.Id && x.IsActive && x.Deleted == null)
-            .OrderByDescending(x => x.IsDefault)
-            .ThenBy(x => x.BankName)
-            .FirstOrDefaultAsync();
-        if (bank != null)
+        if (!online && resource != null)
         {
-            var amount = billPayable;
-            var addInfo = QrAddInfo(resource.Code ?? resource.Name, openOrder?.OrderNo);
-            var qrUrl = VietQRBanks.GenerateVietQRUrl(
-                bank.BankCode,
-                bank.AccountNumber,
-                amount > 0 ? amount : null,
-                addInfo,
-                string.IsNullOrWhiteSpace(bank.VietQRTemplate) ? "compact2" : bank.VietQRTemplate);
-            payment = new
+            var bank = await db.BankAccounts.AsNoTracking()
+                .Where(x => x.StoreId == store.Id && x.IsActive && x.Deleted == null)
+                .OrderByDescending(x => x.IsDefault)
+                .ThenBy(x => x.BankName)
+                .FirstOrDefaultAsync();
+            if (bank != null)
             {
-                qrUrl,
-                amount,
-                addInfo,
-                bankName = bank.BankShortName ?? bank.BankName,
-                accountName = bank.AccountName,
-                accountNumber = bank.AccountNumber,
-                orderNo = openOrder?.OrderNo,
-            };
+                var amount = billPayable;
+                var addInfo = QrAddInfo(resource.Code ?? resource.Name, openOrder?.OrderNo);
+                var qrUrl = VietQRBanks.GenerateVietQRUrl(
+                    bank.BankCode,
+                    bank.AccountNumber,
+                    amount > 0 ? amount : null,
+                    addInfo,
+                    string.IsNullOrWhiteSpace(bank.VietQRTemplate) ? "compact2" : bank.VietQRTemplate);
+                payment = new
+                {
+                    qrUrl,
+                    amount,
+                    addInfo,
+                    bankName = bank.BankShortName ?? bank.BankName,
+                    accountName = bank.AccountName,
+                    accountNumber = bank.AccountNumber,
+                    orderNo = openOrder?.OrderNo,
+                };
+            }
         }
 
+        var brand = QrOrderLockHelper.ParseBrand(settings.ExtraJson);
+        var qrOpt = QrOrderLockHelper.Parse(settings.ExtraJson);
+        var urlBase = PublicBase();
         return new
         {
+            channel = online ? "online" : "table",
             storeName = store.Name,
-            tableName = resource.Name,
-            areaName = resource.Area?.Name,
-            tableCode = resource.Code,
+            storePhone = store.Phone,
+            storeZalo = qrOpt.StoreZalo ?? store.Phone,
+            storeAddress = store.Address,
+            storeProvince = store.Province,
+            logoUrl = PublicMediaUrl(urlBase, brand.LogoUrl),
+            defaultLogoUrl = $"{urlBase.TrimEnd('/')}/api/pos/qr-order/brand/default-logo",
+            banners = brand.Banners.Select(b => PublicMediaUrl(urlBase, b)).Where(x => x != null),
+            tableName = online ? "Đặt online" : resource?.Name,
+            areaName = online ? null : resource?.Area?.Name,
+            tableCode = online ? null : resource?.Code,
             autoPrintKitchen = settings.EnableQrOrderAutoPrint,
+            useCustomMenu,
             categories = cats,
             products = products.Select(p =>
             {
+                menuMap.TryGetValue(p.Id, out var menuItem);
                 var pVars = variantsByProduct.GetValueOrDefault(p.Id) ?? [];
+                var pUnits = unitsByProduct.GetValueOrDefault(p.Id) ?? [];
                 toppingCatalog.TryGetValue(p.Id, out var tops);
+                var exposeUnits = pVars.Count == 0 && pUnits.Count > 0
+                    ? (pUnits.Count > 1 ? pUnits : pUnits.Where(u => !u.IsBaseUnit).ToList())
+                    : [];
                 var soldOut = !settings.AllowNegativeStock
                     && p.ProductType == PosProductType.Goods
                     && pVars.Count == 0
+                    && exposeUnits.Count == 0
                     && (p.OnHandQty - p.ReservedQty) <= 0;
+                var storePrice = p.BasePrice;
+                var displayPrice = PosQrMenuService.ResolveProductPrice(p, menuItem);
                 return new
                 {
                     id = p.Id,
                     name = p.Name,
-                    price = p.BasePrice,
-                    imageUrl = p.ImageUrl,
+                    price = displayPrice,
+                    storePrice,
+                    customPrice = menuItem?.QrPrice,
+                    imageUrl = PublicMediaUrl(urlBase, p.ImageUrl),
                     categoryId = p.CategoryId,
                     soldOut,
                     variants = pVars.Select(v => new
                     {
                         id = v.Id,
                         name = v.Name,
-                        price = v.BasePrice,
+                        price = PosQrMenuService.ResolveVariantPrice(p, v, menuItem),
                         soldOut = !settings.AllowNegativeStock && v.OnHandQty <= 0,
+                    }),
+                    units = exposeUnits.Select(u => new
+                    {
+                        id = u.Id,
+                        name = u.UnitName,
+                        price = PosQrMenuService.ResolveUnitPrice(p, u, menuItem),
+                        soldOut = !settings.AllowNegativeStock
+                            && p.ProductType == PosProductType.Goods
+                            && QrUnitAvailQty(p, u) <= 0,
                     }),
                     toppings = (tops?.Direct ?? []).Select(t => new { id = t.Id, name = t.Name, price = t.Price }),
                     toppingGroups = (tops?.Groups ?? []).Select(g => new
@@ -889,6 +1993,51 @@ public class PosQrTableOrderController(
         PosSaleOrder order,
         List<(PosSaleOrderLine Line, decimal Qty, PosProduct Product)> added,
         DateTime now)
+        => await EnqueueKitchenSlipAsync(
+            storeId, order, TableLabel(resource), added, now);
+
+    async Task<int> TryEnqueueOnlineKitchenAsync(
+        Guid storeId,
+        Guid orderId,
+        DateTime now)
+    {
+        var order = await db.PosSaleOrders.AsTracking()
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == orderId && o.StoreId == storeId && o.Deleted == null);
+        if (order == null) return 0;
+        var lines = order.Lines.Where(l => l.Deleted == null).ToList();
+        if (lines.Count == 0) return 0;
+        var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
+        var products = await db.PosProducts.AsNoTracking()
+            .Include(p => p.Category)
+            .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .ToDictionaryAsync(p => p.Id);
+        var added = new List<(PosSaleOrderLine Line, decimal Qty, PosProduct Product)>();
+        foreach (var line in lines)
+        {
+            if (!products.TryGetValue(line.ProductId, out var p)) continue;
+            var pending = line.Qty - line.KitchenSentQty;
+            if (pending <= 0) continue;
+            line.KitchenSentQty = line.Qty;
+            line.KitchenSentAt = now;
+            PosKitchenKdsHelper.OnSent(line);
+            added.Add((line, pending, p));
+        }
+        if (added.Count == 0) return 0;
+        await db.SaveChangesAsync();
+        var label = string.IsNullOrWhiteSpace(order.CustomerName)
+            ? "Đơn online"
+            : $"Online · {order.CustomerName}";
+        return await EnqueueKitchenSlipAsync(storeId, order, label, added, now, "Đơn online");
+    }
+
+    async Task<int> EnqueueKitchenSlipAsync(
+        Guid storeId,
+        PosSaleOrder order,
+        string tableName,
+        List<(PosSaleOrderLine Line, decimal Qty, PosProduct Product)> added,
+        DateTime now,
+        string senderName = "QR khách")
     {
         var fallback = await dispatch.ResolvePrinterAsync(storeId, PosPrintDocumentType.KitchenSlip);
         var groups = new Dictionary<Guid, List<(string Name, decimal Qty, string? Unit, string? Note)>>();
@@ -913,16 +2062,17 @@ public class PosQrTableOrderController(
                     KitchenNoteText(r.Line.ToppingsJson, r.Line.LineNote))).ToList();
         }
 
-        var tableName = TableLabel(resource);
+        var tbl = tableName.Trim();
+        if (tbl.Length == 0) tbl = "QR";
         var jobs = 0;
         var stamp = now.ToString("HHmmss");
         foreach (var g in groups)
         {
             var payload = JsonSerializer.Serialize(new
             {
-                tableName,
+                tableName = tbl,
                 isCancel = false,
-                senderName = "QR khách",
+                senderName,
                 orderNo = order.OrderNo ?? "",
                 sentAt = now.ToUniversalTime().ToString("o"),
                 lines = g.Value.Select(l => new
@@ -943,7 +2093,7 @@ public class PosQrTableOrderController(
                 refNo,
                 order.Id,
                 null,
-                "QR khách",
+                senderName,
                 g.Key));
             jobs++;
         }
@@ -1154,6 +2304,22 @@ public class PosQrTableOrderController(
         return reader.ReadToEnd();
     }
 
+    string? ResolveDefaultLogoPath()
+    {
+        foreach (var path in new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "guest", "sbox-pos-logo.png"),
+            Path.Combine(env.ContentRootPath, "guest", "sbox-pos-logo.png"),
+            Path.Combine(env.WebRootPath ?? "wwwroot", "assets", "sbox-pos-logo.png"),
+            Path.Combine(env.ContentRootPath, "wwwroot", "assets", "sbox-pos-logo.png"),
+        })
+        {
+            if (System.IO.File.Exists(path))
+                return path;
+        }
+        return null;
+    }
+
     string PublicBase()
     {
         var cfg = (config["PublicWebBaseUrl"] ?? "").Trim().TrimEnd('/');
@@ -1167,6 +2333,41 @@ public class PosQrTableOrderController(
     {
         var root = string.IsNullOrWhiteSpace(publicBase) ? PublicBase() : publicBase.TrimEnd('/');
         return $"{root}/o/{token}";
+    }
+
+    string? PublicMediaUrl(string publicBase, string? path)
+    {
+        var p = (path ?? "").Trim();
+        if (p.Length == 0) return null;
+        if (p.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || p.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            if (p.Contains("/api/upload/serve", StringComparison.OrdinalIgnoreCase))
+                return p.Replace("/api/upload/serve", "/api/upload/public-serve",
+                    StringComparison.OrdinalIgnoreCase);
+            return p;
+        }
+        p = p.TrimStart('/');
+        var root = string.IsNullOrWhiteSpace(publicBase) ? PublicBase() : publicBase.TrimEnd('/');
+        return $"{root}/api/upload/public-serve?path={Uri.EscapeDataString(p)}";
+    }
+
+    static decimal ResolveQrUnitPrice(PosProduct product, PosProductUnit unit)
+    {
+        var rate = unit.ConversionRate > 0 ? unit.ConversionRate : 1;
+        var configured = unit.BasePrice;
+        var basePrice = product.BasePrice;
+        if (rate > 1 && basePrice > 0
+            && (configured <= 0 || Math.Abs(configured - basePrice) < 0.01m))
+            return Math.Round(basePrice * rate, 0, MidpointRounding.AwayFromZero);
+        if (configured > 0) return configured;
+        return Math.Round(basePrice * rate, 0, MidpointRounding.AwayFromZero);
+    }
+
+    static decimal QrUnitAvailQty(PosProduct product, PosProductUnit unit)
+    {
+        var rate = unit.ConversionRate > 0 ? unit.ConversionRate : 1;
+        return (product.OnHandQty - product.ReservedQty) / rate;
     }
 
     static string NewToken() => Guid.NewGuid().ToString("N")[..12];

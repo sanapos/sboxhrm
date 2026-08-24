@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="robots" content="noindex, nofollow" />
-  <meta name="theme-color" content="#C2410C" />
+  <meta name="theme-color" content="#0F766E" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Gọi món tại bàn</title>
@@ -14,19 +14,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --ink: #1C1917;
-      --muted: #78716C;
-      --line: #E7E0D8;
-      --bg: #F6F1EA;
-      --card: #FFFcf8;
-      --terra: #C2410C;
-      --terra-deep: #9A3412;
-      --terra-soft: #FFEDD5;
-      --ok: #3F6F54;
-      --ok-soft: #E8F3EC;
-      --danger: #B91C1C;
-      --shadow: 0 10px 28px rgba(28, 25, 23, .08);
+      --ink: #0F172A;
+      --muted: #64748B;
+      --line: #E2E8F0;
+      --bg: #F8FAFC;
+      --card: #FFFFFF;
+      --accent: #0F766E;
+      --accent-deep: #0D9488;
+      --accent-soft: #CCFBF1;
+      --ok: #15803D;
+      --ok-soft: #DCFCE7;
+      --danger: #DC2626;
+      --shadow: 0 8px 24px rgba(15, 23, 42, .06);
       --safe-b: env(safe-area-inset-bottom, 0px);
+      /* legacy aliases used in JS-built HTML */
+      --terra: var(--accent);
+      --terra-deep: var(--accent-deep);
+      --terra-soft: var(--accent-soft);
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; min-height: 100%; }
@@ -37,21 +41,161 @@
     }
     button { font-family: inherit; cursor: pointer; }
     input { font-family: inherit; }
-    .hero {
-      position: sticky; top: 0; z-index: 8;
-      background: linear-gradient(160deg, #C2410C 0%, #EA580C 58%, #F97316 100%);
-      color: #fff;
-      padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 18px;
-      box-shadow: 0 8px 24px rgba(194, 65, 12, .28);
+    .brand {
+      background: #fff;
+      padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
+      box-shadow: 0 8px 20px rgba(28, 25, 23, .06);
     }
-    .hero-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .hero h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
-    .hero .sub { margin: 6px 0 0; font-size: 13px; opacity: .92; font-weight: 500; }
+    .brand-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .brand-id { display: flex; gap: 12px; align-items: center; min-width: 0; flex: 1; }
+    .logo-slot {
+      width: 64px; height: 64px; flex: none; position: relative; flex-shrink: 0;
+    }
+    .logo-slot .logo {
+      width: 100%; height: 100%; border-radius: 18px; object-fit: cover;
+      background: linear-gradient(135deg, #F5E6D3, #E7D3BE); border: 1px solid var(--line);
+    }
+    .logo-slot .logo.ph {
+      display: grid; place-items: center; font-weight: 800; color: var(--terra-deep); font-size: 22px;
+    }
+    .logo-slot .logo[hidden] { display: none !important; }
+    .brand h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -.03em; line-height: 1.2; }
+    .brand .sub { margin: 4px 0 0; font-size: 13px; color: var(--muted); font-weight: 600; }
+    .store-meta { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .meta-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #F5F0EA; border: 1px solid var(--line); border-radius: 999px;
+      padding: 6px 12px; font-size: 12px; font-weight: 650; color: var(--ink);
+      text-decoration: none; line-height: 1.3;
+    }
+    .store-meta a.meta-chip:hover { background: var(--terra-soft); }
+    .meta-line { display: none; }
+    .shop-contact { display: none !important; }
+    body.channel-online .track-entry { display: none !important; }
+    body.channel-online .store-meta { margin-top: 8px; }
+    body.channel-online .meta-chip {
+      background: #fff; border-color: var(--line); font-weight: 600;
+    }
+    .track-link {
+      display: none; border: 0; background: transparent; color: var(--accent);
+      font-weight: 700; font-size: 13px; padding: 0; text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    body.channel-online .track-link { display: inline; }
+    .guest-section .geo-btn {
+      width: auto; padding: 8px 12px; font-size: 13px; margin-top: 4px;
+    }
+    body.channel-online .dock {
+      background: var(--accent); box-shadow: 0 14px 32px rgba(15, 118, 110, .28);
+    }
+    body.channel-online .dock .count { background: rgba(255,255,255,.22); }
+    body.channel-online .dock .go {
+      background: #fff; color: var(--accent-deep);
+    }
+    .item { border: 1px solid var(--line); box-shadow: none; }
+    .cats button.on { background: var(--accent); border-color: var(--accent); }
+    .pick, .qty button, .icon-btn { background: var(--accent-soft); color: var(--accent-deep); }
+    .pick { background: var(--accent); color: #fff; }
+    .price { color: var(--accent-deep); }
+    .section-title { color: var(--accent-deep); text-transform: none; letter-spacing: 0; font-weight: 800; }
+    .chip { background: var(--accent-soft); color: var(--accent-deep); border-color: #99F6E4; }
+    .logo-slot .logo {
+      background: linear-gradient(135deg, #CCFBF1, #E0F2FE); border: 1px solid var(--line);
+    }
+    .logo-slot .logo.ph { color: var(--accent-deep); }
+    .shop-bg::after {
+      background: linear-gradient(180deg, rgba(248,250,252,.9) 0%, rgba(248,250,252,.97) 50%, #F8FAFC 100%);
+    }
+    .search-wrap input { box-shadow: 0 4px 14px rgba(15, 23, 42, .05); }
+    .fab { background: var(--accent); box-shadow: 0 10px 24px rgba(15, 118, 110, .3); }
+    .fab-menu button:active { background: var(--accent-soft); }
+    .fab-ico { background: var(--accent-soft); color: var(--accent-deep); }
+    .lock-banner { background: #FEF9C3; color: #854D0E; }
+    .track-entry button {
+      border: 1px solid var(--line); background: #fff; color: var(--ink);
+      border-radius: 14px; padding: 12px 14px; font-weight: 700; font-size: 14px;
+    }
+    .meta-chip {
+      background: #fff; border: 1px solid var(--line); border-radius: 999px;
+      padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--ink);
+    }
+    .store-meta a.meta-chip:hover { background: var(--accent-soft); }
+    .brand { box-shadow: 0 4px 16px rgba(15, 23, 42, .04); }
+    .cart-panel { display: flex; flex-direction: column; gap: 14px; max-height: min(72vh, 560px); overflow: auto; }
+    .cart-section, .guest-section {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: #FFFCF8;
+    }
+    .guest-section { background: #F8FAFC; }
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+      color: var(--terra-deep);
+    }
+    .cart-summary {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--line);
+      display: flex;
+      justify-content: space-between;
+      font-weight: 800;
+    }
+    .promo-wrap { display: none !important; }
+    .shop-bg {
+      position: fixed; inset: 0; z-index: -1;
+      background-size: cover; background-position: center center;
+      pointer-events: none;
+    }
+    .shop-bg::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(246,241,234,.88) 0%, rgba(246,241,234,.96) 45%, rgba(246,241,234,.98) 100%);
+    }
+    .promo-popup {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(28,25,23,.52);
+      display: flex; align-items: center; justify-content: center; padding: 12px;
+    }
+    .promo-popup .card {
+      background: #fff; border-radius: 20px; overflow: hidden;
+      max-width: min(680px, 96vw); width: 100%; max-height: 94vh;
+      position: relative; display: flex; flex-direction: column;
+      box-shadow: var(--shadow);
+    }
+    .promo-popup img {
+      width: 100%; display: block;
+      max-height: min(88vh, 900px);
+      object-fit: contain; background: #1C1917;
+    }
+    .promo-popup .close {
+      position: absolute; top: 10px; right: 10px;
+      width: 36px; height: 36px; border: 0; border-radius: 999px;
+      background: rgba(0,0,0,.5); color: #fff; font-size: 20px; line-height: 1;
+    }
+    .geo-btn {
+      width: 100%; border: 1px dashed #FDBA74; background: #FFF7ED;
+      color: var(--terra-deep); border-radius: 12px; padding: 10px 12px;
+      font-weight: 750; font-size: 14px;
+    }
+    .contact select {
+      width: 100%; border: 1px solid var(--line); border-radius: 12px;
+      padding: 10px 12px; font-size: 15px; background: #fff; font-family: inherit;
+    }
     .chip {
-      flex: none; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.28);
+      flex: none; background: var(--terra-soft); color: var(--terra-deep);
+      border: 1px solid #FDBA74;
       border-radius: 999px; padding: 6px 10px; font-size: 11px; font-weight: 700;
     }
-    .search-wrap { margin-top: 14px; position: relative; }
+    .search-bar {
+      position: sticky; top: env(safe-area-inset-top, 0px); z-index: 8;
+      background: var(--bg);
+      padding: 10px 16px 0;
+    }
+    .search-wrap { position: relative; }
     .search-wrap input {
       width: 100%; border: 0; border-radius: 14px; padding: 12px 14px 12px 42px;
       font-size: 15px; background: #fff; color: var(--ink); outline: none;
@@ -60,7 +204,7 @@
     .search-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); opacity: .45; }
     .cats {
       display: flex; gap: 8px; overflow-x: auto; padding: 12px 16px 10px;
-      position: sticky; top: 126px; z-index: 6; background: var(--bg);
+      position: sticky; top: calc(58px + env(safe-area-inset-top, 0px)); z-index: 6; background: var(--bg);
       scrollbar-width: none;
     }
     .cats::-webkit-scrollbar { display: none; }
@@ -70,16 +214,18 @@
       font-weight: 650; font-size: 13px;
     }
     .cats button.on { background: var(--terra); color: #fff; border-color: var(--terra); }
-    .grid { padding: 4px 16px 140px; display: grid; gap: 12px; }
+    .grid { padding: 4px 16px 24px; display: grid; gap: 12px; }
     .item {
       background: var(--card); border-radius: 18px; padding: 12px;
       display: flex; gap: 12px; align-items: center;
       box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,.7);
     }
-    .item img, .ph {
+    .item.sold-out { opacity: .62; background: #FAF7F2; }
+    .item-media img, .item-media .ph {
       width: 84px; height: 84px; border-radius: 14px; object-fit: cover;
-      background: linear-gradient(135deg, #F5E6D3, #E7D3BE); flex: none;
+      background: linear-gradient(135deg, #F5E6D3, #E7D3BE); flex: none; display: block;
     }
+    .item-body { flex: 1; min-width: 0; }
     .item h3 { margin: 0; font-size: 15px; font-weight: 750; line-height: 1.3; }
     .price { color: var(--terra); font-weight: 800; font-size: 15px; margin-top: 6px; }
     .sold { color: var(--danger); font-size: 12px; font-weight: 700; margin-top: 4px; }
@@ -123,16 +269,15 @@
       padding: 12px 12px; font-weight: 800; font-size: 13px; white-space: nowrap;
     }
     .hero-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-    .lang {
-      display: flex; gap: 2px; background: rgba(255,255,255,.16);
-      border-radius: 999px; padding: 3px; flex-wrap: wrap; justify-content: flex-end; max-width: 168px;
+    .lang-pick select {
+      border: 1px solid var(--line); background: #fff; color: var(--ink);
+      border-radius: 999px; padding: 7px 32px 7px 12px; font-weight: 700; font-size: 13px;
+      font-family: inherit; cursor: pointer; max-width: 148px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2378716C' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center;
     }
-    .lang button {
-      border: 0; background: transparent; color: #fff; border-radius: 999px;
-      padding: 3px 6px; font-weight: 800; font-size: 15px; line-height: 1.2;
-      min-width: 28px;
-    }
-    .lang button.on { background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+    .lang { display: none; }
     .note-link { margin-top: 6px; border: 0; background: none; color: var(--terra); font-weight: 700; font-size: 12px; padding: 0; }
     .cart-line { flex-wrap: wrap; }
     .cart-line .note { margin-top: 8px; }
@@ -253,27 +398,88 @@
     .receipt .item .amt { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; font-size: 13px; }
     .receipt .tot { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; font-size: 13px; }
     .receipt .tot.grand { font-weight: 800; font-size: 15px; }
+    .contact { display:grid; gap:8px; margin:12px 0 4px; }
+    .contact label { font-size:12px; font-weight:700; color:var(--muted); }
+    .contact input, .contact textarea {
+      width:100%; border:1px solid var(--line); border-radius:12px;
+      padding:10px 12px; font-size:15px; font-family:inherit;
+    }
+    .contact textarea { min-height:64px; resize:vertical; }
     .receipt .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.4; }
+    .powered {
+      text-align: center; color: var(--muted); font-size: 11px; font-weight: 650;
+      letter-spacing: .02em; padding: 4px 16px calc(92px + var(--safe-b));
+    }
+    .track-entry {
+      margin: 10px 16px 0; display: none;
+    }
+    .track-entry.on { display: block; }
+    .track-entry button {
+      width: 100%; border: 1px dashed #FDBA74; background: #FFF7ED; color: var(--terra-deep);
+      border-radius: 14px; padding: 12px 14px; font-weight: 750; font-size: 14px;
+    }
+    .track-list { display: grid; gap: 10px; margin-top: 12px; }
+    .track-card {
+      border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: #fff;
+      box-shadow: 0 4px 14px rgba(28,25,23,.05);
+    }
+    .track-card .row { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+    .track-card .row strong { font-size: 15px; }
+    .track-card .st {
+      font-size: 11px; font-weight: 800; color: var(--terra-deep);
+      background: var(--terra-soft); border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+    }
+    .track-card .st.done { color: var(--ok); background: var(--ok-soft); }
+    .track-card .st.bad { color: var(--danger); background: #FEE2E2; }
+    .track-card .meta { color: var(--muted); font-size: 13px; margin-top: 8px; line-height: 1.45; }
+    .track-lines { margin: 10px 0 0; padding: 10px 12px; background: #FBF8F4; border-radius: 12px; }
+    .track-lines div { font-size: 13px; padding: 3px 0; display: flex; justify-content: space-between; gap: 8px; }
+    .page-wrap { max-width: 920px; margin: 0 auto; }
+    @media (min-width: 720px) {
+      .grid { grid-template-columns: 1fr 1fr; gap: 14px; padding-bottom: 32px; }
+      .dock { max-width: 520px; left: 50%; right: auto; transform: translateX(-50%); width: calc(100% - 32px); }
+      .fab-wrap { right: max(14px, calc(50% - 460px + 14px)); }
+      .sheet { max-width: 560px; margin: 0 auto; border-radius: 22px 22px 0 0; }
+      .brand { border-radius: 0 0 20px 20px; }
+    }
   </style>
 </head>
 <body>
-  <header class="hero">
-    <div class="hero-top">
-      <div>
-        <h1 id="store">SBOX</h1>
-        <p class="sub" id="table">Đang mở thực đơn…</p>
+  <div class="shop-bg" id="shop-bg" aria-hidden="true"></div>
+  <header class="brand">
+    <div class="brand-row">
+      <div class="brand-id">
+        <div class="logo-slot">
+          <img class="logo" id="store-logo" alt="" hidden />
+          <div class="logo ph" id="store-logo-ph" hidden aria-hidden="true">S</div>
+        </div>
+        <div>
+          <h1 id="store">SBOX</h1>
+          <p class="sub" id="table">Đang mở thực đơn…</p>
+        </div>
       </div>
       <div class="hero-actions">
-        <div class="lang" id="lang-switch">
-          <button type="button" data-lang="en" class="on" title="English" aria-label="English">🇬🇧</button>
-          <button type="button" data-lang="vi" title="Tiếng Việt" aria-label="Tiếng Việt">🇻🇳</button>
-          <button type="button" data-lang="zh" title="中文" aria-label="中文">🇨🇳</button>
-          <button type="button" data-lang="ko" title="한국어" aria-label="한국어">🇰🇷</button>
-          <button type="button" data-lang="ja" title="日本語" aria-label="日本語">🇯🇵</button>
+        <div class="lang-pick">
+          <select id="lang-select" aria-label="Language">
+            <option value="vi">🇻🇳 Tiếng Việt</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="zh">🇨🇳 中文</option>
+            <option value="ko">🇰🇷 한국어</option>
+            <option value="ja">🇯🇵 日本語</option>
+          </select>
         </div>
+        <button type="button" class="track-link" id="track-link">Theo dõi đơn</button>
         <div class="chip" id="pay-chip">Thanh toán tại quầy</div>
       </div>
     </div>
+    <div class="store-meta" id="store-meta"></div>
+  </header>
+  <div class="shop-contact" id="shop-contact" hidden></div>
+  <div class="promo-wrap" id="promo-wrap" hidden>
+    <div class="promo-track" id="promo-track"></div>
+    <div class="promo-dots" id="promo-dots"></div>
+  </div>
+  <div class="search-bar">
     <div class="search-wrap">
       <svg class="search-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <circle cx="11" cy="11" r="7" stroke="#78716C" stroke-width="2"/>
@@ -281,7 +487,10 @@
       </svg>
       <input id="q" type="search" placeholder="Tìm món, topping…" autocomplete="off" />
     </div>
-  </header>
+  </div>
+  <div class="track-entry" id="track-entry">
+    <button type="button" id="track-open">Theo dõi đơn đã đặt</button>
+  </div>
   <div id="app">
     <div class="grid" style="padding-top:16px">
       <div class="skel"></div><div class="skel"></div><div class="skel"></div>
@@ -319,6 +528,11 @@
         order: 'Đặt hàng',
         callPay: 'Gọi thanh toán',
         cartTitle: 'Giỏ hàng',
+        guestSection: 'Thông tin người đặt',
+        shopContact: 'Liên hệ quán',
+        callShop: 'Gọi quán',
+        zaloShop: 'Chat Zalo',
+        cartTotal: 'Tạm tính',
         close: 'Đóng',
         cancel: 'Huỷ',
         add: 'Thêm',
@@ -375,7 +589,32 @@
         billPayHint: 'Thanh toán tại quầy khi dùng xong',
         lockClosed: 'Thu ngân chưa mở bàn — chưa gọi món được',
         geoDenied: 'Cần cho phép vị trí — chỉ gọi món trong quán',
-        geoFail: 'Không lấy được vị trí'
+        geoFail: 'Không lấy được vị trí',
+        onlineTitle: 'Đặt hàng online',
+        onlineHint: 'Quán sẽ gọi lại để xác nhận',
+        guestName: 'Họ tên',
+        guestPhone: 'Số điện thoại',
+        guestProvince: 'Tỉnh / Thành phố',
+        guestWard: 'Phường / Xã',
+        guestDetail: 'Địa chỉ chi tiết',
+        guestAddr: 'Địa chỉ giao / liên hệ',
+        guestNote: 'Ghi chú đơn (tuỳ chọn)',
+        locateBtn: 'Lấy định vị địa chỉ',
+        locating: 'Đang lấy vị trí…',
+        locateOk: 'Đã điền địa chỉ từ GPS',
+        locateFail: 'Không lấy được vị trí — chọn tỉnh/xã thủ công',
+        selectProvince: '— Chọn tỉnh / thành —',
+        selectWard: '— Chọn phường / xã —',
+        needContact: 'Nhập họ tên, SĐT, tỉnh/thành, phường/xã và địa chỉ chi tiết',
+        powered: 'Phần mềm SBOX POS',
+        trackOpen: 'Theo dõi đơn đã đặt',
+        trackTitle: 'Đơn của bạn',
+        trackPhone: 'Số điện thoại đã đặt',
+        trackLookup: 'Xem đơn',
+        trackEmpty: 'Chưa có đơn với số này',
+        trackNeedPhone: 'Nhập SĐT đã dùng khi đặt hàng',
+        trackFail: 'Không tra cứu được',
+        orderNo: 'Mã đơn'
       },
       en: {
         title: 'Order at table',
@@ -398,6 +637,11 @@
         order: 'Place order',
         callPay: 'Call to pay',
         cartTitle: 'Your cart',
+        guestSection: 'Your details',
+        shopContact: 'Contact the store',
+        callShop: 'Call',
+        zaloShop: 'Zalo chat',
+        cartTotal: 'Subtotal',
         close: 'Close',
         cancel: 'Cancel',
         add: 'Add',
@@ -454,7 +698,32 @@
         billPayHint: 'Please pay at the counter when done',
         lockClosed: 'The cashier has not opened this table yet',
         geoDenied: 'Allow location — order only inside the restaurant',
-        geoFail: 'Could not read your location'
+        geoFail: 'Could not read your location',
+        onlineTitle: 'Order online',
+        onlineHint: 'The store will call you to confirm',
+        guestName: 'Full name',
+        guestPhone: 'Phone',
+        guestProvince: 'Province / City',
+        guestWard: 'Ward / Commune',
+        guestDetail: 'Street address',
+        guestAddr: 'Delivery / contact address',
+        guestNote: 'Order note (optional)',
+        locateBtn: 'Use my location',
+        locating: 'Getting location…',
+        locateOk: 'Address filled from GPS',
+        locateFail: 'Could not get location — pick province/ward manually',
+        selectProvince: '— Select province —',
+        selectWard: '— Select ward —',
+        needContact: 'Enter name, phone, province, ward and street address',
+        powered: 'Powered by SBOX POS',
+        trackOpen: 'Track my orders',
+        trackTitle: 'Your orders',
+        trackPhone: 'Phone used to order',
+        trackLookup: 'View orders',
+        trackEmpty: 'No orders for this phone',
+        trackNeedPhone: 'Enter the phone number used to order',
+        trackFail: 'Could not look up orders',
+        orderNo: 'Order'
       },
       zh: {
         title: '桌边点餐',
@@ -533,7 +802,23 @@
         billPayHint: '用餐结束后请到收银台付款',
         lockClosed: '收银尚未开台，暂时无法点餐',
         geoDenied: '请允许定位 — 仅限店内点餐',
-        geoFail: '无法获取位置'
+        geoFail: '无法获取位置',
+        onlineTitle: '在线下单',
+        onlineHint: '店铺会电话确认',
+        guestName: '姓名',
+        guestPhone: '电话',
+        guestAddr: '配送 / 联系地址',
+        guestNote: '订单备注（可选）',
+        needContact: '请填写姓名、电话和地址以便联系',
+        powered: '软件 SBOX POS',
+        trackOpen: '查看已下订单',
+        trackTitle: '我的订单',
+        trackPhone: '下单手机号',
+        trackLookup: '查询',
+        trackEmpty: '该号码暂无订单',
+        trackNeedPhone: '请输入下单时的手机号',
+        trackFail: '查询失败',
+        orderNo: '单号'
       },
       ko: {
         title: '테이블 주문',
@@ -612,7 +897,23 @@
         billPayHint: '식사 후 카운터에서 결제하세요',
         lockClosed: '캐셔가 아직 테이블을 열지 않았습니다',
         geoDenied: '위치 허용 — 매장 내에서만 주문',
-        geoFail: '위치를 읽을 수 없습니다'
+        geoFail: '위치를 읽을 수 없습니다',
+        onlineTitle: '온라인 주문',
+        onlineHint: '매장에서 전화로 확인합니다',
+        guestName: '이름',
+        guestPhone: '전화번호',
+        guestAddr: '배송 / 연락 주소',
+        guestNote: '주문 메모 (선택)',
+        needContact: '연락을 위해 이름, 전화, 주소를 입력하세요',
+        powered: 'SBOX POS 소프트웨어',
+        trackOpen: '주문 조회',
+        trackTitle: '내 주문',
+        trackPhone: '주문 시 전화번호',
+        trackLookup: '조회',
+        trackEmpty: '이 번호로 된 주문이 없습니다',
+        trackNeedPhone: '주문에 사용한 전화번호를 입력하세요',
+        trackFail: '조회 실패',
+        orderNo: '주문번호'
       },
       ja: {
         title: 'テーブル注文',
@@ -691,11 +992,27 @@
         billPayHint: 'お会計はレジでお願いします',
         lockClosed: 'レジがまだテーブルを開けていません',
         geoDenied: '位置情報を許可 — 店内のみ注文可',
-        geoFail: '位置情報を取得できません'
+        geoFail: '位置情報を取得できません',
+        onlineTitle: 'オンライン注文',
+        onlineHint: '店舗から確認の電話をします',
+        guestName: 'お名前',
+        guestPhone: '電話番号',
+        guestAddr: '配送 / 連絡先住所',
+        guestNote: '注文メモ（任意）',
+        needContact: '連絡できるよう氏名・電話・住所を入力してください',
+        powered: 'SBOX POS',
+        trackOpen: '注文を確認',
+        trackTitle: 'ご注文',
+        trackPhone: '注文時の電話番号',
+        trackLookup: '確認',
+        trackEmpty: 'この番号の注文はありません',
+        trackNeedPhone: '注文時の電話番号を入力してください',
+        trackFail: '照会できません',
+        orderNo: '注文番号'
       }
     };
     const LANGS = ['en', 'vi', 'zh', 'ko', 'ja'];
-    let lang = 'en';
+    let lang = 'vi';
     try {
       const saved = localStorage.getItem('sbox_qr_lang');
       if (LANGS.includes(saved)) lang = saved;
@@ -705,11 +1022,11 @@
       return pack[k] != null ? pack[k] : (I18N.en[k] != null ? I18N.en[k] : (I18N.vi[k] || k));
     };
     function setLang(next) {
-      lang = LANGS.includes(next) ? next : 'en';
+      lang = LANGS.includes(next) ? next : 'vi';
       try { localStorage.setItem('sbox_qr_lang', lang); } catch (e) {}
       document.documentElement.lang = lang;
       applyStaticLang();
-      if (menu) render();
+      if (menu) { paintBrand(); render(); }
     }
     function applyStaticLang() {
       document.getElementById('pay-chip').textContent = t('payChip');
@@ -719,10 +1036,11 @@
       document.getElementById('fab-bill-l').textContent = t('viewBill');
       document.getElementById('fab-qr-l').textContent = t('payQr');
       document.getElementById('fab-toggle').setAttribute('aria-label', t('actions'));
-      document.querySelectorAll('#lang-switch button').forEach(b => {
-        b.classList.toggle('on', b.getAttribute('data-lang') === lang);
-      });
+      const langSel = document.getElementById('lang-select');
+      if (langSel) langSel.value = lang;
       if (!menu) document.getElementById('table').textContent = t('opening');
+      const pw = document.getElementById('powered');
+      if (pw) pw.textContent = t('powered');
     }
     const MONEY_LOCALE = { en: 'en-US', vi: 'vi-VN', zh: 'zh-CN', ko: 'ko-KR', ja: 'ja-JP' };
     const money = n => new Intl.NumberFormat(MONEY_LOCALE[lang] || 'en-US').format(Math.round(n || 0)) + '₫';
@@ -740,6 +1058,20 @@
     }
     const T = token();
     const cart = [];
+    let guest = { name:'', phone:'', province:'', ward:'', detail:'', note:'', lat:null, lng:null };
+    let vnUnits = null;
+    let vnUnitsLoading = null;
+    try {
+      const savedPhone = localStorage.getItem('sbox_qr_online_phone');
+      if (savedPhone) guest.phone = savedPhone;
+    } catch (e) {}
+    function isOnline() {
+      const c = menu && (menu.channel || menu.Channel);
+      return String(c || '').toLowerCase() === 'online';
+    }
+    let trackOpen = false;
+    let trackOrders = null;
+    let trackBusy = false;
     let menu = null;
     let picker = null;
     let cartOpen = false;
@@ -749,9 +1081,197 @@
     let activeCat = 'all';
     let query = '';
     let toastTimer = 0;
+    let promoTimer = 0;
+    let promoIdx = 0;
+
+    function defaultLogoSrc() {
+      const fromMenu = menu && (menu.defaultLogoUrl || menu.DefaultLogoUrl);
+      if (fromMenu) return abs(fromMenu);
+      return abs('/api/pos/qr-order/brand/default-logo');
+    }
+    function paintBrand() {
+      if (!menu) return;
+      const online = isOnline();
+      document.body.classList.toggle('channel-online', online);
+      document.body.classList.toggle('channel-table', !online);
+      const name = menu.storeName || menu.StoreName || 'SBOX';
+      document.getElementById('store').textContent = name;
+      document.getElementById('table').textContent = online
+        ? t('onlineTitle')
+        : ((menu.areaName ? menu.areaName + ' · ' : '') + (menu.tableName || ({ en:'Table', vi:'Bàn', zh:'桌', ko:'테이블', ja:'テーブル' }[lang] || 'Table')));
+      const chip = document.getElementById('pay-chip');
+      if (chip) chip.textContent = online ? t('onlineHint') : t('payChip');
+      const fab = document.getElementById('fab-wrap');
+      if (fab) fab.style.display = online ? 'none' : '';
+      const te = document.getElementById('track-entry');
+      if (te) {
+        // Online: dùng link gọn trên header — ẩn nút dashed lớn.
+        te.classList.toggle('on', false);
+        const btn = document.getElementById('track-open');
+        if (btn) btn.textContent = t('trackOpen');
+      }
+      const trackLink = document.getElementById('track-link');
+      if (trackLink) {
+        trackLink.textContent = t('trackOpen');
+        trackLink.onclick = () => {
+          trackOpen = true; billOpen = false; payOpen = false; cartOpen = false; render();
+        };
+      }
+      document.title = (online ? t('onlineTitle') : (menu.tableName || t('title'))) + ' · ' + name;
+      const logo = String(menu.logoUrl || menu.LogoUrl || '').trim();
+      const img = document.getElementById('store-logo');
+      const ph = document.getElementById('store-logo-ph');
+      const defLogo = defaultLogoSrc();
+      if (img) {
+        img.src = logo ? abs(logo) : defLogo;
+        img.hidden = false;
+        img.onerror = () => { img.src = defLogo; img.hidden = false; if (ph) ph.hidden = true; };
+      }
+      if (ph) ph.hidden = true;
+      const phone = (menu.storePhone || menu.StorePhone || '').trim();
+      const zaloRaw = (menu.storeZalo || menu.StoreZalo || phone || '').trim();
+      const zaloDigits = zaloRaw.replace(/\D/g, '');
+      const addr = [menu.storeAddress || menu.StoreAddress, menu.storeProvince || menu.StoreProvince]
+        .map(x => String(x || '').trim()).filter(Boolean).join(', ');
+      const meta = document.getElementById('store-meta');
+      let m = '';
+      if (phone) m += '<a class="meta-chip" href="tel:'+esc(phone.replace(/\s/g,''))+'">'+esc(phone)+'</a>';
+      if (zaloDigits.length >= 8) m += '<a class="meta-chip" href="https://zalo.me/'+esc(zaloDigits)+'" target="_blank" rel="noopener">Zalo</a>';
+      if (addr) m += '<span class="meta-chip">'+esc(addr)+'</span>';
+      if (meta) meta.innerHTML = m;
+      const contact = document.getElementById('shop-contact');
+      if (contact) {
+        contact.hidden = true;
+        contact.innerHTML = '';
+      }
+      paintVisuals();
+    }
+    function bannerList() {
+      return (menu && (menu.banners || menu.Banners) || []).filter(Boolean);
+    }
+    function paintVisuals() {
+      clearInterval(promoTimer);
+      const bg = document.getElementById('shop-bg');
+      const list = bannerList();
+      if (bg) {
+        if (list.length) {
+          bg.style.backgroundImage = 'url("' + abs(list[0]).replace(/"/g, '%22') + '")';
+        } else {
+          bg.style.backgroundImage = '';
+        }
+      }
+      showPromoPopup(list);
+    }
+    function showPromoPopup(list) {
+      const old = document.getElementById('promo-popup');
+      if (old) old.remove();
+      if (!list.length) return;
+      const key = 'sbox_qr_popup_off:' + T;
+      try { if (sessionStorage.getItem(key) === '1') return; } catch (e) {}
+      let idx = 0;
+      const renderOne = () => {
+        const old2 = document.getElementById('promo-popup');
+        if (old2) old2.remove();
+        if (idx >= list.length) {
+          try { sessionStorage.setItem(key, '1'); } catch (e) {}
+          return;
+        }
+        const wrap = document.createElement('div');
+        wrap.id = 'promo-popup';
+        wrap.className = 'promo-popup';
+        wrap.innerHTML = '<div class="card"><button type="button" class="close" aria-label="Close">×</button>'
+          + '<img src="'+esc(abs(list[idx]))+'" alt="" /></div>';
+        const close = () => {
+          idx += 1;
+          if (idx >= list.length) {
+            wrap.remove();
+            try { sessionStorage.setItem(key, '1'); } catch (e) {}
+          } else renderOne();
+        };
+        wrap.querySelector('.close').onclick = close;
+        wrap.onclick = e => { if (e.target === wrap) close(); };
+        document.body.appendChild(wrap);
+      };
+      renderOne();
+    }
+    async function loadVnUnits() {
+      if (vnUnits) return vnUnits;
+      if (vnUnitsLoading) return vnUnitsLoading;
+      vnUnitsLoading = fetch(apiBase() + '/api/pos/qr-order/vn-address/units')
+        .then(r => r.json())
+        .then(j => { vnUnits = j || []; return vnUnits; })
+        .catch(() => { vnUnits = []; return vnUnits; })
+        .finally(() => { vnUnitsLoading = null; });
+      return vnUnitsLoading;
+    }
+    function normName(s) {
+      return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+    function matchProvinceName(name) {
+      if (!vnUnits || !name) return '';
+      const n = normName(name);
+      let best = '';
+      for (const p of vnUnits) {
+        const pn = normName(p.name);
+        if (pn === n || pn.includes(n) || n.includes(pn)) return p.name;
+        if (!best && (pn.includes(n.slice(0, 6)) || n.includes(pn.slice(0, 6)))) best = p.name;
+      }
+      return best;
+    }
+    function matchWardName(provinceName, name) {
+      if (!vnUnits || !provinceName || !name) return '';
+      const p = vnUnits.find(x => x.name === provinceName);
+      if (!p) return '';
+      const n = normName(name);
+      for (const w of p.wards || []) {
+        const wn = normName(w.name);
+        if (wn === n || wn.includes(n) || n.includes(wn)) return w.name;
+      }
+      return '';
+    }
+    function wardOptionsHtml(provinceName) {
+      if (!vnUnits || !provinceName) return '<option value="">'+esc(t('selectWard'))+'</option>';
+      const p = vnUnits.find(x => x.name === provinceName);
+      let h = '<option value="">'+esc(t('selectWard'))+'</option>';
+      (p && p.wards || []).forEach(w => {
+        h += '<option value="'+esc(w.name)+'"'+(guest.ward === w.name ? ' selected' : '')+'>'+esc(w.name)+'</option>';
+      });
+      return h;
+    }
+    async function locateGuestAddress() {
+      const btn = document.getElementById('g-locate');
+      if (btn) { btn.disabled = true; btn.textContent = t('locating'); }
+      try {
+        await loadVnUnits();
+        const pos = await new Promise((resolve, reject) => {
+          if (!navigator.geolocation) { reject(new Error(t('locateFail'))); return; }
+          navigator.geolocation.getCurrentPosition(resolve, () => reject(new Error(t('locateFail'))),
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+        });
+        guest.lat = pos.coords.latitude;
+        guest.lng = pos.coords.longitude;
+        const url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + guest.lat + '&lon=' + guest.lng + '&accept-language=vi';
+        const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        const j = await r.json();
+        const a = j.address || {};
+        const prov = matchProvinceName(a.state || a.city || a.town || '');
+        const ward = matchWardName(prov, a.suburb || a.quarter || a.neighbourhood || a.village || a.city_district || '');
+        if (prov) guest.province = prov;
+        if (ward) guest.ward = ward;
+        const detail = [a.house_number, a.road, a.residential].filter(Boolean).join(' ').trim();
+        if (detail) guest.detail = detail;
+        toast(t('locateOk'));
+        cartOpen = true;
+        render();
+      } catch (e) {
+        toast((e && e.message) || t('locateFail'), true);
+        if (btn) { btn.disabled = false; btn.textContent = '📍 ' + t('locateBtn'); }
+      }
+    }
 
     function hasOpts(p) {
-      return (p.variants && p.variants.length) || (p.toppings && p.toppings.length) ||
+      return (p.variants && p.variants.length) || (p.units && p.units.length) ||
+        (p.toppings && p.toppings.length) ||
         (p.toppingGroups && p.toppingGroups.length);
     }
     function allToppings(p) {
@@ -760,15 +1280,16 @@
       const seen = {};
       return list.filter(t => { if (seen[t.id]) return false; seen[t.id] = 1; return true; });
     }
-    function unitPrice(p, variantId, toppingIds) {
+    function unitPrice(p, variantId, unitId, toppingIds) {
       const v = (p.variants || []).find(x => x.id === variantId);
-      const base = v ? v.price : p.price;
+      const u = !v && (p.units || []).find(x => x.id === unitId);
+      const base = v ? v.price : (u ? u.price : p.price);
       const extra = allToppings(p).filter(t => toppingIds.includes(t.id)).reduce((s, t) => s + (t.price || 0), 0);
       return base + extra;
     }
-    function lineKey(productId, variantId, toppingIds, note) {
+    function lineKey(productId, variantId, unitId, toppingIds, note) {
       const tops = [...(toppingIds || [])].sort().join(',');
-      return [productId, variantId || '', tops, (note || '').trim()].join('|');
+      return [productId, variantId || '', unitId || '', tops, (note || '').trim()].join('|');
     }
     function cartQtyOf(productId) {
       return cart.filter(x => x.productId === productId).reduce((s, x) => s + x.qty, 0);
@@ -811,9 +1332,7 @@
           return;
         }
         menu = data;
-        document.getElementById('store').textContent = data.storeName || 'SBOX';
-        document.getElementById('table').textContent = (data.areaName ? data.areaName + ' · ' : '') + (data.tableName || ({ en:'Table', vi:'Bàn', zh:'桌', ko:'테이블', ja:'テーブル' }[lang] || 'Table'));
-        document.title = (data.tableName || t('title')) + ' · ' + (data.storeName || 'SBOX');
+        paintBrand();
         render();
       } catch (e) {
         document.getElementById('app').innerHTML = '<div class="state err"><h2>'+esc(t('offline'))+'</h2><p>'+esc(t('offlineHint'))+'</p><button class="retry" type="button" onclick="load()">'+esc(t('retry'))+'</button></div>';
@@ -822,15 +1341,17 @@
 
     function filteredProducts() {
       const q = query.trim().toLowerCase();
-      return (menu.products || []).filter(p => {
+      const list = (menu.products || []).filter(p => {
         if (activeCat !== 'all' && p.categoryId !== activeCat) return false;
         if (!q) return true;
-        const blob = [p.name, p.description, ...(p.variants||[]).map(v=>v.name), ...allToppings(p).map(t=>t.name)].join(' ').toLowerCase();
+        const blob = [p.name, p.description, ...(p.variants||[]).map(v=>v.name), ...(p.units||[]).map(u=>u.name), ...allToppings(p).map(t=>t.name)].join(' ').toLowerCase();
         return blob.includes(q);
       });
+      return list.sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0));
     }
 
     function render() {
+      if (!menu) return;
       const noteEl = document.getElementById('pick-note');
       if (picker && noteEl) picker.note = noteEl.value;
       const cats = menu.categories || [];
@@ -846,13 +1367,15 @@
       items.forEach(p => {
         const q = cartQtyOf(p.id);
         const opts = hasOpts(p);
-        html += '<article class="item"><div>';
+        html += '<article class="item'+(p.soldOut?' sold-out':'')+'">';
+        html += '<div class="item-media">';
         if (p.imageUrl) html += '<img src="'+esc(abs(p.imageUrl))+'" alt="" onerror="this.outerHTML=\'<div class=ph></div>\'" />';
         else html += '<div class="ph"></div>';
-        html += '</div><div style="flex:1;min-width:0"><h3>'+esc(p.name)+'</h3><div class="price">'+money(p.price)+'</div>';
+        html += '</div><div class="item-body"><h3>'+esc(p.name)+'</h3><div class="price">'+money(p.price)+'</div>';
         if (opts) html += '<div class="meta">' +
           ((p.variants||[]).length ? (p.variants.length + ' ' + t('options')) : '') +
-          ((p.variants||[]).length && allToppings(p).length ? ' · ' : '') +
+          (!(p.variants||[]).length && (p.units||[]).length ? ((p.units.length) + ' ' + t('options')) : '') +
+          (((p.variants||[]).length || (p.units||[]).length) && allToppings(p).length ? ' · ' : '') +
           (allToppings(p).length ? t('topping') : '') + '</div>';
         if (p.soldOut) html += '<div class="sold">'+esc(t('sold'))+'</div>';
         else html += '<button class="note-link" type="button" data-pick="'+esc(p.id)+'">'+esc(t('noteBtn'))+'</button>';
@@ -871,6 +1394,8 @@
       if (cartOpen) html += renderCart();
       if (billOpen) html += renderBill();
       if (payOpen) html += renderPay();
+      if (trackOpen) html += renderTrack();
+      html += '<p class="powered" id="powered">'+esc(t('powered'))+'</p>';
       document.getElementById('app').innerHTML = html;
       bindUi();
     }
@@ -886,7 +1411,7 @@
         btn.onclick = () => chgSimple(btn.getAttribute('data-simple'), Number(btn.getAttribute('data-d')));
       });
       const send = document.getElementById('send');
-      if (send) send.onclick = submit;
+      if (send) send.onclick = onSendClick;
       const openCart = () => { if (cart.length) { cartOpen = true; billOpen = false; payOpen = false; render(); } };
       ['dock-cart','dock-open'].forEach(id => {
         const el = document.getElementById(id);
@@ -894,15 +1419,91 @@
       });
       const qEl = document.getElementById('q');
       if (qEl && document.activeElement !== qEl) qEl.value = query;
+      const to = document.getElementById('track-open');
+      if (to) to.onclick = () => { trackOpen = true; billOpen = false; payOpen = false; cartOpen = false; render(); };
+    }
+
+    function statusClass(code) {
+      const c = String(code || '').toLowerCase();
+      if (c === 'delivered') return ' done';
+      if (c === 'cancelled') return ' bad';
+      return '';
+    }
+    function renderTrack() {
+      let html = '<div class="ov" id="track-ov"><div class="sheet"><div class="grab"></div><h2>'+esc(t('trackTitle'))+'</h2>';
+      html += '<div class="contact">';
+      html += '<label>'+esc(t('trackPhone'))+'</label>';
+      html += '<input id="track-phone" maxlength="20" inputmode="tel" value="'+esc(guest.phone)+'" />';
+      html += '</div>';
+      if (trackOrders && !trackOrders.length) {
+        html += '<p class="qr-meta">'+esc(t('trackEmpty'))+'</p>';
+      }
+      if (trackOrders && trackOrders.length) {
+        html += '<div class="track-list">';
+        trackOrders.forEach(o => {
+          const st = o.statusLabel || o.StatusLabel || o.status || '';
+          const code = o.status || o.Status || '';
+          html += '<div class="track-card"><div class="row"><strong>'+esc(t('orderNo'))+' '+(o.orderNo||o.OrderNo||'')+'</strong>';
+          html += '<span class="st'+statusClass(code)+'">'+esc(st)+'</span></div>';
+          html += '<div class="meta">'+esc(o.address||o.Address||'')+' · '+money(o.total||o.Total||0)+'</div>';
+          const lines = o.lines || o.Lines || [];
+          if (lines.length) {
+            html += '<div class="track-lines">';
+            lines.forEach(l => {
+              html += '<div><span>'+esc(l.name||l.Name)+' × '+(l.qty||l.Qty)+'</span><span>'+money(l.lineTotal||l.LineTotal||0)+'</span></div>';
+            });
+            html += '</div>';
+          }
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      html += '<div class="sheet-bar"><button class="x" type="button" id="track-x">'+esc(t('close'))+'</button>';
+      html += '<button class="go" type="button" id="track-go"'+(trackBusy?' disabled':'')+'>'+esc(trackBusy?t('sending'):t('trackLookup'))+'</button></div></div></div>';
+      setTimeout(() => {
+        const ov = document.getElementById('track-ov');
+        if (ov) ov.onclick = e => { if (e.target === ov) { trackOpen = false; render(); } };
+        const x = document.getElementById('track-x'); if (x) x.onclick = () => { trackOpen = false; render(); };
+        const go = document.getElementById('track-go'); if (go) go.onclick = lookupOrders;
+      }, 0);
+      return html;
+    }
+    async function lookupOrders() {
+      const inp = document.getElementById('track-phone');
+      const phone = ((inp && inp.value) || guest.phone || '').trim();
+      guest.phone = phone;
+      const digits = phone.replace(/\D/g,'');
+      if (digits.length < 8) { toast(t('trackNeedPhone'), true); return; }
+      try { localStorage.setItem('sbox_qr_online_phone', phone); } catch (e) {}
+      trackBusy = true; render();
+      try {
+        const res = await fetch(apiBase() + '/api/pos/qr-order/' + encodeURIComponent(T) + '/my-orders', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone })
+        });
+        const json = await res.json();
+        if (!json.isSuccess && !json.IsSuccess) {
+          toast(json.message || json.Message || t('trackFail'), true);
+          trackOrders = null;
+        } else {
+          const d = json.data || json.Data || {};
+          trackOrders = d.orders || d.Orders || [];
+        }
+      } catch (e) {
+        toast(t('trackFail'), true);
+      }
+      trackBusy = false;
+      trackOpen = true;
+      render();
     }
 
     function chgSimple(id, d) {
       const p = (menu.products||[]).find(x => x.id === id);
       if (!p) return;
-      const key = lineKey(id, '', [], '');
+      const key = lineKey(id, '', '', [], '');
       let line = cart.find(x => x.key === key);
       if (!line && d > 0) {
-        line = { key, productId:id, variantId:null, toppingIds:[], qty:0, name:p.name, price:p.price, note:'' };
+        line = { key, productId:id, variantId:null, unitId:null, toppingIds:[], qty:0, name:p.name, price:p.price, note:'' };
         cart.push(line);
       }
       if (!line) return;
@@ -917,12 +1518,16 @@
       const p = (menu.products||[]).find(x => x.id === id);
       if (!p) return;
       const firstLive = (p.variants || []).find(v => !v.soldOut) || (p.variants || [])[0] || null;
-      picker = { productId:id, variantId: firstLive ? firstLive.id : null, toppingIds:[], qty:1, note:'' };
+      const firstUnit = !(p.variants || []).length
+        ? ((p.units || []).find(u => !u.soldOut) || (p.units || [])[0] || null)
+        : null;
+      picker = { productId:id, variantId: firstLive ? firstLive.id : null, unitId: firstUnit ? firstUnit.id : null, toppingIds:[], qty:1, note:'' };
       cartOpen = false;
       render();
     }
     function closePick() { picker = null; render(); }
-    function setVar(id) { picker.variantId = id; render(); }
+    function setVar(id) { picker.variantId = id; picker.unitId = null; render(); }
+    function setUnit(id) { picker.unitId = id; render(); }
     function togTop(id) {
       const i = picker.toppingIds.indexOf(id);
       if (i >= 0) picker.toppingIds.splice(i, 1); else picker.toppingIds.push(id);
@@ -935,14 +1540,17 @@
       if ((p.variants||[]).length && !picker.variantId) { toast(t('pickVariant'), true); return; }
       const v = (p.variants||[]).find(x => x.id === picker.variantId);
       if (v && v.soldOut) { toast(t('varSold'), true); return; }
+      if (!(p.variants||[]).length && (p.units||[]).length && !picker.unitId) { toast(t('pickVariant'), true); return; }
+      const u = (p.units||[]).find(x => x.id === picker.unitId);
+      if (u && u.soldOut) { toast(t('varSold'), true); return; }
       const note = (document.getElementById('pick-note') || {}).value || picker.note || '';
       picker.note = note;
-      const name = v ? (p.name + ' — ' + v.name) : p.name;
-      const price = unitPrice(p, picker.variantId, picker.toppingIds);
-      const key = lineKey(p.id, picker.variantId || '', picker.toppingIds, note);
+      const name = v ? (p.name + ' — ' + v.name) : (u ? (p.name + ' — ' + u.name) : p.name);
+      const price = unitPrice(p, picker.variantId, picker.unitId, picker.toppingIds);
+      const key = lineKey(p.id, picker.variantId || '', picker.unitId || '', picker.toppingIds, note);
       let line = cart.find(x => x.key === key);
       if (!line) {
-        line = { key, productId:p.id, variantId: picker.variantId || null, toppingIds:[...picker.toppingIds], qty:0, name, price, note };
+        line = { key, productId:p.id, variantId: picker.variantId || null, unitId: picker.unitId || null, toppingIds:[...picker.toppingIds], qty:0, name, price, note };
         cart.push(line);
       }
       line.qty = Math.min(20, line.qty + picker.qty);
@@ -953,13 +1561,19 @@
     function renderSheet() {
       const p = (menu.products||[]).find(x => x.id === picker.productId);
       if (!p) return '';
-      const price = unitPrice(p, picker.variantId, picker.toppingIds) * picker.qty;
+      const price = unitPrice(p, picker.variantId, picker.unitId, picker.toppingIds) * picker.qty;
       let html = '<div class="ov" id="pick-ov"><div class="sheet"><div class="grab"></div>';
       html += '<h2>'+esc(p.name)+'</h2><div class="sp">'+money(price)+'</div>';
       if ((p.variants||[]).length) {
         html += '<div class="gname">'+esc(t('variant'))+'</div><div class="chips">';
         p.variants.forEach(v => {
           html += '<button type="button" class="'+(picker.variantId===v.id?'on':'')+'" data-var="'+esc(v.id)+'" '+(v.soldOut?'disabled':'')+'>'+esc(v.name)+' · '+money(v.price)+(v.soldOut?' (hết)':'')+'</button>';
+        });
+        html += '</div>';
+      } else if ((p.units||[]).length) {
+        html += '<div class="gname">'+esc(t('variant'))+'</div><div class="chips">';
+        p.units.forEach(u => {
+          html += '<button type="button" class="'+(picker.unitId===u.id?'on':'')+'" data-unit="'+esc(u.id)+'" '+(u.soldOut?'disabled':'')+'>'+esc(u.name)+' · '+money(u.price)+(u.soldOut?' (hết)':'')+'</button>';
         });
         html += '</div>';
       }
@@ -985,6 +1599,7 @@
         const ov = document.getElementById('pick-ov');
         if (ov) ov.onclick = e => { if (e.target === ov) closePick(); };
         document.querySelectorAll('[data-var]').forEach(b => b.onclick = () => setVar(b.getAttribute('data-var')));
+        document.querySelectorAll('[data-unit]').forEach(b => b.onclick = () => setUnit(b.getAttribute('data-unit')));
         document.querySelectorAll('[data-top]').forEach(b => b.onchange = () => togTop(b.getAttribute('data-top')));
         const m = document.getElementById('pq-'); if (m) m.onclick = () => setPickQty(-1);
         const p2 = document.getElementById('pq+'); if (p2) p2.onclick = () => setPickQty(1);
@@ -994,14 +1609,37 @@
       return html;
     }
     function renderCart() {
-      let html = '<div class="ov" id="cart-ov"><div class="sheet"><div class="grab"></div><h2>'+esc(t('cartTitle'))+'</h2>';
+      let html = '<div class="ov" id="cart-ov"><div class="sheet"><div class="grab"></div>';
+      html += '<div class="cart-panel">';
+      html += '<div class="cart-section"><h3 class="section-title">'+esc(t('cartTitle'))+'</h3>';
+      if (!cart.length) {
+        html += '<p style="margin:0;color:var(--muted);font-size:13px">'+esc(t('noItems'))+'</p>';
+      }
       cart.forEach((l, i) => {
         html += '<div class="cart-line"><div style="flex:1;min-width:0"><div class="nm">'+esc(l.name)+'</div>';
+        html += '<div style="font-size:12px;color:var(--muted);margin-top:2px">'+money(l.price)+' × '+l.qty+'</div>';
         html += '<input class="note" data-cnote="'+i+'" maxlength="200" placeholder="'+esc(t('notePh'))+'" value="'+esc(l.note||'')+'" /></div>';
         html += '<div class="qty"><button type="button" data-ci="'+i+'" data-d="-1">−</button><strong>'+l.qty+'</strong><button type="button" data-ci="'+i+'" data-d="1">+</button></div></div>';
       });
+      html += '<div class="cart-summary"><span>'+esc(t('cartTotal'))+'</span><span>'+money(cartTotal())+'</span></div>';
+      html += '</div>';
+      if (isOnline()) {
+        const provOpts = (vnUnits || []).map(p =>
+          '<option value="'+esc(p.name)+'"'+(guest.province === p.name ? ' selected' : '')+'>'+esc(p.name)+'</option>'
+        ).join('');
+        html += '<div class="guest-section"><h3 class="section-title">'+esc(t('guestSection'))+'</h3><div class="contact">';
+        html += '<label>'+esc(t('guestName'))+'</label><input id="g-name" maxlength="80" value="'+esc(guest.name)+'" />';
+        html += '<label>'+esc(t('guestPhone'))+'</label><input id="g-phone" maxlength="20" inputmode="tel" value="'+esc(guest.phone)+'" />';
+        html += '<label>'+esc(t('guestProvince'))+'</label><select id="g-prov"><option value="">'+esc(t('selectProvince'))+'</option>'+provOpts+'</select>';
+        html += '<label>'+esc(t('guestWard'))+'</label><select id="g-ward">'+wardOptionsHtml(guest.province)+'</select>';
+        html += '<label>'+esc(t('guestDetail'))+'</label><textarea id="g-detail" maxlength="300" placeholder="Số nhà, tên đường, ngõ…">'+esc(guest.detail)+'</textarea>';
+        html += '<button type="button" class="geo-btn" id="g-locate">'+esc(t('locateBtn'))+'</button>';
+        html += '<label>'+esc(t('guestNote'))+'</label><input id="g-note" maxlength="200" value="'+esc(guest.note)+'" placeholder="'+esc(t('guestNote'))+'" />';
+        html += '</div></div>';
+      }
+      html += '</div>';
       html += '<div class="sheet-bar"><button class="x" type="button" id="cart-x">'+esc(t('close'))+'</button>';
-      html += '<button class="go" type="button" id="cart-send"'+(canOrder()?'':' disabled')+'>'+esc(t('order'))+' · '+money(cartTotal())+'</button></div></div></div>';
+      html += '<button class="go" type="button" id="cart-send"'+(canOrder() && cart.length?'':' disabled')+'>'+esc(t('order'))+' · '+money(cartTotal())+'</button></div></div></div>';
       setTimeout(() => {
         const ov = document.getElementById('cart-ov');
         if (ov) ov.onclick = e => { if (e.target === ov) { cartOpen = false; render(); } };
@@ -1020,10 +1658,24 @@
             const line = cart[Number(inp.getAttribute('data-cnote'))];
             if (!line) return;
             line.note = String(inp.value || '').slice(0, 200);
-            line.key = lineKey(line.productId, line.variantId || '', line.toppingIds, line.note);
+            line.key = lineKey(line.productId, line.variantId || '', line.unitId || '', line.toppingIds, line.note);
           };
         });
         const x = document.getElementById('cart-x'); if (x) x.onclick = () => { cartOpen = false; render(); };
+        const gn = document.getElementById('g-name'); if (gn) gn.oninput = () => guest.name = gn.value;
+        const gp = document.getElementById('g-phone'); if (gp) gp.oninput = () => guest.phone = gp.value;
+        const gprov = document.getElementById('g-prov');
+        if (gprov) gprov.onchange = () => {
+          guest.province = gprov.value;
+          guest.ward = '';
+          const gw = document.getElementById('g-ward');
+          if (gw) gw.innerHTML = wardOptionsHtml(guest.province);
+        };
+        const gward = document.getElementById('g-ward'); if (gward) gward.onchange = () => { guest.ward = gward.value; };
+        const gd = document.getElementById('g-detail'); if (gd) gd.oninput = () => guest.detail = gd.value;
+        const gl = document.getElementById('g-locate'); if (gl) gl.onclick = locateGuestAddress;
+        const gno = document.getElementById('g-note'); if (gno) gno.oninput = () => guest.note = gno.value;
+        if (isOnline() && !vnUnits) loadVnUnits().then(() => { if (cartOpen) render(); });
         const s = document.getElementById('cart-send'); if (s) s.onclick = submit;
       }, 0);
       return html;
@@ -1129,7 +1781,20 @@
       }, 0);
       return html;
     }
+    function onSendClick() {
+      if (!canOrder()) { toast(t('lockClosed'), true); return; }
+      if (!cart.filter(x => x.qty > 0).length) return;
+      if (isOnline()) {
+        cartOpen = true;
+        billOpen = false;
+        payOpen = false;
+        render();
+        return;
+      }
+      submit();
+    }
     async function guestBody() {
+      if (isOnline()) return {};
       const lock = lockInfo();
       const need = flag(lock, 'requireGeofence', 'RequireGeofence')
         && flag(lock, 'geoConfigured', 'GeoConfigured');
@@ -1151,22 +1816,58 @@
       const items = cart.filter(x => x.qty>0).map(x => ({
         productId: x.productId,
         variantId: x.variantId || null,
+        unitId: x.unitId || null,
         toppingIds: x.toppingIds || [],
         qty: x.qty,
         note: x.note || null
       }));
       if (!items.length) return;
+      if (isOnline()) {
+        guest.name = ((document.getElementById('g-name') || {}).value || guest.name || '').trim();
+        guest.phone = ((document.getElementById('g-phone') || {}).value || guest.phone || '').trim();
+        guest.province = ((document.getElementById('g-prov') || {}).value || guest.province || '').trim();
+        guest.ward = ((document.getElementById('g-ward') || {}).value || guest.ward || '').trim();
+        guest.detail = ((document.getElementById('g-detail') || {}).value || guest.detail || '').trim();
+        guest.note = ((document.getElementById('g-note') || {}).value || guest.note || '').trim();
+        const digits = guest.phone.replace(/\D/g,'');
+        if (guest.name.length < 2 || digits.length < 8 || guest.province.length < 2
+            || guest.ward.length < 2 || guest.detail.length < 3) {
+          toast(t('needContact'), true);
+          cartOpen = true;
+          render();
+          return;
+        }
+        try { localStorage.setItem('sbox_qr_online_phone', guest.phone); } catch (e) {}
+      }
       const btn = document.getElementById('send') || document.getElementById('cart-send');
       if (btn) { btn.disabled = true; btn.textContent = t('sending'); }
       let extra = {};
       try { extra = await guestBody(); }
       catch (e) { toast((e && e.message) || t('geoFail'), true); render(); return; }
       try {
+        const fullAddr = isOnline()
+          ? [guest.detail, guest.ward, guest.province].filter(Boolean).join(', ')
+          : undefined;
         const res = await fetch(apiBase() + '/api/pos/qr-order/' + encodeURIComponent(T) + '/items', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ items, clientRequestId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), ...extra })
+          body: JSON.stringify({ items, clientRequestId: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), ...extra,
+            guestName: isOnline() ? guest.name : undefined,
+            guestPhone: isOnline() ? guest.phone : undefined,
+            guestProvince: isOnline() ? guest.province : undefined,
+            guestWard: isOnline() ? guest.ward : undefined,
+            guestAddressDetail: isOnline() ? guest.detail : undefined,
+            guestAddress: isOnline() ? fullAddr : undefined,
+            guestNote: isOnline() ? guest.note : undefined,
+            lat: isOnline() && guest.lat != null ? guest.lat : extra.lat,
+            lng: isOnline() && guest.lng != null ? guest.lng : extra.lng })
         });
-        const json = await res.json();
+        const raw = await res.text();
+        let json;
+        try { json = JSON.parse(raw); } catch (_) {
+          toast((raw && raw.slice(0, 160)) || t('sendFail'), true);
+          render();
+          return;
+        }
         if (!json.isSuccess && !json.IsSuccess) {
           toast(json.message || json.Message || t('sendFail'), true);
           render();
@@ -1176,10 +1877,17 @@
         cartOpen = false;
         picker = null;
         await load();
-        const d = json.data || {};
-        const msg = (d.needsConfirm || d.NeedsConfirm)
+        const d = json.data || json.Data || {};
+        const onlineOk = String(d.channel || d.Channel || '').toLowerCase() === 'online';
+        let msg = onlineOk
+          ? ((d.message || d.Message) || t('onlineHint'))
+          : ((d.needsConfirm || d.NeedsConfirm)
           ? t('pendingConfirm')
-          : ((d.message || d.Message) || t('defaultOk'));
+          : ((d.message || d.Message) || t('defaultOk')));
+        if (onlineOk && (d.orderNo || d.OrderNo)) {
+          msg = t('orderNo') + ' ' + (d.orderNo || d.OrderNo) + '. ' + msg;
+          trackOrders = null;
+        }
         showSuccess(msg);
       } catch (e) {
         toast(t('sendAgain'), true);
@@ -1243,9 +1951,10 @@
       query = e.target.value || '';
       if (menu) render();
     });
-    document.querySelectorAll('#lang-switch button').forEach(b => {
-      b.onclick = () => setLang(b.getAttribute('data-lang'));
-    });
+    const langSel = document.getElementById('lang-select');
+    if (langSel) langSel.onchange = () => setLang(langSel.value);
+    const trackBtn = document.getElementById('track-open');
+    if (trackBtn) trackBtn.onclick = () => { trackOpen = true; render(); };
     applyStaticLang();
     bindFab();
     load();

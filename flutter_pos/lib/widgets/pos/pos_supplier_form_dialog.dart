@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../notification_overlay.dart';
 import 'pos_form_keyboard.dart';
 import 'pos_theme.dart';
+import 'vn_admin_address_fields.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
@@ -227,22 +228,9 @@ class _PosSupplierFormDialogState extends State<PosSupplierFormDialog> {
                         decoration: PosTheme.inputDecoration(label: 'Địa chỉ'),
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _provinceCtrl,
-                              decoration: PosTheme.inputDecoration(label: 'Tỉnh/TP'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _wardCtrl,
-                              decoration: PosTheme.inputDecoration(label: 'Phường/Xã'),
-                            ),
-                          ),
-                        ],
+                      VnAdminAddressFields(
+                        provinceCtrl: _provinceCtrl,
+                        wardCtrl: _wardCtrl,
                       ),
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(

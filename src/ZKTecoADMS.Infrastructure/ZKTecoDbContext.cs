@@ -258,6 +258,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosCustomerPayment> PosCustomerPayments => Set<PosCustomerPayment>();
     public DbSet<PosCustomerPointTransaction> PosCustomerPointTransactions => Set<PosCustomerPointTransaction>();
     public DbSet<PosVoucher> PosVouchers => Set<PosVoucher>();
+    public DbSet<PosQrMenuItem> PosQrMenuItems => Set<PosQrMenuItem>();
     public DbSet<PosStoreSellSettings> PosStoreSellSettings => Set<PosStoreSellSettings>();
     public DbSet<PosCashierShift> PosCashierShifts => Set<PosCashierShift>();
     public DbSet<PosServiceArea> PosServiceAreas => Set<PosServiceArea>();
@@ -277,6 +278,9 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosNotificationCreditLedger> PosNotificationCreditLedgers => Set<PosNotificationCreditLedger>();
     public DbSet<PosTransferPaymentIntent> PosTransferPaymentIntents => Set<PosTransferPaymentIntent>();
     public DbSet<PosPaymentWebhookEvent> PosPaymentWebhookEvents => Set<PosPaymentWebhookEvent>();
+    public DbSet<PosPlatformNotificationCredit> PosPlatformNotificationCredits => Set<PosPlatformNotificationCredit>();
+    public DbSet<PosPlatformNotificationCreditLedger> PosPlatformNotificationCreditLedgers => Set<PosPlatformNotificationCreditLedger>();
+    public DbSet<PosPlatformTingeeSetting> PosPlatformTingeeSettings => Set<PosPlatformTingeeSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

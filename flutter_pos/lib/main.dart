@@ -124,7 +124,7 @@ class SboxPosApp extends StatelessWidget {
             context.read<PermissionProvider>(),
           );
           return MaterialApp(
-        title: 'SBOX POS',
+        title: 'SBOX HRM - SBOX POS',
         debugShowCheckedModeBanner: false,
         locale: AppLocale.locale,
         supportedLocales: const [
@@ -391,7 +391,8 @@ class _PosAuthShellState extends State<_PosAuthShell>
         if (handler != null && await handler()) return;
         SystemNavigator.pop();
       },
-      child: const PosMobileHubScreen(initialTab: 2),
+      // Luôn vào tab Bán hàng sau login — không khôi phục tab cũ (Tổng quan/…).
+      child: const PosMobileHubScreen(initialTab: 2, restoreLastTab: false),
     );
   }
 }

@@ -14,12 +14,14 @@ public static class LanScanner
         IProgress<string>? log = null,
         CancellationToken ct = default)
     {
-        var prefix = string.IsNullOrWhiteSpace(subnetPrefix)
-            ? GuessLocalSubnetPrefix()
-            : subnetPrefix.Trim().TrimEnd('.');
+        var prefix = SubnetNormalize.Clean(
+            string.IsNullOrWhiteSpace(subnetPrefix)
+                ? GuessLocalSubnetPrefix()
+                : subnetPrefix);
 
-        if (string.IsNullOrWhiteSpace(prefix))
-            throw new InvalidOperationException("Không xác định được subnet LAN. Nhập tay dạng 192.168.1");
+        if (string.IsNullOrWhiteSpace(prefix) || prefix.Split('.').Length != 3)
+            throw new InvalidOperationException(
+                "Subnet không hợp lệ. Nhập dạng 192.168.1 (không ghi IP đầy đủ như 192.168.1.230).");
 
         log?.Report($"Quét {prefix}.1–254 :{port} …");
 

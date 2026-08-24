@@ -264,9 +264,9 @@ tr:hover td{background:#121a2c}
       <div class="hint">“Mở cửa” gửi lệnh mở khóa/relay — dùng khi máy nối cổng ra cửa.</div>
       <hr style="border:0;border-top:1px solid var(--line);margin:16px 0">
       <div class="field">
-        <label>Khôi phục cài đặt gốc máy chấm công</label>
-        <button class="danger" onclick="factoryReset()">Xóa toàn bộ dữ liệu trên máy</button>
-        <div class="hint">Xóa hết nhân viên, vân tay và log chấm công trên máy. <b>Không thể hoàn tác.</b> Số seri máy giữ nguyên.</div>
+        <label>Khôi phục xuất xưởng máy ZK (CLEAR_DATA)</label>
+        <button class="danger" onclick="factoryResetDevice()">Xóa toàn bộ dữ liệu trên máy chấm công</button>
+        <div class="hint">Xóa hết nhân viên, vân tay và log trên máy. <b>Không thể hoàn tác.</b> Số seri máy giữ nguyên. Không đụng tới WiFi/cấu hình mạch ESP.</div>
       </div>
     </div>
     <div class="card">
@@ -335,10 +335,10 @@ tr:hover td{background:#121a2c}
         <button class="ghost" onclick="act('identify')">Đọc lại số seri máy</button>
         <button class="ghost" onclick="act('resetmark')">Xoá mốc đồng bộ</button>
         <button class="ghost" onclick="act('reboot')">Khởi động lại gateway</button>
-        <button class="danger" onclick="factoryReset()">Khôi phục xuất xưởng</button>
+        <button class="danger" onclick="factoryResetEsp()">Reset cấu hình mạch ESP</button>
       </div>
       <div class="hint">“Xoá mốc đồng bộ” buộc gateway gửi lại mọi bản ghi còn trên máy; máy chủ tự loại bản trùng.</div>
-      <div class="hint warn">“Khôi phục xuất xưởng” xoá toàn bộ cấu hình đã lưu (WiFi, IP máy chấm công, mật khẩu portal, mốc nước cao) và khởi động lại. Sau đó gateway sẽ phát lại WiFi cấu hình SBOX-Gateway-XXXX. Server ADMS vẫn khóa cứng là sboxhrm.com.</div>
+      <div class="hint warn">“Reset cấu hình mạch ESP” xoá WiFi, IP máy, mật khẩu portal đã lưu trên mạch và reboot về SoftAP SBOX-Gateway-XXXX. <b>Không</b> xoá dữ liệu trên máy ZK — dùng nút “Xóa toàn bộ dữ liệu trên máy chấm công” ở tab Máy.</div>
     </div>
     <div class="card">
       <h2>Cập nhật firmware</h2>
@@ -432,20 +432,24 @@ async function act(what){
   toast(r.ok ? 'Đã gửi yêu cầu' : 'Không thực hiện được');
 }
 
-async function factoryReset(){
-  if(!confirm('Khôi phục xuất xưởng sẽ XOÁ TOÀN BỘ cấu hình (WiFi, IP máy chấm công, mật khẩu portal, mốc nước cao).\\n\\nSau khi xoá, gateway sẽ khởi động lại và phát WiFi SBOX-Gateway-XXXX để cài mới.\\n\\nTiếp tục?')) return;
-  if(!confirm('Xác nhận lần 2: chỉ làm khi cần đưa gateway về trạng thái như mới xuất xưởng.\\nTiếp tục?')) return;
-  const r = await fetch('/api/action?do=factory_reset',{method:'POST'});
+async function factoryResetEsp(){
+  if(!confirm('Reset cấu hình mạch ESP sẽ XOÁ WiFi, IP máy chấm công, mật khẩu portal trên mạch.\\n\\nSau đó mạch reboot và phát WiFi SBOX-Gateway-XXXX để cài mới.\\n\\nDữ liệu trên máy ZK KHÔNG bị xóa.\\n\\nTiếp tục?')) return;
+  if(!confirm('Xác nhận lần 2: chỉ làm khi cần đưa mạch về trạng thái như mới xuất xưởng.\\nTiếp tục?')) return;
+  const r = await fetch('/api/action?do=factory_reset',{method:'POST',credentials:'same-origin'});
+  if(r.status===401){
+    toast('Portal đang khóa — nhập mật khẩu quản trị khi trình duyệt hỏi, rồi thử lại');
+    return;
+  }
   if(r.ok){
-    toast('Đang xoá cấu hình và khởi động lại...');
+    toast('Đang xoá cấu hình mạch và khởi động lại...');
     setTimeout(()=>{
       const msg = document.createElement('div');
       msg.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;z-index:9999;padding:24px;text-align:center;font-size:18px;color:#333';
-      msg.innerHTML = 'Gateway đã khôi phục xuất xưởng.<br><br>Nối WiFi <b>SBOX-Gateway-XXXX</b> (mật khẩu <b>sbox12345</b>) và mở <b>http://192.168.4.1</b> để cấu hình lại.';
+      msg.innerHTML = 'Mạch ESP đã reset cấu hình.<br><br>Nối WiFi <b>SBOX-Gateway-XXXX</b> (mật khẩu <b>sbox12345</b>) và mở <b>http://192.168.4.1</b> để cấu hình lại.<br><br><span style="color:#666;font-size:14px">Máy chấm công không bị xóa dữ liệu.</span>';
       document.body.appendChild(msg);
     }, 1500);
   } else {
-    toast('Không thực hiện được');
+    toast('Không thực hiện được (mã '+r.status+')');
   }
 }
 
@@ -546,9 +550,9 @@ async function devCtrl(action){
   if(ok) setTimeout(refresh, 1500);
 }
 
-async function factoryReset(){
-  if(!confirm('XÓA TOÀN BỘ dữ liệu trên máy chấm công?\n\nNhân viên, vân tay và log sẽ mất vĩnh viễn.')) return;
-  if(!confirm('Xác nhận lần cuối: bạn chắc chắn muốn khôi phục cài đặt gốc?')) return;
+async function factoryResetDevice(){
+  if(!confirm('XÓA TOÀN BỘ dữ liệu trên máy chấm công (CLEAR_DATA)?\\n\\nNhân viên, vân tay và log sẽ mất. Mạch ESP / WiFi không bị đụng.')) return;
+  if(!confirm('Xác nhận lần cuối: khôi phục xuất xưởng máy ZK?')) return;
   await devCtrl('factory_reset');
   setTimeout(loadUsers, 2000);
 }

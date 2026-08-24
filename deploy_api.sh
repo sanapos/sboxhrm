@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 cd /root
 rm -rf api_src
 mkdir api_src

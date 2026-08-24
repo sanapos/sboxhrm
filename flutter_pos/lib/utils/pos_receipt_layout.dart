@@ -15,19 +15,19 @@ class PosReceiptLayout {
       return const PosReceiptLayout._(
         k58: true,
         chars: 32,
-        nameW: 14,
+        nameW: 8,
         qtyW: 4,
-        priceW: 8,
+        priceW: 10,
         totalW: 10,
       );
     }
     return const PosReceiptLayout._(
       k58: false,
       chars: 48,
-      nameW: 21,
+      nameW: 22,
       qtyW: 4,
       priceW: 11,
-      totalW: 12,
+      totalW: 11,
     );
   }
 
@@ -46,22 +46,40 @@ class PosReceiptLayout {
   String get equals => List.filled(k58 ? 48 : 64, '=').join();
   String get doubleDash => equals;
 
-  /// Tiền đầy đủ có chấm nghìn — không viết tắt `k`, không cắt số.
+  /// Tiền đầy đủ có chấm nghìn — dòng tổng cộng.
   static String moneyItem(double v) => _withDots(v.round());
 
-  /// Cột Đ.giá / T.tiền hàng: từ 1 triệu ghi `2.850k` để nới cột tên.
-  /// Tổng tiền hàng / Tổng cộng vẫn dùng [moneyItem].
+  /// Cột Đ.giá / T.tiền hàng: `500k`, `1.5tr` — tên hàng rộng hơn, không cắt số.
   static String moneyItemCompact(double v) {
     final n = v.round();
-    if (n.abs() < 1000000) return _withDots(n);
-    if (n % 1000 == 0) return '${_withDots(n ~/ 1000)}k';
     final neg = n < 0;
     final abs = n.abs();
-    final whole = abs ~/ 1000;
-    final frac = ((abs % 1000) / 100).round();
-    final body = frac == 0
-        ? '${_withDots(whole)}k'
-        : '${_withDots(whole)},$frac k';
+    String body;
+    if (abs < 1000) {
+      body = abs.toString();
+    } else if (abs < 1000000) {
+      if (abs % 1000 == 0) {
+        body = '${abs ~/ 1000}k';
+      } else if (abs % 100 == 0) {
+        final k = abs / 1000;
+        body = k.truncateToDouble() == k
+            ? '${k.toInt()}k'
+            : '${k.toStringAsFixed(1)}k';
+      } else {
+        body = _withDots(abs);
+      }
+    } else if (abs % 1000000 == 0) {
+      body = '${abs ~/ 1000000}tr';
+    } else if (abs % 100000 == 0) {
+      final tr = abs / 1000000;
+      body = tr.truncateToDouble() == tr
+          ? '${tr.toInt()}tr'
+          : '${tr.toStringAsFixed(1)}tr';
+    } else if (abs % 1000 == 0) {
+      body = '${_withDots(abs ~/ 1000)}k';
+    } else {
+      body = _withDots(abs);
+    }
     return neg ? '-$body' : body;
   }
 
@@ -136,10 +154,7 @@ class PosReceiptLayout {
     final q = qty.trim();
     final p = price.trim();
     final t = total.trim();
-    final qw = q.length > qtyW ? q.length : qtyW;
-    final pw = p.length > priceW ? p.length : priceW;
-    final tw = t.length > totalW ? t.length : totalW;
-    return '${_fitRight(q, qw)}${_fitRight(p, pw)}${_fitRight(t, tw)}';
+    return '${_fitRight(q, qtyW)}${_fitRight(p, priceW)}${_fitRight(t, totalW)}';
   }
 
   /// Một hàng Tên | SL | Đ.giá | T.tiền. Tiền giữ nguyên từ mép phải.
@@ -244,9 +259,8 @@ class PosReceiptLayout {
   }
 
   static String _fitRight(String s, int width) {
-    if (width <= 0) return '';
-    if (s.length == width) return s;
-    if (s.length > width) return s.substring(s.length - width);
+    if (width <= 0) return s;
+    if (s.length >= width) return s;
     return s.padLeft(width);
   }
 

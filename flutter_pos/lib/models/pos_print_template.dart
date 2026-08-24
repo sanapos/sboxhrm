@@ -9,6 +9,8 @@ class PosPrintTemplate {
     this.isActive = true,
     this.sortOrder = 0,
     this.sourceCatalogId,
+    this.createdAt,
+    this.updatedAt,
   });
 
   final String id;
@@ -21,35 +23,20 @@ class PosPrintTemplate {
   final int sortOrder;
   /// Id mẫu chung đã clone (nếu có).
   final String? sourceCatalogId;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  /// Tên ngắn trên UI thiết lập: `K80 ★`, `HĐ K80`.
+  String get shortLabel {
+    final paper = PosPrintPaperSizes.shortLabel(paperSize);
+    final n = name.trim();
+    if (n.isEmpty) return isDefault ? '$paper ★' : paper;
+    if (n.length <= 14) return isDefault && !n.contains('★') ? '$n ★' : n;
+    return isDefault ? '$paper ★' : paper;
+  }
 
   /// Tên hiển thị rõ loại + khổ (đổi tên cũ «Khổ K80 - Mẫu 1»).
-  String get displayTitle {
-    final n = name.trim();
-    final doc = PosPrintDocumentTypes.all[documentType] ?? documentType;
-    final paper = PosPrintPaperSizes.displayLabel(paperSize);
-    final looksGeneric = n.isEmpty ||
-        RegExp(r'^Khổ\s', caseSensitive: false).hasMatch(n) ||
-        RegExp(r'^Tem\s+\d', caseSensitive: false).hasMatch(n) ||
-        n == paperSize;
-    if (looksGeneric) {
-      final m = RegExp(r'Mẫu\s*(\d+)', caseSensitive: false).firstMatch(n);
-      final variant = m?.group(1) ?? '1';
-      final shortPaper = switch (paperSize) {
-        PosPrintPaperSizes.k58 => 'K58',
-        PosPrintPaperSizes.k80 => 'K80',
-        PosPrintPaperSizes.a5 => 'A5',
-        PosPrintPaperSizes.a4 => 'A4',
-        PosPrintPaperSizes.label50x30 || 'roll_1_50x30' => '50×30',
-        PosPrintPaperSizes.label40x30 || 'roll_1_40x30' => '40×30',
-        _ => paperSize,
-      };
-      return '$doc $variant ($shortPaper)';
-    }
-    if (!n.contains(doc) && !n.toLowerCase().contains('hóa đơn')) {
-      return '$n · $doc · $paper';
-    }
-    return n;
-  }
+  String get displayTitle => shortLabel;
 
   factory PosPrintTemplate.fromJson(Map<String, dynamic> json) => PosPrintTemplate(
         id: json['id']?.toString() ?? '',
@@ -62,6 +49,10 @@ class PosPrintTemplate {
         sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
         sourceCatalogId: (json['sourceCatalogId'] ?? json['SourceCatalogId'])
             ?.toString(),
+        createdAt: DateTime.tryParse(
+            '${json['createdAt'] ?? json['CreatedAt'] ?? ''}'),
+        updatedAt: DateTime.tryParse(
+            '${json['updatedAt'] ?? json['UpdatedAt'] ?? ''}'),
       );
 
   Map<String, dynamic> toSaveJson() => {
@@ -83,6 +74,8 @@ class PosPrintTemplate {
     bool? isActive,
     int? sortOrder,
     String? sourceCatalogId,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) =>
       PosPrintTemplate(
         id: id,
@@ -94,6 +87,8 @@ class PosPrintTemplate {
         isActive: isActive ?? this.isActive,
         sortOrder: sortOrder ?? this.sortOrder,
         sourceCatalogId: sourceCatalogId ?? this.sourceCatalogId,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
       );
 }
 
@@ -254,6 +249,23 @@ abstract final class PosPrintPaperSizes {
     'roll_1_100x150': 'Tem 100×150 mm (A6)',
   };
 
+  /// Nhãn ngắn cho dropdown / chip (K80, 50×30…).
+  static String shortLabel(String paperSize) {
+    return switch (paperSize) {
+      k58 => 'K58',
+      k80 => 'K80',
+      a5 => 'A5',
+      a4 => 'A4',
+      label50x30 || 'roll_1_50x30' => '50×30',
+      label40x30 || 'roll_1_40x30' => '40×30',
+      label60x40 || 'roll_1_60x40' => '60×40',
+      label58x40 || 'roll_1_58x40' => '58×40',
+      label75x100 || 'roll_1_75x100' => '75×100',
+      label100x150 || 'roll_1_100x150' => '100×150',
+      _ => paperSize,
+    };
+  }
+
   /// Nhãn hiển thị (gồm id tem roll_* từ mẫu barcode).
   static String displayLabel(String paperSize) {
     final known = labels[paperSize];
@@ -333,6 +345,19 @@ abstract final class PosPrintPaperSizes {
       a4 => 210,
       _ => 50,
     };
+  }
+
+  /// Điểm in nhiệt (K58=384, K80=576) — preview phải chia cùng mẫu này.
+  static int thermalDots(String size) {
+    final mm = widthMm(size);
+    return mm <= 58 ? 384 : 576;
+  }
+
+  /// Quy đổi mm → px in nhiệt trên khổ giấy hiện tại.
+  static int mmToPrintPx(String size, double mm) {
+    final w = widthMm(size);
+    if (w <= 0) return 0;
+    return (thermalDots(size) / w * mm).round();
   }
 
   static double heightMm(String size) {
@@ -458,7 +483,7 @@ abstract final class PosPrintTokens {
     ('STT', 'STT dòng'),
     ('Ma_Hang', 'Mã hàng'),
     ('Ma_Vach', 'Mã vạch'),
-    ('Ten_Hang_Hoa', 'Tên hàng'),
+    ('Ten_Hang_Hoa', 'Tên hàng hóa'),
     ('Don_Gia', 'Đơn giá'),
     ('So_Luong', 'Số lượng'),
     ('Don_Vi_Tinh', 'ĐVT'),
@@ -471,7 +496,7 @@ abstract final class PosPrintTokens {
   static const label = [
     ('Ma_Hang', 'Mã hàng'),
     ('Ma_Vach', 'Mã vạch'),
-    ('Ten_Hang_Hoa', 'Tên hàng'),
+    ('Ten_Hang_Hoa', 'Tên hàng hóa'),
     ('Don_Gia', 'Đơn giá'),
     ('Don_Vi_Tinh', 'ĐVT'),
     ('So_Luong', 'Số lượng'),
@@ -486,6 +511,9 @@ abstract final class PosPrintTokens {
   static const totals = [
     ('Tong_Tien_Hang', 'Tổng tiền hàng'),
     ('Chiet_Khau_Hoa_Don', 'Chiết khấu đơn'),
+    ('Tien_Thue', 'Thuế'),
+    ('Phu_Thu', 'Phụ thu'),
+    ('Phi_Giao_Hang', 'Phí giao hàng'),
     ('Tong_Cong', 'Tổng cộng'),
     ('Khach_Can_Tra', 'Khách cần trả'),
     ('Khach_Thanh_Toan', 'Khách thanh toán'),

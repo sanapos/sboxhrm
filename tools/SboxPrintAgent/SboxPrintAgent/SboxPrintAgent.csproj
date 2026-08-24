@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -8,7 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SboxPrintAgent</AssemblyName>
     <RootNamespace>SboxPrintAgent</RootNamespace>
-    <Version>1.3.1</Version>
+    <Version>1.4.6</Version>
     <Product>SBOX Print Agent</Product>
     <Description>SBOX — kết nối máy in và nhận lệnh in từ phần mềm bán hàng</Description>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>

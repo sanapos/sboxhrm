@@ -28,29 +28,9 @@ public static class PosPrintTemplateDefaults
 
     public static string TemplateName(PosPrintDocumentType type, PosPrintPaperSize size, int variant = 1)
     {
-        var doc = type switch
+        return size switch
         {
-            PosPrintDocumentType.SaleInvoice => "Hóa đơn bán hàng",
-            PosPrintDocumentType.SaleOrder => "Đặt hàng",
-            PosPrintDocumentType.Delivery => "Giao hàng",
-            PosPrintDocumentType.SaleReturn => "Trả hàng",
-            PosPrintDocumentType.SaleExchange => "Đổi trả hàng",
-            PosPrintDocumentType.PurchaseOrder => "Đặt hàng nhập",
-            PosPrintDocumentType.PurchaseReceipt => "Nhập hàng",
-            PosPrintDocumentType.PurchaseReturn => "Trả hàng nhập",
-            PosPrintDocumentType.StockTransfer => "Chuyển hàng",
-            PosPrintDocumentType.StockIssue => "Xuất kho",
-            PosPrintDocumentType.KitchenSlip => "Báo chế biến",
-            PosPrintDocumentType.KitchenVoid => "Hủy bếp",
-            PosPrintDocumentType.BarcodeLabel => "Tem sản phẩm",
-            PosPrintDocumentType.KitchenLabel => "Tem ly / tem bếp",
-            PosPrintDocumentType.CashReceipt => "Phiếu thu",
-            PosPrintDocumentType.CashPayment => "Phiếu chi",
-            _ => "Chứng từ",
-        };
-        var paper = size switch
-        {
-            PosPrintPaperSize.K58 => "K57/K58",
+            PosPrintPaperSize.K58 => "K58",
             PosPrintPaperSize.K80 => "K80",
             PosPrintPaperSize.A5 => "A5",
             PosPrintPaperSize.A4 => "A4",
@@ -58,7 +38,6 @@ public static class PosPrintTemplateDefaults
             PosPrintPaperSize.Label40x30 => "40×30",
             _ => size.ToString(),
         };
-        return $"{doc} {variant} ({paper})";
     }
 
     [Obsolete("Use TemplateName(type, size, variant)")]
@@ -84,8 +63,8 @@ public static class PosPrintTemplateDefaults
         {
             return new[]
             {
-                new CatalogSpec($"{DocumentTitle(docType)} · 50×30", PosPrintPaperSize.Label50x30, 0, true),
-                new CatalogSpec($"{DocumentTitle(docType)} · 40×30", PosPrintPaperSize.Label40x30, 1, false),
+                new CatalogSpec("50×30 ★", PosPrintPaperSize.Label50x30, 0, true),
+                new CatalogSpec("40×30", PosPrintPaperSize.Label40x30, 1, false),
             };
         }
 
@@ -93,17 +72,17 @@ public static class PosPrintTemplateDefaults
         {
             return new[]
             {
-                new CatalogSpec($"{DocumentTitle(docType)} · K80 chuẩn", PosPrintPaperSize.K80, 0, true),
-                new CatalogSpec($"{DocumentTitle(docType)} · K58", PosPrintPaperSize.K58, 1, false),
+                new CatalogSpec("K80 ★", PosPrintPaperSize.K80, 0, true),
+                new CatalogSpec("K58", PosPrintPaperSize.K58, 1, false),
             };
         }
 
         // Hóa đơn / xuất kho / phiếu khác: 3 mẫu (K80 chuẩn, K80 A4/A5 sheet, K58)
         return new[]
         {
-            new CatalogSpec($"{DocumentTitle(docType)} · K80 chuẩn", PosPrintPaperSize.K80, 0, true),
-            new CatalogSpec($"{DocumentTitle(docType)} · K58", PosPrintPaperSize.K58, 1, false),
-            new CatalogSpec($"{DocumentTitle(docType)} · A5", PosPrintPaperSize.A5, 2, false),
+            new CatalogSpec("K80 ★", PosPrintPaperSize.K80, 0, true),
+            new CatalogSpec("K58", PosPrintPaperSize.K58, 1, false),
+            new CatalogSpec("A5", PosPrintPaperSize.A5, 2, false),
         };
     }
 
@@ -121,7 +100,7 @@ public static class PosPrintTemplateDefaults
         if (docType == PosPrintDocumentType.KitchenLabel)
             return BuildKitchenLabelHtml(paperSize);
         if (docType is PosPrintDocumentType.KitchenSlip or PosPrintDocumentType.KitchenVoid)
-            return BuildKitchenSlipHtml(title, paperSize, isCancel: docType == PosPrintDocumentType.KitchenVoid);
+            return BuildKitchenV2(paperSize, isCancel: docType == PosPrintDocumentType.KitchenVoid);
         return paperSize is PosPrintPaperSize.K58 or PosPrintPaperSize.K80
             ? BuildThermalV2(docType, paperSize)
             : BuildSheetHtml(title, paperSize);
@@ -172,66 +151,81 @@ public static class PosPrintTemplateDefaults
             "</div>";
     }
 
+    static string BuildKitchenV2(PosPrintPaperSize size, bool isCancel)
+    {
+        var k58 = size == PosPrintPaperSize.K58;
+        var paper = k58 ? "K58" : "K80";
+        var profile = k58 ? "sunmi_k58" : "sunmi_k80";
+        var titleFs = k58 ? 32 : 36;
+        var body = k58 ? 22 : 24;
+        var item = k58 ? 24 : 26;
+        var badge = isCancel ? "*** PHIẾU HỦY ***" : "*** BÁO CHẾ BIẾN ***";
+        var doc = isCancel ? PosPrintDocumentType.KitchenVoid : PosPrintDocumentType.KitchenSlip;
+        var name = TemplateName(doc, size);
+        return
+            "<!--POS_TEMPLATE_V2-->\n" +
+            "{\"version\":1,\"paperSize\":\"" + paper + "\",\"printerProfile\":\"" + profile +
+            "\",\"documentType\":\"" + doc + "\",\"name\":\"" + name +
+            "\",\"blocks\":[" +
+            "{\"type\":\"field\",\"field\":\"Ten_Ban\",\"style\":{\"fontSize\":" + titleFs + ",\"bold\":true,\"align\":\"center\"}}," +
+            "{\"type\":\"text\",\"text\":\"" + badge + "\",\"style\":{\"fontSize\":" + (titleFs - 2) + ",\"bold\":true,\"align\":\"center\"}}," +
+            "{\"type\":\"divider\"}," +
+            "{\"type\":\"text\",\"text\":\"Mã HĐ: {Ma_Don_Hang}\",\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"text\",\"text\":\"NV: {Nguoi_Ban}\",\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"text\",\"text\":\"Gọi lúc: {Ngay} {Gio}\",\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"divider\"}," +
+            "{\"type\":\"lineItemsKitchen\",\"style\":{\"fontSize\":" + item + ",\"bold\":true,\"align\":\"left\"}}" +
+            "]}";
+    }
+
     static string BuildKitchenSlipHtml(string title, PosPrintPaperSize size, bool isCancel)
     {
-        var width = size == PosPrintPaperSize.K58 ? "58mm" : "80mm";
-        var fs = size == PosPrintPaperSize.K58 ? "12px" : "13px";
-        var titleFs = size == PosPrintPaperSize.K58 ? "16px" : "18px";
-        var badge = isCancel ? "*** PHIẾU HỦY ***" : "*** BÁO CHẾ BIẾN ***";
-        return
-            "<div style=\"width:" + width +
-            ";max-width:100%;margin:0 auto;font-family:Arial,sans-serif;font-size:" + fs + ";color:#000\">" +
-            "<div style=\"text-align:center;font-weight:bold;font-size:" + titleFs + "\">{Ten_Ban}</div>" +
-            "<div style=\"text-align:center;font-weight:bold;margin:4px 0\">" + badge + "</div>" +
-            "<div style=\"margin:6px 0;border-top:1px dashed #999\"></div>" +
-            "<div><b>Mã HĐ:</b> {Ma_Don_Hang}</div>" +
-            "<div><b>NV:</b> {Nguoi_Ban}</div>" +
-            "<div><b>Ngày:</b> {Ngay} {Gio}</div>" +
-            "<div style=\"margin:6px 0;border-top:1px dashed #999\"></div>" +
-            "<!--BEGIN_ITEMS-->" +
-            "<div style=\"margin-bottom:8px\">" +
-            "<div style=\"font-weight:bold;font-size:14px\">{Ten_Hang_Hoa}</div>" +
-            "<div>SL: <b>{So_Luong}</b> {Don_Vi_Tinh}</div>" +
-            "<div style=\"font-style:italic\">{Ghi_Chu}</div>" +
-            "</div><!--END_ITEMS-->" +
-            "<div style=\"margin:6px 0;border-top:1px dashed #999\"></div>" +
-            "<div style=\"text-align:center;font-weight:bold\">— Hết —</div>" +
-            "</div>";
+        return BuildKitchenV2(size, isCancel);
     }
 
     /// <summary>Mẫu nhiệt V2 gọn — ít dòng, không QR mặc định.</summary>
+    /// Mẫu mặc định = HĐ K80 đang thiết lập cửa hàng demopos (K58 thu nhỏ tỉ lệ).
     static string BuildThermalV2(PosPrintDocumentType docType, PosPrintPaperSize size)
     {
         var k58 = size == PosPrintPaperSize.K58;
         var paper = k58 ? "K58" : "K80";
         var profile = k58 ? "sunmi_k58" : "sunmi_k80";
-        var title = k58 ? 28 : 32;
-        var body = k58 ? 20 : 22;
-        var small = k58 ? 16 : 18;
-        var total = k58 ? 24 : 28;
+        var title = k58 ? 32 : 40;
+        var addr = k58 ? 20 : 24;
+        var heading = k58 ? 26 : 32;
+        var orderNo = k58 ? 24 : 28;
+        var body = k58 ? 20 : 24;
+        var totL = k58 ? 22 : 26;
+        var totR = k58 ? 26 : 32;
+        var thanks = k58 ? 24 : 30;
         var isReturn = docType == PosPrintDocumentType.SaleReturn;
-        var name = TemplateName(docType, size);
+        var name = isReturn
+            ? (k58 ? "Trả K58" : "Trả K80")
+            : (k58 ? "HĐ K58" : "HĐ K80");
         var totals = isReturn
-            ? "{\"type\":\"totals\",\"fields\":[\"Tong_Cong\"],\"fieldLabels\":{\"Tong_Cong\":\"HOAN TIEN\"},\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + total + ",\"bold\":true,\"align\":\"right\"}}"
-            : "{\"type\":\"totals\",\"fields\":[\"Tong_Tien_Hang\",\"Chiet_Khau_Hoa_Don\",\"Tong_Cong\",\"Khach_Thanh_Toan\"],\"fieldLabels\":{\"Tong_Tien_Hang\":\"Tien hang\",\"Chiet_Khau_Hoa_Don\":\"CK\",\"Tong_Cong\":\"TONG\",\"Khach_Thanh_Toan\":\"Da thu\"},\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + total + ",\"bold\":true,\"align\":\"right\"}}";
-        var footer = isReturn ? "Phieu tra hang" : "Cam on quy khach!";
+            ? "{\"type\":\"totals\",\"fields\":[\"Tong_Cong\"],\"fieldLabels\":{\"Tong_Cong\":\"HOÀN TIỀN\"},\"style\":{\"fontSize\":" + totL + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + totR + ",\"bold\":true,\"align\":\"right\"}}"
+            : "{\"type\":\"totals\",\"fields\":[\"Tong_Tien_Hang\",\"Chiet_Khau_Hoa_Don\",\"Tien_Thue\",\"Phu_Thu\",\"Phi_Giao_Hang\",\"Tong_Cong\"],\"fieldLabels\":{\"Tong_Tien_Hang\":\"Tiền hàng\",\"Chiet_Khau_Hoa_Don\":\"Chiết khấu\",\"Tien_Thue\":\"Thuế\",\"Phu_Thu\":\"Phụ thu\",\"Phi_Giao_Hang\":\"Phí GH\",\"Tong_Cong\":\"TỔNG\"},\"style\":{\"fontSize\":" + totL + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + totR + ",\"bold\":true,\"align\":\"right\"}}";
+        var footer = isReturn ? "Phiếu trả hàng" : "Cảm ơn quý khách";
         return
             "<!--POS_TEMPLATE_V2-->\n" +
             "{\"version\":1,\"paperSize\":\"" + paper + "\",\"printerProfile\":\"" + profile +
             "\",\"documentType\":\"" + docType + "\",\"name\":\"" + name +
             "\",\"blocks\":[" +
             "{\"type\":\"field\",\"field\":\"Ten_Cua_Hang\",\"style\":{\"fontSize\":" + title + ",\"bold\":true,\"align\":\"center\"}}," +
-            "{\"type\":\"field\",\"field\":\"Dia_Chi_Chi_Nhanh\",\"style\":{\"fontSize\":" + small + ",\"bold\":false,\"align\":\"center\"}}," +
+            "{\"type\":\"field\",\"field\":\"Dia_Chi_Chi_Nhanh\",\"style\":{\"fontSize\":" + addr + ",\"bold\":false,\"align\":\"center\"}}," +
+            "{\"type\":\"field\",\"field\":\"Dien_Thoai_Chi_Nhanh\",\"style\":{\"fontSize\":" + addr + ",\"bold\":false,\"align\":\"center\"}}," +
             "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
-            "{\"type\":\"field\",\"field\":\"Tieu_De_In\",\"style\":{\"fontSize\":" + (body + 2) + ",\"bold\":true,\"align\":\"center\"}}," +
-            "{\"type\":\"pair\",\"leftField\":\"Ma_Don_Hang\",\"rightField\":\"Ngay\",\"fieldLabels\":{\"Ma_Don_Hang\":\"HD:\",\"Ngay\":\"\"},\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
-            "{\"type\":\"field\",\"field\":\"Ten_Ban\",\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
-            "{\"type\":\"field\",\"field\":\"Khach_Hang\",\"label\":\"KH:\",\"style\":{\"fontSize\":" + small + ",\"bold\":false,\"align\":\"left\"}}," +
+            "{\"type\":\"field\",\"field\":\"Tieu_De_In\",\"style\":{\"fontSize\":" + heading + ",\"bold\":true,\"align\":\"center\"}}," +
+            "{\"type\":\"field\",\"field\":\"Ma_Don_Hang\",\"style\":{\"fontSize\":" + orderNo + ",\"bold\":true,\"align\":\"center\"}}," +
+            "{\"type\":\"field\",\"field\":\"Ten_Ban\",\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"}}," +
+            "{\"type\":\"pair\",\"leftField\":\"Ngay\",\"rightField\":\"Gio\",\"fieldLabels\":{\"Ngay\":\"Ngày\",\"Gio\":\"Giờ\"},\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"}}," +
+            "{\"type\":\"field\",\"field\":\"Khach_Hang\",\"label\":\"Khách hàng\",\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"}}," +
             "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
-            "{\"type\":\"lineItems\",\"showColumnHeader\":false,\"style\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"lineItems\",\"fieldLabels\":{\"Don_Gia\":\"Đ.Giá\",\"Thanh_Tien\":\"TT\"},\"showColumnHeader\":true,\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
             "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
             totals + "," +
-            "{\"type\":\"text\",\"text\":\"" + footer + "\",\"style\":{\"fontSize\":" + small + ",\"bold\":true,\"align\":\"center\"}}" +
+            "{\"type\":\"field\",\"field\":\"Tong_Cong_Bang_Chu\",\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"center\"}}," +
+            "{\"type\":\"text\",\"text\":\"" + footer + "\",\"style\":{\"fontSize\":" + thanks + ",\"bold\":true,\"align\":\"center\"}}" +
             "]}";
     }
 

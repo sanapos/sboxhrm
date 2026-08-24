@@ -87,7 +87,10 @@ public partial class PosProductsController(
         decimal? SellableQty = null,
         List<PosProductComboLineDto>? ComboLines = null,
         List<PosProductComboLineDto>? RecipeLines = null,
-        bool ShowComboComponentsOnSell = false);
+        bool ShowComboComponentsOnSell = false,
+        decimal? LengthCm = null,
+        decimal? WidthCm = null,
+        decimal? HeightCm = null);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -171,7 +174,10 @@ public partial class PosProductsController(
         bool AllowDecimalQty = false,
         List<PosProductToppingInput>? Toppings = null,
         List<Guid>? ToppingGroupIds = null,
-        bool ShowComboComponentsOnSell = false);
+        bool ShowComboComponentsOnSell = false,
+        decimal? LengthCm = null,
+        decimal? WidthCm = null,
+        decimal? HeightCm = null);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -321,6 +327,9 @@ public partial class PosProductsController(
                 p.MaxStockQty,
                 p.Weight,
                 p.WeightUnit,
+                p.LengthCm,
+                p.WidthCm,
+                p.HeightCm,
                 p.BaseUnitName,
                 p.IsDirectSale,
                 p.IsFavorite,
@@ -406,7 +415,10 @@ public partial class PosProductsController(
                 SellableQty: r.ProductType == PosProductType.Combo
                     ? comboSellable.GetValueOrDefault(r.Id)
                     : null,
-                ShowComboComponentsOnSell: r.ShowComboComponentsOnSell);
+                ShowComboComponentsOnSell: r.ShowComboComponentsOnSell,
+                LengthCm: r.LengthCm,
+                WidthCm: r.WidthCm,
+                HeightCm: r.HeightCm);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -624,6 +636,9 @@ public partial class PosProductsController(
             MaxStockQty = dto.MaxStockQty,
             Weight = dto.Weight,
             WeightUnit = string.IsNullOrWhiteSpace(dto.WeightUnit) ? "g" : dto.WeightUnit.Trim(),
+            LengthCm = dto.LengthCm is > 0 ? dto.LengthCm : null,
+            WidthCm = dto.WidthCm is > 0 ? dto.WidthCm : null,
+            HeightCm = dto.HeightCm is > 0 ? dto.HeightCm : null,
             BaseUnitName = string.IsNullOrWhiteSpace(dto.BaseUnitName) ? "Cái" : dto.BaseUnitName.Trim(),
             IsDirectSale = dto.IsDirectSale,
             IsFavorite = dto.IsFavorite,
@@ -742,6 +757,9 @@ public partial class PosProductsController(
         entity.MaxStockQty = dto.MaxStockQty;
         entity.Weight = dto.Weight;
         entity.WeightUnit = string.IsNullOrWhiteSpace(dto.WeightUnit) ? "g" : dto.WeightUnit.Trim();
+        entity.LengthCm = dto.LengthCm is > 0 ? dto.LengthCm : null;
+        entity.WidthCm = dto.WidthCm is > 0 ? dto.WidthCm : null;
+        entity.HeightCm = dto.HeightCm is > 0 ? dto.HeightCm : null;
         // Giữ ĐVT hiện có nếu client không gửi — tránh partial PUT về «Cái».
         if (!string.IsNullOrWhiteSpace(dto.BaseUnitName))
             entity.BaseUnitName = dto.BaseUnitName.Trim();
@@ -861,6 +879,9 @@ public partial class PosProductsController(
             MaxStockQty = source.MaxStockQty,
             Weight = source.Weight,
             WeightUnit = source.WeightUnit,
+            LengthCm = source.LengthCm,
+            WidthCm = source.WidthCm,
+            HeightCm = source.HeightCm,
             BaseUnitName = source.BaseUnitName,
             IsDirectSale = source.IsDirectSale,
             IsFavorite = false,
@@ -1093,7 +1114,10 @@ public partial class PosProductsController(
             SellableQty: sellableQty,
             ComboLines: comboLines,
             RecipeLines: recipeLines,
-            ShowComboComponentsOnSell: p.ShowComboComponentsOnSell);
+            ShowComboComponentsOnSell: p.ShowComboComponentsOnSell,
+            LengthCm: p.LengthCm,
+            WidthCm: p.WidthCm,
+            HeightCm: p.HeightCm);
     }
 
     private async Task<(

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -310,20 +311,36 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         var existing = await dbContext.PosPrintTemplateCatalogs
             .Where(t => t.DocumentType == documentType && t.Deleted == null)
             .ToListAsync();
-        var byName = existing.ToDictionary(t => t.Name, StringComparer.OrdinalIgnoreCase);
 
         var now = DateTime.UtcNow;
         var created = 0;
         var updated = 0;
+        var used = new HashSet<Guid>();
         foreach (var spec in specs)
         {
             var html = PosPrintTemplateDefaults.BuildHtml(documentType, spec.PaperSize);
-            if (byName.TryGetValue(spec.Name, out var row))
+            var row = existing.FirstOrDefault(t => t.PaperSize == spec.PaperSize);
+            if (row != null)
             {
-                // Làm mới mẫu catalog (layout gọn) — store đã custom vẫn giữ Html riêng.
+                used.Add(row.Id);
+                var dirty = false;
+                if (!string.Equals(row.Name, spec.Name, StringComparison.Ordinal))
+                {
+                    row.Name = spec.Name;
+                    dirty = true;
+                }
                 if (!string.Equals(row.HtmlContent, html, StringComparison.Ordinal))
                 {
                     row.HtmlContent = html;
+                    dirty = true;
+                }
+                if (row.IsRecommended != spec.IsRecommended)
+                {
+                    row.IsRecommended = spec.IsRecommended;
+                    dirty = true;
+                }
+                if (dirty)
+                {
                     row.UpdatedAt = now;
                     row.UpdatedBy = "system";
                     updated++;
@@ -345,10 +362,17 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
             });
             created++;
         }
+        foreach (var leftover in existing.Where(t => !used.Contains(t.Id)))
+        {
+            leftover.IsActive = false;
+            leftover.UpdatedAt = now;
+            leftover.UpdatedBy = "system";
+            updated++;
+        }
         if (created > 0 || updated > 0)
             await dbContext.SaveChangesAsync();
 
-        // Đồng bộ store template chưa sửa tay (còn gắn SourceCatalogId + trùng tên catalog).
+        // Đồng bộ store template gắn catalog (A6/A7 cùng mẫu).
         if (updated > 0)
         {
             var catalogIds = existing.Select(c => c.Id).ToList();
@@ -363,11 +387,23 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
             foreach (var st in storeRows)
             {
                 if (!catalogById.TryGetValue(st.SourceCatalogId!.Value, out var cat)) continue;
-                if (string.Equals(st.HtmlContent, cat.HtmlContent, StringComparison.Ordinal)) continue;
-                st.HtmlContent = cat.HtmlContent;
-                st.UpdatedAt = now;
-                st.UpdatedBy = "system";
-                storeTouched++;
+                var dirty = false;
+                if (!string.Equals(st.HtmlContent, cat.HtmlContent, StringComparison.Ordinal))
+                {
+                    st.HtmlContent = cat.HtmlContent;
+                    dirty = true;
+                }
+                if (!string.Equals(st.Name, cat.Name, StringComparison.Ordinal))
+                {
+                    st.Name = cat.Name;
+                    dirty = true;
+                }
+                if (dirty)
+                {
+                    st.UpdatedAt = now;
+                    st.UpdatedBy = "system";
+                    storeTouched++;
+                }
             }
             if (storeTouched > 0)
                 await dbContext.SaveChangesAsync();

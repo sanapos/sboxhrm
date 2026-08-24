@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/pos_customer.dart';
 import '../models/pos_product.dart';
@@ -17,6 +18,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_customer_form_dialog.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_product_search_bar.dart';
+import '../widgets/pos/pos_shipping_compare_sheet.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
@@ -109,10 +111,25 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
   String _paymentMethod = 'Tiền mặt';
   static const _paymentMethods = ['Tiền mặt', 'Chuyển khoản', 'Thẻ'];
   static const _deliveryStatuses = ['Chờ giao', 'Đang giao', 'Đã giao', 'Không giao được'];
-  static const _deliveryPartners = ['Tự giao', 'GHN', 'GHTK', 'Viettel Post', 'J&T'];
+  static const _deliveryPartners = [
+    'Tự giao',
+    'Giao Hàng Nhanh (GHN)',
+    'Giao Hàng Tiết Kiệm (GHTK)',
+    'Viettel Post',
+    'AhaMove',
+    'J&T',
+  ];
+  static const _carrierApiCodes = {
+    'Giao Hàng Nhanh (GHN)': 'Ghn',
+    'Giao Hàng Tiết Kiệm (GHTK)': 'Ghtk',
+    'Viettel Post': 'ViettelPost',
+    'AhaMove': 'Ahamove',
+  };
 
   bool _loading = true;
   bool _saving = false;
+  bool _shippingBusy = false;
+  PosSaleOrder? _order;
   String? _orderId;
   String _orderNo = '';
   String _status = 'Draft';
@@ -205,6 +222,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
       _lines.add(line);
     }
     setState(() {
+      _order = o;
       _orderId = o.id;
       _orderNo = o.orderNo;
       _status = o.status;
@@ -213,7 +231,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
       _customerPhone = o.customerPhone;
       _isDelivery = o.isDelivery;
       _deliveryStatus = o.deliveryStatus ?? 'Chờ giao';
-      _deliveryPartner = o.deliveryPartner ?? 'Tự giao';
+      _deliveryPartner = _normalizePartner(o.deliveryPartner);
       _noteCtrl.text = o.note ?? '';
       _discountCtrl.text = o.discount.toStringAsFixed(0);
       _paidCtrl.text = o.paidAmount.toStringAsFixed(0);
@@ -221,6 +239,180 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
       _deliveryAddressCtrl.text = o.deliveryAddress ?? '';
       _deliveryPhoneCtrl.text = o.deliveryPhone ?? '';
     });
+  }
+
+  String _normalizePartner(String? raw) {
+    final p = (raw ?? '').trim();
+    if (p.isEmpty) return 'Tự giao';
+    if (_deliveryPartners.contains(p)) return p;
+    final lower = p.toLowerCase();
+    if (lower.contains('ghn') || lower == 'giao hàng nhanh') {
+      return 'Giao Hàng Nhanh (GHN)';
+    }
+    if (lower.contains('ghtk') || lower.contains('tiết kiệm')) {
+      return 'Giao Hàng Tiết Kiệm (GHTK)';
+    }
+    if (lower.contains('viettel')) return 'Viettel Post';
+    if (lower.contains('aha')) return 'AhaMove';
+    return 'Tự giao';
+  }
+
+  Future<void> _createShipment() async {
+    final order = _order;
+    if (order == null) return;
+    if ((order.deliveryTrackingCode ?? '').isNotEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Đã có vận đơn',
+        message: order.deliveryTrackingCode!,
+      );
+      return;
+    }
+    final pick = await showShippingCompareDialog(
+      context: context,
+      orderId: order.id,
+      orderNo: order.orderNo,
+      codAmount: order.balanceDue > 0 ? order.balanceDue : 0,
+    );
+    if (pick == null || !mounted) return;
+    setState(() => _shippingBusy = true);
+    final res = await _api.createPosShipment({
+      'carrierCode': pick.carrierCode,
+      'orderId': order.id,
+      'codAmount': order.balanceDue > 0 ? order.balanceDue : 0,
+      'weightGrams': pick.weightGrams,
+      'lengthCm': pick.lengthCm,
+      'widthCm': pick.widthCm,
+      'heightCm': pick.heightCm,
+      if ((pick.serviceCode ?? '').isNotEmpty) 'serviceCode': pick.serviceCode,
+      'shipFeePayer': pick.shipFeePayer,
+      if (pick.fixedShipFee != null) 'fixedShipFee': pick.fixedShipFee,
+    });
+    if (!mounted) return;
+    setState(() => _shippingBusy = false);
+    final data = res['data'] is Map
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : <String, dynamic>{};
+    final ok = res['isSuccess'] == true &&
+        (data['success'] == true || data['Success'] == true);
+    if (ok) {
+      final tracking =
+          (data['trackingCode'] ?? data['TrackingCode'] ?? '').toString();
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã tạo vận đơn',
+        message: tracking.isEmpty ? pick.carrierName : tracking,
+      );
+      await _loadOrder(order.id);
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Tạo vận đơn thất bại',
+        message: (data['message'] ?? data['Message'] ?? res['message'] ?? res)
+            .toString(),
+      );
+    }
+  }
+
+  bool _isViettelPartner(String partner) {
+    final p = partner.toLowerCase();
+    return p.contains('viettel');
+  }
+
+  Future<void> _openShipmentLabel() async {
+    final order = _order;
+    if (order == null) return;
+    setState(() => _shippingBusy = true);
+    final res = await _api.getPosShipmentLabel(order.id);
+    if (!mounted) return;
+    setState(() => _shippingBusy = false);
+    final data = res['data'] is Map
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : <String, dynamic>{};
+    final ok = res['isSuccess'] == true &&
+        (data['success'] == true || data['Success'] == true);
+    final url = (data['labelUrl'] ?? data['LabelUrl'] ?? '').toString();
+    if (ok && url.isNotEmpty) {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        NotificationOverlayManager().showError(
+          title: 'Không mở được link in',
+          message: url,
+        );
+      }
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Không lấy được nhãn in',
+        message: (data['message'] ?? data['Message'] ?? res['message'] ?? '')
+            .toString(),
+      );
+    }
+  }
+
+  Future<void> _syncShipmentTracking() async {
+    final order = _order;
+    if (order == null) return;
+    setState(() => _shippingBusy = true);
+    final res = await _api.syncPosShipmentTracking(order.id);
+    if (!mounted) return;
+    setState(() => _shippingBusy = false);
+    final data = res['data'] is Map
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : <String, dynamic>{};
+    final ok = res['isSuccess'] == true &&
+        (data['success'] == true || data['Success'] == true);
+    if (ok) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã đồng bộ VTP',
+        message: (data['statusName'] ?? data['StatusName'] ?? order.orderNo)
+            .toString(),
+      );
+      await _loadOrder(order.id);
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Đồng bộ thất bại',
+        message: (data['message'] ?? data['Message'] ?? res['message'] ?? '')
+            .toString(),
+      );
+    }
+  }
+
+  Future<void> _cancelShipment() async {
+    final order = _order;
+    if (order == null) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Hủy vận đơn Viettel Post?')),
+        content: Text(tr('Mã ${order.deliveryTrackingCode}')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Hủy VTP'))),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    setState(() => _shippingBusy = true);
+    final res = await _api.cancelPosShipment(order.id, note: 'Hủy từ SBOX POS');
+    if (!mounted) return;
+    setState(() => _shippingBusy = false);
+    final data = res['data'] is Map
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : <String, dynamic>{};
+    final ok = res['isSuccess'] == true &&
+        (data['success'] == true || data['Success'] == true);
+    if (ok) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã yêu cầu hủy VTP',
+        message: order.deliveryTrackingCode ?? '',
+      );
+      await _loadOrder(order.id);
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Hủy thất bại',
+        message: (data['message'] ?? data['Message'] ?? res['message'] ?? '')
+            .toString(),
+      );
+    }
   }
 
   Future<void> _loadVariantsForLine(_EditorLine line) async {
@@ -589,6 +781,57 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
                     .toList(),
                 onChanged: _readOnly ? null : (v) => setState(() => _deliveryStatus = v!),
               ),
+              if ((_order?.deliveryTrackingCode ?? '').isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  tr('Mã vận đơn: ${_order!.deliveryTrackingCode}'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: PosTheme.kiotBlue,
+                  ),
+                ),
+              ],
+              if (_order != null &&
+                  _order!.id.isNotEmpty &&
+                  (_order!.deliveryTrackingCode ?? '').isEmpty) ...[
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _shippingBusy ? null : _createShipment,
+                  icon: _shippingBusy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.local_shipping_outlined),
+                  label: Text(tr('So sánh cước & tạo vận đơn')),
+                ),
+              ],
+              if ((_order?.deliveryTrackingCode ?? '').isNotEmpty &&
+                  _isViettelPartner(_deliveryPartner)) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _shippingBusy ? null : _openShipmentLabel,
+                      icon: const Icon(Icons.print_outlined, size: 18),
+                      label: Text(tr('In vận đơn')),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _shippingBusy ? null : _syncShipmentTracking,
+                      icon: const Icon(Icons.sync, size: 18),
+                      label: Text(tr('Đồng bộ VTP')),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: _shippingBusy ? null : _cancelShipment,
+                      icon: const Icon(Icons.cancel_outlined, size: 18),
+                      label: Text(tr('Hủy VTP')),
+                    ),
+                  ],
+                ),
+              ],
             ],
             const SizedBox(height: 12),
             Row(

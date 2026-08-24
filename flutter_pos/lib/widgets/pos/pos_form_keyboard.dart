@@ -3,9 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Padding đáy khi IME mở — tối đa ~1/3 chiều cao màn (A6 T1 landscape).
-/// Tránh sheet/dialog cộng full viewInsets → form bị đẩy mất / bàn phím chiếm nửa màn.
-double posImeBottomPad(BuildContext context, {double maxFraction = 1 / 3}) {
+/// Padding đáy khi IME mở — [maxFraction] trần theo chiều cao màn.
+double posImeBottomPad(BuildContext context, {double maxFraction = 0.55}) {
   final mq = MediaQuery.of(context);
   final raw = mq.viewInsets.bottom;
   if (raw <= 0) return 0;
@@ -13,8 +12,33 @@ double posImeBottomPad(BuildContext context, {double maxFraction = 1 / 3}) {
   return math.min(raw, cap);
 }
 
-/// A6/Android 6: với `adjustPan`, không cộng thêm full IME vào Dialog.
-/// Gỡ inset khỏi MediaQuery dialog — tránh form co mất.
+/// Pad đáy theo IME (có animation) — giữ ô ghi chú/tìm kiếm phía trên bàn phím.
+class PosImeAvoidingPadding extends StatelessWidget {
+  const PosImeAvoidingPadding({
+    super.key,
+    required this.child,
+    this.maxFraction = 0.55,
+    this.extraGap = 8,
+  });
+
+  final Widget child;
+  final double maxFraction;
+  final double extraGap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ime = posImeBottomPad(context, maxFraction: maxFraction);
+    final pad = ime > 0 ? ime + extraGap : 0.0;
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: pad),
+      child: child,
+    );
+  }
+}
+
+/// Gỡ inset IME khỏi MediaQuery của dialog — tránh form co mất.
 Widget wrapPosFormDialog(BuildContext context, Widget dialog) {
   return MediaQuery.removeViewInsets(
     context: context,
@@ -23,7 +47,6 @@ Widget wrapPosFormDialog(BuildContext context, Widget dialog) {
   );
 }
 
-/// Tắt IME khi mở form. Dialog hay focus ô đầu → bàn phím che hết form.
 void hidePosSoftKeyboard({int alsoAfterMs = 320}) {
   void run() {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -34,5 +57,50 @@ void hidePosSoftKeyboard({int alsoAfterMs = 320}) {
   WidgetsBinding.instance.addPostFrameCallback((_) => run());
   if (alsoAfterMs > 0) {
     Future<void>.delayed(Duration(milliseconds: alsoAfterMs), run);
+  }
+}
+
+/// Cuộn [context] vào vùng nhìn thấy phía trên IME (gọi khi focus TextField).
+void posScrollIntoViewAboveIme(
+  BuildContext context, {
+  double alignment = 0.12,
+  Duration duration = const Duration(milliseconds: 200),
+}) {
+  void run() {
+    if (!context.mounted) return;
+    Scrollable.ensureVisible(
+      context,
+      alignment: alignment,
+      duration: duration,
+      curve: Curves.easeOut,
+    );
+  }
+
+  WidgetsBinding.instance.addPostFrameCallback((_) => run());
+  Future<void>.delayed(const Duration(milliseconds: 280), run);
+}
+
+/// Bọc field chữ: focus → cuộn lên trên IME.
+class PosImeAwareFocus extends StatelessWidget {
+  const PosImeAwareFocus({
+    super.key,
+    required this.child,
+    this.alignment = 0.12,
+  });
+
+  final Widget child;
+  final double alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (has) {
+        if (has) {
+          posScrollIntoViewAboveIme(context, alignment: alignment);
+        }
+      },
+      child: child,
+    );
   }
 }

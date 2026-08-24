@@ -52,7 +52,34 @@ public sealed record PaymentGatewaySettingDto(
     bool HasTingeeSecretKey,
     string? TingeeVaAccountNumber,
     string? TingeeMerchantId,
-    bool HasTingeeWebhookSecret);
+    bool HasTingeeWebhookSecret,
+    bool PlatformTingeeConfigured);
+
+public sealed record PlatformCreditBalanceDto(
+    int RemainingCount,
+    int TotalPurchased,
+    int TotalAllocated,
+    decimal LastCostPerCredit);
+
+public sealed record PlatformCreditLedgerDto(
+    Guid Id,
+    int Delta,
+    int BalanceAfter,
+    string Source,
+    Guid? StoreId,
+    string? StoreName,
+    string? Note,
+    DateTime CreatedAt);
+
+public sealed record PlatformTingeeSettingDto(
+    bool TingeeEnabled,
+    string? TingeeClientId,
+    bool HasTingeeSecretKey,
+    bool HasTingeeWebhookSecret,
+    string ApiEnvironment,
+    string? ApiBaseUrlOverride,
+    string? DefaultVaAccountNumber,
+    string WebhookUrl);
 
 public sealed record NotificationCreditPackageDto(
     Guid Id,

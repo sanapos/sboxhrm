@@ -264,7 +264,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       case 18:
         return const PosPrinterSettingsHubScreen();
       case 29:
-        return const PosStorePrintersScreen();
+        return const PosStorePrintersScreen(embeddedInSettings: true);
       case 19:
         return const PosResourceFloorScreen(
           manageMode: true,

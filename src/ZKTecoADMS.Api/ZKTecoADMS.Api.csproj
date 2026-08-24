@@ -36,7 +36,16 @@
 
   <ItemGroup>
     <EmbeddedResource Include="wwwroot\qr-order.html" LogicalName="Sbox.QrOrder.html" />
+    <EmbeddedResource Include="wwwroot\data\vn-admin-units.json" LogicalName="Sbox.VnAdminUnits.json" />
     <Content Update="wwwroot\qr-order.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Update="wwwroot\data\vn-admin-units.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Update="wwwroot\assets\sbox-pos-logo.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>

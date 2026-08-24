@@ -93,7 +93,7 @@ class _PosHScrollChipRowState extends State<PosHScrollChipRow> {
             IconButton(
               tooltip: tr('Xem thêm'),
               visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
               icon: Icon(Icons.chevron_left, color: iconColor),
               onPressed: () => unawaited(_jump(-1)),
             ),
@@ -128,7 +128,7 @@ class _PosHScrollChipRowState extends State<PosHScrollChipRow> {
             IconButton(
               tooltip: tr('Xem thêm'),
               visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
               icon: Icon(Icons.chevron_right, color: iconColor),
               onPressed: () => unawaited(_jump(1)),
             ),

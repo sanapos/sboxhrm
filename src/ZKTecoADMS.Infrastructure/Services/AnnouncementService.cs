@@ -401,6 +401,20 @@ public class AnnouncementService : IAnnouncementService
         var inAppMembers = members.Select(m => m.UserId).Distinct().ToList();
         if (entity.Channels.HasFlag(NotificationChannel.InApp) || entity.Channels.HasFlag(NotificationChannel.Banner))
         {
+            Guid? notifStoreId = spec.StoreIds is { Count: 1 } ? spec.StoreIds[0] : null;
+            if (notifStoreId == null)
+            {
+                var distinctStores = members
+                    .Select(m => m.StoreId)
+                    .Where(id => id.HasValue)
+                    .Select(id => id!.Value)
+                    .Distinct()
+                    .Take(2)
+                    .ToList();
+                if (distinctStores.Count == 1)
+                    notifStoreId = distinctStores[0];
+            }
+
             await _notify.CreateAndSendToUsersAsync(
                 targetUserIds: inAppMembers,
                 type: notifType,
@@ -409,7 +423,8 @@ public class AnnouncementService : IAnnouncementService
                 relatedUrl: entity.ActionUrl,
                 relatedEntityId: entity.Id,
                 relatedEntityType: nameof(SystemAnnouncement),
-                categoryCode: category);
+                categoryCode: category,
+                storeId: notifStoreId);
 
             // Mark deliveries as Delivered for InApp/Banner channels
             var inAppChannels = new[] { NotificationChannel.InApp, NotificationChannel.Banner };

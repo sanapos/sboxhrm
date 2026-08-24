@@ -3,15 +3,23 @@
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://sboxhrm.com/</loc>
-    <lastmod>2026-07-31</lastmod>
+    <lastmod>2026-08-20</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="vi" href="https://sboxhrm.com/"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://sboxhrm.com/"/>
   </url>
   <url>
+    <loc>https://sboxhrm.com/guide.html</loc>
+    <lastmod>2026-08-20</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://sboxhrm.com/guide.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://sboxhrm.com/guide.html"/>
+  </url>
+  <url>
     <loc>https://sboxhrm.com/privacy-policy.html</loc>
-    <lastmod>2026-07-31</lastmod>
+    <lastmod>2026-08-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>

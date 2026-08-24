@@ -1,87 +1,70 @@
+using System.Net.Sockets;
 using SboxPrintAgent.Ui;
 
 namespace SboxPrintAgent;
 
+/// <summary>
+/// UI tối giản: đăng nhập cửa hàng → thêm máy LAN/USB → đặt tên → xem online/offline.
+/// Nhận lệnh in chạy nền (server đẩy job).
+/// </summary>
 public sealed class MainForm : Form
 {
     readonly AppSettings _settings = AppSettings.Load();
     SboxApiClient? _api;
     AgentService? _agent;
-    readonly List<LanScanner.Hit> _hits = new();
     List<PrinterItem> _printers = new();
-    List<RouteItem> _routes = new();
+    readonly Dictionary<Guid, bool> _online = new();
+    readonly List<LanScanner.Hit> _hits = new();
+    Guid[] _agentServingIds = Array.Empty<Guid>();
+    System.Windows.Forms.Timer? _healthTimer;
 
-    readonly Panel _sidebar = new() { Dock = DockStyle.Left, Width = 228, BackColor = Theme.Sidebar };
-    readonly Panel _contentHost = new() { Dock = DockStyle.Fill, BackColor = Theme.Bg, Padding = new Padding(20) };
-    readonly Label _headerTitle = new() { AutoSize = true, Font = Theme.FontTitle, ForeColor = Theme.Text };
-    readonly Label _headerSub = new() { AutoSize = true, Font = Theme.FontUi(9.5f), ForeColor = Theme.TextMuted };
-    readonly Label _footerStatus = new() { Dock = DockStyle.Bottom, Height = 28, ForeColor = Theme.TextMuted, Font = Theme.FontUi(8.5f), Padding = new Padding(12, 6, 12, 0), BackColor = Theme.Bg };
-    readonly NotifyIcon _tray = new();
-    readonly Dictionary<string, Panel> _pages = new();
-    readonly Dictionary<string, Button> _navButtons = new();
-
-    // Đăng nhập
-    readonly ModernTextBox _apiUrl = new() { Placeholder = "https://sboxhrm.com", Dock = DockStyle.Top };
+    // —— Login ——
+    readonly Panel _loginPanel = new() { Dock = DockStyle.Fill, BackColor = Theme.Bg };
     readonly ModernTextBox _storeCode = new() { Placeholder = "Mã cửa hàng", Dock = DockStyle.Top };
-    readonly ModernTextBox _user = new() { Placeholder = "Email / số điện thoại / tên đăng nhập", Dock = DockStyle.Top };
+    readonly ModernTextBox _user = new() { Placeholder = "Email / tên đăng nhập", Dock = DockStyle.Top };
     readonly ModernTextBox _pass = new() { Placeholder = "Mật khẩu", ShowPasswordToggle = true, Dock = DockStyle.Top };
-    readonly CheckBox _remember = new() { Text = "Lưu mật khẩu trên máy này", AutoSize = true, ForeColor = Theme.Text, Font = Theme.FontUi() };
-    readonly CheckBox _autoStart = new() { Text = "Tự bật nhận lệnh in sau khi đăng nhập", AutoSize = true, ForeColor = Theme.Text, Font = Theme.FontUi() };
-    readonly CheckBox _runAtBoot = new() { Text = "Tự chạy mỗi khi mở máy (Windows)", AutoSize = true, ForeColor = Theme.Text, Font = Theme.FontUi() };
-    readonly Label _connStatus = new() { AutoSize = true, ForeColor = Theme.TextMuted, Font = Theme.FontUi(9.5f), MaximumSize = new Size(640, 0) };
-    readonly Label _deviceLbl = new() { AutoSize = true, ForeColor = Theme.TextMuted, Font = Theme.FontUi(9f) };
-    readonly ModernButton _btnLogin = new() { Text = "Đăng nhập", Kind = ModernButton.StyleKind.Primary, Width = 180, Height = 44 };
+    readonly CheckBox _remember = new() { Text = "Lưu mật khẩu", AutoSize = true, ForeColor = Theme.Text, Font = Theme.FontUi() };
+    readonly CheckBox _runAtBoot = new() { Text = "Tự chạy khi mở Windows", AutoSize = true, ForeColor = Theme.Text, Font = Theme.FontUi() };
+    readonly ModernButton _btnLogin = new() { Text = "Đăng nhập cửa hàng", Kind = ModernButton.StyleKind.Primary, Width = 220, Height = 44 };
+    readonly Label _loginHint = new() { AutoSize = true, ForeColor = Theme.TextMuted, Font = Theme.FontUi(9.5f), MaximumSize = new Size(420, 0) };
 
-    // Máy in mạng
-    readonly ModernTextBox _subnet = new() { Placeholder = "Ví dụ: 192.168.1", Dock = DockStyle.Top };
-    readonly ModernTextBox _printerName = new() { Placeholder = "Tên gọi máy in (vd: Máy quầy, Máy bếp)", Dock = DockStyle.Top };
-    readonly ListBox _hitList = new() { Dock = DockStyle.Fill, Font = Theme.FontUi(10f), BorderStyle = BorderStyle.None, IntegralHeight = false };
-    readonly CheckedListBox _newRoutes = new() { Dock = DockStyle.Fill, CheckOnClick = true, Font = Theme.FontUi(9.5f), BorderStyle = BorderStyle.None };
-    readonly ComboBox _paperSize = new() { DropDownStyle = ComboBoxStyle.DropDownList, Font = Theme.FontUi(10f), Width = 140 };
-    readonly ModernButton _btnScan = new() { Text = "Tìm máy in trên mạng", Kind = ModernButton.StyleKind.Primary, Width = 190 };
-    readonly ModernButton _btnLanTest = new() { Text = "In thử", Kind = ModernButton.StyleKind.Secondary, Width = 100 };
-    readonly ModernButton _btnCreateLan = new() { Text = "Lưu máy in này", Kind = ModernButton.StyleKind.Primary, Width = 180 };
+    // —— Main ——
+    readonly Panel _mainPanel = new() { Dock = DockStyle.Fill, BackColor = Theme.Bg, Visible = false };
+    readonly Label _storeTitle = new() { AutoSize = true, Font = Theme.FontTitle, ForeColor = Theme.Text };
+    readonly Label _agentBadge = new() { AutoSize = true, Font = Theme.FontUi(10f, FontStyle.Bold), ForeColor = Theme.Success };
+    readonly Label _storeSub = new() { AutoSize = true, ForeColor = Theme.TextMuted, Font = Theme.FontUi(9.5f) };
+    readonly ModernButton _btnLogout = new() { Text = "Đăng xuất", Kind = ModernButton.StyleKind.Secondary, Width = 120, Height = 36 };
+    readonly ModernButton _btnRefresh = new() { Text = "Làm mới", Kind = ModernButton.StyleKind.Secondary, Width = 110, Height = 36 };
 
-    // USB
-    readonly ListBox _usbList = new() { Dock = DockStyle.Fill, Font = Theme.FontUi(10f), BorderStyle = BorderStyle.None, IntegralHeight = false };
-    readonly ModernTextBox _usbName = new() { Placeholder = "Tên gọi trên SBOX (vd: Máy in USB quầy)", Dock = DockStyle.Top };
-    readonly CheckedListBox _usbRoutes = new() { Dock = DockStyle.Fill, CheckOnClick = true, Font = Theme.FontUi(9.5f), BorderStyle = BorderStyle.None };
-    readonly ComboBox _usbPaper = new() { DropDownStyle = ComboBoxStyle.DropDownList, Font = Theme.FontUi(10f), Width = 140 };
-    readonly ModernButton _btnUsbRefresh = new() { Text = "Tải danh sách máy in Windows", Kind = ModernButton.StyleKind.Secondary, Width = 240 };
-    readonly ModernButton _btnUsbTest = new() { Text = "In thử", Kind = ModernButton.StyleKind.Secondary, Width = 100 };
-    readonly ModernButton _btnCreateUsb = new() { Text = "Lưu máy in USB", Kind = ModernButton.StyleKind.Primary, Width = 180 };
-
-    // Danh sách máy in
-    readonly CheckedListBox _printerList = new() { Dock = DockStyle.Fill, CheckOnClick = true, Font = Theme.FontUi(9.5f), BorderStyle = BorderStyle.None };
-    readonly Label _printerDetail = new() { Dock = DockStyle.Fill, Font = Theme.FontUi(9.5f), ForeColor = Theme.TextMuted };
-    readonly ModernButton _btnRefreshPrinters = new() { Text = "Làm mới", Kind = ModernButton.StyleKind.Secondary, Width = 110 };
-    readonly ModernButton _btnSaveAssign = new() { Text = "Lưu máy sẽ dùng", Kind = ModernButton.StyleKind.Primary, Width = 160 };
-    readonly ModernButton _btnUpdateHost = new() { Text = "Đổi IP từ tìm mạng", Kind = ModernButton.StyleKind.Secondary, Width = 170 };
-    readonly ModernButton _btnDeletePrinter = new() { Text = "Xóa máy in", Kind = ModernButton.StyleKind.Danger, Width = 120 };
-    readonly ModernButton _btnCloudTest = new() { Text = "Gửi lệnh in thử", Kind = ModernButton.StyleKind.Secondary, Width = 160 };
-
-    // Gán phiếu
-    readonly DataGridView _routeGrid = new()
+    readonly ListView _printerView = new()
     {
         Dock = DockStyle.Fill,
-        AllowUserToAddRows = false,
-        AllowUserToDeleteRows = false,
-        RowHeadersVisible = false,
-        AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-        SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-        BackgroundColor = Theme.Card,
+        View = View.Details,
+        FullRowSelect = true,
+        MultiSelect = false,
+        HideSelection = false,
         BorderStyle = BorderStyle.None,
-        Font = Theme.FontUi(9.5f),
-        EnableHeadersVisualStyles = false,
+        Font = Theme.FontUi(10f),
+        HeaderStyle = ColumnHeaderStyle.Nonclickable,
     };
-    readonly ModernButton _btnSaveRoutes = new() { Text = "Lưu cách gán phiếu", Kind = ModernButton.StyleKind.Primary, Width = 180 };
 
-    // Nhận lệnh in
-    readonly Label _agentStatus = new() { AutoSize = true, Font = Theme.FontSection, ForeColor = Theme.Text };
-    readonly ListBox _agentsBox = new() { Dock = DockStyle.Fill, Font = Theme.FontUi(9.5f), BorderStyle = BorderStyle.None, IntegralHeight = false };
-    readonly ModernButton _btnStart = new() { Text = "Bật nhận lệnh in", Kind = ModernButton.StyleKind.Primary, Width = 180 };
-    readonly ModernButton _btnStop = new() { Text = "Tắt nhận lệnh in", Kind = ModernButton.StyleKind.Danger, Width = 170 };
-    readonly ModernButton _btnRefreshAgents = new() { Text = "Làm mới", Kind = ModernButton.StyleKind.Secondary, Width = 110 };
+    readonly ModernTextBox _nameBox = new() { Placeholder = "Tên máy in (vd: Máy quầy, Máy bếp)", Dock = DockStyle.Top };
+    readonly ModernTextBox _subnet = new() { Placeholder = "Subnet quét (vd: 192.168.1)", Dock = DockStyle.Top };
+    readonly ModernTextBox _lanIp = new() { Placeholder = "IP máy in (vd: 192.168.1.50)", Dock = DockStyle.Top };
+    readonly ModernTextBox _lanPort = new() { Placeholder = "Cổng (mặc định 9100)", Dock = DockStyle.Top };
+    readonly ListBox _hitList = new() { Dock = DockStyle.Fill, Font = Theme.FontUi(10f), BorderStyle = BorderStyle.None, IntegralHeight = false };
+    readonly ListBox _usbList = new() { Dock = DockStyle.Fill, Font = Theme.FontUi(10f), BorderStyle = BorderStyle.None, IntegralHeight = false };
+
+    readonly ModernButton _btnScan = new() { Text = "Quét mạng", Kind = ModernButton.StyleKind.Secondary, Width = 110, Height = 40 };
+    readonly ModernButton _btnTestIp = new() { Text = "In thử IP", Kind = ModernButton.StyleKind.Secondary, Width = 110, Height = 40 };
+    readonly ModernButton _btnAddLan = new() { Text = "Thêm máy LAN", Kind = ModernButton.StyleKind.Primary, Width = 130, Height = 40 };
+    readonly ModernButton _btnCheckOnline = new() { Text = "Kiểm tra online", Kind = ModernButton.StyleKind.Secondary, Width = 140, Height = 40 };
+    readonly ModernButton _btnUsbRefresh = new() { Text = "Tải lại USB", Kind = ModernButton.StyleKind.Secondary, Width = 120, Height = 40 };
+    readonly ModernButton _btnAddUsb = new() { Text = "Thêm máy USB", Kind = ModernButton.StyleKind.Primary, Width = 130, Height = 40 };
+    readonly ModernButton _btnUsbTest = new() { Text = "In thử USB", Kind = ModernButton.StyleKind.Secondary, Width = 110, Height = 40 };
+    readonly ModernButton _btnRename = new() { Text = "Đổi tên", Kind = ModernButton.StyleKind.Secondary, Width = 100, Height = 40 };
+    readonly ModernButton _btnTest = new() { Text = "In thử máy này", Kind = ModernButton.StyleKind.Primary, Width = 140, Height = 40 };
+    readonly ModernButton _btnDelete = new() { Text = "Gỡ khỏi PC", Kind = ModernButton.StyleKind.Danger, Width = 120, Height = 40 };
 
     readonly TextBox _logBox = new()
     {
@@ -90,12 +73,19 @@ public sealed class MainForm : Form
         BackColor = Color.FromArgb(15, 23, 42), ForeColor = Color.FromArgb(226, 232, 240),
     };
 
+    readonly NotifyIcon _tray = new();
+    readonly Label _footer = new()
+    {
+        Dock = DockStyle.Bottom, Height = 26, ForeColor = Theme.TextMuted,
+        Font = Theme.FontUi(8.5f), Padding = new Padding(12, 4, 12, 0), BackColor = Theme.Bg,
+    };
+
     public MainForm()
     {
-        Text = "SBOX — Kết nối máy in";
-        Width = 1140;
-        Height = 780;
-        MinimumSize = new Size(980, 680);
+        Text = "SBOX — Máy in cửa hàng";
+        Width = 1080;
+        Height = 800;
+        MinimumSize = new Size(980, 720);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Theme.Bg;
         Font = Theme.FontUi();
@@ -104,50 +94,45 @@ public sealed class MainForm : Form
         var icon = AppIcon.LoadIcon();
         if (icon != null) Icon = icon;
 
-        _apiUrl.Text = string.IsNullOrWhiteSpace(_settings.ApiBaseUrl) ? AppSettings.DefaultApiBaseUrl : _settings.ApiBaseUrl;
         _storeCode.Text = _settings.StoreCode;
         _user.Text = _settings.Username;
         _pass.Text = _settings.RememberPassword ? _settings.Password : "";
-        _subnet.Text = _settings.SubnetPrefix;
+        _subnet.Text = SubnetNormalize.Clean(_settings.SubnetPrefix);
+        if (_subnet.Text != (_settings.SubnetPrefix ?? "").Trim())
+        {
+            _settings.SubnetPrefix = _subnet.Text;
+            _settings.Save();
+        }
         _remember.Checked = _settings.RememberPassword;
-        _autoStart.Checked = _settings.AutoStartAgent;
         _runAtBoot.Checked = _settings.RunAtWindowsStartup || WindowsStartup.IsEnabled();
-        _deviceLbl.Text = "Mã máy này: " + _settings.EnsureDeviceId();
+        _settings.AutoStartAgent = true;
 
-        foreach (var c in new[] { _paperSize, _usbPaper })
-        {
-            c.Items.AddRange(new object[] { "Giấy 80mm", "Giấy 58mm", "Tem 50×30", "Tem 40×30" });
-            c.SelectedIndex = 0;
-        }
+        _printerView.Columns.Add("Trạng thái", 110);
+        _printerView.Columns.Add("Tên máy in", 220);
+        _printerView.Columns.Add("Kết nối", 90);
+        _printerView.Columns.Add("Địa chỉ / USB", 280);
+        _printerView.Columns.Add("Sức khỏe server", 120);
+        _printerView.OwnerDraw = true;
+        _printerView.DrawColumnHeader += PrinterView_DrawColumnHeader;
+        _printerView.DrawItem += (_, e) => e.DrawDefault = true;
+        _printerView.DrawSubItem += PrinterView_DrawSubItem;
 
-        foreach (var (_, label) in DocTypes.All)
-        {
-            var def = label is "Hóa đơn" or "Phiếu báo bếp" or "Tem dán ly";
-            _newRoutes.Items.Add(label, def);
-            _usbRoutes.Items.Add(label, def);
-        }
-
-        BuildChrome();
-        BuildPages();
-        WireEvents();
+        BuildLogin();
+        BuildMain();
+        Controls.Add(_mainPanel);
+        Controls.Add(_loginPanel);
+        Controls.Add(_footer);
         SetupTray();
-        ShowPage("conn");
-        SetLoggedInUi(false);
+        WireEvents();
 
         Shown += async (_, _) =>
         {
-            if (_settings.AutoStartAgent &&
-                !string.IsNullOrWhiteSpace(_settings.StoreCode) &&
+            if (!string.IsNullOrWhiteSpace(_settings.StoreCode) &&
                 !string.IsNullOrWhiteSpace(_settings.Username) &&
                 !string.IsNullOrWhiteSpace(_settings.Password))
             {
-                try
-                {
-                    await LoginAsync(silent: true);
-                    if (_api != null && _settings.AssignedGuids().Count > 0)
-                        await StartAgentAsync();
-                }
-                catch (Exception ex) { Log("Tự khởi động: " + UiMsg.ToVi(ex.Message)); }
+                try { await LoginAsync(silent: true); }
+                catch (Exception ex) { Log("Tự đăng nhập: " + UiMsg.ToVi(ex.Message)); }
             }
         };
 
@@ -157,453 +142,300 @@ public sealed class MainForm : Form
             {
                 e.Cancel = true;
                 Hide();
-                _tray.ShowBalloonTip(2500, "SBOX máy in",
-                    "Đang chạy nền — vẫn nhận lệnh in từ phần mềm bán hàng.", ToolTipIcon.Info);
+                _tray.ShowBalloonTip(2200, "SBOX máy in",
+                    "Đang chạy nền — nhận lệnh in từ server.", ToolTipIcon.Info);
             }
             else
             {
+                StopHealthTimer();
                 if (_agent != null) await _agent.DisposeAsync();
                 _tray.Visible = false;
             }
         };
     }
 
-    void BuildChrome()
+    void BuildLogin()
     {
-        var brand = new Panel { Dock = DockStyle.Top, Height = 108, BackColor = Theme.Sidebar };
-        var logo = AppIcon.LoadLogoImage(44);
-        if (logo != null)
-        {
-            brand.Controls.Add(new PictureBox
-            {
-                Image = logo,
-                SizeMode = PictureBoxSizeMode.Zoom,
-                Size = new Size(44, 44),
-                Location = new Point(18, 22),
-                BackColor = Color.Transparent,
-            });
-        }
-        brand.Controls.Add(new Label
-        {
-            Text = "SBOX",
-            Font = Theme.FontUi(18f, FontStyle.Bold),
-            ForeColor = Color.White,
-            AutoSize = true,
-            Location = new Point(72, 22),
-        });
-        brand.Controls.Add(new Label
-        {
-            Text = "Kết nối máy in",
-            Font = Theme.FontUi(9f),
-            ForeColor = Color.FromArgb(148, 163, 184),
-            AutoSize = true,
-            Location = new Point(74, 52),
-        });
-
-        var navHost = new FlowLayoutPanel
+        var card = new CardPanel { Width = 480, Height = 460 };
+        var stack = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
+            ColumnCount = 1,
+            RowCount = 10,
+            Padding = new Padding(8),
+        };
+        for (var i = 0; i < 10; i++)
+            stack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        var logo = AppIcon.LoadLogoImage(48);
+        if (logo != null)
+        {
+            stack.Controls.Add(new PictureBox
+            {
+                Image = logo, SizeMode = PictureBoxSizeMode.Zoom,
+                Size = new Size(48, 48), Margin = new Padding(0, 0, 0, 8),
+            }, 0, 0);
+        }
+        stack.Controls.Add(new Label
+        {
+            Text = "Kết nối máy in cửa hàng",
+            Font = Theme.FontUi(16f, FontStyle.Bold), ForeColor = Theme.Text, AutoSize = true,
+            Margin = new Padding(0, 0, 0, 4),
+        }, 0, 1);
+        stack.Controls.Add(new Label
+        {
+            Text = "Đăng nhập → thêm máy LAN/USB → server tự đẩy lệnh in.",
+            ForeColor = Theme.TextMuted, Font = Theme.FontUi(9.5f), AutoSize = true,
+            MaximumSize = new Size(400, 0), Margin = new Padding(0, 0, 0, 16),
+        }, 0, 2);
+
+        stack.Controls.Add(new Label { Text = "Mã cửa hàng", AutoSize = true, ForeColor = Theme.TextMuted, Font = Theme.FontUi(9f), Margin = new Padding(0, 4, 0, 2) }, 0, 3);
+        stack.Controls.Add(_storeCode, 0, 4);
+        stack.Controls.Add(new Label { Text = "Tài khoản", AutoSize = true, ForeColor = Theme.TextMuted, Font = Theme.FontUi(9f), Margin = new Padding(0, 8, 0, 2) }, 0, 5);
+        stack.Controls.Add(_user, 0, 6);
+        stack.Controls.Add(new Label { Text = "Mật khẩu", AutoSize = true, ForeColor = Theme.TextMuted, Font = Theme.FontUi(9f), Margin = new Padding(0, 8, 0, 2) }, 0, 7);
+        stack.Controls.Add(_pass, 0, 8);
+
+        var opts = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0, 12, 0, 8) };
+        opts.Controls.Add(_remember);
+        opts.Controls.Add(_runAtBoot);
+        stack.Controls.Add(opts, 0, 9);
+
+        var bottom = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 70, Padding = new Padding(24, 8, 24, 12) };
+        bottom.Controls.Add(_btnLogin);
+        _loginHint.Text = "Máy chủ: " + AppSettings.DefaultApiBaseUrl;
+        bottom.Controls.Add(_loginHint);
+
+        card.Controls.Add(stack);
+        card.Controls.Add(bottom);
+
+        _loginPanel.Resize += (_, _) =>
+        {
+            card.Left = Math.Max(20, (_loginPanel.Width - card.Width) / 2);
+            card.Top = Math.Max(20, (_loginPanel.Height - card.Height) / 2 - 10);
+        };
+        _loginPanel.Controls.Add(card);
+    }
+
+    void BuildMain()
+    {
+        var root = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 4,
+            Padding = new Padding(14, 10, 14, 6),
+        };
+        // Danh sách máy chiếm nhiều chỗ nhất — không bị che
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 48));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 38));
+        root.RowStyles.Add(new RowStyle(SizeType.Percent, 14));
+
+        // —— Header ——
+        var header = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = new Padding(0),
+        };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 250));
+        var leftInfo = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Margin = new Padding(0) };
+        leftInfo.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        leftInfo.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
+        leftInfo.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
+        _storeTitle.Dock = DockStyle.Fill;
+        _storeTitle.AutoEllipsis = true;
+        _agentBadge.Dock = DockStyle.Fill;
+        _agentBadge.AutoEllipsis = true;
+        _storeSub.Dock = DockStyle.Fill;
+        _storeSub.AutoEllipsis = true;
+        _storeSub.ForeColor = Theme.Text;
+        leftInfo.Controls.Add(_storeTitle, 0, 0);
+        leftInfo.Controls.Add(_agentBadge, 0, 1);
+        leftInfo.Controls.Add(_storeSub, 0, 2);
+        var rightBtns = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft,
+            WrapContents = false, Padding = new Padding(0, 6, 0, 0),
+        };
+        rightBtns.Controls.Add(_btnLogout);
+        rightBtns.Controls.Add(_btnRefresh);
+        header.Controls.Add(leftInfo, 0, 0);
+        header.Controls.Add(rightBtns, 1, 0);
+        root.Controls.Add(header, 0, 0);
+
+        // —— Danh sách máy (TableLayout: title + list + nút — không Dock chồng) ——
+        var listCard = new CardPanel { Dock = DockStyle.Fill, Padding = new Padding(12, 10, 12, 8) };
+        var listGrid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Margin = new Padding(0) };
+        listGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+        listGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        listGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+        listGrid.Controls.Add(new Label
+        {
+            Text = "Máy in trên máy này (đã kết nối tại PC)",
+            Font = Theme.FontSection, ForeColor = Theme.Text, AutoSize = true, Dock = DockStyle.Left,
+        }, 0, 0);
+        listGrid.Controls.Add(_printerView, 0, 1);
+        listGrid.Controls.Add(MakeButtonRow(_btnTest, _btnCheckOnline, _btnRename, _btnDelete), 0, 2);
+        listCard.Controls.Add(listGrid);
+        root.Controls.Add(listCard, 0, 1);
+
+        // —— Thêm LAN + USB ——
+        var addRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Margin = new Padding(0) };
+        addRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
+        addRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
+
+        var lanCard = new CardPanel { Dock = DockStyle.Fill, Margin = new Padding(0, 8, 8, 0), Padding = new Padding(12, 10, 12, 8) };
+        var lanGrid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7, Margin = new Padding(0) };
+        lanGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
+        lanGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        lanGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        lanGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        lanGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        lanGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        lanGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+        lanGrid.Controls.Add(new Label
+        {
+            Text = "Thêm máy in mạng (LAN)",
+            Font = Theme.FontSection, ForeColor = Theme.Text, AutoSize = true,
+        }, 0, 0);
+        lanGrid.Controls.Add(_nameBox, 0, 1);
+        lanGrid.Controls.Add(_lanIp, 0, 2);
+        lanGrid.Controls.Add(_lanPort, 0, 3);
+        lanGrid.Controls.Add(_subnet, 0, 4);
+        lanGrid.Controls.Add(_hitList, 0, 5);
+        lanGrid.Controls.Add(MakeButtonRow(_btnScan, _btnTestIp, _btnAddLan), 0, 6);
+        lanCard.Controls.Add(lanGrid);
+        addRow.Controls.Add(lanCard, 0, 0);
+
+        var usbCard = new CardPanel { Dock = DockStyle.Fill, Margin = new Padding(8, 8, 0, 0), Padding = new Padding(12, 10, 12, 8) };
+        var usbGrid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Margin = new Padding(0) };
+        usbGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
+        usbGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        usbGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+        usbGrid.Controls.Add(new Label
+        {
+            Text = "Thêm máy in USB (Windows)",
+            Font = Theme.FontSection, ForeColor = Theme.Text, AutoSize = true,
+        }, 0, 0);
+        usbGrid.Controls.Add(_usbList, 0, 1);
+        usbGrid.Controls.Add(MakeButtonRow(_btnUsbRefresh, _btnUsbTest, _btnAddUsb), 0, 2);
+        usbCard.Controls.Add(usbGrid);
+        addRow.Controls.Add(usbCard, 1, 0);
+        root.Controls.Add(addRow, 0, 2);
+
+        var logCard = new CardPanel { Dock = DockStyle.Fill, Margin = new Padding(0, 8, 0, 0), Padding = new Padding(10, 8, 10, 8) };
+        var logGrid = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 2, ColumnCount = 1 };
+        logGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
+        logGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        logGrid.Controls.Add(new Label
+        {
+            Text = "Nhật ký", Font = Theme.FontUi(9f, FontStyle.Bold),
+            ForeColor = Theme.TextMuted, AutoSize = true,
+        }, 0, 0);
+        logGrid.Controls.Add(_logBox, 0, 1);
+        logCard.Controls.Add(logGrid);
+        root.Controls.Add(logCard, 0, 3);
+
+        _mainPanel.Controls.Add(root);
+    }
+
+    static Panel MakeButtonRow(params Control[] buttons)
+    {
+        var flow = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
-            Padding = new Padding(12, 16, 12, 12),
-            BackColor = Theme.Sidebar,
+            Padding = new Padding(0, 4, 0, 0),
+            Margin = new Padding(0),
         };
-        AddNav(navHost, "conn", "Đăng nhập");
-        AddNav(navHost, "scan", "Máy in mạng");
-        AddNav(navHost, "usb", "Máy in USB");
-        AddNav(navHost, "printers", "Danh sách máy in");
-        AddNav(navHost, "routes", "Gán phiếu in");
-        AddNav(navHost, "agent", "Bật nhận lệnh in");
-        AddNav(navHost, "log", "Nhật ký");
-        _sidebar.Controls.Add(navHost);
-        _sidebar.Controls.Add(brand);
-
-        var header = new Panel { Dock = DockStyle.Top, Height = 72, BackColor = Theme.Bg, Padding = new Padding(4, 8, 4, 0) };
-        _headerTitle.Location = new Point(4, 8);
-        _headerSub.Location = new Point(6, 42);
-        header.Controls.Add(_headerTitle);
-        header.Controls.Add(_headerSub);
-
-        Controls.Add(_contentHost);
-        Controls.Add(_footerStatus);
-        Controls.Add(header);
-        Controls.Add(_sidebar);
-    }
-
-    void AddNav(FlowLayoutPanel host, string key, string text)
-    {
-        var btn = new Button
+        foreach (var b in buttons)
         {
-            Text = "  " + text,
-            Width = 196,
-            Height = 44,
-            FlatStyle = FlatStyle.Flat,
-            Font = Theme.FontUi(10f),
-            ForeColor = Color.FromArgb(203, 213, 225),
-            BackColor = Theme.Sidebar,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Cursor = Cursors.Hand,
-            Margin = new Padding(0, 0, 0, 8),
-            Tag = key,
-            UseCompatibleTextRendering = false,
-        };
-        btn.FlatAppearance.BorderSize = 0;
-        btn.Click += (_, _) => ShowPage(key);
-        host.Controls.Add(btn);
-        _navButtons[key] = btn;
-    }
-
-    void ShowPage(string key)
-    {
-        foreach (var (k, p) in _pages) p.Visible = k == key;
-        foreach (var (k, b) in _navButtons)
-        {
-            var active = k == key;
-            b.BackColor = active ? Theme.SidebarActive : Theme.Sidebar;
-            b.ForeColor = Color.White;
-            b.Font = Theme.FontUi(10f, active ? FontStyle.Bold : FontStyle.Regular);
+            b.Margin = new Padding(0, 0, 8, 0);
+            flow.Controls.Add(b);
         }
-        (_headerTitle.Text, _headerSub.Text) = key switch
-        {
-            "conn" => ("Đăng nhập", "Kết nối cửa hàng — mặc định https://sboxhrm.com"),
-            "scan" => ("Máy in mạng", "Tìm máy in nhiệt trên Wi‑Fi/LAN rồi lưu vào cửa hàng"),
-            "usb" => ("Máy in USB", "Chọn máy in đã cài driver trên Windows (cắm USB)"),
-            "printers" => ("Danh sách máy in", "Chọn máy mà máy tính này sẽ in hộ"),
-            "routes" => ("Gán phiếu in", "Hóa đơn, báo bếp, tem… in ra máy nào"),
-            "agent" => ("Bật nhận lệnh in", "Để phần mềm bán hàng gửi lệnh in tới máy tính này"),
-            "log" => ("Nhật ký", "Theo dõi đăng nhập và lệnh in"),
-            _ => ("SBOX", ""),
-        };
-        if (key == "usb") RefreshUsbList();
-    }
-
-    void BuildPages()
-    {
-        _pages["conn"] = BuildConnPage();
-        _pages["scan"] = BuildScanPage();
-        _pages["usb"] = BuildUsbPage();
-        _pages["printers"] = BuildPrintersPage();
-        _pages["routes"] = BuildRoutesPage();
-        _pages["agent"] = BuildAgentPage();
-        _pages["log"] = WrapPage(new CardPanel { Controls = { _logBox }, Padding = new Padding(8) });
-        foreach (var p in _pages.Values)
-        {
-            p.Dock = DockStyle.Fill;
-            p.Visible = false;
-            _contentHost.Controls.Add(p);
-        }
-    }
-
-    Panel BuildConnPage()
-    {
-        // AutoScroll tránh nút Đăng nhập bị che
-        var scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Theme.Bg };
-        var card = new CardPanel { Width = 560, Height = 560, Location = new Point(0, 0) };
-        var y = 8;
-        void addLabel(string t)
-        {
-            card.Controls.Add(new Label
-            {
-                Text = t, Font = Theme.FontUi(9f, FontStyle.Bold), ForeColor = Theme.TextMuted,
-                Location = new Point(8, y), AutoSize = true,
-            });
-            y += 22;
-        }
-        void addBox(ModernTextBox box)
-        {
-            box.Location = new Point(8, y);
-            box.Width = 500;
-            box.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            card.Controls.Add(box);
-            y += 56;
-        }
-
-        addLabel("Địa chỉ máy chủ");
-        addBox(_apiUrl);
-        addLabel("Mã cửa hàng");
-        addBox(_storeCode);
-        addLabel("Tài khoản");
-        addBox(_user);
-        addLabel("Mật khẩu");
-        addBox(_pass);
-
-        _remember.Location = new Point(8, y); card.Controls.Add(_remember); y += 30;
-        _autoStart.Location = new Point(8, y); card.Controls.Add(_autoStart); y += 30;
-        _runAtBoot.Location = new Point(8, y); card.Controls.Add(_runAtBoot); y += 40;
-        _btnLogin.Location = new Point(8, y);
-        _btnLogin.Size = new Size(200, 48);
-        card.Controls.Add(_btnLogin); y += 64;
-        _connStatus.Location = new Point(8, y); card.Controls.Add(_connStatus); y += 32;
-        _deviceLbl.Location = new Point(8, y); card.Controls.Add(_deviceLbl);
-        card.Height = y + 48;
-
-        scroll.Controls.Add(card);
-        scroll.Resize += (_, _) =>
-        {
-            card.Width = Math.Max(480, scroll.ClientSize.Width - 8);
-            foreach (Control c in card.Controls)
-                if (c is ModernTextBox tb) tb.Width = card.Width - 40;
-        };
-        return scroll;
-    }
-
-    Panel BuildScanPage()
-    {
-        var split = CreateSplit(0.58);
-        var leftCard = new CardPanel { Dock = DockStyle.Fill };
-        var left = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 6, ColumnCount = 1, BackColor = Theme.Card };
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-        left.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        left.Controls.Add(Muted("Dải mạng (thường để trống hoặc 192.168.1)"), 0, 0);
-        left.Controls.Add(_subnet, 0, 1);
-        left.Controls.Add(PadList(_hitList), 0, 2);
-        left.Controls.Add(Muted("Tên gọi máy in"), 0, 3);
-        left.Controls.Add(_printerName, 0, 4);
-        _paperSize.Height = 44;
-        _paperSize.Margin = new Padding(0, 2, 10, 2);
-        var paperLbl = new Label
-        {
-            Text = "Khổ giấy", AutoSize = false, Size = new Size(70, 44),
-            TextAlign = ContentAlignment.MiddleLeft, ForeColor = Theme.TextMuted,
-            Font = Theme.FontUi(9.5f), Margin = new Padding(4, 2, 4, 2),
-        };
-        left.Controls.Add(ButtonBar.Create(_btnScan, _btnLanTest, paperLbl, _paperSize), 0, 5);
-        leftCard.Controls.Add(left);
-
-        var rightCard = new CardPanel { Dock = DockStyle.Fill };
-        var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, BackColor = Theme.Card };
-        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        right.Controls.Add(Muted("Máy này dùng để in những phiếu nào?"), 0, 0);
-        right.Controls.Add(PadList(_newRoutes), 0, 1);
-        right.Controls.Add(ButtonBar.Create(_btnCreateLan), 0, 2);
-        rightCard.Controls.Add(right);
-        split.Panel1.Controls.Add(leftCard);
-        split.Panel2.Controls.Add(rightCard);
-        return WrapPage(split);
-    }
-
-    Panel BuildUsbPage()
-    {
-        var split = CreateSplit(0.55);
-        var leftCard = new CardPanel { Dock = DockStyle.Fill };
-        var left = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 4, BackColor = Theme.Card };
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        left.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        left.Controls.Add(Muted("Máy in đã cài trên Windows (USB / chia sẻ)"), 0, 0);
-        left.Controls.Add(PadList(_usbList), 0, 1);
-        left.Controls.Add(_usbName, 0, 2);
-        _usbPaper.Height = 44;
-        _usbPaper.Margin = new Padding(0, 2, 10, 2);
-        var usbPaperLbl = new Label
-        {
-            Text = "Khổ giấy", AutoSize = false, Size = new Size(70, 44),
-            TextAlign = ContentAlignment.MiddleLeft, ForeColor = Theme.TextMuted,
-            Font = Theme.FontUi(9.5f), Margin = new Padding(4, 2, 4, 2),
-        };
-        left.Controls.Add(ButtonBar.Create(_btnUsbRefresh, _btnUsbTest, usbPaperLbl, _usbPaper), 0, 3);
-        leftCard.Controls.Add(left);
-
-        var rightCard = new CardPanel { Dock = DockStyle.Fill };
-        var right = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, BackColor = Theme.Card };
-        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        right.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        right.Controls.Add(Muted("Máy này dùng để in những phiếu nào?"), 0, 0);
-        right.Controls.Add(PadList(_usbRoutes), 0, 1);
-        right.Controls.Add(ButtonBar.Create(_btnCreateUsb), 0, 2);
-        rightCard.Controls.Add(right);
-        split.Panel1.Controls.Add(leftCard);
-        split.Panel2.Controls.Add(rightCard);
-        return WrapPage(split);
-    }
-
-    Panel BuildPrintersPage()
-    {
-        var split = CreateSplit(0.62);
-        var leftCard = new CardPanel { Dock = DockStyle.Fill };
-        var left = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, BackColor = Theme.Card };
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        left.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        left.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
-        left.Controls.Add(Muted("Tick máy in mà máy tính này sẽ nhận lệnh in hộ"), 0, 0);
-        left.Controls.Add(PadList(_printerList), 0, 1);
-        left.Controls.Add(ButtonBar.Create(
-            _btnRefreshPrinters, _btnSaveAssign, _btnUpdateHost, _btnCloudTest, _btnDeletePrinter), 0, 2);
-        leftCard.Controls.Add(left);
-        var rightCard = new CardPanel { Dock = DockStyle.Fill };
-        rightCard.Controls.Add(_printerDetail);
-        split.Panel1.Controls.Add(leftCard);
-        split.Panel2.Controls.Add(rightCard);
-        return WrapPage(split);
-    }
-
-    Panel BuildRoutesPage()
-    {
-        var card = new CardPanel { Dock = DockStyle.Fill };
-        var panel = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, BackColor = Theme.Card };
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        panel.Controls.Add(Muted("Chọn máy in cho từng loại phiếu"), 0, 0);
-        _routeGrid.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
-        {
-            BackColor = Color.FromArgb(248, 250, 252), ForeColor = Theme.Text, Font = Theme.FontUi(9.5f, FontStyle.Bold),
-        };
-        _routeGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(204, 251, 241);
-        _routeGrid.DefaultCellStyle.SelectionForeColor = Theme.Text;
-        _routeGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Doc", HeaderText = "Loại phiếu", ReadOnly = true, FillWeight = 42 });
-        _routeGrid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Printer", HeaderText = "Máy in", FillWeight = 43, FlatStyle = FlatStyle.Flat });
-        _routeGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Copies", HeaderText = "Số bản", FillWeight = 15 });
-        panel.Controls.Add(_routeGrid, 0, 1);
-        panel.Controls.Add(ButtonBar.Create(_btnSaveRoutes), 0, 2);
-        card.Controls.Add(panel);
-        return WrapPage(card);
-    }
-
-    Panel BuildAgentPage()
-    {
-        var card = new CardPanel { Dock = DockStyle.Fill };
-        var panel = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 4, BackColor = Theme.Card };
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-        panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-        panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-        _agentStatus.Text = "Trạng thái: chưa bật";
-        panel.Controls.Add(_agentStatus, 0, 0);
-        panel.Controls.Add(ButtonBar.Create(_btnStart, _btnStop, _btnRefreshAgents), 0, 1);
-        panel.Controls.Add(Muted("Máy đang nhận lệnh in trên cửa hàng (máy tính / điện thoại)"), 0, 2);
-        panel.Controls.Add(PadList(_agentsBox), 0, 3);
-        card.Controls.Add(panel);
-        return WrapPage(card);
-    }
-
-    static Panel WrapPage(Control inner)
-    {
-        var host = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Bg };
-        inner.Dock = DockStyle.Fill;
-        host.Controls.Add(inner);
-        return host;
-    }
-
-    static SplitContainer CreateSplit(double ratio)
-    {
-        var split = new SplitContainer
-        {
-            Dock = DockStyle.Fill, Orientation = Orientation.Vertical, BackColor = Theme.Bg,
-            Panel1MinSize = 120, Panel2MinSize = 120, SplitterWidth = 6,
-        };
-        void Apply()
-        {
-            try
-            {
-                if (split.Width <= split.Panel1MinSize + split.Panel2MinSize + split.SplitterWidth) return;
-                var max = split.Width - split.Panel2MinSize - split.SplitterWidth;
-                split.SplitterDistance = Math.Clamp((int)(split.Width * ratio), split.Panel1MinSize, max);
-            }
-            catch { /* ignore */ }
-        }
-        split.SizeChanged += (_, _) => Apply();
-        split.HandleCreated += (_, _) => Apply();
-        return split;
-    }
-
-    static Label Muted(string t) => new()
-    {
-        Text = t, Dock = DockStyle.Fill, Font = Theme.FontUi(9f), ForeColor = Theme.TextMuted,
-        TextAlign = ContentAlignment.MiddleLeft,
-    };
-
-    static Panel PadList(Control list)
-    {
-        var p = new Panel { Dock = DockStyle.Fill, BackColor = Theme.Card, Padding = new Padding(1), BorderStyle = BorderStyle.FixedSingle };
-        list.Dock = DockStyle.Fill;
-        p.Controls.Add(list);
-        return p;
-    }
-
-    static string PaperCode(ComboBox box) => box.SelectedIndex switch
-    {
-        1 => "K58",
-        2 => "Label50x30",
-        3 => "Label40x30",
-        _ => "K80",
-    };
-
-    static List<string> SelectedDocCodes(CheckedListBox box)
-    {
-        var codes = new List<string>();
-        foreach (var item in box.CheckedItems)
-        {
-            var label = item?.ToString() ?? "";
-            var hit = DocTypes.All.FirstOrDefault(x => x.Label == label);
-            if (!string.IsNullOrEmpty(hit.Code)) codes.Add(hit.Code);
-        }
-        return codes.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        return flow;
     }
 
     void WireEvents()
     {
-        _btnLogin.Click += async (_, _) => await LoginAsync(false);
-        _runAtBoot.CheckedChanged += (_, _) => ApplyRunAtBoot(_runAtBoot.Checked, quiet: false);
-        _btnScan.Click += async (_, _) => await ScanAsync();
-        _btnLanTest.Click += async (_, _) => await LanTestAsync();
-        _btnCreateLan.Click += async (_, _) => await CreateLanAsync();
+        _btnLogin.Click += async (_, _) => await LoginAsync(silent: false);
+        _btnLogout.Click += async (_, _) => await LogoutAsync();
+        _btnRefresh.Click += async (_, _) => await FullRefreshAsync();
+        _btnScan.Click += async (_, _) => await ScanLanAsync();
+        _btnTestIp.Click += async (_, _) => await TestLanIpAsync();
+        _btnAddLan.Click += async (_, _) => await AddLanAsync();
+        _btnCheckOnline.Click += async (_, _) =>
+        {
+            Log("Đang kiểm tra online…");
+            await ProbeHealthAsync();
+        };
         _btnUsbRefresh.Click += (_, _) => RefreshUsbList();
-        _btnUsbTest.Click += (_, _) => UsbTest();
-        _btnCreateUsb.Click += async (_, _) => await CreateUsbAsync();
-        _btnRefreshPrinters.Click += async (_, _) => await RefreshPrintersAsync();
-        _btnSaveAssign.Click += (_, _) => SaveAssignment(showMsg: true);
-        _btnUpdateHost.Click += async (_, _) => await UpdateHostFromScanAsync();
-        _btnDeletePrinter.Click += async (_, _) => await DeletePrinterAsync();
-        _btnCloudTest.Click += async (_, _) => await CloudTestAsync();
-        _btnSaveRoutes.Click += async (_, _) => await SaveRoutesAsync();
-        _btnStart.Click += async (_, _) => await StartAgentAsync();
-        _btnStop.Click += async (_, _) => await StopAgentAsync();
-        _btnRefreshAgents.Click += async (_, _) => await RefreshAgentsAsync();
-        _printerList.SelectedIndexChanged += (_, _) => ShowPrinterDetail();
+        _btnUsbTest.Click += (_, _) => TestUsbSelected();
+        _btnAddUsb.Click += async (_, _) => await AddUsbAsync();
+        _btnRename.Click += async (_, _) => await RenameSelectedAsync();
+        _btnTest.Click += async (_, _) => await TestSelectedAsync();
+        _btnDelete.Click += async (_, _) => await DeleteSelectedAsync();
+        _runAtBoot.CheckedChanged += (_, _) => ApplyBoot(_runAtBoot.Checked, quiet: true);
+        _printerView.SelectedIndexChanged += (_, _) =>
+        {
+            var p = SelectedPrinter();
+            if (p == null) return;
+            _nameBox.Text = p.Name;
+            if (ConnLabel.IsLan(p))
+            {
+                _lanIp.Text = p.LanHost ?? "";
+                _lanPort.Text = (p.LanPort > 0 ? p.LanPort : 9100).ToString();
+            }
+            // Làm nổi nút in thử khi máy Online
+            var on = _online.TryGetValue(p.Id, out var ok) && ok;
+            _btnTest.Kind = on ? ModernButton.StyleKind.Primary : ModernButton.StyleKind.Secondary;
+        };
+        _hitList.DoubleClick += async (_, _) => await AddLanAsync();
         _hitList.SelectedIndexChanged += (_, _) =>
         {
-            if (_hitList.SelectedItem is string s)
-            {
-                var host = s.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0].Split(':')[0];
-                if (string.IsNullOrWhiteSpace(_printerName.Text) || _printerName.Text.StartsWith("Máy "))
-                    _printerName.Text = "Máy " + host;
-            }
+            if (_hitList.SelectedIndex < 0 || _hitList.SelectedIndex >= _hits.Count) return;
+            var h = _hits[_hitList.SelectedIndex];
+            _lanIp.Text = h.Host;
+            _lanPort.Text = h.Port.ToString();
+            if (string.IsNullOrWhiteSpace(_nameBox.Text) || _nameBox.Text.StartsWith("Máy in ", StringComparison.OrdinalIgnoreCase))
+                _nameBox.Text = "Máy in " + h.Host;
         };
         _usbList.SelectedIndexChanged += (_, _) =>
         {
-            if (_usbList.SelectedItem is string name &&
-                (string.IsNullOrWhiteSpace(_usbName.Text) || _usbName.Text.StartsWith("USB ")))
-                _usbName.Text = "USB " + name;
+            if (_usbList.SelectedItem is string n)
+                _nameBox.Text = n;
         };
     }
 
     void SetupTray()
     {
-        _tray.Text = "SBOX máy in";
         _tray.Icon = Icon ?? SystemIcons.Application;
+        _tray.Text = "SBOX máy in";
         _tray.Visible = true;
         _tray.DoubleClick += (_, _) => { Show(); WindowState = FormWindowState.Normal; Activate(); };
         var menu = new ContextMenuStrip();
-        menu.Items.Add("Mở cửa sổ", null, (_, _) => { Show(); Activate(); });
-        menu.Items.Add("Tắt nhận lệnh in và thoát", null, async (_, _) =>
+        menu.Items.Add("Mở cửa sổ", null, (_, _) => { Show(); WindowState = FormWindowState.Normal; Activate(); });
+        menu.Items.Add("Thoát hẳn", null, async (_, _) =>
         {
-            await StopAgentAsync();
+            if (_agent != null) await _agent.DisposeAsync();
+            _agent = null;
             _tray.Visible = false;
             Application.Exit();
         });
         _tray.ContextMenuStrip = menu;
     }
 
-    void ApplyRunAtBoot(bool enabled, bool quiet)
+    void ShowMain(bool loggedIn)
+    {
+        _loginPanel.Visible = !loggedIn;
+        _mainPanel.Visible = loggedIn;
+        if (loggedIn) StartHealthTimer();
+        else StopHealthTimer();
+    }
+
+    void ApplyBoot(bool enabled, bool quiet)
     {
         try
         {
@@ -611,15 +443,7 @@ public sealed class MainForm : Form
             _settings.RunAtWindowsStartup = enabled;
             _settings.Save();
             if (!quiet)
-            {
-                Log(enabled
-                    ? "Đã bật tự chạy khi mở máy Windows."
-                    : "Đã tắt tự chạy khi mở máy.");
-                if (enabled)
-                    UiMsg.Info(
-                        "Đã bật tự chạy khi mở máy.\n\nLần khởi động Windows tiếp theo, SBOX sẽ tự mở (có thể thu nhỏ xuống khay hệ thống).",
-                        "Tự chạy khi mở máy");
-            }
+                Log(enabled ? "Đã bật tự chạy khi mở Windows." : "Đã tắt tự chạy Windows.");
         }
         catch (Exception ex)
         {
@@ -637,40 +461,29 @@ public sealed class MainForm : Form
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "SboxPrintAgent");
             Directory.CreateDirectory(dir);
-            File.AppendAllText(Path.Combine(dir, "agent.log"), line + Environment.NewLine);
-        }
-        catch { /* ignore log IO */ }
-
-        if (InvokeRequired)
-        {
-            BeginInvoke(() =>
+            var logPath = Path.Combine(dir, "agent.log");
+            try
             {
-                _logBox.AppendText(line + Environment.NewLine);
-                _footerStatus.Text = msg.Length > 100 ? msg[..100] + "…" : msg;
-            });
-            return;
+                var fi = new FileInfo(logPath);
+                if (fi.Exists && fi.Length > 2_000_000)
+                {
+                    var bak = Path.Combine(dir, "agent.prev.log");
+                    if (File.Exists(bak)) File.Delete(bak);
+                    File.Move(logPath, bak);
+                }
+            }
+            catch { /* ignore */ }
+            File.AppendAllText(logPath, line + Environment.NewLine);
         }
-        _logBox.AppendText(line + Environment.NewLine);
-        _footerStatus.Text = msg.Length > 100 ? msg[..100] + "…" : msg;
-    }
+        catch { /* ignore */ }
 
-    void SetLoggedInUi(bool on)
-    {
-        _btnScan.Enabled = true;
-        _btnLanTest.Enabled = true;
-        _btnUsbRefresh.Enabled = true;
-        _btnUsbTest.Enabled = true;
-        _btnCreateLan.Enabled = on;
-        _btnCreateUsb.Enabled = on;
-        _btnRefreshPrinters.Enabled = on;
-        _btnSaveAssign.Enabled = on;
-        _btnSaveRoutes.Enabled = on;
-        _btnCloudTest.Enabled = on;
-        _btnDeletePrinter.Enabled = on;
-        _btnUpdateHost.Enabled = on;
-        _btnRefreshAgents.Enabled = on;
-        _btnStop.Enabled = _agent?.IsRunning == true;
-        _btnStart.Enabled = on && _agent?.IsRunning != true;
+        void Append()
+        {
+            _logBox.AppendText(line + Environment.NewLine);
+            _footer.Text = msg.Length > 110 ? msg[..110] + "…" : msg;
+        }
+        if (InvokeRequired) BeginInvoke(Append);
+        else Append();
     }
 
     async Task LoginAsync(bool silent)
@@ -678,17 +491,20 @@ public sealed class MainForm : Form
         try
         {
             _btnLogin.Enabled = false;
-            var baseUrl = _apiUrl.Text.Trim().TrimEnd('/');
-            if (string.IsNullOrWhiteSpace(baseUrl))
-                throw new InvalidOperationException("Vui lòng nhập địa chỉ máy chủ (mặc định https://sboxhrm.com).");
+            var baseUrl = string.IsNullOrWhiteSpace(_settings.ApiBaseUrl)
+                ? AppSettings.DefaultApiBaseUrl
+                : _settings.ApiBaseUrl.Trim().TrimEnd('/');
             if (!baseUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 baseUrl = "https://" + baseUrl;
-            if (string.IsNullOrWhiteSpace(_storeCode.Text))
-                throw new InvalidOperationException("Vui lòng nhập mã cửa hàng.");
-            if (string.IsNullOrWhiteSpace(_user.Text))
-                throw new InvalidOperationException("Vui lòng nhập tài khoản.");
 
-            _api = new SboxApiClient(baseUrl);
+            if (string.IsNullOrWhiteSpace(_storeCode.Text))
+                throw new InvalidOperationException("Nhập mã cửa hàng.");
+            if (string.IsNullOrWhiteSpace(_user.Text))
+                throw new InvalidOperationException("Nhập tài khoản.");
+
+            if (_api == null || !string.Equals(_api.BaseUrl, baseUrl, StringComparison.OrdinalIgnoreCase))
+                _api = new SboxApiClient(baseUrl);
+
             await _api.LoginAsync(_storeCode.Text.Trim(), _user.Text.Trim(), _pass.Text, CancellationToken.None);
 
             _settings.ApiBaseUrl = baseUrl;
@@ -696,187 +512,67 @@ public sealed class MainForm : Form
             _settings.Username = _user.Text.Trim();
             _settings.RememberPassword = _remember.Checked;
             _settings.Password = _remember.Checked ? _pass.Text : "";
-            _settings.AutoStartAgent = _autoStart.Checked;
-            _settings.RunAtWindowsStartup = _runAtBoot.Checked;
-            _settings.StoreId = _api.StoreId ?? Guid.Empty;
+            _settings.AutoStartAgent = true;
+            if (_api.StoreId.HasValue) _settings.StoreId = _api.StoreId.Value;
             _settings.Save();
-            ApplyRunAtBoot(_runAtBoot.Checked, quiet: true);
+            ApplyBoot(_runAtBoot.Checked, quiet: true);
 
-            _connStatus.Text = $"Đăng nhập thành công · {_api.DisplayName}";
-            _connStatus.ForeColor = Theme.Success;
-            Log(_connStatus.Text);
-            SetLoggedInUi(true);
+            _storeTitle.Text = "Cửa hàng " + _settings.StoreCode;
+            _storeSub.Text = "Tài khoản: " + (_api.DisplayName ?? _settings.Username)
+                + "   ·   " + AgentService.AppVersion;
+            ShowMain(true);
+            RefreshUsbList();
             await RefreshPrintersAsync();
-            await RefreshAgentsAsync();
+            await SyncAgentIfNeededAsync();
+            await ProbeHealthAsync();
+            Log($"Đăng nhập OK · {_settings.StoreCode}");
             if (!silent)
-                UiMsg.Info("Đăng nhập thành công.\n\nTiếp theo: thêm máy in mạng hoặc USB → bật nhận lệnh in.", "Đăng nhập");
+                UiMsg.Info("Đã đăng nhập.\nThêm máy in LAN/USB nếu chưa có — lệnh in do server đẩy xuống.", "SBOX");
         }
         catch (Exception ex)
         {
-            _connStatus.Text = "Đăng nhập thất bại";
-            _connStatus.ForeColor = Theme.Danger;
             Log("Đăng nhập lỗi: " + UiMsg.ToVi(ex.Message));
             if (!silent) UiMsg.Error(ex.Message, "Đăng nhập thất bại");
-            if (silent) throw;
         }
         finally { _btnLogin.Enabled = true; }
     }
 
-    async Task ScanAsync()
+    async Task LogoutAsync()
     {
         try
         {
-            _btnScan.Enabled = false;
-            _hits.Clear();
-            _hitList.Items.Clear();
-            Log("Đang tìm máy in trên mạng…");
-            var list = await LanScanner.ScanAsync(_subnet.Text.Trim(), log: new Progress<string>(Log));
-            _hits.AddRange(list);
-            foreach (var h in list)
-                _hitList.Items.Add($"{h.Host}:{h.Port}   ({h.LatencyMs} ms)");
-            _settings.SubnetPrefix = _subnet.Text.Trim();
-            _settings.Save();
-            Log(list.Count == 0
-                ? "Không thấy máy in. Kiểm tra cùng Wi‑Fi và máy in đã bật."
-                : $"Tìm thấy {list.Count} máy in.");
-            if (list.Count == 0)
-                UiMsg.Warn("Không tìm thấy máy in trên mạng.\n\nKiểm tra máy in và máy tính cùng mạng Wi‑Fi/LAN.");
-        }
-        catch (Exception ex)
-        {
-            Log("Tìm máy in lỗi: " + UiMsg.ToVi(ex.Message));
-            UiMsg.Error(ex.Message, "Không tìm được máy in");
-        }
-        finally { _btnScan.Enabled = true; }
-    }
-
-    LanScanner.Hit? SelectedHit()
-    {
-        if (_hitList.SelectedIndex < 0 || _hitList.SelectedIndex >= _hits.Count) return null;
-        return _hits[_hitList.SelectedIndex];
-    }
-
-    async Task LanTestAsync()
-    {
-        var hit = SelectedHit();
-        if (hit == null) { UiMsg.Warn("Hãy chọn một máy trong danh sách sau khi tìm."); return; }
-        try
-        {
-            await LanScanner.SendTestAsync(hit.Host, hit.Port, hit.Host);
-            Log($"Đã gửi in thử → {hit.Host}");
-            UiMsg.Info($"Đã gửi trang in thử tới {hit.Host}.\nKiểm tra giấy ra máy in.", "In thử");
-        }
-        catch (Exception ex) { UiMsg.Error(ex.Message, "In thử thất bại"); }
-    }
-
-    async Task CreateLanAsync()
-    {
-        if (_api == null) { UiMsg.Warn("Vui lòng đăng nhập trước."); return; }
-        var hit = SelectedHit();
-        if (hit == null) { UiMsg.Warn("Chọn máy in trong danh sách tìm được."); return; }
-        var name = string.IsNullOrWhiteSpace(_printerName.Text) ? "Máy " + hit.Host : _printerName.Text.Trim();
-        var roles = SelectedDocCodes(_newRoutes);
-        if (roles.Count == 0) { UiMsg.Warn("Chọn ít nhất một loại phiếu (hóa đơn, báo bếp, tem…)."); return; }
-
-        try
-        {
-            _btnCreateLan.Enabled = false;
-            var paper = PaperCode(_paperSize);
-            var existing = _printers.FirstOrDefault(p =>
-                string.Equals(p.LanHost, hit.Host, StringComparison.OrdinalIgnoreCase));
-            Guid printerId;
-            if (existing != null)
+            if (_agent != null)
             {
-                printerId = existing.Id;
-                await _api.UpdateLanPrinterAsync(printerId, name, hit.Host, hit.Port, paper,
-                    roles.Contains("SaleInvoice", StringComparer.OrdinalIgnoreCase), true, 0, CancellationToken.None);
+                await _agent.StopAsync(markOffline: true);
+                await _agent.DisposeAsync();
+                _agent = null;
             }
-            else
-            {
-                printerId = await _api.CreateLanPrinterAsync(name, hit.Host, hit.Port, paper,
-                    roles.Contains("SaleInvoice", StringComparer.OrdinalIgnoreCase), CancellationToken.None);
-            }
+        }
+        catch { /* ignore */ }
+        _api = null;
+        _printers.Clear();
+        _online.Clear();
+        _agentServingIds = Array.Empty<Guid>();
+        _printerView.Items.Clear();
+        UpdateAgentBadge();
+        ShowMain(false);
+        Log("Đã đăng xuất.");
+    }
 
-            var merged = RouteMerge.AssignTypes(await _api.GetRoutesAsync(CancellationToken.None), roles, printerId);
-            await _api.SaveRoutesAsync(merged, CancellationToken.None);
-            AssignLocal(printerId);
+    async Task FullRefreshAsync()
+    {
+        if (_api == null) return;
+        try
+        {
+            _btnRefresh.Enabled = false;
+            Log("Đang làm mới danh sách máy in…");
+            RefreshUsbList();
             await RefreshPrintersAsync();
-            UiMsg.Info($"Đã lưu máy in «{name}».\n\nSang «Bật nhận lệnh in» để bắt đầu nhận lệnh từ phần mềm bán hàng.", "Thành công");
-            ShowPage("agent");
+            await SyncAgentIfNeededAsync();
+            await ProbeHealthAsync();
+            Log($"Làm mới xong · {_printers.Count} máy cloud · {_usbList.Items.Count} USB Windows.");
         }
-        catch (Exception ex) { UiMsg.Error(ex.Message, "Không lưu được máy in"); }
-        finally { _btnCreateLan.Enabled = _api != null; }
-    }
-
-    void RefreshUsbList()
-    {
-        _usbList.Items.Clear();
-        try
-        {
-            foreach (var p in WindowsSpooler.ListInstalledPrinters())
-                _usbList.Items.Add(p);
-            Log($"Có {_usbList.Items.Count} máy in trên Windows.");
-        }
-        catch (Exception ex) { UiMsg.Error(ex.Message, "Không đọc được danh sách máy in"); }
-    }
-
-    void UsbTest()
-    {
-        if (_usbList.SelectedItem is not string name) { UiMsg.Warn("Chọn một máy in trong danh sách."); return; }
-        try
-        {
-            WindowsSpooler.SendTest(name);
-            Log("Đã gửi in thử USB → " + name);
-            UiMsg.Info($"Đã gửi trang in thử tới «{name}».", "In thử");
-        }
-        catch (Exception ex) { UiMsg.Error(ex.Message, "In thử thất bại"); }
-    }
-
-    async Task CreateUsbAsync()
-    {
-        if (_api == null) { UiMsg.Warn("Vui lòng đăng nhập trước."); return; }
-        if (_usbList.SelectedItem is not string winName) { UiMsg.Warn("Chọn máy in Windows."); return; }
-        var name = string.IsNullOrWhiteSpace(_usbName.Text) ? "USB " + winName : _usbName.Text.Trim();
-        var roles = SelectedDocCodes(_usbRoutes);
-        if (roles.Count == 0) { UiMsg.Warn("Chọn ít nhất một loại phiếu."); return; }
-
-        try
-        {
-            _btnCreateUsb.Enabled = false;
-            var paper = PaperCode(_usbPaper);
-            var existing = _printers.FirstOrDefault(p =>
-                ConnLabel.IsUsb(p) &&
-                string.Equals(p.UsbDeviceName, winName, StringComparison.OrdinalIgnoreCase));
-            Guid printerId;
-            if (existing != null)
-            {
-                printerId = existing.Id;
-                // cập nhật qua create không có — dùng lại id + routes
-                Log("Máy USB đã có trên cửa hàng — cập nhật gán phiếu.");
-            }
-            else
-            {
-                printerId = await _api.CreateUsbPrinterAsync(name, winName, paper,
-                    roles.Contains("SaleInvoice", StringComparer.OrdinalIgnoreCase), CancellationToken.None);
-            }
-
-            var merged = RouteMerge.AssignTypes(await _api.GetRoutesAsync(CancellationToken.None), roles, printerId);
-            await _api.SaveRoutesAsync(merged, CancellationToken.None);
-            AssignLocal(printerId);
-            await RefreshPrintersAsync();
-            UiMsg.Info($"Đã lưu máy in USB «{name}».\n\nSang «Bật nhận lệnh in» để bắt đầu.", "Thành công");
-            ShowPage("agent");
-        }
-        catch (Exception ex) { UiMsg.Error(ex.Message, "Không lưu được máy in USB"); }
-        finally { _btnCreateUsb.Enabled = _api != null; }
-    }
-
-    void AssignLocal(Guid printerId)
-    {
-        var assigned = _settings.AssignedGuids();
-        if (!assigned.Contains(printerId)) assigned.Add(printerId);
-        _settings.AssignedPrinterIds = assigned.Select(x => x.ToString()).ToList();
-        _settings.Save();
+        finally { _btnRefresh.Enabled = true; }
     }
 
     async Task RefreshPrintersAsync()
@@ -884,261 +580,686 @@ public sealed class MainForm : Form
         if (_api == null) return;
         try
         {
-            _printers = await _api.ListPrintersAsync(CancellationToken.None);
-            _routes = await _api.GetRoutesAsync(CancellationToken.None);
-            _agent?.SetPrinterCache(_printers);
+            var raw = await _api.ListPrintersAsync(CancellationToken.None);
+            var candidates = PrinterListNormalize.ForWindowsAgent(raw);
+            var localIds = _settings.LocalPrinterGuidSet();
+            var detached = _settings.DetachedPrinterGuidSet();
+            var winQueues = WindowsSpooler.ListInstalledPrinters();
 
-            var assigned = _settings.AssignedGuids().ToHashSet();
-            if (assigned.Count == 0)
+            // Chỉ máy gắn với PC này — không hiện toàn bộ máy trên server.
+            // Máy đã «Gỡ khỏi PC» nằm trong Detached → bỏ qua dù USB/LAN vẫn thấy.
+            var local = new List<PrinterItem>();
+            foreach (var p in candidates)
             {
-                assigned = _printers.Where(ConnLabel.CanPrintOnWindows).Select(p => p.Id).ToHashSet();
-                _settings.AssignedPrinterIds = assigned.Select(x => x.ToString()).ToList();
-                _settings.Save();
+                if (detached.Contains(p.Id))
+                    continue;
+
+                if (ConnLabel.IsUsb(p))
+                {
+                    var want = (p.UsbDeviceName ?? "").Trim();
+                    if (want.Length == 0) continue;
+                    var resolved = WindowsSpooler.ResolvePrinterName(want);
+                    var onThisPc = winQueues.Any(n =>
+                        string.Equals(n, resolved, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(n, want, StringComparison.OrdinalIgnoreCase));
+                    // USB: chỉ hiện khi đã gắn (Local) hoặc lần đầu chưa có Local nào.
+                    var allowUsb = localIds.Contains(p.Id) || _settings.LocalPrinterIds.Count == 0;
+                    if (onThisPc && allowUsb)
+                    {
+                        local.Add(p);
+                        localIds.Add(p.Id);
+                    }
+                }
+                else if (ConnLabel.IsLan(p))
+                {
+                    // LAN: chỉ hiện nếu đã thêm từ PC này (không tự kéo mọi IP online).
+                    if (!localIds.Contains(p.Id))
+                        continue;
+                    var host = (p.LanHost ?? "").Trim();
+                    if (host.Length == 0) continue;
+                    var port = p.LanPort > 0 ? p.LanPort : 9100;
+                    var reachable = await TcpReachableAsync(host, port, 700);
+                    local.Add(p);
+                    _online[p.Id] = reachable;
+                }
             }
 
-            _printerList.Items.Clear();
-            foreach (var p in _printers)
+            // Lần đầu (chưa gắn máy nào): seed USB đang cắm trên PC + LAN đang online (không detached).
+            if (_settings.LocalPrinterIds.Count == 0 && local.Count == 0)
             {
-                var addr = ConnLabel.IsUsb(p)
-                    ? (p.UsbDeviceName ?? "USB")
-                    : $"{p.LanHost ?? "—"}:{p.LanPort}";
-                var docs = p.DocumentTypes.Count == 0
-                    ? ""
-                    : " · " + string.Join(", ", p.DocumentTypes.Select(DocTypes.LabelOf));
-                var idx = _printerList.Items.Add($"{p.Name}   ·  {ConnLabel.Vi(p.ConnectionType)}  {addr}{docs}");
-                _printerList.SetItemChecked(idx, assigned.Contains(p.Id));
+                foreach (var p in candidates)
+                {
+                    if (detached.Contains(p.Id)) continue;
+                    if (ConnLabel.IsUsb(p))
+                    {
+                        var want = (p.UsbDeviceName ?? "").Trim();
+                        if (want.Length == 0) continue;
+                        var resolved = WindowsSpooler.ResolvePrinterName(want);
+                        if (winQueues.Any(n =>
+                                string.Equals(n, resolved, StringComparison.OrdinalIgnoreCase) ||
+                                string.Equals(n, want, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            local.Add(p);
+                            localIds.Add(p.Id);
+                        }
+                    }
+                    else if (ConnLabel.IsLan(p) && !string.IsNullOrWhiteSpace(p.LanHost))
+                    {
+                        var port = p.LanPort > 0 ? p.LanPort : 9100;
+                        if (await TcpReachableAsync(p.LanHost!, port, 700))
+                        {
+                            local.Add(p);
+                            localIds.Add(p.Id);
+                            _online[p.Id] = true;
+                        }
+                    }
+                }
             }
-            RebuildRouteGrid();
-            Log($"Đã tải {_printers.Count} máy in của cửa hàng.");
+
+            _settings.LocalPrinterIds = localIds
+                .Where(id => !detached.Contains(id))
+                .Select(x => x.ToString("D"))
+                .Distinct()
+                .ToList();
+            _printers = local
+                .GroupBy(p => p.Id)
+                .Select(g => g.First())
+                .OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+
+            _settings.AssignedPrinterIds = _printers.Select(p => p.Id.ToString("D")).ToList();
+            _settings.Save();
+
+            foreach (var gone in _online.Keys.Except(_printers.Select(p => p.Id)).ToList())
+                _online.Remove(gone);
+
+            RenderPrinterList();
+            var hidden = candidates.Count - _printers.Count;
+            Log(hidden > 0
+                ? $"Máy trên PC này: {_printers.Count} (ẩn {hidden} máy server/đã gỡ)."
+                : $"Máy trên PC này: {_printers.Count}.");
         }
-        catch (Exception ex) { Log("Tải máy in: " + UiMsg.ToVi(ex.Message)); }
+        catch (Exception ex)
+        {
+            Log("Tải máy in: " + UiMsg.ToVi(ex.Message));
+        }
     }
 
-    void SaveAssignment(bool showMsg)
-    {
-        var ids = new List<Guid>();
-        for (var i = 0; i < _printerList.Items.Count && i < _printers.Count; i++)
-            if (_printerList.GetItemChecked(i)) ids.Add(_printers[i].Id);
-        _settings.AssignedPrinterIds = ids.Select(x => x.ToString()).ToList();
-        _settings.Save();
-        Log($"Đã chọn {ids.Count} máy in để dùng trên máy này.");
-        if (showMsg)
-            UiMsg.Info($"Đã lưu {ids.Count} máy in.\nNếu đang bật nhận lệnh in: tắt rồi bật lại để áp dụng.", "Đã lưu");
-    }
-
-    void ShowPrinterDetail()
-    {
-        var i = _printerList.SelectedIndex;
-        if (i < 0 || i >= _printers.Count) { _printerDetail.Text = ""; return; }
-        var p = _printers[i];
-        _printerDetail.Text =
-            $"{p.Name}\n\n" +
-            $"Kiểu: {ConnLabel.Vi(p.ConnectionType)}\n" +
-            (ConnLabel.IsUsb(p)
-                ? $"Máy Windows: {p.UsbDeviceName}\n"
-                : $"Địa chỉ mạng: {p.LanHost}:{p.LanPort}\n") +
-            $"Khổ giấy: {p.PaperSize}\n" +
-            $"Trạng thái: {HealthVi(p.HealthStatus)}\n" +
-            $"Phiếu in: {(p.DocumentTypes.Count == 0 ? "—" : string.Join(", ", p.DocumentTypes.Select(DocTypes.LabelOf)))}";
-    }
-
-    static string HealthVi(string? s) => s switch
-    {
-        "Online" => "Sẵn sàng",
-        "Offline" => "Mất kết nối",
-        "Busy" => "Đang in",
-        "Error" => "Lỗi",
-        _ => "Chưa rõ",
-    };
-
-    async Task UpdateHostFromScanAsync()
+    /// <summary>Chỉ restart Agent khi danh sách máy đổi — tránh làm mới làm đứt kết nối.</summary>
+    async Task SyncAgentIfNeededAsync()
     {
         if (_api == null) return;
-        var i = _printerList.SelectedIndex;
-        var hit = SelectedHit();
-        if (i < 0 || i >= _printers.Count || hit == null)
+        var ids = _printers.Select(p => p.Id).OrderBy(x => x).ToArray();
+        var running = _agent?.IsRunning == true;
+
+        if (ids.Length == 0)
         {
-            UiMsg.Warn("Chọn máy in ở đây và một địa chỉ ở mục «Máy in mạng».");
+            if (running)
+            {
+                await _agent!.StopAsync(markOffline: true);
+                _agentServingIds = Array.Empty<Guid>();
+                UpdateAgentBadge();
+            }
             return;
         }
-        var p = _printers[i];
-        if (!ConnLabel.IsLan(p)) { UiMsg.Warn("Chỉ đổi IP cho máy in mạng."); return; }
-        try
+
+        var same = running &&
+                   ids.Length == _agentServingIds.Length &&
+                   ids.SequenceEqual(_agentServingIds);
+        if (same && _agent != null)
         {
-            await _api.UpdateLanPrinterAsync(p.Id, p.Name, hit.Host, hit.Port, p.PaperSize,
-                p.IsDefault, p.IsActive, 0, CancellationToken.None);
-            await RefreshPrintersAsync();
-            UiMsg.Info($"Đã đổi địa chỉ thành {hit.Host}.", "Cập nhật");
-        }
-        catch (Exception ex) { UiMsg.Error(ex.Message); }
-    }
-
-    async Task DeletePrinterAsync()
-    {
-        if (_api == null) return;
-        var i = _printerList.SelectedIndex;
-        if (i < 0 || i >= _printers.Count) return;
-        var p = _printers[i];
-        if (!UiMsg.Confirm($"Xóa máy in «{p.Name}» khỏi cửa hàng?", "Xóa máy in")) return;
-        try
-        {
-            await _api.DeletePrinterAsync(p.Id, CancellationToken.None);
-            await RefreshPrintersAsync();
-        }
-        catch (Exception ex) { UiMsg.Error(ex.Message); }
-    }
-
-    async Task CloudTestAsync()
-    {
-        if (_api == null) return;
-        var i = _printerList.SelectedIndex;
-        if (i < 0 || i >= _printers.Count) { UiMsg.Warn("Chọn một máy in."); return; }
-        if (_agent?.IsRunning != true)
-        {
-            UiMsg.Warn("Hãy bật nhận lệnh in trước, rồi gửi lệnh in thử.");
-            return;
-        }
-        try
-        {
-            var p = _printers[i];
-            await _api.CreateTestJobAsync(p.Id, CancellationToken.None);
-            UiMsg.Info($"Đã gửi lệnh in thử tới «{p.Name}».", "In thử");
-        }
-        catch (Exception ex) { UiMsg.Error(ex.Message); }
-    }
-
-    void RebuildRouteGrid()
-    {
-        var printerCol = (DataGridViewComboBoxColumn)_routeGrid.Columns["Printer"]!;
-        var items = new List<PrinterPick> { new(Guid.Empty, "(không gán)") };
-        items.AddRange(_printers.Select(p => new PrinterPick(p.Id, p.Name)));
-        printerCol.DataSource = items;
-        printerCol.DisplayMember = nameof(PrinterPick.Name);
-        printerCol.ValueMember = nameof(PrinterPick.Id);
-
-        var byDoc = _routes
-            .GroupBy(r => r.DocumentType, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
-        _routeGrid.Rows.Clear();
-        foreach (var (code, label) in DocTypes.All)
-        {
-            byDoc.TryGetValue(code, out var route);
-            _routeGrid.Rows.Add(label, route?.PrinterId ?? Guid.Empty, route?.Copies ?? 1);
-            _routeGrid.Rows[^1].Tag = code;
-        }
-    }
-
-    sealed record PrinterPick(Guid Id, string Name);
-
-    async Task SaveRoutesAsync()
-    {
-        if (_api == null) return;
-        try
-        {
-            var routes = new List<RouteItem>();
-            foreach (DataGridViewRow row in _routeGrid.Rows)
-            {
-                var code = row.Tag as string ?? "";
-                if (string.IsNullOrEmpty(code)) continue;
-                var pidObj = row.Cells["Printer"].Value;
-                Guid g = Guid.Empty;
-                if (pidObj is Guid gg) g = gg;
-                else if (pidObj is PrinterPick pp) g = pp.Id;
-                else Guid.TryParse(pidObj?.ToString(), out g);
-                if (g == Guid.Empty) continue;
-                var copies = 1;
-                if (int.TryParse(row.Cells["Copies"].Value?.ToString(), out var c))
-                    copies = Math.Clamp(c, 1, 10);
-                routes.Add(new RouteItem(code, g, copies));
-            }
-            await _api.SaveRoutesAsync(routes, CancellationToken.None);
-            await RefreshPrintersAsync();
-            UiMsg.Info("Đã lưu cách gán phiếu in.", "Thành công");
-        }
-        catch (Exception ex) { UiMsg.Error(ex.Message); }
-    }
-
-    async Task StartAgentAsync()
-    {
-        if (_api == null) { UiMsg.Warn("Vui lòng đăng nhập trước."); return; }
-        try
-        {
-            SaveAssignment(showMsg: false);
-            var assigned = _settings.AssignedGuids();
-            var ids = _printers.Where(p => assigned.Contains(p.Id) && ConnLabel.CanPrintOnWindows(p))
-                .Select(p => p.Id).ToList();
-            if (ids.Count == 0)
-            {
-                UiMsg.Warn("Chưa chọn máy in mạng/USB.\n\nThêm máy in rồi tick chọn ở «Danh sách máy in».");
-                return;
-            }
-
-            _agent ??= new AgentService(_api, _settings, Log);
             _agent.SetPrinterCache(_printers);
+            return;
+        }
+
+        await EnsureAgentRunningAsync();
+        _agentServingIds = ids;
+    }
+
+    void RenderPrinterList()
+    {
+        var selectedId = SelectedPrinter()?.Id;
+        _printerView.BeginUpdate();
+        _printerView.Items.Clear();
+        foreach (var p in _printers)
+        {
+            var localOn = _online.TryGetValue(p.Id, out var on) && on;
+            var status = localOn ? "● Online" : "○ Offline";
+            var addr = ConnLabel.IsUsb(p)
+                ? (p.UsbDeviceName ?? "—")
+                : $"{p.LanHost}:{p.LanPort}";
+            var item = new ListViewItem(status) { Tag = p.Id, UseItemStyleForSubItems = false };
+            item.SubItems.Add(p.Name);
+            item.SubItems.Add(ConnLabel.Vi(p.ConnectionType));
+            item.SubItems.Add(addr);
+            item.SubItems.Add(localOn ? "Online" : (string.IsNullOrWhiteSpace(p.HealthStatus) ? "—" : p.HealthStatus));
+
+            var fg = localOn ? Color.FromArgb(5, 150, 105) : Color.FromArgb(100, 116, 139);
+            var bg = localOn ? Color.FromArgb(220, 252, 231) : Color.FromArgb(248, 250, 252);
+            item.ForeColor = fg;
+            item.BackColor = bg;
+            foreach (ListViewItem.ListViewSubItem sub in item.SubItems)
+            {
+                sub.ForeColor = fg;
+                sub.BackColor = bg;
+            }
+            // Cột trạng thái đậm hơn
+            item.SubItems[0].ForeColor = localOn ? Color.FromArgb(4, 120, 87) : Color.FromArgb(148, 163, 184);
+            item.Font = localOn
+                ? Theme.FontUi(10f, FontStyle.Bold)
+                : Theme.FontUi(10f);
+
+            _printerView.Items.Add(item);
+            if (selectedId == p.Id) item.Selected = true;
+        }
+        _printerView.EndUpdate();
+    }
+
+    void PrinterView_DrawColumnHeader(object? sender, DrawListViewColumnHeaderEventArgs e)
+    {
+        e.DrawDefault = true;
+    }
+
+    void PrinterView_DrawSubItem(object? sender, DrawListViewSubItemEventArgs e)
+    {
+        if (e.Item == null || e.SubItem == null) return;
+        var selected = e.Item.Selected;
+        var bg = selected
+            ? Color.FromArgb(204, 251, 241)
+            : e.SubItem.BackColor;
+        var fg = e.SubItem.ForeColor;
+        using var brush = new SolidBrush(bg);
+        e.Graphics.FillRectangle(brush, e.Bounds);
+        TextRenderer.DrawText(
+            e.Graphics,
+            e.SubItem.Text,
+            e.SubItem.Font ?? _printerView.Font,
+            e.Bounds,
+            fg,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+    }
+
+    PrinterItem? SelectedPrinter()
+    {
+        if (_printerView.SelectedItems.Count == 0) return null;
+        if (_printerView.SelectedItems[0].Tag is not Guid id) return null;
+        return _printers.FirstOrDefault(p => p.Id == id);
+    }
+
+    async Task EnsureAgentRunningAsync()
+    {
+        if (_api == null) return;
+        var ids = _printers.Select(p => p.Id).ToList();
+        if (ids.Count == 0)
+        {
+            UpdateAgentBadge();
+            Log("Chưa có máy in — thêm LAN/USB rồi Agent sẽ tự nhận lệnh.");
+            return;
+        }
+
+        try
+        {
+            if (_agent != null)
+            {
+                try { await _agent.DisposeAsync(); } catch { /* ignore */ }
+                _agent = null;
+            }
+
+            _agent = new AgentService(_api, _settings, Log);
+            _agent.SetPrinterCache(_printers);
+            _agent.SetReloginHandler(async ct =>
+            {
+                var api = _api ?? throw new InvalidOperationException("Chưa đăng nhập");
+                var pass = _settings.RememberPassword ? _settings.Password : _pass.Text;
+                if (string.IsNullOrWhiteSpace(pass))
+                    throw new InvalidOperationException("Thiếu mật khẩu để đăng nhập lại.");
+                await api.LoginAsync(_settings.StoreCode, _settings.Username, pass, ct);
+            });
             _agent.StateChanged += () =>
             {
-                if (InvokeRequired) { BeginInvoke(UpdateAgentUi); return; }
-                UpdateAgentUi();
+                if (InvokeRequired) BeginInvoke(UpdateAgentBadge);
+                else UpdateAgentBadge();
             };
             _agent.ForceStoppedRemotely += () =>
             {
                 BeginInvoke(() =>
                 {
-                    UiMsg.Warn("Nhận lệnh in đã bị tắt từ thiết bị khác.", "Đã tắt");
-                    UpdateAgentUi();
+                    UpdateAgentBadge();
+                    UiMsg.Warn("Nhận lệnh in bị tắt từ thiết bị khác.", "Đã tắt");
                 });
             };
 
             await _agent.StartAsync(ids);
-            _settings.AutoStartAgent = _autoStart.Checked;
-            _settings.Save();
-            UpdateAgentUi();
-            await RefreshAgentsAsync();
-            UiMsg.Info($"Đang nhận lệnh in cho {ids.Count} máy.\nCó thể thu nhỏ cửa sổ — vẫn chạy ở khay hệ thống.", "Đã bật");
+            _agentServingIds = ids.OrderBy(x => x).ToArray();
+            UpdateAgentBadge();
+            Log($"Đang nhận lệnh in từ server · {_printers.Count} máy.");
         }
-        catch (Exception ex) { UiMsg.Error(ex.Message, "Không bật được"); }
+        catch (Exception ex)
+        {
+            _agentServingIds = Array.Empty<Guid>();
+            UpdateAgentBadge();
+            Log("Không bật nhận lệnh: " + UiMsg.ToVi(ex.Message));
+        }
     }
 
-    async Task StopAgentAsync()
+    void UpdateAgentBadge()
     {
-        if (_agent == null) return;
-        await _agent.StopAsync(markOffline: true);
-        UpdateAgentUi();
-        await RefreshAgentsAsync();
-        Log("Đã tắt nhận lệnh in.");
+        var on = _agent?.IsRunning == true;
+        _agentBadge.Text = on ? "● Đang nhận lệnh từ server" : "○ Chưa nhận lệnh";
+        _agentBadge.ForeColor = on ? Theme.Success : Theme.Warning;
+        _tray.Text = on ? "SBOX máy in (đang nhận lệnh)" : "SBOX máy in";
     }
 
-    void UpdateAgentUi()
+    void RefreshUsbList()
     {
-        var running = _agent?.IsRunning == true;
-        _agentStatus.Text = running ? "Trạng thái: ĐANG NHẬN LỆNH IN" : "Trạng thái: chưa bật";
-        _agentStatus.ForeColor = running ? Theme.Success : Theme.Text;
-        _btnStart.Enabled = _api != null && !running;
-        _btnStop.Enabled = running;
-        _tray.Text = running ? "SBOX máy in (đang chạy)" : "SBOX máy in";
-    }
-
-    async Task RefreshAgentsAsync()
-    {
-        if (_api == null) return;
+        _usbList.Items.Clear();
         try
         {
-            var snap = await _api.ListAgentsAsync(onlineOnly: false, CancellationToken.None);
-            _agentsBox.Items.Clear();
-            if (snap.HasPrinterConflict)
-                _agentsBox.Items.Add("⚠ Có nhiều máy cùng nhận lệnh cho một máy in — chỉ nên bật trên một máy gần máy in.");
-            foreach (var a in snap.Agents.OrderByDescending(x => x.IsOnline).ThenByDescending(x => x.LastHeartbeatAt))
+            var skip = new[] { "fax", "microsoft print to pdf", "microsoft xps", "onenote", "send to onenote" };
+            var list = WindowsSpooler.ListInstalledPrinters()
+                .Where(n => !skip.Any(s => n.Contains(s, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            foreach (var n in list)
+                _usbList.Items.Add(n);
+            Log($"USB thật trên Windows: {list.Count} máy (đã ẩn Fax/PDF).");
+        }
+        catch (Exception ex)
+        {
+            UiMsg.Error(ex.Message, "Không đọc được máy in USB");
+        }
+    }
+
+    void TestUsbSelected()
+    {
+        if (_usbList.SelectedItem is not string name)
+        {
+            UiMsg.Warn("Chọn máy USB trong danh sách rồi bấm In thử USB.");
+            return;
+        }
+        try
+        {
+            WindowsSpooler.SendTest(name);
+            Log($"In thử USB → {name}");
+            UiMsg.Info($"Đã gửi trang in thử tới «{name}».\nNếu ra giấy → bấm Thêm máy USB.", "In thử USB");
+        }
+        catch (Exception ex) { UiMsg.Error(ex.Message, "In thử USB thất bại"); }
+    }
+
+    async Task ScanLanAsync()
+    {
+        try
+        {
+            _btnScan.Enabled = false;
+            _hitList.Items.Clear();
+            _hits.Clear();
+            _settings.SubnetPrefix = SubnetNormalize.Clean(_subnet.Text);
+            _subnet.Text = _settings.SubnetPrefix;
+            _settings.Save();
+            Log($"Đang tìm máy in LAN {_settings.SubnetPrefix}.1–254 :9100…");
+            var list = await LanScanner.ScanAsync(
+                string.IsNullOrWhiteSpace(_settings.SubnetPrefix) ? null : _settings.SubnetPrefix,
+                log: new Progress<string>(s => Log(s)),
+                ct: CancellationToken.None);
+            _hits.AddRange(list);
+            foreach (var h in list)
+                _hitList.Items.Add($"{h.Host}:{h.Port}  ({h.LatencyMs} ms)");
+            if (list.Count == 0)
             {
-                var mine = string.Equals(a.DeviceId, _settings.DeviceId, StringComparison.OrdinalIgnoreCase)
-                    ? "  ★ MÁY NÀY" : "";
-                var printers = a.PrinterNames.Count > 0
-                    ? string.Join(", ", a.PrinterNames)
-                    : "—";
-                _agentsBox.Items.Add(
-                    $"{(a.IsOnline ? "● Đang bật" : "○ Tắt")} · {a.DeviceName ?? a.DeviceId} · {a.AccountLabel ?? ""} · [{printers}]{mine}");
+                UiMsg.Warn("Không tìm thấy máy in trên mạng.\nKiểm tra cùng Wi‑Fi/LAN với máy in.");
+            }
+            else
+            {
+                _hitList.SelectedIndex = 0;
+                var first = list[0];
+                _lanIp.Text = first.Host;
+                _lanPort.Text = first.Port.ToString();
+                if (string.IsNullOrWhiteSpace(_nameBox.Text) ||
+                    _nameBox.Text.StartsWith("Máy in ", StringComparison.OrdinalIgnoreCase) ||
+                    _nameBox.Text.Contains("usb", StringComparison.OrdinalIgnoreCase))
+                    _nameBox.Text = "Máy in " + first.Host;
+                Log($"Tìm thấy {list.Count} máy. Bấm «In thử IP» rồi «Thêm máy LAN».");
             }
         }
-        catch (Exception ex) { Log("Danh sách máy nhận lệnh: " + UiMsg.ToVi(ex.Message)); }
+        catch (Exception ex)
+        {
+            UiMsg.Error(ex.Message, "Tìm máy in");
+        }
+        finally { _btnScan.Enabled = true; }
+    }
+
+    async Task TestLanIpAsync()
+    {
+        SyncLanFieldsFromSelection();
+        var host = _lanIp.Text.Trim();
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            UiMsg.Warn("Nhập IP hoặc Quét mạng → chọn IP trước khi in thử.");
+            return;
+        }
+        if (!int.TryParse(_lanPort.Text.Trim(), out var port) || port <= 0)
+            port = 9100;
+
+        try
+        {
+            _btnTestIp.Enabled = false;
+            Log($"In thử IP {host}:{port} (chưa lưu lên server)…");
+            var ok = await TcpReachableAsync(host, port, 2500);
+            if (!ok)
+            {
+                UiMsg.Error($"Không kết nối TCP {host}:{port}.\nKiểm tra máy in / cùng mạng.", "In thử thất bại");
+                return;
+            }
+            await LanScanner.SendTestAsync(host, port, "SBOX test " + host, CancellationToken.None);
+            Log($"✓ Đã gửi in thử → {host}:{port}");
+            UiMsg.Info(
+                $"Đã gửi trang in thử tới {host}:{port}.\n" +
+                "Nếu ra giấy đúng → bấm «Thêm máy LAN» để lưu và nhận lệnh từ server.",
+                "In thử IP thành công");
+        }
+        catch (Exception ex) { UiMsg.Error(ex.Message, "In thử IP thất bại"); }
+        finally { _btnTestIp.Enabled = true; }
+    }
+
+    void SyncLanFieldsFromSelection()
+    {
+        if (_hitList.SelectedIndex < 0 || _hitList.SelectedIndex >= _hits.Count) return;
+        var h = _hits[_hitList.SelectedIndex];
+        _lanIp.Text = h.Host;
+        _lanPort.Text = h.Port.ToString();
+    }
+
+    async Task ConnectLanByIpAsync()
+    {
+        if (_api == null) { UiMsg.Warn("Hãy đăng nhập trước."); return; }
+        SyncLanFieldsFromSelection();
+
+        var host = _lanIp.Text.Trim();
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            UiMsg.Warn("Nhập IP máy in (vd: 192.168.1.230).");
+            return;
+        }
+        if (!int.TryParse(_lanPort.Text.Trim(), out var port) || port <= 0)
+            port = 9100;
+
+        var name = _nameBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name) ||
+            name.Contains("usb", StringComparison.OrdinalIgnoreCase))
+            name = "Máy in " + host;
+
+        try
+        {
+            _btnAddLan.Enabled = false;
+            Log($"Đang kết nối {host}:{port}…");
+            var ok = await TcpReachableAsync(host, port, 2500);
+            if (!ok)
+            {
+                UiMsg.Error(
+                    $"Không kết nối được {host}:{port}.\n" +
+                    "Nên bấm «In thử IP» trước để kiểm tra.",
+                    "Kết nối thất bại");
+                return;
+            }
+
+            Log($"✓ TCP OK {host}:{port}");
+
+            var dup = _printers.FirstOrDefault(p =>
+                ConnLabel.IsLan(p) &&
+                string.Equals(p.LanHost, host, StringComparison.OrdinalIgnoreCase) &&
+                (p.LanPort <= 0 ? 9100 : p.LanPort) == port);
+
+            Guid id;
+            if (dup != null)
+            {
+                id = dup.Id;
+                await _api.UpdateLanPrinterAsync(dup.Id, name, host, port, dup.PaperSize,
+                    dup.IsDefault, true, sortOrder: 0, CancellationToken.None);
+                Log($"Đã cập nhật máy có sẵn «{name}»");
+            }
+            else
+            {
+                id = await _api.CreateLanPrinterAsync(name, host, port, "K80", isDefault: false, CancellationToken.None);
+                var roles = new[] { "SaleInvoice", "KitchenSlip", "StockIssue", "KitchenLabel" };
+                var merged = RouteMerge.AssignTypes(await _api.GetRoutesAsync(CancellationToken.None), roles, id);
+                await _api.SaveRoutesAsync(merged, CancellationToken.None);
+                Log($"Đã thêm LAN «{name}» → {host}:{port}");
+            }
+
+            _online[id] = true;
+            _settings.RememberLocalPrinter(id);
+            await RefreshPrintersAsync();
+            await SyncAgentIfNeededAsync();
+            await ProbeHealthAsync();
+
+            // In thử sau khi đã online trên danh sách
+            try
+            {
+                await LanScanner.SendTestAsync(host, port, name, CancellationToken.None);
+                Log($"✓ In thử sau kết nối → {name}");
+            }
+            catch (Exception ex)
+            {
+                Log("In thử sau kết nối lỗi: " + ex.Message);
+            }
+
+            UiMsg.Info(
+                $"Đã thêm «{name}» ({host}:{port}) — Online.\n" +
+                "Đã gửi thêm 1 trang in thử sau khi kết nối.\n" +
+                "Sau này chọn máy trong danh sách → «In thử máy này».",
+                "Thành công");
+        }
+        catch (Exception ex) { UiMsg.Error(ex.Message, "Thêm máy LAN thất bại"); }
+        finally { _btnAddLan.Enabled = true; }
+    }
+
+    async Task AddLanAsync()
+    {
+        if (_api == null) { UiMsg.Warn("Hãy đăng nhập trước."); return; }
+
+        if (_hitList.SelectedIndex >= 0 && _hitList.SelectedIndex < _hits.Count)
+        {
+            var hit = _hits[_hitList.SelectedIndex];
+            _lanIp.Text = hit.Host;
+            _lanPort.Text = hit.Port.ToString();
+        }
+        else if (string.IsNullOrWhiteSpace(_lanIp.Text))
+        {
+            UiMsg.Warn(
+                "Cách thêm máy LAN:\n" +
+                "1) Quét mạng → chọn IP → In thử IP → Thêm máy LAN\n" +
+                "2) Hoặc nhập IP trực tiếp → In thử IP → Thêm máy LAN");
+            return;
+        }
+
+        await ConnectLanByIpAsync();
+    }
+
+    async Task AddUsbAsync()
+    {
+        if (_api == null) { UiMsg.Warn("Hãy đăng nhập trước."); return; }
+        if (_usbList.SelectedItem is not string winName)
+        {
+            UiMsg.Warn("Chọn máy in USB trong danh sách Windows.");
+            return;
+        }
+        var name = _nameBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name)) name = winName;
+
+        try
+        {
+            _btnAddUsb.Enabled = false;
+            // Tìm trên server theo tên queue Windows (có thể chưa hiện vì lọc local).
+            var raw = await _api.ListPrintersAsync(CancellationToken.None);
+            var existing = PrinterListNormalize.ForWindowsAgent(raw).FirstOrDefault(p =>
+                ConnLabel.IsUsb(p) &&
+                string.Equals(p.UsbDeviceName, winName, StringComparison.OrdinalIgnoreCase));
+            Guid id;
+            if (existing != null)
+            {
+                id = existing.Id;
+                Log("Máy USB đã có trên server — gắn vào PC này.");
+            }
+            else
+            {
+                id = await _api.CreateUsbPrinterAsync(name, winName, "K80", isDefault: false, CancellationToken.None);
+            }
+
+            var roles = new[] { "SaleInvoice", "KitchenSlip", "StockIssue", "KitchenLabel" };
+            var merged = RouteMerge.AssignTypes(await _api.GetRoutesAsync(CancellationToken.None), roles, id);
+            await _api.SaveRoutesAsync(merged, CancellationToken.None);
+
+            _settings.RememberLocalPrinter(id);
+            await RefreshPrintersAsync();
+            await SyncAgentIfNeededAsync();
+            await ProbeHealthAsync();
+            _nameBox.Text = "";
+            Log($"Đã thêm USB «{name}»");
+            UiMsg.Info($"Đã thêm máy in «{name}» vào máy này.", "Thành công");
+        }
+        catch (Exception ex) { UiMsg.Error(ex.Message, "Không thêm được máy USB"); }
+        finally { _btnAddUsb.Enabled = true; }
+    }
+
+    async Task RenameSelectedAsync()
+    {
+        if (_api == null) return;
+        var p = SelectedPrinter();
+        if (p == null) { UiMsg.Warn("Chọn máy in trong danh sách."); return; }
+        var name = _nameBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name)) { UiMsg.Warn("Nhập tên mới."); return; }
+
+        try
+        {
+            if (ConnLabel.IsLan(p))
+            {
+                await _api.UpdateLanPrinterAsync(p.Id, name, p.LanHost!, p.LanPort, p.PaperSize,
+                    p.IsDefault, p.IsActive, sortOrder: 0, CancellationToken.None);
+            }
+            else
+            {
+                // USB: tạo lại tên qua update LAN API không khớp — dùng UpdateLan chỉ LAN.
+                // Tạm: xóa+tạo lại không an toàn. Thêm UpdateUsb nếu thiếu.
+                await UpdateUsbNameAsync(p, name);
+            }
+            await RefreshPrintersAsync();
+            Log($"Đã đổi tên → «{name}»");
+        }
+        catch (Exception ex) { UiMsg.Error(ex.Message, "Đổi tên thất bại"); }
+    }
+
+    async Task UpdateUsbNameAsync(PrinterItem p, string name)
+    {
+        // API hiện chỉ có UpdateLan — gửi PUT chung qua UpdateLanPrinterAsync không đúng connectionType.
+        // Dùng CreateUsb không được. Gọi Put với payload USB nếu có method — bổ sung client.
+        await _api!.UpdateUsbPrinterAsync(p.Id, name, p.UsbDeviceName!, p.PaperSize,
+            p.IsDefault, p.IsActive, CancellationToken.None);
+    }
+
+    async Task TestSelectedAsync()
+    {
+        var p = SelectedPrinter();
+        if (p == null) { UiMsg.Warn("Chọn máy in trong danh sách (hàng xanh Online)."); return; }
+        try
+        {
+            if (ConnLabel.IsUsb(p))
+                WindowsSpooler.SendTest(p.UsbDeviceName!);
+            else
+                await LanScanner.SendTestAsync(p.LanHost!, p.LanPort > 0 ? p.LanPort : 9100, p.Name, CancellationToken.None);
+            Log($"✓ In thử máy đã kết nối → {p.Name}");
+            UiMsg.Info($"Đã gửi in thử tới «{p.Name}».", "In thử máy này");
+        }
+        catch (Exception ex) { UiMsg.Error(ex.Message, "In thử thất bại"); }
+    }
+
+    async Task DeleteSelectedAsync()
+    {
+        if (_api == null) return;
+        var p = SelectedPrinter();
+        if (p == null) { UiMsg.Warn("Chọn máy in."); return; }
+        if (!UiMsg.Confirm(
+                $"Gỡ máy in «{p.Name}» khỏi máy này?\n(Không xóa máy khỏi server cửa hàng — chỉ ẩn trên PC này.)",
+                "Gỡ khỏi máy này")) return;
+        try
+        {
+            _settings.ForgetLocalPrinter(p.Id);
+            _printers.RemoveAll(x => x.Id == p.Id);
+            _online.Remove(p.Id);
+            RenderPrinterList();
+            await SyncAgentIfNeededAsync();
+            Log($"Đã gỡ «{p.Name}» khỏi PC này (không tự hiện lại).");
+            UiMsg.Info($"Đã gỡ «{p.Name}» khỏi máy này.\nMuốn dùng lại: Thêm máy LAN/USB.", "Đã gỡ");
+        }
+        catch (Exception ex) { UiMsg.Error(ex.Message); }
+    }
+
+    void StartHealthTimer()
+    {
+        StopHealthTimer();
+        _healthTimer = new System.Windows.Forms.Timer { Interval = 8000 };
+        _healthTimer.Tick += async (_, _) => await ProbeHealthAsync();
+        _healthTimer.Start();
+    }
+
+    void StopHealthTimer()
+    {
+        if (_healthTimer == null) return;
+        _healthTimer.Stop();
+        _healthTimer.Dispose();
+        _healthTimer = null;
+    }
+
+    async Task ProbeHealthAsync()
+    {
+        if (_api == null || _printers.Count == 0) return;
+        foreach (var p in _printers.ToList())
+        {
+            var ok = false;
+            string? err = null;
+            try
+            {
+                if (ConnLabel.IsUsb(p))
+                {
+                    var resolved = WindowsSpooler.ResolvePrinterName(p.UsbDeviceName ?? "");
+                    ok = WindowsSpooler.ListInstalledPrinters()
+                        .Any(n => string.Equals(n, resolved, StringComparison.OrdinalIgnoreCase));
+                    if (!ok) err = "Không thấy máy in Windows";
+                }
+                else if (!string.IsNullOrWhiteSpace(p.LanHost))
+                {
+                    ok = await TcpReachableAsync(p.LanHost!, p.LanPort > 0 ? p.LanPort : 9100, 1200);
+                    if (!ok) err = "Không kết nối TCP :9100";
+                }
+            }
+            catch (Exception ex)
+            {
+                ok = false;
+                err = ex.Message;
+            }
+
+            _online[p.Id] = ok;
+            try
+            {
+                await _api.ReportHealthAsync(p.Id, ok ? "Online" : "Offline", err, CancellationToken.None);
+            }
+            catch { /* ignore */ }
+        }
+
+        if (IsHandleCreated && !IsDisposed)
+        {
+            if (InvokeRequired) BeginInvoke(RenderPrinterList);
+            else RenderPrinterList();
+        }
+    }
+
+    static async Task<bool> TcpReachableAsync(string host, int port, int timeoutMs)
+    {
+        try
+        {
+            using var client = new TcpClient();
+            using var cts = new CancellationTokenSource(timeoutMs);
+            await client.ConnectAsync(host, port, cts.Token);
+            return client.Connected;
+        }
+        catch { return false; }
     }
 }

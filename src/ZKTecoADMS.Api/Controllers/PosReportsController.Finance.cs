@@ -209,7 +209,7 @@ public partial class PosReportsController
                 voucherCode = g.Key,
                 uses = g.Count(),
                 discount = g.Sum(x => x.VoucherDiscount),
-                revenue = g.Sum(x => x.Total + x.VatAmount),
+                revenue = g.Sum(x => x.Total + x.VatAmount + x.SurchargeAmount + x.DeliveryFee),
             })
             .OrderByDescending(x => x.discount)
             .ToListAsync();

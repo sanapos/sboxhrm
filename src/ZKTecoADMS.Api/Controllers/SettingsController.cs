@@ -52,7 +52,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
             overtimeRate = ParseDouble(map, "overtime_rate", 1.5),
             weekendRate = ParseDouble(map, "weekend_rate", 2.0),
             holidayRate = ParseDouble(map, "holiday_rate", 3.0),
-            travelSalaryMode = map.GetValueOrDefault("travel_salary_mode") ?? "base_per_8h",
+            travelSalaryMode = map.GetValueOrDefault("travel_salary_mode") ?? "off",
             travelFixedHourlyRate = ParseDouble(map, "travel_fixed_hourly_rate", 0),
         }));
     }
@@ -166,7 +166,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         overtimeRate = 1.5,
         weekendRate = 2.0,
         holidayRate = 3.0,
-        travelSalaryMode = "base_per_8h",
+        travelSalaryMode = "off",
         travelFixedHourlyRate = 0,
     };
 

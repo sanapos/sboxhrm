@@ -75,9 +75,8 @@ public class ViettelPostShippingClient(
     {
         if (string.IsNullOrWhiteSpace(msg)) return msg ?? "";
         if (msg.Contains("Token invalid", StringComparison.OrdinalIgnoreCase) && forCreate)
-            return "Token không hợp lệ để tạo vận đơn. Token Partner 32 ký tự chỉ tra cước — "
-                   + "nhập đúng Mật khẩu Viettel Post (Username đã lưu) rồi Lưu để hệ thống lấy JWT, "
-                   + "hoặc dán Token JWT (eyJ...) từ partner.viettelpost.vn.";
+            return "Token không hợp lệ để tạo vận đơn. Dán token bí mật 32 ký tự từ viettelpost.vn rồi Lưu (hệ thống đổi sang JWT), "
+                   + "hoặc nhập đúng Mật khẩu Viettel Post, hoặc dán JWT (eyJ...).";
         if (msg.Contains("Username or password", StringComparison.OrdinalIgnoreCase))
             return "Sai Username/Mật khẩu Viettel Post — cập nhật mật khẩu đúng rồi bấm Lưu.";
         return msg;
@@ -117,26 +116,9 @@ public class ViettelPostShippingClient(
 
         try
         {
-            using var connReq = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/user/ownerconnect")
-            {
-                Content = new StringContent(loginBody, Encoding.UTF8, "application/json"),
-            };
-            connReq.Headers.TryAddWithoutValidation("Token", temp);
-            using var connRes = await http.SendAsync(connReq, ct);
-            var connRaw = await connRes.Content.ReadAsStringAsync(ct);
-            using var connDoc = JsonDocument.Parse(connRaw);
-            var connRoot = connDoc.RootElement;
-            if (!IsApiError(connRoot))
-            {
-                var longToken = ParseTokenFromLogin(connRoot);
-                if (!string.IsNullOrWhiteSpace(longToken))
-                    return (longToken, null);
-            }
-            else
-            {
-                var ocErr = ParseApiError(connRoot, connRaw);
-                logger.LogWarning("ViettelPost ownerconnect: {Msg} — dùng token tạm", ocErr);
-            }
+            var (longToken, _) = await TryOwnerConnectAsync(settings, temp, ct);
+            if (!string.IsNullOrWhiteSpace(longToken))
+                return (longToken, null);
         }
         catch (Exception ex)
         {
@@ -144,6 +126,98 @@ public class ViettelPostShippingClient(
         }
 
         return (temp, null);
+    }
+
+    /// <summary>Đổi token bí mật viettelpost.vn (32 ký tự) → JWT qua API LoginVTP.</summary>
+    public async Task<(string? Token, string? Error)> TryLoginVtpTokenAsync(
+        PosShippingCarrierSetting settings, string? secretToken = null, CancellationToken ct = default)
+    {
+        var secret = (secretToken ?? settings.ApiToken ?? "").Trim();
+        if (!IsPartnerPortalToken(secret))
+            return (null, "Không phải token bí mật Viettel Post (32 ký tự từ viettelpost.vn)");
+
+        var http = httpClientFactory.CreateClient("shipping-viettelpost");
+        var baseUrl = BaseUrl(settings);
+        var body = JsonSerializer.Serialize(new Dictionary<string, string> { ["token"] = secret });
+
+        foreach (var path in new[] { "/user/LoginVTP", "/user/loginvtp" })
+        {
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}{path}")
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                };
+                using var res = await http.SendAsync(req, ct);
+                var raw = await res.Content.ReadAsStringAsync(ct);
+                using var doc = JsonDocument.Parse(raw);
+                var root = doc.RootElement;
+                if (IsApiError(root))
+                {
+                    var err = ParseApiError(root, raw);
+                    logger.LogWarning("ViettelPost LoginVTP {Path}: {Msg}", path, err);
+                    continue;
+                }
+
+                var jwt = ParseTokenFromLogin(root);
+                if (string.IsNullOrWhiteSpace(jwt))
+                    continue;
+
+                // Token dài hạn nếu có Username/Password.
+                if (!string.IsNullOrWhiteSpace(settings.Username)
+                    && !string.IsNullOrWhiteSpace(settings.Password))
+                {
+                    var (longJwt, _) = await TryOwnerConnectAsync(settings, jwt, ct);
+                    if (!string.IsNullOrWhiteSpace(longJwt))
+                        return (longJwt, null);
+                }
+
+                return (jwt, null);
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "ViettelPost LoginVTP {Path} failed", path);
+            }
+        }
+
+        return (null, "LoginVTP thất bại — token bí mật không hợp lệ hoặc đã hết hạn. "
+                      + "Tạo lại token tại viettelpost.vn/cau-hinh-tai-khoan.");
+    }
+
+    async Task<(string? Token, string? Error)> TryOwnerConnectAsync(
+        PosShippingCarrierSetting settings, string shortToken, CancellationToken ct)
+    {
+        var user = (settings.Username ?? "").Trim();
+        var pass = (settings.Password ?? "").Trim();
+        if (user.Length == 0 || pass.Length == 0)
+            return (null, null);
+
+        var http = httpClientFactory.CreateClient("shipping-viettelpost");
+        var baseUrl = BaseUrl(settings);
+        var loginBody = JsonSerializer.Serialize(new Dictionary<string, string>
+        {
+            ["USERNAME"] = user,
+            ["PASSWORD"] = pass,
+        });
+
+        using var connReq = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/user/ownerconnect")
+        {
+            Content = new StringContent(loginBody, Encoding.UTF8, "application/json"),
+        };
+        connReq.Headers.TryAddWithoutValidation("Token", shortToken);
+        using var connRes = await http.SendAsync(connReq, ct);
+        var connRaw = await connRes.Content.ReadAsStringAsync(ct);
+        using var connDoc = JsonDocument.Parse(connRaw);
+        var connRoot = connDoc.RootElement;
+        if (IsApiError(connRoot))
+        {
+            var ocErr = ParseApiError(connRoot, connRaw);
+            logger.LogWarning("ViettelPost ownerconnect: {Msg}", ocErr);
+            return (null, ocErr);
+        }
+
+        var longToken = ParseTokenFromLogin(connRoot);
+        return string.IsNullOrWhiteSpace(longToken) ? (null, null) : (longToken, null);
     }
 
     async Task<string?> LoginAsync(PosShippingCarrierSetting settings, CancellationToken ct)
@@ -167,21 +241,349 @@ public class ViettelPostShippingClient(
         if (LooksLikePartnerJwt(settings.ApiToken))
             return (settings.ApiToken!.Trim(), null);
 
+        if (IsPartnerPortalToken(settings.ApiToken))
+        {
+            var (fromVtp, vtpErr) = await TryLoginVtpTokenAsync(settings, ct: ct);
+            if (!string.IsNullOrWhiteSpace(fromVtp))
+                return (fromVtp, null);
+            if (!string.IsNullOrWhiteSpace(vtpErr))
+                return (null, vtpErr);
+        }
+
         var (fromLogin, loginErr) = await TryLoginSessionTokenAsync(settings, ct);
         if (!string.IsNullOrWhiteSpace(fromLogin))
             return (fromLogin, null);
 
-        if (IsPartnerPortalToken(settings.ApiToken))
-            return (null, MapTokenError("Token invalid", forCreate: true));
-
         if (!string.IsNullOrWhiteSpace(loginErr))
             return (null, loginErr);
 
-        return (null, "Nhập Username + Mật khẩu Viettel Post hoặc Token JWT (eyJ...) để tạo vận đơn.");
+        return (null, "Nhập token bí mật viettelpost.vn, Username + Mật khẩu, hoặc JWT (eyJ...) để tạo vận đơn.");
     }
 
     async Task<string?> EnsureTokenAsync(PosShippingCarrierSetting settings, CancellationToken ct) =>
         await EnsureQuoteTokenAsync(settings, ct);
+
+    static string PrintPortalBaseUrl(bool sandbox) =>
+        sandbox
+            ? "https://devdigitalize.viettelpost.vn/DigitalizePrint/report.do"
+            : "https://digitalize.viettelpost.vn/DigitalizePrint/report.do";
+
+    static string BuildPrintLabelUrl(bool sandbox, string printCode, int labelType = 1) =>
+        $"{PrintPortalBaseUrl(sandbox)}?type={labelType}&bill={Uri.EscapeDataString(printCode)}&showPostage=1";
+
+    async Task<(JsonElement Root, string Raw, string? Error)> PostJsonAsync(
+        PosShippingCarrierSetting settings, string path, object body, string token,
+        CancellationToken ct)
+    {
+        var http = httpClientFactory.CreateClient("shipping-viettelpost");
+        using var reqMsg = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl(settings)}{path}")
+        {
+            Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"),
+        };
+        reqMsg.Headers.TryAddWithoutValidation("Token", token);
+        using var res = await http.SendAsync(reqMsg, ct);
+        var raw = await res.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(raw) ? "{}" : raw);
+        var root = doc.RootElement.Clone();
+        if (IsApiError(root))
+            return (default, raw, ParseApiError(root, raw));
+        return (root, raw, null);
+    }
+
+    async Task<(JsonElement Root, string Raw, string? Error)> GetJsonAsync(
+        PosShippingCarrierSetting settings, string path, string token, CancellationToken ct)
+    {
+        var http = httpClientFactory.CreateClient("shipping-viettelpost");
+        using var reqMsg = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl(settings)}{path}");
+        reqMsg.Headers.TryAddWithoutValidation("Token", token);
+        using var res = await http.SendAsync(reqMsg, ct);
+        var raw = await res.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(raw) ? "{}" : raw);
+        var root = doc.RootElement.Clone();
+        if (IsApiError(root))
+            return (default, raw, ParseApiError(root, raw));
+        return (root, raw, null);
+    }
+
+    static List<ShippingAddressItem> ParseAddressList(JsonElement root, string idKey, string nameKey)
+    {
+        JsonElement list = default;
+        if (root.ValueKind == JsonValueKind.Array) list = root;
+        else if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            list = data;
+        else if (root.TryGetProperty("DATA", out var data2) && data2.ValueKind == JsonValueKind.Array)
+            list = data2;
+
+        if (list.ValueKind != JsonValueKind.Array) return [];
+
+        var items = new List<ShippingAddressItem>();
+        foreach (var el in list.EnumerateArray())
+        {
+            string? id = null;
+            if (el.TryGetProperty(idKey, out var idProp))
+                id = idProp.ValueKind == JsonValueKind.Number
+                    ? idProp.GetRawText()
+                    : idProp.GetString();
+            if (string.IsNullOrWhiteSpace(id)) continue;
+
+            var name = el.TryGetProperty(nameKey, out var n) ? n.GetString() : null;
+            if (string.IsNullOrWhiteSpace(name)) continue;
+
+            string? code = el.TryGetProperty("PROVINCE_CODE", out var pc) ? pc.GetString() : null;
+            string? parent = null;
+            if (el.TryGetProperty("PROVINCE_ID", out var pid))
+                parent = pid.ValueKind == JsonValueKind.Number ? pid.GetRawText() : pid.GetString();
+            else if (el.TryGetProperty("DISTRICT_ID", out var did))
+                parent = did.ValueKind == JsonValueKind.Number ? did.GetRawText() : did.GetString();
+
+            items.Add(new ShippingAddressItem(id.Trim(), name.Trim(), code, parent));
+        }
+        return items;
+    }
+
+    public async Task<IReadOnlyList<ShippingAddressItem>> ListProvincesAsync(
+        PosShippingCarrierSetting settings, CancellationToken ct = default)
+    {
+        var token = await EnsureTokenAsync(settings, ct);
+        if (string.IsNullOrWhiteSpace(token)) return [];
+        var (_, raw, err) = await GetJsonAsync(
+            settings, "/categories/listProvinceById?provinceId=-1", token, ct);
+        if (err != null) return [];
+        using var doc = JsonDocument.Parse(raw);
+        return ParseAddressList(doc.RootElement, "PROVINCE_ID", "PROVINCE_NAME");
+    }
+
+    public async Task<IReadOnlyList<ShippingAddressItem>> ListDistrictsAsync(
+        PosShippingCarrierSetting settings, int provinceId, CancellationToken ct = default)
+    {
+        var token = await EnsureTokenAsync(settings, ct);
+        if (string.IsNullOrWhiteSpace(token)) return [];
+        var (_, raw, err) = await GetJsonAsync(
+            settings, $"/categories/listDistrict?provinceId={provinceId}", token, ct);
+        if (err != null) return [];
+        using var doc = JsonDocument.Parse(raw);
+        return ParseAddressList(doc.RootElement, "DISTRICT_ID", "DISTRICT_NAME");
+    }
+
+    public async Task<IReadOnlyList<ShippingAddressItem>> ListWardsAsync(
+        PosShippingCarrierSetting settings, int districtId, CancellationToken ct = default)
+    {
+        var token = await EnsureTokenAsync(settings, ct);
+        if (string.IsNullOrWhiteSpace(token)) return [];
+        var (_, raw, err) = await GetJsonAsync(
+            settings, $"/categories/listWards?districtId={districtId}", token, ct);
+        if (err != null) return [];
+        using var doc = JsonDocument.Parse(raw);
+        return ParseAddressList(doc.RootElement, "WARDS_ID", "WARDS_NAME");
+    }
+
+    public async Task<ShippingLabelResult> GetPrintLabelAsync(
+        PosShippingCarrierSetting settings, string trackingCode, CancellationToken ct = default)
+    {
+        var (token, tokenErr) = await EnsureCreateTokenAsync(settings, ct);
+        if (string.IsNullOrWhiteSpace(token))
+            return new(false, CarrierCode, Message: tokenErr ?? "Thiếu token Viettel Post");
+
+        var tracking = trackingCode.Trim();
+        if (tracking.Length == 0)
+            return new(false, CarrierCode, Message: "Thiếu mã vận đơn");
+
+        var expiry = DateTimeOffset.UtcNow.AddDays(7).ToUnixTimeMilliseconds();
+        var body = new Dictionary<string, object?>
+        {
+            ["EXPIRY_TIME"] = expiry,
+            ["ORDER_ARRAY"] = new[] { tracking },
+        };
+
+        string? printCode = null;
+        foreach (var path in new[] { "/order/encryptLinkPrint", "/order/printOrder" })
+        {
+            try
+            {
+                var (root, _, err) = await PostJsonAsync(settings, path, body, token, ct);
+                if (err != null) continue;
+                if (root.TryGetProperty("message", out var msg) && msg.ValueKind == JsonValueKind.String)
+                {
+                    var s = msg.GetString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(s) && !s.Equals("OK", StringComparison.OrdinalIgnoreCase))
+                        printCode = s;
+                }
+                if (string.IsNullOrWhiteSpace(printCode)
+                    && root.TryGetProperty("Message", out var msg2)
+                    && msg2.ValueKind == JsonValueKind.String)
+                {
+                    var s = msg2.GetString()?.Trim();
+                    if (!string.IsNullOrWhiteSpace(s) && !s.Equals("OK", StringComparison.OrdinalIgnoreCase))
+                        printCode = s;
+                }
+                if (!string.IsNullOrWhiteSpace(printCode)) break;
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "ViettelPost print {Path} failed", path);
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(printCode))
+            return new(false, CarrierCode, Message: "Không lấy được mã in vận đơn Viettel Post");
+
+        var url = BuildPrintLabelUrl(settings.UseSandbox, printCode);
+        return new(true, CarrierCode, LabelUrl: url, PrintCode: printCode,
+            Message: "Đã lấy link in vận đơn");
+    }
+
+    public async Task<ShippingCancelResult> UpdateOrderStatusAsync(
+        PosShippingCarrierSetting settings, string trackingCode, int type, string? note,
+        CancellationToken ct = default)
+    {
+        var (token, tokenErr) = await EnsureCreateTokenAsync(settings, ct);
+        if (string.IsNullOrWhiteSpace(token))
+            return new(false, CarrierCode, Message: tokenErr ?? "Thiếu token Viettel Post");
+
+        var tracking = trackingCode.Trim();
+        if (tracking.Length == 0)
+            return new(false, CarrierCode, Message: "Thiếu mã vận đơn");
+
+        var body = new Dictionary<string, object?>
+        {
+            ["TYPE"] = type,
+            ["ORDER_NUMBER"] = tracking,
+            ["NOTE"] = (note ?? "").Trim().Length > 0 ? note!.Trim()[..Math.Min(note.Trim().Length, 150)] : "Hủy qua SBOX POS",
+        };
+
+        try
+        {
+            var (_, _, err) = await PostJsonAsync(settings, "/order/UpdateOrder", body, token, ct);
+            if (err != null)
+                return new(false, CarrierCode, Message: err);
+            return new(true, CarrierCode, Message: type == 4 ? "Đã yêu cầu hủy vận đơn" : "Đã cập nhật trạng thái");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "ViettelPost UpdateOrder failed");
+            return new(false, CarrierCode, Message: ex.Message);
+        }
+    }
+
+    static int? ReadStatusCode(JsonElement el)
+    {
+        foreach (var key in new[] { "ORDER_STATUS", "orderStatus", "STATUS", "status" })
+        {
+            if (!el.TryGetProperty(key, out var p)) continue;
+            if (p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out var n)) return n;
+            if (p.ValueKind == JsonValueKind.String && int.TryParse(p.GetString(), out var ns)) return ns;
+        }
+        return null;
+    }
+
+    static string? ReadStatusName(JsonElement el)
+    {
+        foreach (var key in new[] { "STATUS_NAME", "statusName", "STATUS_NAME_VN", "status_name" })
+        {
+            if (el.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.String)
+            {
+                var s = p.GetString();
+                if (!string.IsNullOrWhiteSpace(s)) return s.Trim();
+            }
+        }
+        return null;
+    }
+
+    static List<ShippingTrackingEvent> ParseTrackingEvents(JsonElement root)
+    {
+        JsonElement list = default;
+        if (root.ValueKind == JsonValueKind.Array) list = root;
+        else
+        {
+            foreach (var key in new[] { "TRACKING", "tracking", "HISTORY", "history", "data", "DATA" })
+            {
+                if (!root.TryGetProperty(key, out var nested)) continue;
+                if (nested.ValueKind == JsonValueKind.Array)
+                {
+                    list = nested;
+                    break;
+                }
+            }
+        }
+
+        if (list.ValueKind != JsonValueKind.Array) return [];
+
+        var events = new List<ShippingTrackingEvent>();
+        foreach (var el in list.EnumerateArray())
+        {
+            events.Add(new ShippingTrackingEvent(
+                ReadStatusCode(el),
+                ReadStatusName(el),
+                el.TryGetProperty("ORDER_STATUSDATE", out var dt) ? dt.GetString()
+                    : el.TryGetProperty("statusDate", out var dt2) ? dt2.GetString() : null,
+                el.TryGetProperty("LOCALION_CURRENTLY", out var loc) ? loc.GetString()
+                    : el.TryGetProperty("location", out var loc2) ? loc2.GetString() : null,
+                el.TryGetProperty("NOTE", out var note) ? note.GetString()
+                    : el.TryGetProperty("note", out var note2) ? note2.GetString() : null));
+        }
+        return events;
+    }
+
+    public async Task<ShippingTrackingResult> GetTrackingAsync(
+        PosShippingCarrierSetting settings, string trackingCode, CancellationToken ct = default)
+    {
+        var (token, tokenErr) = await EnsureCreateTokenAsync(settings, ct);
+        if (string.IsNullOrWhiteSpace(token))
+            return new(false, CarrierCode, Message: tokenErr ?? "Thiếu token Viettel Post");
+
+        var tracking = trackingCode.Trim();
+        if (tracking.Length == 0)
+            return new(false, CarrierCode, Message: "Thiếu mã vận đơn");
+
+        var body = new Dictionary<string, string> { ["ORDER_NUMBER"] = tracking };
+        string? raw = null;
+        JsonElement root = default;
+        string? lastErr = null;
+
+        foreach (var path in new[]
+                 {
+                     "/order/getOrderInfo",
+                     "/order/listOrderTracking",
+                     "/order/OrderTracking",
+                 })
+        {
+            try
+            {
+                var (r, rRaw, err) = await PostJsonAsync(settings, path, body, token, ct);
+                if (err != null)
+                {
+                    lastErr = err;
+                    continue;
+                }
+                root = r;
+                raw = rRaw;
+                break;
+            }
+            catch (Exception ex)
+            {
+                lastErr = ex.Message;
+                logger.LogDebug(ex, "ViettelPost tracking {Path} failed", path);
+            }
+        }
+
+        if (raw == null)
+            return new(false, CarrierCode, Message: lastErr ?? "Không tra được hành trình");
+
+        JsonElement data = root;
+        if (root.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Object)
+            data = d;
+        else if (root.TryGetProperty("DATA", out var d2) && d2.ValueKind == JsonValueKind.Object)
+            data = d2;
+
+        var statusCode = ReadStatusCode(data);
+        if (statusCode == null) statusCode = ReadStatusCode(root);
+        var statusName = ReadStatusName(data) ?? ReadStatusName(root);
+        var events = ParseTrackingEvents(root);
+        if (events.Count == 0) events = ParseTrackingEvents(data);
+
+        var mapped = ViettelPostWebhookHelper.MapOnlineStatus(statusCode);
+        return new(true, CarrierCode, statusCode, statusName, mapped, events, RawJson: raw);
+    }
 
     /// <summary>
     /// NLP Viettel cần địa chỉ đủ tỉnh/quận/phường — chỉ số nhà sẽ trả
@@ -333,13 +735,22 @@ public class ViettelPostShippingClient(
             ["PRODUCT_PRICE"] = (int)Math.Max(0, order.PayableTotal),
             ["PRODUCT_WEIGHT"] = Math.Max(100, request.WeightGrams),
             ["PRODUCT_TYPE"] = "HH",
-            ["ORDER_PAYMENT"] = (request.CodAmount ?? 0) > 0 ? 3 : 1,
+            ["ORDER_PAYMENT"] = ResolveOrderPayment(request),
             ["MONEY_COLLECTION"] = (int)Math.Max(0, request.CodAmount ?? 0),
             ["ORDER_SERVICE"] = string.IsNullOrWhiteSpace(request.ServiceCode) ? "VCN" : request.ServiceCode,
             ["ORDER_SERVICE_ADD"] = "",
             ["ORDER_NOTE"] = request.Note ?? "",
             ["CHECK_UNIQUE"] = true,
         };
+
+        static int ResolveOrderPayment(ShippingCreateRequest req)
+        {
+            var cod = Math.Max(0, req.CodAmount ?? 0);
+            var shopPays = ShippingFeePayer.ShopPaysCarrier(req.ShipFeePayer);
+            // 1 không thu · 2 thu hàng+cước (khách trả ship) · 3 thu hàng, shop trả cước
+            if (cod <= 0) return 1;
+            return shopPays ? 3 : 2;
+        }
 
         static string? ReadTracking(JsonElement el)
         {
@@ -392,8 +803,20 @@ public class ViettelPostShippingClient(
                     Message: ParseApiError(root, raw) ?? "Không lấy được mã vận đơn Viettel Post",
                     RawJson: raw);
 
+            string? labelUrl = null;
+            try
+            {
+                var label = await GetPrintLabelAsync(settings, tracking, ct);
+                if (label.Success) labelUrl = label.LabelUrl;
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "ViettelPost auto label after create skipped");
+            }
+
             return new(true, CarrierCode, TrackingCode: tracking, CarrierOrderId: tracking,
-                Fee: fee, Message: $"Tạo vận đơn thành công · Mã {tracking}", RawJson: raw);
+                LabelUrl: labelUrl, Fee: fee,
+                Message: $"Tạo vận đơn thành công · Mã {tracking}", RawJson: raw);
         }
         catch (Exception ex)
         {

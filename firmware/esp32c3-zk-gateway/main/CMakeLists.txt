@@ -12,6 +12,7 @@ idf_component_register(
         "discovery.c"
         "device_api.c"
         "portal_auth.c"
+        "ble_prov.c"
     INCLUDE_DIRS "."
     EMBED_TXTFILES "portal.html"
     REQUIRES
@@ -28,5 +29,6 @@ idf_component_register(
         mbedtls
         lwip
         json
+        bt
         espressif__mdns
 )

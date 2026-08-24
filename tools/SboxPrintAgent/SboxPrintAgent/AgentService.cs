@@ -1,11 +1,12 @@
 namespace SboxPrintAgent;
 
 /// <summary>
-/// Print Agent Windows — parity Flutter: heartbeat 12s, claim 3s, SignalR nudge, health.
+/// Print Agent Windows — parity Flutter: heartbeat 12s (debounce 8s),
+/// claim 3s, SignalR nudge, release khi không in được, timeout 75s, re-login 401.
 /// </summary>
 public sealed class AgentService : IAsyncDisposable
 {
-    public const string AppVersion = "win-1.3.4";
+    public const string AppVersion = "win-1.4.6";
 
     readonly SboxApiClient _api;
     readonly AppSettings _settings;
@@ -22,6 +23,9 @@ public sealed class AgentService : IAsyncDisposable
     string _deviceId = "";
     List<Guid> _assigned = new();
     bool _claimInFlight;
+    DateTime _lastRegisterUtc = DateTime.MinValue;
+    DateTime _lastAuthRetryUtc = DateTime.MinValue;
+    Func<CancellationToken, Task>? _relogin;
 
     public bool IsRunning { get; private set; }
     public Guid AgentId => _agentId;
@@ -39,9 +43,13 @@ public sealed class AgentService : IAsyncDisposable
         _hub = new PrintHubClient(log);
         _hub.PrintJobNew += OnPrintJobNew;
         _hub.ForceStop += OnForceStop;
+        _hub.Reconnected += OnHubReconnected;
         foreach (var id in settings.SettledJobIds)
             if (Guid.TryParse(id, out var g)) _settled.Add(g);
     }
+
+    /// <summary>Cho phép tự đăng nhập lại khi token hết hạn (401).</summary>
+    public void SetReloginHandler(Func<CancellationToken, Task>? handler) => _relogin = handler;
 
     public void SetPrinterCache(IEnumerable<PrinterItem> printers)
     {
@@ -79,14 +87,14 @@ public sealed class AgentService : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _log("SignalR không kết nối (vẫn poll claim): " + ex.Message);
+            _log("SignalR không kết nối (vẫn poll claim): " + SboxApiClient.FormatError(ex));
         }
 
-        await RegisterAsync(refreshPrinters: true, token);
+        await RegisterAsync(refreshPrinters: true, force: true, token);
         _claimLoop = Task.Run(() => ClaimLoopAsync(token), token);
         _heartbeatLoop = Task.Run(() => HeartbeatLoopAsync(token), token);
         StateChanged?.Invoke();
-        _log($"Agent online · device={_deviceId} · printers={_assigned.Count}");
+        _log($"Agent online · {AppVersion} · device={_deviceId} · printers={_assigned.Count}");
     }
 
     public async Task StopAsync(bool markOffline = true)
@@ -118,10 +126,14 @@ public sealed class AgentService : IAsyncDisposable
             {
                 await Task.Delay(TimeSpan.FromSeconds(12), ct);
                 if (!IsRunning) break;
-                await RegisterAsync(refreshPrinters: false, ct);
+                await RegisterAsync(refreshPrinters: false, force: false, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
-            catch (Exception ex) { _log("Heartbeat lỗi: " + ex.Message); }
+            catch (Exception ex)
+            {
+                _log("Heartbeat lỗi: " + SboxApiClient.FormatError(ex));
+                await TryReloginIfNeededAsync(ex, ct);
+            }
         }
     }
 
@@ -137,15 +149,21 @@ public sealed class AgentService : IAsyncDisposable
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
             catch (Exception ex)
             {
-                _log("Claim loop: " + ex.Message);
+                _log("Claim loop: " + SboxApiClient.FormatError(ex));
+                await TryReloginIfNeededAsync(ex, ct);
                 await Task.Delay(3000, ct);
             }
         }
     }
 
-    async Task RegisterAsync(bool refreshPrinters, CancellationToken ct)
+    async Task RegisterAsync(bool refreshPrinters, bool force, CancellationToken ct)
     {
         if (!IsRunning || _api.StoreId == null) return;
+
+        // Debounce giống Flutter — tránh spam register làm API/heartbeat loạn.
+        var now = DateTime.UtcNow;
+        if (!force && !refreshPrinters && (now - _lastRegisterUtc).TotalSeconds < 8)
+            return;
 
         if (refreshPrinters || _printers.Count == 0)
         {
@@ -153,7 +171,6 @@ public sealed class AgentService : IAsyncDisposable
             {
                 var list = await _api.ListPrintersAsync(ct);
                 SetPrinterCache(list);
-                // drop deleted assigned
                 var alive = list.Select(p => p.Id).ToHashSet();
                 _assigned = _assigned.Where(alive.Contains).ToList();
                 _settings.AssignedPrinterIds = _assigned.Select(x => x.ToString()).ToList();
@@ -161,12 +178,18 @@ public sealed class AgentService : IAsyncDisposable
             }
             catch (Exception ex)
             {
-                _log("Refresh printers: " + ex.Message);
+                _log("Refresh printers: " + SboxApiClient.FormatError(ex));
+                await TryReloginIfNeededAsync(ex, ct);
+                if (_assigned.Count == 0) return;
             }
         }
 
         if (_assigned.Count == 0)
-            throw new InvalidOperationException("Không còn máy in được gán");
+        {
+            _log("Không còn máy in được gán — dừng Agent.");
+            _ = StopAsync(markOffline: true);
+            return;
+        }
 
         var (agentId, _) = await _api.RegisterAgentAsync(
             _deviceId,
@@ -179,6 +202,7 @@ public sealed class AgentService : IAsyncDisposable
         _agentId = agentId;
         _settings.AgentId = agentId;
         _settings.Save();
+        _lastRegisterUtc = DateTime.UtcNow;
         StateChanged?.Invoke();
     }
 
@@ -186,11 +210,27 @@ public sealed class AgentService : IAsyncDisposable
 
     void OnPrintJobNew()
     {
-        // SignalR đôi khi bắn trùng 2 lần trong cùng tick → tránh claim/in song song.
         var now = DateTime.UtcNow;
         if ((now - _lastNudgeUtc).TotalMilliseconds < 800) return;
         _lastNudgeUtc = now;
         _ = TryClaimOnceAsync();
+    }
+
+    void OnHubReconnected()
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (!IsRunning) return;
+                await RegisterAsync(refreshPrinters: false, force: true, CancellationToken.None);
+                await TryClaimOnceAsync();
+            }
+            catch (Exception ex)
+            {
+                _log("Sau reconnect: " + SboxApiClient.FormatError(ex));
+            }
+        });
     }
 
     async Task TryClaimOnceAsync()
@@ -209,7 +249,8 @@ public sealed class AgentService : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _log("Claim: " + ex.Message);
+            _log("Claim: " + SboxApiClient.FormatError(ex));
+            await TryReloginIfNeededAsync(ex, CancellationToken.None);
         }
         finally
         {
@@ -217,20 +258,55 @@ public sealed class AgentService : IAsyncDisposable
         }
     }
 
+    async Task TryReloginIfNeededAsync(Exception ex, CancellationToken ct)
+    {
+        var auth = ex is ApiException { IsAuth: true } ||
+                   SboxApiClient.FormatError(ex).Contains("401", StringComparison.Ordinal) ||
+                   SboxApiClient.FormatError(ex).Contains("Unauthorized", StringComparison.OrdinalIgnoreCase);
+        if (!auth || _relogin == null || !IsRunning) return;
+
+        var now = DateTime.UtcNow;
+        if ((now - _lastAuthRetryUtc).TotalSeconds < 20) return;
+        _lastAuthRetryUtc = now;
+
+        try
+        {
+            _log("Token hết hạn / 401 — đang đăng nhập lại…");
+            await _relogin(ct);
+            if (_api.StoreId != null && !string.IsNullOrWhiteSpace(_api.AccessToken))
+            {
+                try
+                {
+                    await _hub.ConnectAsync(_api.BaseUrl, _api.AccessToken!, _api.StoreId.Value, ct);
+                }
+                catch (Exception hubEx)
+                {
+                    _log("SignalR sau re-login: " + SboxApiClient.FormatError(hubEx));
+                }
+                await RegisterAsync(refreshPrinters: true, force: true, ct);
+                _log("Đã đăng nhập lại và đăng ký Agent.");
+            }
+        }
+        catch (Exception relogEx)
+        {
+            _log("Re-login thất bại: " + SboxApiClient.FormatError(relogEx));
+        }
+    }
+
     async Task ProcessJobAsync(ClaimJob job, CancellationToken ct)
     {
-        // Chống treo vô hạn (TCP/HTTP) — quá 25s thì Fail để job không thành STUCK_NO_REQUEUE.
+        // Parity Flutter 75s — tem/USB/LAN chậm không nên Fail sớm.
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(25));
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(75));
         try
         {
             await ProcessJobCoreAsync(job, timeoutCts.Token);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            _log($"✗ Timeout 25s khi in job {Short(job.JobId)}");
+            _log($"✗ Timeout 75s khi in job {Short(job.JobId)}");
             await FailSafe(job.JobId, "PRINT_TIMEOUT",
-                "In quá 25 giây (máy in/mạng không phản hồi).", CancellationToken.None);
+                "In quá 75 giây (máy in/mạng không phản hồi).", CancellationToken.None);
         }
     }
 
@@ -244,7 +320,9 @@ public sealed class AgentService : IAsyncDisposable
 
         if (!_assigned.Contains(job.PrinterId))
         {
-            await FailSafe(job.JobId, "PRINTER_MISMATCH", "Agent không phục vụ máy in này", ct);
+            // Nhả cho Agent khác (A6/Flutter) — đừng Fail cứng.
+            await ReleaseSafe(job.JobId, "PRINTER_MISMATCH",
+                "Agent Windows không phục vụ máy in này — nhả cho Agent khác", ct);
             return;
         }
 
@@ -260,22 +338,24 @@ public sealed class AgentService : IAsyncDisposable
                 printer = await _api.GetPrinterAsync(job.PrinterId, ct);
                 lock (_gate) _printers[printer.Id] = printer;
             }
-            catch (Exception ex) { _log("GetPrinter: " + ex.Message); }
+            catch (Exception ex) { _log("GetPrinter: " + SboxApiClient.FormatError(ex)); }
         }
 
         if (printer == null || !ConnLabel.CanPrintOnWindows(printer))
         {
-            await FailSafe(job.JobId, "NO_PRINTER",
-                "Máy in chưa cấu hình mạng/USB trên máy Windows này.", ct);
+            await ReleaseSafe(job.JobId, "NOT_LOCAL_PORT",
+                "Máy Windows này không kết nối được cổng in — nhả cho Agent khác", ct);
             return;
         }
 
         try
         {
-            try { await _api.MarkPrintingAsync(job.JobId, _agentId, ct); }
-            catch (Exception ex) { _log("MarkPrinting: " + ex.Message); }
+            job = await EnsurePayloadAsync(job, ct);
 
-            var bytes = EscPosBuilder.BuildFromJob(job);
+            try { await _api.MarkPrintingAsync(job.JobId, _agentId, ct); }
+            catch (Exception ex) { _log("MarkPrinting: " + SboxApiClient.FormatError(ex)); }
+
+            var bytes = EscPosBuilder.BuildFromJob(job, printer);
             if (bytes.Length == 0)
                 throw new InvalidOperationException("Payload in rỗng / không đọc được");
 
@@ -300,7 +380,7 @@ public sealed class AgentService : IAsyncDisposable
                 catch (Exception ex)
                 {
                     completeEx = ex;
-                    _log($"Complete lần {attempt + 1} lỗi: {ex.Message}");
+                    _log($"Complete lần {attempt + 1} lỗi: {SboxApiClient.FormatError(ex)}");
                     await Task.Delay(500 * (attempt + 1), ct);
                 }
             }
@@ -313,17 +393,36 @@ public sealed class AgentService : IAsyncDisposable
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            _log($"✗ Lỗi in: {ex.Message}");
-            await _api.ReportHealthAsync(printer.Id, "Offline", ex.Message, CancellationToken.None);
-            await FailSafe(job.JobId, "PRINT_FAILED", ex.Message, CancellationToken.None);
+            _log($"✗ Lỗi in: {SboxApiClient.FormatError(ex)}");
+            await _api.ReportHealthAsync(printer.Id, "Offline", SboxApiClient.FormatError(ex), CancellationToken.None);
+            await FailSafe(job.JobId, "PRINT_FAILED", SboxApiClient.FormatError(ex), CancellationToken.None);
         }
+    }
+
+    async Task<ClaimJob> EnsurePayloadAsync(ClaimJob job, CancellationToken ct)
+    {
+        var payload = job.Payload ?? "";
+        if (payload.Trim().Length >= 32) return job;
+        try
+        {
+            var full = await _api.GetJobAsync(job.JobId, ct);
+            if (full != null && !string.IsNullOrWhiteSpace(full.Payload) && full.Payload.Trim().Length > payload.Trim().Length)
+            {
+                _log($"Nạp lại payload job {Short(job.JobId)} ({full.Payload!.Length} ký tự)");
+                return full;
+            }
+        }
+        catch (Exception ex)
+        {
+            _log("Refill payload: " + SboxApiClient.FormatError(ex));
+        }
+        return job;
     }
 
     static async Task SendToPrinterAsync(PrinterItem printer, byte[] bytes, CancellationToken ct)
     {
         if (ConnLabel.IsUsb(printer))
         {
-            // Gửi theo tên queue Windows (ResolvePrinterName chống lệch khi USB đổi cổng).
             await Task.Run(() => WindowsSpooler.SendRaw(printer.UsbDeviceName!, bytes), ct);
             return;
         }
@@ -338,6 +437,22 @@ public sealed class AgentService : IAsyncDisposable
         try { await _api.FailAsync(jobId, _agentId, code, msg, ct); }
         catch { /* ignore */ }
         MarkSettled(jobId);
+    }
+
+    async Task ReleaseSafe(Guid jobId, string code, string msg, CancellationToken ct)
+    {
+        try
+        {
+            await _api.ReleaseAsync(jobId, _agentId, code, msg, ct);
+            _log($"Nhả job {Short(jobId)} ({code})");
+        }
+        catch (Exception ex)
+        {
+            _log("Release lỗi → fail: " + SboxApiClient.FormatError(ex));
+            await FailSafe(jobId, code, msg, ct);
+            return;
+        }
+        // Không MarkSettled — job có thể quay lại Agent này sau khi reclaim.
     }
 
     void MarkSettled(Guid jobId)

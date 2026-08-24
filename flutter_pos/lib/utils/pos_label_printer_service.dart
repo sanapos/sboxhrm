@@ -1,3 +1,4 @@
+import 'pos_print_template_compiler.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -128,6 +129,52 @@ class PosLabelPrinterService {
     final bytes = await buildTestBytes(settings);
     if (bytes == null || bytes.isEmpty) return false;
     return _send(settings, bytes);
+  }
+
+
+  /// Bytes TSPL/ESC từ mẫu V2 đã compile — local hoặc đẩy cloud Agent.
+  static Future<List<List<int>>> buildCompiledTemplateJobs({
+    required PosPrintCompiledOutput output,
+    required PosLabelPrinterSettings settings,
+    required double widthMm,
+    required double heightMm,
+  }) async {
+    final r = await PosLabelRenderer.renderCompiledLabel(
+      output: output,
+      widthMm: widthMm,
+      heightMm: heightMm,
+      dpi: settings.dpi,
+      marginLeftMm: settings.marginLeftMm,
+      marginRightMm: settings.marginRightMm,
+      marginTopMm: settings.marginTopMm,
+      marginBottomMm: settings.marginBottomMm,
+      fontScale: settings.fontScale,
+    );
+    return buildCupRasterByteJobs(
+      [r],
+      settings: settings,
+      widthMm: widthMm,
+      heightMm: heightMm,
+    );
+  }
+
+  /// In mẫu V2 đã compile lên máy tem (TSPL/ESC) — dùng cho «In thử» thiết kế tem.
+  static Future<bool> printCompiledTemplate({
+    required PosPrintCompiledOutput output,
+    required PosLabelPrinterSettings settings,
+    required double widthMm,
+    required double heightMm,
+  }) async {
+    final jobs = await buildCompiledTemplateJobs(
+      output: output,
+      settings: settings,
+      widthMm: widthMm,
+      heightMm: heightMm,
+    );
+    for (final bytes in jobs) {
+      if (!await _send(settings, bytes)) return false;
+    }
+    return true;
   }
 
   /// In tem ly đã render sẵn (TSPL / ESC raster) — không qua máy hóa đơn.

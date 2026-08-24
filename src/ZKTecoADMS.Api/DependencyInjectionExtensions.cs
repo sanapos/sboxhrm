@@ -154,12 +154,21 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ZKTecoADMS.Api.Services.Shipping.IShippingCarrierClient,
             ZKTecoADMS.Api.Services.Shipping.AhamoveShippingClient>();
         services.AddScoped<ZKTecoADMS.Api.Services.Shipping.PosShippingService>();
+        services.AddScoped<PosQrMenuService>();
         services.AddScoped<IPaymentWebhookProvider, TingeePaymentWebhookProvider>();
         services.AddSingleton<IPaymentWebhookProviderRegistry, PaymentWebhookProviderRegistry>();
         services.AddScoped<IPosNotificationCreditService, PosNotificationCreditService>();
+        services.AddScoped<IPosPlatformNotificationCreditService, PosPlatformNotificationCreditService>();
+        services.AddScoped<IPosPlatformTingeeSettingService, PosPlatformTingeeSettingService>();
         services.AddScoped<IPosPaymentGatewayService, PosPaymentGatewayService>();
-        services.AddHttpClient("tingee-open-api", client =>
+        services.AddHttpClient("tingee-open-api", (sp, client) =>
         {
+            var cfg = sp.GetRequiredService<IConfiguration>();
+            var env = cfg["Tingee:Environment"] ?? "Production";
+            var baseUrl = env.Equals("UAT", StringComparison.OrdinalIgnoreCase)
+                ? cfg["Tingee:UatApiBaseUrl"] ?? "https://uat-open-api.tingee.vn/v1"
+                : cfg["Tingee:ProductionApiBaseUrl"] ?? "https://open-api.tingee.vn/v1";
+            client.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
             client.Timeout = TimeSpan.FromSeconds(60);
         });
         services.AddHttpClient("face-sidecar");

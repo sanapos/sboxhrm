@@ -20,6 +20,10 @@ public sealed class AppSettings
     public bool RunAtWindowsStartup { get; set; }
     public bool RememberPassword { get; set; } = true;
     public List<string> AssignedPrinterIds { get; set; } = new();
+    /// <summary>Máy in đã gắn từ chính PC này (không lấy hết máy trên server).</summary>
+    public List<string> LocalPrinterIds { get; set; } = new();
+    /// <summary>Máy đã gỡ khỏi PC — không tự hiện lại dù USB/LAN vẫn thấy.</summary>
+    public List<string> DetachedPrinterIds { get; set; } = new();
     public List<string> SettledJobIds { get; set; } = new();
 
     static string Path =>
@@ -44,6 +48,46 @@ public sealed class AppSettings
         foreach (var s in AssignedPrinterIds)
             if (Guid.TryParse(s, out var g)) list.Add(g);
         return list;
+    }
+
+    public HashSet<Guid> LocalPrinterGuidSet()
+    {
+        var set = new HashSet<Guid>();
+        foreach (var s in LocalPrinterIds)
+            if (Guid.TryParse(s, out var g)) set.Add(g);
+        return set;
+    }
+
+    public HashSet<Guid> DetachedPrinterGuidSet()
+    {
+        var set = new HashSet<Guid>();
+        foreach (var s in DetachedPrinterIds)
+            if (Guid.TryParse(s, out var g)) set.Add(g);
+        return set;
+    }
+
+    public bool IsDetached(Guid id) =>
+        DetachedPrinterIds.Any(x => string.Equals(x, id.ToString("D"), StringComparison.OrdinalIgnoreCase));
+
+    public void RememberLocalPrinter(Guid id)
+    {
+        var key = id.ToString("D");
+        DetachedPrinterIds.RemoveAll(x => string.Equals(x, key, StringComparison.OrdinalIgnoreCase));
+        if (!LocalPrinterIds.Contains(key, StringComparer.OrdinalIgnoreCase))
+            LocalPrinterIds.Add(key);
+        if (!AssignedPrinterIds.Contains(key, StringComparer.OrdinalIgnoreCase))
+            AssignedPrinterIds.Add(key);
+        Save();
+    }
+
+    public void ForgetLocalPrinter(Guid id)
+    {
+        var key = id.ToString("D");
+        LocalPrinterIds.RemoveAll(x => string.Equals(x, key, StringComparison.OrdinalIgnoreCase));
+        AssignedPrinterIds.RemoveAll(x => string.Equals(x, key, StringComparison.OrdinalIgnoreCase));
+        if (!DetachedPrinterIds.Contains(key, StringComparer.OrdinalIgnoreCase))
+            DetachedPrinterIds.Add(key);
+        Save();
     }
 
     public static AppSettings Load()

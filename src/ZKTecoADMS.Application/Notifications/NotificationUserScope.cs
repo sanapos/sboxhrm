@@ -20,7 +20,9 @@ public static class NotificationUserScope
         bool? isRead = null,
         NotificationType? type = null) =>
         n => n.TargetUserId == userId
-             && (crossStore || n.StoreId == storeId)
+             && (crossStore
+                 || n.StoreId == storeId
+                 || n.StoreId == null)
              && (!isRead.HasValue || n.IsRead == isRead.Value)
              && (!type.HasValue || n.Type == type.Value);
 
@@ -31,5 +33,6 @@ public static class NotificationUserScope
         bool crossStore) =>
         crossStore
             ? n => n.Id == notificationId && n.TargetUserId == userId
-            : n => n.Id == notificationId && n.StoreId == storeId && n.TargetUserId == userId;
+            : n => n.Id == notificationId && n.TargetUserId == userId
+                   && (n.StoreId == storeId || n.StoreId == null);
 }

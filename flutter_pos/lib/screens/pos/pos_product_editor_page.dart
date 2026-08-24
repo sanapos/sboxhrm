@@ -134,6 +134,9 @@ class PosProductEditorPage extends StatefulWidget {
           'maxStockQty': full.maxStockQty,
           if (full.weight != null) 'weight': full.weight,
           'weightUnit': full.weightUnit,
+          if (full.lengthCm != null) 'lengthCm': full.lengthCm,
+          if (full.widthCm != null) 'widthCm': full.widthCm,
+          if (full.heightCm != null) 'heightCm': full.heightCm,
           'isDirectSale': full.isDirectSale,
           'isFavorite': full.isFavorite,
         },
@@ -233,6 +236,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _minStockCtrl;
   late final TextEditingController _maxStockCtrl;
   late final TextEditingController _weightCtrl;
+  late final TextEditingController _lengthCtrl;
+  late final TextEditingController _widthCtrl;
+  late final TextEditingController _heightCtrl;
   late final TextEditingController _descCtrl;
   List<String> _saleQuickNotes = [];
   bool _isTopping = false;
@@ -471,6 +477,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             : (_tracksStock ? '999999999' : '0')));
     _weightCtrl = TextEditingController(
         text: tr(p?.weight != null ? p!.weight!.toStringAsFixed(0) : ''));
+    _lengthCtrl = TextEditingController(
+        text: tr(p?.lengthCm != null ? p!.lengthCm!.toStringAsFixed(0) : ''));
+    _widthCtrl = TextEditingController(
+        text: tr(p?.widthCm != null ? p!.widthCm!.toStringAsFixed(0) : ''));
+    _heightCtrl = TextEditingController(
+        text: tr(p?.heightCm != null ? p!.heightCm!.toStringAsFixed(0) : ''));
     _unitCtrl = TextEditingController(text: p?.baseUnitName ?? 'Cái');
     _categoryId = p?.categoryId;
     _brandId = p?.brandId;
@@ -855,6 +867,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _minStockCtrl.dispose();
     _maxStockCtrl.dispose();
     _weightCtrl.dispose();
+    _lengthCtrl.dispose();
+    _widthCtrl.dispose();
+    _heightCtrl.dispose();
     _descCtrl.dispose();
     _unitCtrl.dispose();
     _warrantyMonthsCtrl.dispose();
@@ -985,6 +1000,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'weight':
             _weightCtrl.text.trim().isEmpty ? null : _parseNum(_weightCtrl.text),
         'weightUnit': _weightUnit,
+        'lengthCm':
+            _lengthCtrl.text.trim().isEmpty ? null : _parseNum(_lengthCtrl.text),
+        'widthCm':
+            _widthCtrl.text.trim().isEmpty ? null : _parseNum(_widthCtrl.text),
+        'heightCm':
+            _heightCtrl.text.trim().isEmpty ? null : _parseNum(_heightCtrl.text),
       },
       'isDirectSale': _directSale,
       'isFavorite': widget.product?.isFavorite ?? false,
@@ -1373,6 +1394,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _minStockCtrl.text = '0';
     _maxStockCtrl.text = '999999999';
     _weightCtrl.clear();
+    _lengthCtrl.clear();
+    _widthCtrl.clear();
+    _heightCtrl.clear();
     _descCtrl.clear();
     _saleQuickNotes = [];
     _isTopping = _isToppingType;
@@ -1810,6 +1834,43 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           ],
                           onChanged: (v) =>
                               setState(() => _weightUnit = v ?? 'g'),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 8),
+                  Text(
+                    'Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _lengthCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Dài (cm)'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _widthCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Rộng (cm)'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _heightCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Cao (cm)'),
                         ),
                       ),
                     ],
@@ -2490,6 +2551,43 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 8),
+                  Text(
+                    'Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _lengthCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Dài (cm)'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _widthCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Rộng (cm)'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _heightCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Cao (cm)'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -2958,6 +3056,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           if (_weightCtrl.text.trim().isNotEmpty)
             'weight': _parseNum(_weightCtrl.text),
           'weightUnit': _weightUnit,
+        'lengthCm':
+            _lengthCtrl.text.trim().isEmpty ? null : _parseNum(_lengthCtrl.text),
+        'widthCm':
+            _widthCtrl.text.trim().isEmpty ? null : _parseNum(_widthCtrl.text),
+        'heightCm':
+            _heightCtrl.text.trim().isEmpty ? null : _parseNum(_heightCtrl.text),
         },
         'isDirectSale': _directSale,
         'isFavorite': widget.product?.isFavorite ?? false,
@@ -3807,6 +3911,43 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ),
             ],
           ),
+
+                  const SizedBox(height: 8),
+                  Text(
+                    'Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển',
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _lengthCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Dài (cm)'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _widthCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Rộng (cm)'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _heightCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration:
+                              PosTheme.inputDecoration(label: 'Cao (cm)'),
+                        ),
+                      ),
+                    ],
+                  ),
         ],
       ),
     );

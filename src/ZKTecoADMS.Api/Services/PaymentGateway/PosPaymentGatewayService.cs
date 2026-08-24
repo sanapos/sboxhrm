@@ -59,13 +59,16 @@ public sealed record CreateCreditPurchaseRequest(
 public sealed class PosPaymentGatewayService(
     ZKTecoDbContext db,
     IPaymentWebhookProviderRegistry providerRegistry,
-    IPosNotificationCreditService creditService) : IPosPaymentGatewayService
+    IPosNotificationCreditService creditService,
+    IPosPlatformNotificationCreditService platformCreditService,
+    IPosPlatformTingeeSettingService platformTingeeService) : IPosPaymentGatewayService
 {
     public async Task<PaymentGatewaySettingDto?> GetSettingsAsync(Guid storeId, CancellationToken ct = default)
     {
         var s = await db.PosPaymentGatewaySettings.AsNoTracking()
             .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null, ct);
-        return s == null ? null : MapSetting(s);
+        var platform = await platformTingeeService.GetSettingsAsync(ct);
+        return s == null ? null : MapSetting(s, platform);
     }
 
     public async Task<PaymentGatewaySettingDto> UpsertSettingsAsync(
@@ -89,16 +92,13 @@ public sealed class PosPaymentGatewayService(
             Enum.TryParse<PosPaymentNotifyProvider>(req.DefaultTransferProvider, true, out var prov))
             row.DefaultTransferProvider = prov;
         if (req.TingeeEnabled.HasValue) row.TingeeEnabled = req.TingeeEnabled.Value;
-        if (req.TingeeClientId != null) row.TingeeClientId = req.TingeeClientId.Trim();
-        if (!string.IsNullOrWhiteSpace(req.TingeeSecretKey)) row.TingeeSecretKey = req.TingeeSecretKey.Trim();
         if (req.TingeeVaAccountNumber != null) row.TingeeVaAccountNumber = req.TingeeVaAccountNumber.Trim();
         if (req.TingeeMerchantId != null) row.TingeeMerchantId = req.TingeeMerchantId.Trim();
-        if (!string.IsNullOrWhiteSpace(req.TingeeWebhookSecret))
-            row.TingeeWebhookSecret = req.TingeeWebhookSecret.Trim();
         row.UpdatedAt = DateTime.UtcNow;
         row.UpdatedBy = actor;
         await db.SaveChangesAsync(ct);
-        return MapSetting(row);
+        var platform = await platformTingeeService.GetSettingsAsync(ct);
+        return MapSetting(row, platform);
     }
 
     public async Task<NotificationCreditPurchaseDto> CreateCreditPurchaseAsync(
@@ -108,6 +108,11 @@ public sealed class PosPaymentGatewayService(
             .FirstOrDefaultAsync(x => x.Id == req.PackageId && x.IsActive && x.IsPublic && x.Deleted == null, ct);
         if (pkg == null)
             throw new InvalidOperationException("Không tìm thấy gói credit đang mở bán");
+
+        var pool = await platformCreditService.GetBalanceAsync(ct);
+        if (pool.RemainingCount < pkg.CreditCount)
+            throw new InvalidOperationException(
+                $"Kho Sbox không đủ lượt để bán gói này (còn {pool.RemainingCount}, cần {pkg.CreditCount})");
 
         var paymentRef = (req.ExternalPaymentRef ?? "").Trim();
         if (paymentRef.Length == 0)
@@ -266,22 +271,23 @@ public sealed class PosPaymentGatewayService(
         // Match purchase-credit first so store can tự mua gói và auto cộng credit.
         var purchase = await FindPendingCreditPurchaseAsync(payload, ct);
 
-        // Resolve store by purchase match first, then Tingee clientId or VA
+        // Resolve store by purchase match first, then VA (ưu tiên), rồi legacy clientId
         PosPaymentGatewaySetting? settings = null;
         if (purchase != null)
         {
             settings = await db.PosPaymentGatewaySettings.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.StoreId == purchase.StoreId && x.Deleted == null, ct);
         }
+        if (settings == null && !string.IsNullOrWhiteSpace(payload.VaAccountNumber))
+        {
+            settings = await db.PosPaymentGatewaySettings.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TingeeVaAccountNumber == payload.VaAccountNumber
+                    && x.TingeeEnabled && x.Deleted == null, ct);
+        }
         if (settings == null && !string.IsNullOrWhiteSpace(payload.ClientId))
         {
             settings = await db.PosPaymentGatewaySettings.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.TingeeClientId == payload.ClientId && x.Deleted == null, ct);
-        }
-        if (settings == null && !string.IsNullOrWhiteSpace(payload.VaAccountNumber))
-        {
-            settings = await db.PosPaymentGatewaySettings.AsNoTracking()
-                .FirstOrDefaultAsync(x => x.TingeeVaAccountNumber == payload.VaAccountNumber && x.Deleted == null, ct);
         }
 
         if (settings == null || !settings.TingeeEnabled)
@@ -292,8 +298,14 @@ public sealed class PosPaymentGatewayService(
             return new WebhookProcessResult("09", "Store not configured for Tingee", false, null, null, null, null);
         }
 
-        var secret = settings.TingeeWebhookSecret ?? settings.TingeeSecretKey ?? "";
-        audit.SignatureValid = webhookProvider.VerifySignature(signature, timestamp, rawBody, secret);
+        var platformSecret = await platformTingeeService.ResolveWebhookSecretAsync(ct);
+        var secrets = new List<string>();
+        if (!string.IsNullOrWhiteSpace(platformSecret)) secrets.Add(platformSecret);
+        var legacyStoreSecret = settings.TingeeWebhookSecret ?? settings.TingeeSecretKey ?? "";
+        if (!string.IsNullOrWhiteSpace(legacyStoreSecret)) secrets.Add(legacyStoreSecret);
+
+        audit.SignatureValid = secrets.Any(s =>
+            webhookProvider.VerifySignature(signature, timestamp, rawBody, s));
         audit.StoreId = settings.StoreId;
 
         if (!audit.SignatureValid)
@@ -321,7 +333,7 @@ public sealed class PosPaymentGatewayService(
             purchase.Note = JoinNote(purchase.Note,
                 $"TXN:{payload.TransactionCode}; amount:{payload.Amount?.ToString("0.##") ?? "0"}");
 
-            await creditService.GrantAsync(
+            var (allocated, allocErr) = await platformCreditService.TryAllocateToStoreAsync(
                 purchase.StoreId,
                 purchase.CreditCount,
                 PosNotificationCreditLedgerSource.Purchase,
@@ -329,6 +341,14 @@ public sealed class PosPaymentGatewayService(
                 $"Credit package paid via {provider} - {purchase.ExternalPaymentRef}",
                 "webhook",
                 ct);
+            if (!allocated)
+            {
+                audit.ResultCode = "xx";
+                db.PosPaymentWebhookEvents.Add(audit);
+                await db.SaveChangesAsync(ct);
+                return new WebhookProcessResult("xx", allocErr ?? "Platform pool insufficient", false,
+                    purchase.StoreId, null, purchase.ExternalPaymentRef, purchase.AmountPaid);
+            }
 
             audit.ResultCode = "00";
             db.PosPaymentWebhookEvents.Add(audit);
@@ -432,20 +452,25 @@ public sealed class PosPaymentGatewayService(
             "tingeePaymentConfirmed",
             orderId: intent.SaleOrderId,
             tableName: intent.TableName,
-            message: spoken);
+            message: spoken,
+            orderNo: intent.OrderNo ?? intent.ExternalOrderId,
+            externalOrderId: intent.ExternalOrderId);
 
         return new WebhookProcessResult("00", "Success", false, settings.StoreId, intent.Id,
             intent.OrderNo, intent.AmountExpected);
     }
 
-    private static PaymentGatewaySettingDto MapSetting(PosPaymentGatewaySetting s) => new(
+    private static PaymentGatewaySettingDto MapSetting(
+        PosPaymentGatewaySetting s,
+        PlatformTingeeSettingDto platform) => new(
         s.DefaultTransferProvider.ToString(),
         s.TingeeEnabled,
-        s.TingeeClientId,
-        !string.IsNullOrWhiteSpace(s.TingeeSecretKey),
+        platform.TingeeClientId,
+        platform.HasTingeeSecretKey,
         s.TingeeVaAccountNumber,
         s.TingeeMerchantId,
-        !string.IsNullOrWhiteSpace(s.TingeeWebhookSecret));
+        platform.HasTingeeWebhookSecret,
+        platform.TingeeEnabled && platform.HasTingeeWebhookSecret);
 
     private async Task<PosNotificationCreditPurchase?> FindPendingCreditPurchaseAsync(
         PaymentWebhookPayload payload,

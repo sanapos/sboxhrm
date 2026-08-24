@@ -262,7 +262,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                                   (t) => DropdownMenuItem(
                                     value: t.id,
                                     child: Text(
-                                      tr('${t.name} (${PosPrintPaperSizes.displayLabel(t.paperSize)})'),
+                                      tr(t.shortLabel),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -296,7 +296,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                                   (t) => DropdownMenuItem(
                                     value: t.id,
                                     child: Text(
-                                      tr('${t.name} (${PosPrintPaperSizes.displayLabel(t.paperSize)})'),
+                                      tr(t.shortLabel),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),

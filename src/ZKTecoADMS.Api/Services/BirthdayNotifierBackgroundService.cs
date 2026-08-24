@@ -61,13 +61,15 @@ public class BirthdayNotifierBackgroundService : BackgroundService
         var month = nowLocal.Month;
         var day = nowLocal.Day;
 
-        // Active employees (WorkStatus == Active = 0). Adjust if your enum differs.
+        // Chỉ NV còn làm việc và đã gắn cửa hàng — thiếu StoreId sẽ broadcast nhầm toàn hệ thống.
         var birthdays = await db.Employees
             .AsNoTracking()
             .Where(e => e.DateOfBirth != null
                 && e.DateOfBirth!.Value.Month == month
                 && e.DateOfBirth!.Value.Day == day
-                && e.ResignationDate == null)
+                && e.StoreId != null
+                && e.ResignationDate == null
+                && e.WorkStatus != EmployeeWorkStatus.Resigned)
             .Select(e => new
             {
                 e.Id,
@@ -89,14 +91,23 @@ public class BirthdayNotifierBackgroundService : BackgroundService
         var todaysAnnouncements = await db.SystemAnnouncements
             .AsNoTracking()
             .Where(a => a.CreatedAt >= dayStartUtc && a.Kind == AnnouncementKind.News)
-            .Select(a => a.Title)
+            .Select(a => new { a.Title, a.ActionUrl, a.AudienceJson })
             .ToListAsync(ct);
 
         foreach (var emp in birthdays)
         {
-            // Marker để dedupe: chứa mã nhân viên trong title.
-            var marker = $"[BDAY:{emp.EmployeeCode}]";
-            if (todaysAnnouncements.Any(t => t != null && t.Contains(marker)))
+            if (!emp.StoreId.HasValue) continue;
+
+            var bdayKey = $"sbox://birthday/{emp.Id:N}";
+            var storeIdStr = emp.StoreId.Value.ToString();
+            var alreadySent = todaysAnnouncements.Any(a =>
+                a.ActionUrl == bdayKey
+                || (a.Title != null && a.Title.Contains($"[BDAY:{emp.Id:N}]", StringComparison.Ordinal))
+                || (a.Title != null
+                    && a.Title.Contains($"[BDAY:{emp.EmployeeCode}]", StringComparison.Ordinal)
+                    && a.AudienceJson != null
+                    && a.AudienceJson.Contains(storeIdStr, StringComparison.OrdinalIgnoreCase)));
+            if (alreadySent)
             {
                 continue;
             }
@@ -108,20 +119,18 @@ public class BirthdayNotifierBackgroundService : BackgroundService
                 ? nowLocal.Year - emp.DateOfBirth.Value.Year
                 : 0;
 
-            var title = $"🎂 Chúc mừng sinh nhật {fullName}! {marker}";
+            var title = $"🎂 Chúc mừng sinh nhật {fullName}!";
             var content = age > 0
                 ? $"Hôm nay là sinh nhật lần thứ {age} của {fullName}. " +
                   "Cùng gửi lời chúc mừng và những điều tốt đẹp nhất tới đồng nghiệp nhé! 🎉🎁"
                 : $"Hôm nay là sinh nhật của {fullName}. " +
                   "Cùng gửi lời chúc mừng và những điều tốt đẹp nhất tới đồng nghiệp nhé! 🎉🎁";
 
-            // Audience: toàn user trong cùng store của nhân viên có sinh nhật.
+            // Audience: chỉ user của đúng cửa hàng đó. Không AllUsers.
             var audience = new AudienceSpec
             {
-                AllUsers = emp.StoreId == null,
-                StoreIds = emp.StoreId.HasValue
-                    ? new List<Guid> { emp.StoreId.Value }
-                    : null
+                AllUsers = false,
+                StoreIds = new List<Guid> { emp.StoreId.Value }
             };
 
             try
@@ -132,12 +141,12 @@ public class BirthdayNotifierBackgroundService : BackgroundService
                     Content = content,
                     Kind = AnnouncementKind.News,
                     Severity = AnnouncementSeverity.Info,
-                    Channels = NotificationChannel.InApp
-                        | NotificationChannel.Banner
-                        | NotificationChannel.Push,
+                    // InApp đã FCM; không gắn thêm kênh Push (tránh 2 thông báo cùng nội dung).
+                    Channels = NotificationChannel.InApp | NotificationChannel.Banner,
                     RequireAck = false,
                     AllowDismiss = true,
                     Audience = audience,
+                    ActionUrl = bdayKey,
                     SendNow = true,
                     ExpiresAt = nowLocal.Date.AddDays(1) - _vnOffset
                 }, Guid.Empty, ct);

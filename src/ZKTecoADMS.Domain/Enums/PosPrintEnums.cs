@@ -66,6 +66,8 @@ public enum PosPrintPayloadFormat
     KitchenSlipJson = 4,
     /// <summary>JSON test in — Agent Sunmi in native (UTF-8), không qua ESC/POS.</summary>
     TestPrintJson = 5,
+    /// <summary>Mẫu V2 + sample data — In thử thiết kế qua Agent (Sunmi native / ESC).</summary>
+    TemplatePreviewJson = 6,
 }
 
 /// <summary>Khổ giấy in.</summary>

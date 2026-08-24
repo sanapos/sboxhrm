@@ -138,6 +138,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   final _floorRealtime = PosFloorRealtimeSubscription(
     debounce: const Duration(milliseconds: 650),
   );
+  String? _openingResourceId;
+  int _openGen = 0;
+  bool _reloadInFlight = false;
+  bool _reloadQueued = false;
+  DateTime? _lastSuccessfulReloadAt;
   PosSellProfile? _loadedSellProfile;
 
   PosSellProfile get _sellProfile =>
@@ -378,7 +383,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       _notifyActiveTotals();
     }
     if (widget.paneActive && !oldWidget.paneActive) {
-      unawaited(_reload(silent: true));
+      final recent = _lastSuccessfulReloadAt != null &&
+          DateTime.now().difference(_lastSuccessfulReloadAt!) <
+              const Duration(seconds: 3);
+      if (_resources.isEmpty || !recent) {
+        unawaited(_reload(silent: true));
+      }
     }
     if (widget.pendingOpenToken != oldWidget.pendingOpenToken &&
         (widget.pendingOpenCode ?? '').trim().isNotEmpty) {
@@ -423,7 +433,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   }
 
   void refreshQuiet() {
-    if (!mounted) return;
+    if (!mounted || !widget.paneActive) return;
     unawaited(_reload(silent: true));
   }
 
@@ -431,35 +441,46 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       _openAppointmentCalendar(resourceId: resourceId);
 
   Future<void> _reload({bool silent = false, bool? heal}) async {
-    if (!silent) {
-      setState(() {
-        _loading = true;
-        _error = null;
-      });
-    }
-    final areaRes = await _api.getPosServiceAreas();
-    final resRes = await _api.getPosServiceResources(
-      heal: heal ?? !silent,
-    );
-    if (!mounted) return;
-    if (areaRes['isSuccess'] != true || resRes['isSuccess'] != true) {
-      if (!silent) {
-        setState(() {
-          _error = areaRes['message']?.toString() ??
-              resRes['message']?.toString() ??
-              'Không tải được sơ đồ';
-          _loading = false;
-        });
-      }
+    if (silent && _reloadInFlight) {
+      _reloadQueued = true;
       return;
     }
-    final rawResources = ((resRes['data'] as List?) ?? [])
-        .whereType<Map>()
-        .map((e) =>
-            PosServiceResourceDto.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
-    _reconcileOptimisticFlags(rawResources);
-    setState(() {
+    if (!silent && _reloadInFlight) {
+      while (_reloadInFlight) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        if (!mounted) return;
+      }
+    }
+    _reloadInFlight = true;
+    try {
+      if (!silent) {
+        setState(() {
+          _loading = true;
+          _error = null;
+        });
+      }
+      final areaRes = await _api.getPosServiceAreas();
+      final resRes = await _api.getPosServiceResources(
+        heal: heal ?? !silent,
+      );
+      if (!mounted) return;
+      if (areaRes['isSuccess'] != true || resRes['isSuccess'] != true) {
+        if (!silent) {
+          setState(() {
+            _error = areaRes['message']?.toString() ??
+                resRes['message']?.toString() ??
+                'Không tải được sơ đồ';
+            _loading = false;
+          });
+        }
+        return;
+      }
+      final rawResources = ((resRes['data'] as List?) ?? [])
+          .whereType<Map>()
+          .map((e) =>
+              PosServiceResourceDto.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      _reconcileOptimisticFlags(rawResources);
       _areas = ((areaRes['data'] as List?) ?? [])
           .whereType<Map>()
           .map((e) => PosServiceAreaDto.fromJson(Map<String, dynamic>.from(e)))
@@ -467,8 +488,19 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       _resources = rawResources.map(_patchResourceFlags).toList();
       _loading = false;
       _error = null;
-    });
-    _notifyActiveTotals();
+      _lastSuccessfulReloadAt = DateTime.now();
+      // Đang mở bàn: đừng rebuild lưới — mất gesture, đơ lần bấm tiếp.
+      if (_openingResourceId == null) {
+        setState(() {});
+      }
+      _notifyActiveTotals();
+    } finally {
+      _reloadInFlight = false;
+      if (_reloadQueued && mounted) {
+        _reloadQueued = false;
+        unawaited(_reload(silent: true, heal: heal));
+      }
+    }
   }
 
   /// Gỡ cờ lạc quan đã khớp server hoặc bị ghi đè — tránh phải mở lại app.
@@ -702,6 +734,21 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     PosServiceResourceDto r, {
     bool skipHoldingPrompt = false,
   }) async {
+    final gen = ++_openGen;
+    _openingResourceId = r.id;
+    try {
+      await _openResourceBody(r, skipHoldingPrompt: skipHoldingPrompt, gen: gen);
+    } finally {
+      if (_openGen == gen) _openingResourceId = null;
+    }
+  }
+
+  Future<void> _openResourceBody(
+    PosServiceResourceDto r, {
+    required bool skipHoldingPrompt,
+    required int gen,
+  }) async {
+    bool current() => mounted && gen == _openGen;
     if (r.showReservedOnFloor) {
       await _showReservedActions(r);
       return;
@@ -712,7 +759,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       // Luôn probe trước khi hỏi «Lấy quyền» — máy khác có thể vừa claim.
       if (r.hasParkedBill || (r.isParked && !r.isActivelyOpen)) {
         r = await _probeResourceLock(r);
-        if (!mounted) return;
+        if (!current()) return;
       }
 
       // Máy khác đang sửa → chỉ xem, không hỏi «Lấy quyền».
@@ -725,7 +772,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       if (r.hasParkedBill && !r.isActivelyOpen) {
         if (r.openOrderId != null && r.openOrderId!.isNotEmpty) {
           final billId = await _chooseDraftBillId(r);
-          if (!mounted || billId == null || billId.isEmpty) return;
+          if (!current() || billId == null || billId.isEmpty) return;
           _emitSelect(_payloadForBill(r, billId, extra: {'forceClaim': true}));
           return;
         }
@@ -733,7 +780,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       if (r.openOrderId != null && r.openOrderId!.isNotEmpty) {
         // Đơn đã TT / hủy nhưng phiên còn sót → giải phóng rồi mở bàn mới ngay.
         final probe = await _api.getPosSale(r.openOrderId!);
-        if (!mounted) return;
+        if (!current()) return;
         if (probe['isSuccess'] == true && probe['data'] is Map) {
           final st = (probe['data']['status'] ?? probe['data']['Status'] ?? '')
               .toString()
@@ -742,13 +789,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             if (r.openSessionId != null && r.openSessionId!.isNotEmpty) {
               await _api.closePosResourceSession(r.openSessionId!);
             }
-            if (!mounted) return;
+            if (!current()) return;
             await _reload();
-            if (!mounted) return;
+            if (!current()) return;
             final freed =
                 _resources.where((x) => x.id == r.id).firstOrNull ?? r;
             // Còn Occupied (draft mồ côi) → OpenSession heal; Free → mở mới.
-            await _startResourceSession(freed);
+            await _startResourceSession(freed, openGen: gen);
             return;
           }
         } else if (probe['isSuccess'] != true) {
@@ -756,19 +803,19 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           if (r.openSessionId != null && r.openSessionId!.isNotEmpty) {
             await _api.closePosResourceSession(r.openSessionId!);
           }
-          if (!mounted) return;
+          if (!current()) return;
           await _reload();
-          if (!mounted) return;
+          if (!current()) return;
           final freed = _resources.where((x) => x.id == r.id).firstOrNull ?? r;
-          await _startResourceSession(freed);
+          await _startResourceSession(freed, openGen: gen);
           return;
         }
         final billId = await _chooseDraftBillId(r);
-        if (!mounted || billId == null || billId.isEmpty) return;
+        if (!current() || billId == null || billId.isEmpty) return;
         _emitSelect(_payloadForBill(r, billId));
       } else {
         // Occupied/Holding không có openOrderId (draft mồ côi) → OpenSession gắn lại.
-        await _startResourceSession(r);
+        await _startResourceSession(r, openGen: gen);
       }
       return;
     }
@@ -776,8 +823,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final guests = widget.promptGuestCountOnOpen
         ? await _promptGuestCount(r)
         : 1;
-    if (guests == null || !mounted) return;
-    await _startResourceSession(r, guestCount: guests);
+    if (guests == null || !current()) return;
+    await _startResourceSession(r, guestCount: guests, openGen: gen);
   }
 
   Future<int?> _promptGuestCount(PosServiceResourceDto r) async {
@@ -853,6 +900,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Future<void> _startResourceSession(
     PosServiceResourceDto r, {
     int guestCount = 1,
+    int? openGen,
   }) async {
     final device = await PosDeviceIdentity.get();
     final res = await _api.openPosResourceSession({
@@ -862,6 +910,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       'guestCount': guestCount,
     });
     if (!mounted) return;
+    if (openGen != null && openGen != _openGen) return;
     if (res['isSuccess'] != true) {
       NotificationOverlayManager().showError(
         title: 'Không mở được',

@@ -1,10 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/mobile_bottom_nav_config.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/mobile_bottom_nav_prefs.dart';
 import '../../utils/mobile_bottom_nav_catalog.dart';
@@ -16,12 +17,12 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../pos_products_screen.dart';
 import '../pos_sale_order_list_screen.dart';
+import 'pos_qr_online_orders_screen.dart';
 import '../pos_sell_screen.dart';
-import '../settings_hub_screen.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'pos_more_screen.dart';
 import 'pos_overview_screen.dart';
-import '../../l10n/app_tr.dart';
+import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Shell POS mobile 5-tab kiểu KiotViet — 5 ô cố định, tùy chỉnh được.
 class PosMobileHubScreen extends StatefulWidget {
@@ -49,13 +50,19 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   void initState() {
     super.initState();
     NavigationNotifier.posHubTab.addListener(_onExternalTab);
-    NavigationNotifier.navigateToModule.addListener(_onNavigateModule);
+    NavigationNotifier.pendingOpenQrOnlineOrders
+        .addListener(_onPendingQrOnlineNav);
     MobileBottomNavPrefs.revision.addListener(_onNavPrefsChanged);
     NavigationNotifier.reportScreen(
       _labelForTab(_tab),
       moduleCode: _moduleForTab(_tab),
     );
     if (widget.restoreLastTab) unawaited(_restoreLastTab());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (NavigationNotifier.pendingOpenQrOnlineOrders.value) {
+        _onPendingQrOnlineNav();
+      }
+    });
   }
 
   Future<void> _restoreLastTab() async {
@@ -99,8 +106,38 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   void dispose() {
     MobileBottomNavPrefs.revision.removeListener(_onNavPrefsChanged);
     NavigationNotifier.posHubTab.removeListener(_onExternalTab);
-    NavigationNotifier.navigateToModule.removeListener(_onNavigateModule);
+    NavigationNotifier.pendingOpenQrOnlineOrders
+        .removeListener(_onPendingQrOnlineNav);
     super.dispose();
+  }
+
+  void _onPendingQrOnlineNav() {
+    if (!NavigationNotifier.pendingOpenQrOnlineOrders.value || !mounted) {
+      return;
+    }
+    final highlight = NavigationNotifier.notificationHighlightId.value;
+    setState(() {
+      _activatedTabs.add(2);
+      _tab = 2;
+    });
+    NavigationNotifier.reportScreen(
+      _labelForTab(2),
+      moduleCode: _moduleForTab(2),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!NavigationNotifier.pendingOpenQrOnlineOrders.value) return;
+      NavigationNotifier.pendingOpenQrOnlineOrders.value = false;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => PosHubScope(
+            embeddedInHub: true,
+            pushedSubPage: true,
+            child: PosQrOnlineOrdersScreen(highlightOrderId: highlight),
+          ),
+        ),
+      );
+    });
   }
 
   void _onNavPrefsChanged() {
@@ -116,19 +153,6 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
       _activatedTabs.add(next);
       _tab = next;
     });
-  }
-
-  void _onNavigateModule() {
-    final code = NavigationNotifier.navigateToModule.value;
-    if (code == null || !mounted) return;
-    NavigationNotifier.navigateToModule.value = null;
-    if (code == 'SettingsHub') {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const SettingsHubScreen(),
-        ),
-      );
-    }
   }
 
   String _moduleForTab(int tab) => switch (tab) {
@@ -153,8 +177,9 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   }
 
   Set<String> _allowedPosSlotIds(PermissionProvider perm) {
-    // App POS độc lập: hub 5 tab theo quyền role (ensurePosSellDefaults),
-    // không lọc gói dịch vụ — tránh ô «Trống» khi gói HRM chưa gắn PosSell.
+    final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final allowedModules = authUser?.allowedModules;
+    final role = authUser?.role;
     final ids = <String>{MobileBottomNavCatalog.posMoreId};
     for (final d in MobileBottomNavCatalog.posItems) {
       if (d.moduleCode == null) continue;
@@ -165,7 +190,12 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
         }
         continue;
       }
-      if (PermissionNavigation.canNavigate(perm, d.moduleCode!)) {
+      if (PermissionNavigation.canAccessModule(
+        d.moduleCode!,
+        allowedModules: allowedModules,
+        perm: perm,
+        role: role,
+      )) {
         ids.add(d.id);
       }
     }
@@ -322,10 +352,10 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     final layout = _resolvedPosLayout();
-    // Bán hàng = fullscreen: không bottom nav, không rail dọc.
+    // Landscape: ẩn rail khi đang Bán hàng (fullscreen thu ngân).
     final sellFullscreen = _tab == 2;
     final useVerticalRail =
-        !sellFullscreen && PosHubNavRail.shouldShow(context);
+        PosHubNavRail.shouldShow(context) && !sellFullscreen;
     final stack = PosHubScope(
       embeddedInHub: true,
       child: IndexedStack(
@@ -366,8 +396,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
               )
             : stack,
       ),
-      // Portrait: bottom nav. Landscape: rail dọc. Bán hàng: ẩn hết.
-      bottomNavigationBar: sellFullscreen || useVerticalRail
+      bottomNavigationBar: useVerticalRail || sellFullscreen
           ? null
           : _buildBottomNavBar(perm, layout),
     );

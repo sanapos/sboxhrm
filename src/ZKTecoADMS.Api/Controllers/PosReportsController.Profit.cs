@@ -138,6 +138,12 @@ public partial class PosReportsController
                 var cogs = type == PosProductType.Combo
                     ? comboCogsByProduct.GetValueOrDefault(x.ProductId)
                     : cogsTx.GetValueOrDefault(x.ProductId);
+                // Dịch vụ / món không ghi tx kho: ước COGS = CostPrice × SL (tránh LN 100% ảo).
+                if (cogs == 0 && qty > 0 && first != null && first.CostPrice > 0
+                    && (type == PosProductType.Service || !cogsTx.ContainsKey(x.ProductId)))
+                {
+                    cogs = first.CostPrice * qty;
+                }
                 var profit = revenue - cogs;
                 return new
                 {

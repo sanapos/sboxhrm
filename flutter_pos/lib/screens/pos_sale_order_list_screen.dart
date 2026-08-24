@@ -33,6 +33,7 @@ import '../widgets/pos/pos_sale_order_receipt_view.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_order_editor_screen.dart';
 import 'pos_sale_return_screen.dart';
+import '../widgets/pos/pos_shipping_compare_sheet.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 enum _ListColumn {
@@ -308,7 +309,6 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       skipDedup: true,
       preferDevicePrintOnly: true,
       showFeedback: true,
-      openCashDrawer: false,
     );
     // Làm mới printCount trên danh sách sau khi ghi nhận in.
     if (!mounted) return;
@@ -894,13 +894,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               onFilter: _openFilters,
               onRefresh: () => _load(page: _page),
               activeFilterCount: _activeFilterCount,
-              filterChips: Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: ActionChip(
-                  label: Text(tr(_timeFilter.displayLabel),
-                      style: const TextStyle(fontSize: 12)),
-                  onPressed: _openFilters,
-                ),
+              filterChips: ActionChip(
+                visualDensity: VisualDensity.compact,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: EdgeInsets.zero,
+                label: Text(tr(_timeFilter.displayLabel),
+                    style: const TextStyle(fontSize: 11)),
+                onPressed: _openFilters,
               ),
             )
           else
@@ -1068,34 +1068,26 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final returnedTotal =
         completed.fold<double>(0, (s, o) => s + o.returnedAmount);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
       child: Container(
         decoration: PosTheme.mobileCardDecoration(),
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(tr('Doanh thu thuần'),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: PosTheme.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    tr('$_total hoá đơn${returnedTotal > 0 ? ' · Hoàn trả ${_moneyFmt.format(returnedTotal)}' : ''}'),
-                    style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-                  ),
-                ],
+              child: Text(
+                tr('$_total HĐ${returnedTotal > 0 ? ' · Trả ${_moneyFmt.format(returnedTotal)}' : ''}'),
+                style: const TextStyle(
+                    fontSize: 12, color: PosTheme.textSecondary),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             Text(
               tr(_moneyFmt.format(totalAmount)),
               style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],
@@ -1230,6 +1222,63 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     );
   }
 
+  Future<void> _createShipmentFromList(PosSaleOrder order) async {
+    if (!order.isDelivery) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không phải đơn giao',
+        message: tr('Chỉ tạo vận đơn cho đơn giao hàng'),
+      );
+      return;
+    }
+    if ((order.deliveryTrackingCode ?? '').isNotEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Đã có vận đơn',
+        message: order.deliveryTrackingCode!,
+      );
+      return;
+    }
+    final pick = await showShippingCompareDialog(
+      context: context,
+      orderId: order.id,
+      orderNo: order.orderNo,
+      codAmount: order.balanceDue > 0 ? order.balanceDue : 0,
+    );
+    if (pick == null || !mounted) return;
+    final res = await _api.createPosShipment({
+      'carrierCode': pick.carrierCode,
+      'orderId': order.id,
+      'codAmount': order.balanceDue > 0 ? order.balanceDue : 0,
+      'weightGrams': pick.weightGrams,
+      'lengthCm': pick.lengthCm,
+      'widthCm': pick.widthCm,
+      'heightCm': pick.heightCm,
+      if ((pick.serviceCode ?? '').isNotEmpty) 'serviceCode': pick.serviceCode,
+      'shipFeePayer': pick.shipFeePayer,
+      if (pick.fixedShipFee != null) 'fixedShipFee': pick.fixedShipFee,
+    });
+    if (!mounted) return;
+    final data = res['data'] is Map
+        ? Map<String, dynamic>.from(res['data'] as Map)
+        : <String, dynamic>{};
+    final ok = res['isSuccess'] == true &&
+        (data['success'] == true || data['Success'] == true);
+    if (ok) {
+      final tracking =
+          (data['trackingCode'] ?? data['TrackingCode'] ?? '').toString();
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã tạo vận đơn',
+        message: tracking.isEmpty ? pick.carrierName : tracking,
+      );
+      await _load();
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Tạo vận đơn thất bại',
+        message: (data['message'] ?? data['Message'] ?? res['message'] ?? res)
+            .toString(),
+      );
+    }
+  }
+
   Future<void> _showMobileOrderDetail(PosSaleOrder summary, bool canEdit) async {
     PosSaleOrder order = summary;
     final res = await _api.getPosSale(summary.id);
@@ -1323,15 +1372,19 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                         label: Text(tr('Hủy đơn (hoàn kho)')),
                       ),
                     if (canEdit &&
-                        order.status == 'Completed' &&
-                        (order.eInvoiceStatus ?? 'None') != 'Issued')
-                      OutlinedButton.icon(
+                        order.isDelivery &&
+                        (order.deliveryTrackingCode == null ||
+                            order.deliveryTrackingCode!.isEmpty) &&
+                        order.status != 'Cancelled')
+                      FilledButton.icon(
                         onPressed: () {
                           Navigator.pop(ctx);
-                          _issueEInvoice(order);
+                          _createShipmentFromList(order);
                         },
-                        icon: const Icon(Icons.request_quote_outlined, size: 16),
-                        label: Text(tr('Xuất HĐĐT')),
+                        icon: const Icon(Icons.local_shipping_outlined, size: 16),
+                        label: Text(tr('Tạo mã vận đơn')),
+                        style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F766E)),
                       ),
                     if (canEdit &&
                         order.status == 'Completed' &&
@@ -1737,6 +1790,16 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 ),
               ],
               if (canEdit && o.status == 'Completed') ...[
+                if (o.isDelivery &&
+                    (o.deliveryTrackingCode == null ||
+                        o.deliveryTrackingCode!.isEmpty))
+                  FilledButton.icon(
+                    onPressed: () => _createShipmentFromList(o),
+                    icon: const Icon(Icons.local_shipping_outlined, size: 16),
+                    label: Text(tr('Tạo mã vận đơn')),
+                    style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F766E)),
+                  ),
                 if (o.canCancelWithStock)
                   OutlinedButton.icon(
                     onPressed: () => _cancelOrder(o),

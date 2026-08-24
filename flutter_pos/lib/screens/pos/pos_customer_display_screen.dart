@@ -368,12 +368,23 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              tr('SBOX POS'),
+              tr('SBOX HRM - SBOX POS'),
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 36,
+                fontSize: 28,
                 fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
+                letterSpacing: 0.6,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              tr('Giải pháp quản lý toàn diện cho doanh nghiệp'),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.72),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 8),

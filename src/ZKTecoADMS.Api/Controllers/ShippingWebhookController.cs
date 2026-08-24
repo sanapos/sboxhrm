@@ -45,26 +45,123 @@ public class ShippingWebhookController(
     [HttpPost("ghtk")]
     public async Task<IActionResult> Ghtk(CancellationToken ct)
     {
-        using var reader = new StreamReader(Request.Body);
-        var raw = await reader.ReadToEndAsync(ct);
+        // Docs: form-urlencoded hoặc JSON; bảo mật qua ?hash= trên URL webhook.
+        string raw;
+        if (Request.HasFormContentType)
+        {
+            var form = await Request.ReadFormAsync(ct);
+            var map = form.Keys.ToDictionary(k => k, k => form[k].ToString(), StringComparer.OrdinalIgnoreCase);
+            raw = JsonSerializer.Serialize(map);
+        }
+        else
+        {
+            using var reader = new StreamReader(Request.Body);
+            raw = await reader.ReadToEndAsync(ct);
+        }
+
         try
         {
             using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(raw) ? "{}" : raw);
             var root = doc.RootElement;
-            var label = root.TryGetProperty("label_id", out var l) ? l.GetString()
-                : root.TryGetProperty("label", out var l2) ? l2.GetString()
-                : root.TryGetProperty("order", out var o) && o.TryGetProperty("label", out var l3)
-                    ? l3.GetString()
-                    : null;
-            var status = root.TryGetProperty("status_text", out var st) ? st.GetString()
-                : root.TryGetProperty("status", out var st2) ? st2.GetRawText().Trim('"') : null;
-            var ok = await shipping.ApplyWebhookStatusAsync("Ghtk", label, label, status, ct);
+
+            var label = GetStr(root, "label_id", "label", "Label");
+            var partnerId = GetStr(root, "partner_id", "partnerId", "PartnerId");
+            var statusText = GetStr(root, "status_text", "statusText", "reason");
+            int? statusId = null;
+            if (root.TryGetProperty("status_id", out var sid) ||
+                root.TryGetProperty("statusId", out sid) ||
+                root.TryGetProperty("status", out sid))
+            {
+                if (sid.ValueKind == JsonValueKind.Number && sid.TryGetInt32(out var n))
+                    statusId = n;
+                else if (sid.ValueKind == JsonValueKind.String && int.TryParse(sid.GetString(), out var ns))
+                    statusId = ns;
+            }
+
+            var hash = Request.Query["hash"].FirstOrDefault();
+            if (!await shipping.ValidateGhtkWebhookHashAsync(hash, label, partnerId, ct))
+            {
+                logger.LogWarning("GHTK webhook rejected — hash không khớp");
+                return Unauthorized(new { success = false, message = "Unauthorized" });
+            }
+
+            var ok = await shipping.ApplyGhtkWebhookAsync(label, partnerId, statusId, statusText, ct);
             return Ok(new { success = true, updated = ok });
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "GHTK shipping webhook failed");
             return Ok(new { success = true });
+        }
+    }
+
+    static string? GetStr(JsonElement root, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (!root.TryGetProperty(key, out var p)) continue;
+            if (p.ValueKind == JsonValueKind.String)
+            {
+                var s = p.GetString()?.Trim();
+                if (!string.IsNullOrWhiteSpace(s)) return s;
+            }
+            else if (p.ValueKind is JsonValueKind.Number or JsonValueKind.True or JsonValueKind.False)
+            {
+                var s = p.GetRawText().Trim('"');
+                if (!string.IsNullOrWhiteSpace(s)) return s;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Viettel Post — payload DATA.ORDER_NUMBER, DATA.ORDER_STATUS, DATA.STATUS_NAME.</summary>
+    [HttpPost("viettelpost")]
+    public async Task<IActionResult> ViettelPost(CancellationToken ct)
+    {
+        using var reader = new StreamReader(Request.Body);
+        var raw = await reader.ReadToEndAsync(ct);
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(raw) ? "{}" : raw);
+            var root = doc.RootElement;
+            var data = root.TryGetProperty("DATA", out var d) ? d
+                : root.TryGetProperty("data", out var d2) ? d2 : root;
+
+            var tracking = data.TryGetProperty("ORDER_NUMBER", out var on) ? on.GetString()
+                : data.TryGetProperty("order_number", out var on2) ? on2.GetString() : null;
+            var statusName = data.TryGetProperty("STATUS_NAME", out var sn) ? sn.GetString()
+                : data.TryGetProperty("status_name", out var sn2) ? sn2.GetString() : null;
+            int? statusCode = null;
+            if (data.TryGetProperty("ORDER_STATUS", out var os))
+            {
+                if (os.ValueKind == JsonValueKind.Number && os.TryGetInt32(out var n))
+                    statusCode = n;
+                else if (os.ValueKind == JsonValueKind.String && int.TryParse(os.GetString(), out var ns))
+                    statusCode = ns;
+            }
+
+            var auth = Request.Headers.Authorization.ToString();
+            string? bodyToken = null;
+            if (root.TryGetProperty("TOKEN", out var tk) && tk.ValueKind == JsonValueKind.String)
+                bodyToken = tk.GetString();
+            else if (root.TryGetProperty("token", out var tk2) && tk2.ValueKind == JsonValueKind.String)
+                bodyToken = tk2.GetString();
+
+            if (!await shipping.ValidateViettelPostWebhookAuthAsync(auth, bodyToken, tracking, ct))
+            {
+                logger.LogWarning("ViettelPost webhook rejected — Authorization không khớp secret");
+                return Unauthorized(new { status = 401, error = true, message = "Unauthorized" });
+            }
+
+            var ok = await shipping.ApplyViettelPostWebhookAsync(
+                tracking, statusCode, statusName, ct);
+            // VTP yêu cầu HTTP 200 — body đơn giản.
+            return Ok(new { status = 200, error = false, message = ok ? "OK" : "order not found" });
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "ViettelPost shipping webhook failed");
+            return Ok(new { status = 200, error = false, message = "accepted" });
         }
     }
 

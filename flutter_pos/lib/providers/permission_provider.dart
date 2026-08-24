@@ -360,6 +360,15 @@ class PermissionProvider extends ChangeNotifier {
     if (moduleCode == 'PosSaleReturns' && _flag('PosSell', action)) {
       return true;
     }
+    // ĐVVC: xem/tạo từ PosSell; sửa cấu hình từ PosSell Edit hoặc SettingsHub.
+    if (moduleCode == 'PosShipping') {
+      if (action == 'canView' && _flag('PosSell', 'canView')) return true;
+      if (action == 'canCreate' && _flag('PosSell', 'canCreate')) return true;
+      if (action == 'canEdit' &&
+          (_flag('PosSell', 'canEdit') || _flag('SettingsHub', 'canEdit'))) {
+        return true;
+      }
+    }
     // Xem hàng hóa / mẫu in khi có quyền bán.
     if ((moduleCode == 'PosProducts' || moduleCode == 'PosPrintTemplates') &&
         (action == 'canView' || action == 'canExport') &&
@@ -431,6 +440,12 @@ class PermissionProvider extends ChangeNotifier {
 
   /// Thu ngân — thanh toán / hoàn tất hóa đơn.
   bool canPosPay() => canApprove('PosSell');
+
+  /// Mở hub thiết lập POS (không alias từ PosSell).
+  bool canViewPosSetup() => canView('SettingsHub');
+
+  /// Lưu cửa hàng / ngành hàng / cổng CK / thiết lập POS.
+  bool canEditPosSetup() => canEdit('SettingsHub');
 
   /// Kiểm tra quyền DUYỆT cho một module
   bool canApprove(String? moduleCode) {

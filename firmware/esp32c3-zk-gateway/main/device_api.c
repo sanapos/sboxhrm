@@ -680,9 +680,15 @@ static esp_err_t control_fn(zk_conn_t *c, void *ctx)
         return err;
     }
     if (strcmp(ctl->action, "factory_reset") == 0) {
+        /* Khôi phục xuất xưởng MÁY CHẤM CÔNG (không phải ESP):
+         * xóa toàn bộ log + user + vân tay + face + thẻ trên máy.
+         * Máy sẽ tự restart sau lệnh CLEAR_DATA.
+         * Sau đó đọc lại identity, xóa mốc đồng bộ và đẩy lại dữ liệu mới. */
         esp_err_t err = zk_clear_all_data(c);
         if (err == ESP_OK) {
-            strlcpy(ctl->message, "Da khoi phuc cai dat goc may cham cong", sizeof(ctl->message));
+            strlcpy(ctl->message,
+                    "Da khoi phuc cai dat goc may cham cong",
+                    sizeof(ctl->message));
             gateway_clear_device_identity();
             gateway_request_identify();
             app_config_reset_mark();

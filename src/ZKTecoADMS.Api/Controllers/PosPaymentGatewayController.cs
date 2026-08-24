@@ -19,7 +19,9 @@ namespace ZKTecoADMS.Api.Controllers;
 public class PosPaymentGatewayController(
     ZKTecoDbContext db,
     IPosPaymentGatewayService gateway,
-    IPosNotificationCreditService creditService) : AuthenticatedControllerBase
+    IPosNotificationCreditService creditService,
+    IPosPlatformNotificationCreditService platformCreditService,
+    IPosPlatformTingeeSettingService platformTingeeService) : AuthenticatedControllerBase
 {
     private bool TryGetStoreId(out Guid storeId)
     {
@@ -43,7 +45,7 @@ public class PosPaymentGatewayController(
         {
             dto = new PaymentGatewaySettingDto(
                 PosPaymentNotifyProvider.VietQr.ToString(),
-                false, null, false, null, null, false);
+                false, null, false, null, null, false, false);
         }
         return Ok(AppResponse<PaymentGatewaySettingDto>.Success(dto));
     }
@@ -295,12 +297,69 @@ public class PosPaymentGatewayController(
     {
         if (req.CreditCount <= 0)
             return BadRequest(AppResponse<NotificationCreditBalanceDto>.Fail("Số lượng phải > 0"));
-        await creditService.GrantAsync(
-            req.StoreId, req.CreditCount,
+
+        var (ok, err) = await platformCreditService.TryAllocateToStoreAsync(
+            req.StoreId,
+            req.CreditCount,
             PosNotificationCreditLedgerSource.AdminGrant,
-            null, req.Note, CurrentUserEmail, ct);
+            null,
+            req.Note,
+            CurrentUserEmail,
+            ct);
+        if (!ok)
+            return BadRequest(AppResponse<NotificationCreditBalanceDto>.Fail(err ?? "Không cấp được credit"));
+
         var bal = await creditService.GetBalanceAsync(req.StoreId, ct);
         return Ok(AppResponse<NotificationCreditBalanceDto>.Success(bal));
+    }
+
+    public record PlatformTopUpRequest(int CreditCount, decimal CostPerCredit = 200, string? Note = null);
+
+    [HttpGet("admin/platform-credits")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<PlatformCreditBalanceDto>>> AdminPlatformCredits(CancellationToken ct)
+    {
+        var bal = await platformCreditService.GetBalanceAsync(ct);
+        return Ok(AppResponse<PlatformCreditBalanceDto>.Success(bal));
+    }
+
+    [HttpPost("admin/platform-credits/top-up")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<PlatformCreditBalanceDto>>> AdminPlatformTopUp(
+        [FromBody] PlatformTopUpRequest req, CancellationToken ct)
+    {
+        if (req.CreditCount <= 0)
+            return BadRequest(AppResponse<PlatformCreditBalanceDto>.Fail("Số lượng phải > 0"));
+        await platformCreditService.TopUpAsync(
+            req.CreditCount, Math.Max(0, req.CostPerCredit), req.Note, CurrentUserEmail, ct);
+        var bal = await platformCreditService.GetBalanceAsync(ct);
+        return Ok(AppResponse<PlatformCreditBalanceDto>.Success(bal));
+    }
+
+    [HttpGet("admin/platform-credit-ledgers")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<List<PlatformCreditLedgerDto>>>> AdminPlatformLedgers(
+        [FromQuery] int limit = 50, CancellationToken ct = default)
+    {
+        var rows = await platformCreditService.ListLedgersAsync(limit, ct);
+        return Ok(AppResponse<List<PlatformCreditLedgerDto>>.Success(rows));
+    }
+
+    [HttpGet("admin/platform-tingee-settings")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<PlatformTingeeSettingDto>>> AdminGetPlatformTingee(CancellationToken ct)
+    {
+        var dto = await platformTingeeService.GetSettingsAsync(ct);
+        return Ok(AppResponse<PlatformTingeeSettingDto>.Success(dto));
+    }
+
+    [HttpPut("admin/platform-tingee-settings")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<PlatformTingeeSettingDto>>> AdminUpsertPlatformTingee(
+        [FromBody] PlatformTingeeSettingUpsertRequest req, CancellationToken ct)
+    {
+        var dto = await platformTingeeService.UpsertSettingsAsync(req, CurrentUserEmail, ct);
+        return Ok(AppResponse<PlatformTingeeSettingDto>.Success(dto));
     }
 
     [HttpGet("admin/credit-purchases-report")]

@@ -129,6 +129,78 @@ internal static class PosNotificationHelper
         }
     }
 
+    public static async Task NotifyQrOnlineOrderAsync(
+        ISystemNotificationService notifications,
+        ZKTecoDbContext db,
+        Guid storeId,
+        Guid orderId,
+        string orderNo,
+        string customerName,
+        string phone,
+        decimal total,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var userIds = await GetPosQrNotifyUserIdsAsync(db, storeId, cancellationToken);
+            if (userIds.Count == 0) return;
+
+            var title = "Đơn online mới";
+            var message =
+                $"{orderNo} · {customerName} · {phone} · {total:N0}đ — gọi lại khách xác nhận";
+
+            await notifications.CreateAndSendToUsersAsync(
+                userIds,
+                NotificationType.Info,
+                title,
+                message,
+                relatedEntityId: orderId,
+                relatedEntityType: "PosQrOnlineOrder",
+                fromUserId: null,
+                categoryCode: "pos",
+                storeId: storeId);
+        }
+        catch
+        {
+            // Notification failure must not affect QR online submit.
+        }
+    }
+
+    private static async Task<List<Guid>> GetPosQrNotifyUserIdsAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        CancellationToken cancellationToken)
+    {
+        var ids = new HashSet<Guid>(await GetPosManagerUserIdsAsync(db, storeId, cancellationToken));
+
+        var ownerId = await db.Stores.AsNoTracking()
+            .Where(s => s.Id == storeId)
+            .Select(s => s.OwnerId)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (ownerId is Guid oid && oid != Guid.Empty)
+            ids.Add(oid);
+
+        var rolesWithQr = await (
+            from rp in db.RolePermissions.AsNoTracking()
+            join p in db.Permissions.AsNoTracking() on rp.PermissionId equals p.Id
+            where rp.IsActive && rp.CanView
+                && (rp.StoreId == storeId || rp.StoreId == null)
+                && p.Module == "PosQrOrder"
+            select rp.RoleName
+        ).Distinct().ToListAsync(cancellationToken);
+        if (rolesWithQr.Count > 0)
+        {
+            var qrUsers = await db.Users.AsNoTracking()
+                .Where(u => u.IsActive && u.StoreId == storeId && rolesWithQr.Contains(u.Role))
+                .Select(u => u.Id)
+                .ToListAsync(cancellationToken);
+            foreach (var uid in qrUsers)
+                ids.Add(uid);
+        }
+
+        return ids.ToList();
+    }
+
     private static async Task<List<Guid>> GetPosManagerUserIdsAsync(
         ZKTecoDbContext db,
         Guid storeId,

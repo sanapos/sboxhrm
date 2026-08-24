@@ -10,6 +10,7 @@ public sealed class PrintHubClient : IAsyncDisposable
 
     public event Action? PrintJobNew;
     public event Action<string>? ForceStop; // deviceId
+    public event Action? Reconnected;
 
     public bool IsConnected => _hub?.State == HubConnectionState.Connected;
 
@@ -57,6 +58,7 @@ public sealed class PrintHubClient : IAsyncDisposable
             _log("SignalR: reconnected — join lại print group");
             try { await _hub.InvokeAsync("JoinPrintAgentGroup", storeId.ToString(), CancellationToken.None); }
             catch (Exception ex) { _log("Join lại lỗi: " + ex.Message); }
+            Reconnected?.Invoke();
         };
 
         await _hub.StartAsync(ct);

@@ -89,7 +89,7 @@ public static class AiAssistantHelpCorpus
             return false;
 
         var parsedMode = parts[0].ToLowerInvariant();
-        if (parsedMode is not ("basic" or "advanced"))
+        if (parsedMode is not ("basic" or "advanced" or "pos"))
             return false;
 
         var parsedStepId = parts[1];
@@ -311,19 +311,20 @@ public static class AiAssistantHelpCorpus
         new(
             Mode: "basic",
             StepId: "reports",
-            Title: "Các báo cáo",
+            Title: "Cách xem báo cáo HRM",
             Summary:
-            "Toàn bộ báo cáo tại menu Báo cáo: chấm công, phạt, ứng lương, thu chi, nghỉ phép, tài sản.",
+            "Mở nhóm menu Báo cáo, chọn khoảng ngày, lọc phòng ban/NV. Xuất Excel khi gửi kế toán. Phiếu hủy/từ chối không tính vào số liệu.",
             Bullets:
             [
-                "Tổng hợp chấm công · Tổng hợp theo ca",
-                "Tổng hợp lương (menu Tính lương)",
-                "Báo cáo phạt · Ứng lương · Thu chi · Nghỉ phép · Tài sản",
+                "Tổng hợp chấm công · Tổng hợp theo ca · Đi trễ / Về sớm",
+                "Tính lương / Tổng hợp lương · Phiếu lương",
+                "Báo cáo phạt · Ứng lương · Thu chi · Nghỉ phép · Công tác phí · Tài sản",
+                "Bán hàng: tab POS → Báo cáo POS (doanh thu, tồn, cuối ngày…)",
             ],
-            Tip: "Phiếu hủy/từ chối không tính vào báo cáo ứng lương, phạt và nghỉ phép.",
-            Keywords: "báo cáo tổng hợp chấm công tổng hợp lương báo cáo phạt ứng lương thu chi nghỉ phép tài sản dashboard",
+            Tip: "Số liệu lệch: kiểm tra kiểu chấm công + lịch ca + ân hạn trước khi sửa tay.",
+            Keywords: "báo cáo xem báo cáo tổng hợp chấm công tổng hợp lương báo cáo phạt ứng lương thu chi nghỉ phép tài sản dashboard xuất excel",
             ModuleCode: "Dashboard",
-            ActionTags: ["nav_dashboard"]),
+            ActionTags: ["nav_dashboard", "nav_attendance_summary", "nav_leave_report", "nav_cash_report"]),
 
         // --- Advanced ---
         new(
@@ -523,6 +524,283 @@ public static class AiAssistantHelpCorpus
             Keywords: "tài khoản nhân viên đăng nhập phân quyền vai trò cài đặt tài khoản",
             ModuleCode: "Employee",
             ActionTags: ["nav_employees"]),
+
+        new(
+            Mode: "basic",
+            StepId: "daily_ops",
+            Title: "Quy trình hàng ngày & cuối tháng",
+            Summary:
+            "Sáng duyệt phép/đổi ca; trong ngày theo dõi chấm công; cuối tháng duyệt hết phiếu rồi chốt Tổng hợp lương.",
+            Bullets:
+            [
+                "Sáng: Dashboard / chuông thông báo — duyệt phép, đổi ca, chấm mobile",
+                "Trong ngày: Chấm công thô nếu thiếu log; tạo thưởng/phạt/ứng khi phát sinh",
+                "Trước chốt 2–3 ngày: duyệt hết phép, OT, thưởng, phạt, ứng",
+                "Ngày chốt: Tổng hợp theo ca → Tính lương → gửi phiếu lương trên app",
+            ],
+            Tip: "Nên có 1 người duyệt hàng ngày và 1 người chốt kỳ — tránh dồn cuối tháng.",
+            Keywords: "hàng ngày cuối tháng quy trình ngày duyệt đơn vận hành hrm chốt lương",
+            ModuleCode: "Dashboard",
+            ActionTags: ["nav_dashboard", "nav_attendance_summary"]),
+
+        new(
+            Mode: "basic",
+            StepId: "common_hrm",
+            Title: "Tình huống HRM thường gặp",
+            Summary:
+            "Đi trễ phạt oan → tăng ân hạn ca. Thiếu chấm → sai kiểu chấm công. Quên chấm → phiếu sửa giờ. Máy Offline → mạng + serial.",
+            Bullets:
+            [
+                "Phạt dù vào sớm vài phút: ân hạn trên Thiết lập ca",
+                "Chỉ chấm 1 lần/ngày: chọn Chấm vào (đủ ca) trong Thiết lập lương",
+                "Quên chấm: Sửa giờ / Báo quên — quản lý duyệt, không xóa log máy",
+                "Máy ZK Offline: mạng máy + SN tại Cài đặt → Máy chấm công; hotline 0973 024 042",
+                "Quên mật khẩu: màn đăng nhập → Quên mật khẩu (email đã đăng ký)",
+            ],
+            Tip: "Sửa gốc (ca, mode, ân hạn) trước khi xóa hàng loạt phiếu phạt.",
+            Keywords: "đi trễ quên chấm thiếu chấm quên mật khẩu máy offline tình huống phạt oan",
+            ModuleCode: "Attendance",
+            ActionTags: ["nav_attendance", "nav_attendance_correction"]),
+
+        new(
+            Mode: "advanced",
+            StepId: "attendance_modes",
+            Title: "Kiểu chấm công",
+            Summary:
+            "Chấm vào & ra cần đủ cặp. Chỉ chấm vào (đủ ca): 1 lần = đủ ca, tính đi trễ, không phạt quên chấm ra. Đổi mode xong mở lại Tổng hợp theo ca.",
+            Bullets:
+            [
+                "Cấu hình tại Thiết lập lương → ô Chấm công",
+                "Quán chỉ chấm 1 lần trên máy: chọn Chấm vào (đủ ca)",
+                "Chấm 2 lần bất kỳ trong ngày: ≥2 log = 1 công, không tính trễ/sớm theo ca",
+            ],
+            Tip: "Sai mode là nguyên nhân hay gặp của «Thiếu chấm» và phạt quên chấm oan.",
+            Keywords: "kiểu chấm công checkin chỉ chấm vào thiếu chấm mode đủ ca",
+            ModuleCode: "Attendance",
+            ActionTags: ["nav_attendance_summary"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_devices",
+            Title: "Máy thu ngân A6 / A7",
+            Summary:
+            "A6 Sunmi T1 chạy app POS. A7/web/iOS bán hàng trong app HRM → menu Bán hàng. Cùng mã cửa hàng và quyền PosSell.",
+            Bullets:
+            [
+                "A6: app POS (sbox.sana.vn.pos.flutter) — in USB + màn phụ khách",
+                "A7: app HRM (sbox.sana.vn) → Bán hàng",
+                "Rút USB/ADB trước khi kiểm tra màn hình phụ khách trên A6",
+            ],
+            Tip: "Mẫu in theo từng cửa hàng — A6 và A7 cùng store dùng chung catalog.",
+            Keywords: "a6 a7 sunmi flutter_pos hrm pos thiết bị thu ngân c20lite",
+            ModuleCode: "PosSell",
+            ActionTags: ["nav_pos_sell"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_setup",
+            Title: "Thiết lập POS lần đầu",
+            Summary:
+            "Thứ tự: ngành hàng → thiết lập cửa hàng → hàng hóa → bàn (F&B) → máy in → bán thử.",
+            Bullets:
+            [
+                "Cài đặt → Ngành hàng & bán hàng, Thiết lập cửa hàng (VAT, VietQR)",
+                "Menu Hàng hóa: danh mục + món/SP",
+                "F&B: Quản lý bàn / phòng trước khi mở order",
+                "Phân quyền thu ngân / quản kho rồi tạo 1 đơn test",
+            ],
+            Tip: "Sai ngành hàng thì không thấy sơ đồ bàn / gửi bếp.",
+            Keywords: "pos bán hàng thiết lập pos ngành hàng cửa hàng",
+            ModuleCode: "PosSell",
+            ActionTags: ["nav_pos_sell", "nav_pos_products"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_products",
+            Title: "Hàng hóa, giá & combo",
+            Summary:
+            "Menu Hàng hóa: mã, tên, giá, đơn vị, nhóm. Tắt bán thay vì xóa để giữ lịch sử hóa đơn.",
+            Bullets:
+            [
+                "Thêm sản phẩm / món, gắn ảnh để chọn nhanh",
+                "Combo trừ kho: khai báo thành phần nguyên liệu",
+                "Đơn đang mở giữ giá lúc thêm món",
+            ],
+            Tip: "Mã hàng ngắn, không dấu — dễ gõ và in tem.",
+            Keywords: "hàng hóa sản phẩm giá bán danh mục món combo",
+            ModuleCode: "PosProducts",
+            ActionTags: ["nav_pos_products"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_tables",
+            Title: "Bàn / phòng & đặt lịch",
+            Summary:
+            "Nhà hàng: Cài đặt bàn/phòng rồi bán theo sơ đồ. Salon: menu Đặt lịch. Retail bỏ qua.",
+            Bullets:
+            [
+                "Tạo khu vực rồi thêm bàn; chọn bàn trống → order → thanh toán",
+                "Ghép / tách / chuyển bàn theo quyền",
+                "Đặt lịch: ngày–giờ–dịch vụ–khách",
+            ],
+            Tip: "Bàn đang dùng phải thanh toán hoặc trả bàn trước khi gán khách mới.",
+            Keywords: "bàn phòng sơ đồ bàn đặt bàn đặt lịch f&b",
+            ModuleCode: "PosSell",
+            ActionTags: ["nav_pos_sell"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_printers",
+            Title: "Máy in & mẫu in",
+            Summary:
+            "Cài đặt → Máy in và Mẫu in. Hóa đơn K80, tem nhỏ, phiếu bếp riêng. Mặc định theo cửa hàng.",
+            Bullets:
+            [
+                "A6: USB/TSPL qua Print Agent; A7: Bluetooth/LAN/cloud",
+                "Đặt mẫu mặc định đúng loại (hóa đơn / bếp / tem)",
+                "In thử từ Mẫu in hoặc đơn test",
+            ],
+            Tip: "A6 và A7 cùng store phải cùng mẫu mặc định — chọn lại ở Mẫu in, không copy tay.",
+            Keywords: "máy in mẫu in k80 k58 print agent usb bluetooth",
+            ModuleCode: "PosPrinters",
+            ActionTags: ["nav_pos_printers"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_kitchen",
+            Title: "Gửi bếp & phiếu chế biến",
+            Summary:
+            "F&B: thêm món → Gửi bếp. Phiếu bếp in giờ gọi ở đầu phiếu. Máy in bếp có thể khác máy hóa đơn.",
+            Bullets:
+            [
+                "Gửi phần món mới sau khi gọi thêm",
+                "Gán mẫu phiếu bếp / tem ly là mặc định",
+                "Không gửi được: kiểm tra ngành F&B + máy + mẫu bếp",
+            ],
+            Tip: "In hóa đơn lúc thanh toán; in bếp lúc gọi món.",
+            Keywords: "bếp gửi bếp phiếu bếp tem ly kds",
+            ModuleCode: "PosSell",
+            ActionTags: ["nav_pos_sell", "nav_pos_printers"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_sales",
+            Title: "Quy trình bán hàng",
+            Summary:
+            "Bán hàng → chọn SP/bàn → SL/giảm giá → thanh toán (tiền mặt/QR/ck) → in HĐ. Cần quyền duyệt PosSell để hoàn tất.",
+            Bullets:
+            [
+                "A7/HRM: menu Bán hàng; A6: app POS",
+                "Chiết khấu / đổi giá cần quyền duyệt",
+                "Đơn hàng: in lại, hủy; Trả hàng bán gắn đơn gốc",
+            ],
+            Tip: "Waiter chỉ order thì không thanh toán được — cần quyền Approve PosSell.",
+            Keywords: "bán hàng thu ngân thanh toán hóa đơn order pos",
+            ModuleCode: "PosSell",
+            ActionTags: ["nav_pos_sell"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_customers",
+            Title: "Khách hàng POS",
+            Summary:
+            "Menu Khách hàng POS. Chọn khách trên đơn để tích điểm hoặc ghi công nợ.",
+            Bullets:
+            [
+                "Thêm khách bằng SĐT",
+                "Thu nợ sau tại khách hoặc Báo cáo công nợ",
+            ],
+            Tip: "Không gắn khách thì đơn vẫn bán được nhưng không tích điểm.",
+            Keywords: "khách hàng điểm công nợ khách crm pos",
+            ModuleCode: "PosSell",
+            ActionTags: ["nav_pos_sell"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_inventory",
+            Title: "Kho nhập xuất",
+            Summary:
+            "Nhập hàng NCC hoàn thành thì tăng tồn. Bán (trừ kho), xuất hủy, xuất nội bộ thì giảm tồn.",
+            Bullets:
+            [
+                "Nhập hàng NCC → duyệt/hoàn thành",
+                "Kiểm kho: đếm → cân bằng lệch",
+                "Báo cáo POS → Tồn kho / Hàng sắp hết hạn",
+            ],
+            Tip: "Nhập hàng trước khi bán món trừ nguyên liệu — tránh tồn âm.",
+            Keywords: "kho nhập hàng tồn kho kiểm kho ncc xuất hủy",
+            ModuleCode: "PosProducts",
+            ActionTags: ["nav_pos_products", "nav_pos_reports"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_einvoice",
+            Title: "Hóa đơn điện tử",
+            Summary:
+            "Cài đặt → Hóa đơn điện tử (Viettel / Easy Invoice / MISA). Xuất sau khi đơn hoàn tất.",
+            Bullets:
+            [
+                "MST/địa chỉ trên Thiết lập cửa hàng khớp hồ sơ thuế",
+                "Nút Xuất HĐĐT trên đơn đã thanh toán",
+                "Lỗi thường: MST, hết serial, token hết hạn",
+            ],
+            Tip: "Hủy đơn đã xuất HĐĐT phải điều chỉnh theo nhà cung cấp hóa đơn.",
+            Keywords: "hóa đơn điện tử viettel misa einvoice",
+            ModuleCode: "PosSell",
+            ActionTags: ["nav_pos_sell"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_reports",
+            Title: "Cách xem báo cáo POS",
+            Summary:
+            "Menu Báo cáo → Báo cáo POS: chọn khoảng ngày rồi mở từng loại (doanh thu, hàng bán, tồn, PTTT, công nợ, lợi nhuận, cuối ngày…).",
+            Bullets:
+            [
+                "Doanh thu · Hàng hóa bán ra · Doanh thu theo thu ngân",
+                "Tồn kho · Nhập hàng · Hàng sắp hết hạn",
+                "PTTT · Công nợ · Sổ quỹ · Lợi nhuận · P&L · Voucher",
+                "Báo cáo hủy/trả (menu riêng) · Thuế hộ kinh doanh",
+            ],
+            Tip: "Không thấy một thẻ: thiếu quyền PosReport… trong Phân quyền / gói dịch vụ.",
+            Keywords: "báo cáo pos doanh thu tồn kho lợi nhuận 14 báo cáo cuối ngày",
+            ModuleCode: "PosSalesReport",
+            ActionTags: ["nav_pos_reports"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_eod",
+            Title: "Tổng kết cuối ngày",
+            Summary:
+            "Báo cáo POS → Tổng kết cuối ngày: đối chiếu tiền mặt, QR, công nợ trong ca trước khi giao ca.",
+            Bullets:
+            [
+                "Đóng bàn / đơn đang mở trước",
+                "Chọn khoảng ca → đối soát ngăn kéo với cột tiền mặt",
+                "Xem hủy/trả và PTTT nếu lệch tiền",
+            ],
+            Tip: "Đừng bù tay vào quỹ trước khi rà Đơn hàng trong ca.",
+            Keywords: "cuối ngày chốt ca tổng kết end of day tiền mặt",
+            ModuleCode: "PosSalesReport",
+            ActionTags: ["nav_pos_reports"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_common",
+            Title: "Tình huống POS thường gặp",
+            Summary:
+            "Không in: máy + mẫu mặc định store. A6 khác A7: chọn lại mặc định Mẫu in. Không thanh toán: thiếu Approve PosSell.",
+            Bullets:
+            [
+                "HĐ in được / bếp không: gán máy + mẫu phiếu bếp riêng",
+                "Màn phụ A6 trắng: rút USB debug rồi mở lại POS",
+                "Bàn không hiện: chưa chọn ngành F&B hoặc chưa tạo khu/bàn",
+                "Tồn âm: bán trước khi nhập kho",
+            ],
+            Tip: "Hotline 0973 024 042 khi Agent USB không nhận job in.",
+            Keywords: "không in in sai lệch tiền hủy đơn trả hàng tình huống pos",
+            ModuleCode: "PosSell",
+            ActionTags: ["nav_pos_sell", "nav_pos_printers", "nav_pos_reports"]),
     ];
 
     private static List<string> SplitTerms(string query)

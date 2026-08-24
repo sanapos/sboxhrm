@@ -94,6 +94,13 @@ public class AudienceResolver : IAudienceResolver
             if (storeIdSet.Count == 0) return q.Where(_ => false);
             q = q.Where(u => u.StoreId.HasValue && storeIdSet.Contains(u.StoreId!.Value));
         }
+        else if (!spec.AllUsers)
+        {
+            // Không AllUsers và không lọc store ⇒ không gửi (tránh nhầm toàn hệ thống).
+            var hasOther = (spec.Roles is { Count: > 0 }) || spec.LastLoginBefore.HasValue;
+            if (!hasOther)
+                return q.Where(_ => false);
+        }
 
         if (spec.Roles is { Count: > 0 })
         {

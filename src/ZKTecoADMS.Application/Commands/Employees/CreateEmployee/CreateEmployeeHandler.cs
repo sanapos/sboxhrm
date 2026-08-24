@@ -42,8 +42,7 @@ public class CreateEmployeeHandler(
             cancellationToken: cancellationToken);
         if (dupCode != null)
         {
-            return AppResponse<Guid>.Error(
-                $"Mã nhân viên \"{request.EmployeeCode}\" đã tồn tại trong cửa hàng.");
+            return AppResponse<Guid>.Error(BuildDuplicateCodeMessage(dupCode));
         }
 
         var dupEmail = await employeeRepository.GetSingleAsync(
@@ -52,7 +51,9 @@ public class CreateEmployeeHandler(
         if (dupEmail != null)
         {
             return AppResponse<Guid>.Error(
-                $"Email công ty \"{request.CompanyEmail}\" đã được dùng cho nhân viên {dupEmail.EmployeeCode}.");
+                $"Email công ty \"{request.CompanyEmail}\" đã được dùng cho nhân viên "
+                + $"{dupEmail.EmployeeCode} ({FormatEmployeeName(dupEmail)}, {FormatWorkStatus(dupEmail.WorkStatus)}). "
+                + DuplicateVisibilityHint(dupEmail.WorkStatus));
         }
 
         var employee = request.Adapt<Employee>();
@@ -115,6 +116,30 @@ public class CreateEmployeeHandler(
 
         return AppResponse<Guid>.Success(employee.Id);
     }
+
+    static string BuildDuplicateCodeMessage(Employee existing) =>
+        $"Mã nhân viên \"{existing.EmployeeCode}\" đã tồn tại — "
+        + $"{FormatEmployeeName(existing)} ({FormatWorkStatus(existing.WorkStatus)}). "
+        + DuplicateVisibilityHint(existing.WorkStatus);
+
+    static string FormatEmployeeName(Employee employee) =>
+        $"{employee.LastName} {employee.FirstName}".Trim();
+
+    static string FormatWorkStatus(EmployeeWorkStatus status) => status switch
+    {
+        EmployeeWorkStatus.Resigned => "Đã nghỉ việc",
+        EmployeeWorkStatus.OnLeave => "Nghỉ phép",
+        EmployeeWorkStatus.Probation => "Đang thử việc",
+        _ => "Đang làm việc",
+    };
+
+    /// <summary>
+    /// Hồ sơ có thể bị ẩn do bộ lọc trạng thái/chi nhánh trên app dù vẫn tồn tại trong DB.
+    /// </summary>
+    static string DuplicateVisibilityHint(EmployeeWorkStatus status) =>
+        status == EmployeeWorkStatus.Resigned
+            ? "Hồ sơ đang ở trạng thái Đã nghỉ việc — mở Hồ sơ nhân sự, chọn bộ lọc \"Tất cả\" rồi cập nhật thay vì tạo mới."
+            : "Hồ sơ có thể đang bị ẩn do bộ lọc trạng thái hoặc chi nhánh — thử chọn \"Tất cả\" trước khi tạo lại.";
 
     static void NormalizeEmployeeName(Employee employee)
     {

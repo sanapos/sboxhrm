@@ -85,6 +85,16 @@ class MobileBottomNavLayout {
       seen.add(id);
       out.add(id);
     }
+    // POS hub: luôn giữ «Nhiều hơn» nếu bị thay khi tùy chỉnh.
+    const moreId = '_posMore';
+    if (allowedIds.contains(moreId) && !seen.contains(moreId)) {
+      if (out.length >= slotCount) {
+        out[slotCount - 1] = moreId;
+      } else {
+        out.add(moreId);
+      }
+      seen.add(moreId);
+    }
     for (final id in allowedIds) {
       if (out.length >= slotCount) break;
       if (seen.contains(id)) continue;

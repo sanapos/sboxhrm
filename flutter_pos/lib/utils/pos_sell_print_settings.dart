@@ -149,10 +149,10 @@ class PosSellPrintSettings {
   bool get showWarehouseManualButton =>
       warehousePrintMode == PosWarehousePrintMode.manual;
 
-  /// In tem khi TT: chỉ theo chế độ tem ly (không phụ thuộc cờ cũ lệch).
-  bool get shouldPrintCupOnPay =>
-      cupLabelPrintMode.autoOnCheckout ||
-      (printCupOnCheckout && cupLabelPrintMode == PosCupLabelPrintMode.off);
+  /// In tem khi TT: chỉ chế độ «Tự in khi TT». Không dùng cờ cũ
+  /// `printCupOnCheckout` khi tem ly đang tắt — cờ đó đẩy tem EscPos
+  /// qua Agent lên máy bếp (phiếu «Ban: …» khác mẫu chế biến).
+  bool get shouldPrintCupOnPay => cupLabelPrintMode.autoOnCheckout;
 
   bool get showCupLabelManualButton => cupLabelPrintMode.showManualButton;
 

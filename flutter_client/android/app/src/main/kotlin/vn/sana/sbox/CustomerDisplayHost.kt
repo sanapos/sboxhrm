@@ -1,5 +1,6 @@
 package vn.sana.sbox
 
+import android.app.Activity
 import android.app.ActivityOptions
 import android.app.Presentation
 import android.content.Context
@@ -11,7 +12,8 @@ import android.os.Bundle
 import android.view.Display
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import io.flutter.embedding.android.FlutterActivity
+import androidx.activity.enableEdgeToEdge
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.android.FlutterView
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
@@ -21,12 +23,13 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
 import java.lang.ref.WeakReference
 
-class CustomerDisplayActivity : FlutterActivity() {
+class CustomerDisplayActivity : FlutterFragmentActivity() {
     override fun getCachedEngineId(): String = ENGINE_ID
 
     override fun shouldDestroyEngineWithHost(): Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         CustomerDisplayController.registerHost(this)
     }
@@ -201,7 +204,7 @@ object CustomerDisplayController {
             ?: list.first()
     }
 
-    fun show(activity: FlutterActivity, preferredDisplayId: Int? = null): Boolean {
+    fun show(activity: Activity, preferredDisplayId: Int? = null): Boolean {
         val secondary = secondaryDisplays(activity)
         val target = when {
             preferredDisplayId != null ->
@@ -227,7 +230,7 @@ object CustomerDisplayController {
         return startActivityOnDisplay(activity, target)
     }
 
-    private fun startActivityOnDisplay(activity: FlutterActivity, target: Display): Boolean {
+    private fun startActivityOnDisplay(activity: Activity, target: Display): Boolean {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
         return try {
             CustomerDisplayActivity.ensureEngine(activity)

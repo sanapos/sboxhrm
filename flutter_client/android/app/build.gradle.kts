@@ -8,7 +8,8 @@ plugins {
 android {
     namespace = "vn.sana.sbox"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Play 16 KB RELRO: NDK r28+ (Flutter 3.44 default is already 28.2.13676358).
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
@@ -57,4 +58,21 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    implementation("androidx.activity:activity-ktx:1.10.1")
+    // shared_preferences_android 2.4.20 pulls datastore 1.2.0 whose
+    // libdatastore_shared_counter.so fails Play 16 KB RELRO. 1.2.1 rebuilt it.
+    implementation("androidx.datastore:datastore:1.2.1")
+    implementation("androidx.datastore:datastore-preferences:1.2.1")
+}
+
+configurations.configureEach {
+    resolutionStrategy {
+        force("androidx.datastore:datastore:1.2.1")
+        force("androidx.datastore:datastore-android:1.2.1")
+        force("androidx.datastore:datastore-core:1.2.1")
+        force("androidx.datastore:datastore-core-android:1.2.1")
+        force("androidx.datastore:datastore-preferences:1.2.1")
+        force("androidx.datastore:datastore-preferences-android:1.2.1")
+        force("androidx.datastore:datastore-preferences-core:1.2.1")
+    }
 }

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hướng dẫn sử dụng SBOX HRM &amp; POS – chấm công, lương, bán hàng</title>
+  <meta name="description" content="Hướng dẫn chi tiết SBOX HRM và POS: triển khai chấm công ZKTeco, xem báo cáo, thiết lập ca–lương, bán hàng A6/A7, máy in, bếp và tổng kết cuối ngày." />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+  <link rel="canonical" href="https://sboxhrm.com/guide.html" />
+  <link rel="alternate" hreflang="vi" href="https://sboxhrm.com/guide.html" />
+  <link rel="alternate" hreflang="x-default" href="https://sboxhrm.com/guide.html" />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://sboxhrm.com/guide.html" />
+  <meta property="og:title" content="Hướng dẫn sử dụng SBOX HRM &amp; POS" />
+  <meta property="og:description" content="Quy trình triển khai, cách xem báo cáo và thiết lập các tình huống phổ biến cho HRM và bán hàng." />
+  <meta property="og:image" content="https://sboxhrm.com/images/landing/screenshot-01.jpg" />
+  <meta property="og:locale" content="vi_VN" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "headline": "Hướng dẫn sử dụng SBOX HRM và POS",
+    "description": "Quy trình triển khai chấm công, lương, báo cáo HRM và bán hàng POS trên SBOX.",
+    "inLanguage": "vi",
+    "dateModified": "2026-08-20",
+    "publisher": { "@type": "Organization", "name": "SBOX HRM", "url": "https://sboxhrm.com/" },
+    "mainEntityOfPage": "https://sboxhrm.com/guide.html"
+  }
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f5f7fa; color: #1e293b; }
+    header { background: #0C56D0; color: #fff; padding: 28px 24px 32px; }
+    header a.back { color: #bbdefb; font-size: 14px; text-decoration: none; }
+    header h1 { font-size: 26px; font-weight: 700; margin-top: 10px; }
+    header p { margin-top: 8px; opacity: 0.9; font-size: 15px; max-width: 720px; line-height: 1.5; }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 28px 20px 72px; }
+    .toc { background: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+    .toc h2 { font-size: 16px; color: #0C56D0; margin-bottom: 10px; }
+    .toc a { display: block; color: #1565C0; text-decoration: none; padding: 4px 0; font-size: 14px; }
+    .toc a:hover { text-decoration: underline; }
+    article { background: #fff; border-radius: 12px; padding: 28px 28px 32px; margin-bottom: 20px; box-shadow: 0 2px 12px rgba(0,0,0,.06); }
+    article h2 { font-size: 20px; color: #0C56D0; margin-bottom: 8px; border-left: 4px solid #0C56D0; padding-left: 12px; }
+    article h3 { font-size: 16px; margin: 18px 0 8px; color: #0f172a; }
+    article p, article li { font-size: 15px; line-height: 1.7; }
+    article p { margin-bottom: 10px; }
+    article ol, article ul { margin: 8px 0 12px 22px; }
+    .tip { background: #E3F2FD; color: #0d47a1; border-radius: 8px; padding: 10px 14px; font-size: 14px; margin-top: 8px; }
+    footer { text-align: center; padding: 24px; color: #64748b; font-size: 13px; }
+    footer a { color: #1565C0; }
+  </style>
+</head>
+<body>
+<header>
+  <a class="back" href="/">← Trang chủ SBOX HRM</a>
+  <h1>Hướng dẫn sử dụng HRM &amp; POS</h1>
+  <p>Quy trình từng bước, cách xem báo cáo và thiết lập các tình huống phổ biến. Cập nhật 20/08/2026. Hotline: 0973 024 042.</p>
+</header>
+<div class="wrap">
+  <nav class="toc" aria-label="Mục lục">
+    <h2>Mục lục</h2>
+    <a href="#hrm-start">1. Triển khai HRM (tuần đầu)</a>
+    <a href="#hrm-reports">2. Cách xem báo cáo HRM</a>
+    <a href="#hrm-daily">3. Quy trình hàng ngày &amp; cuối tháng</a>
+    <a href="#hrm-cases">4. Tình huống HRM thường gặp</a>
+    <a href="#pos-start">5. POS: máy A6 / A7 &amp; thiết lập</a>
+    <a href="#pos-sell">6. Bán hàng, in, bếp, kho</a>
+    <a href="#pos-reports">7. Báo cáo POS &amp; tổng kết cuối ngày</a>
+    <a href="#pos-cases">8. Tình huống POS thường gặp</a>
+  </nav>
+
+  <article id="hrm-start">
+    <h2>1. Triển khai HRM (tuần đầu)</h2>
+    <p>Làm theo thứ tự: đăng ký cửa hàng → cơ cấu → nhân viên → ca → lương → lịch → máy chấm công → tài khoản → chốt lương tháng đầu.</p>
+    <ol>
+      <li>Vào <strong>sboxhrm.com → Đăng ký</strong>. Mã cửa hàng: chữ thường a–z và số, không dấu, tối đa 20 ký tự. Đăng nhập bằng mã cửa hàng + tài khoản admin.</li>
+      <li><strong>Cài đặt → Phòng ban / Chức vụ</strong> (và chi nhánh nếu có nhiều điểm bán).</li>
+      <li><strong>Hồ sơ nhân sự</strong>: thêm từng người hoặc Import Excel. Mã nhân viên (PIN) phải trùng mã trên máy ZKTeco.</li>
+      <li><strong>Cài đặt → Thiết lập ca</strong>: giờ vào/ra, ân hạn đi trễ/về sớm, ca qua đêm nếu cần.</li>
+      <li><strong>Thiết lập lương</strong>: mức lương, phụ cấp, <em>kiểu chấm công</em> (vào–ra hoặc chỉ chấm vào đủ ca).</li>
+      <li><strong>Lịch làm việc</strong>: phân ca theo tuần/tháng.</li>
+      <li><strong>Cài đặt → Máy chấm công</strong>: máy trỏ ADMS host <code>103.133.224.176</code> port <code>7070</code>; thêm serial trên SBOX; đồng bộ NV và đăng ký vân tay/face.</li>
+      <li>Hoặc bật <strong>Chấm công mobile</strong> (GPS/WiFi). Tạo tài khoản app và phân quyền.</li>
+    </ol>
+    <p class="tip">Tuần đầu ưu tiên nhân sự → ca → chấm công → lương. POS và KPI làm sau khi chấm đã ổn.</p>
+  </article>
+
+  <article id="hrm-reports">
+    <h2>2. Cách xem báo cáo HRM</h2>
+    <p>Trên web: nhóm menu <strong>Báo cáo</strong> (cột trái). Trên app: tìm tên báo cáo. Chọn khoảng ngày → lọc phòng ban/nhân viên → xem bảng → <strong>Xuất Excel</strong>.</p>
+    <ul>
+      <li><strong>Tổng hợp chấm công</strong> — công theo nhân viên.</li>
+      <li><strong>Tổng hợp chấm công theo ca</strong> — công, đi trễ, về sớm, thiếu chấm.</li>
+      <li><strong>Đi trễ / Về sớm</strong> — danh sách vi phạm giờ.</li>
+      <li><strong>Tính lương / Tổng hợp lương</strong> và <strong>Phiếu lương</strong>.</li>
+      <li><strong>Báo cáo phạt · Ứng lương · Thu chi · Nghỉ phép · Công tác phí · Tài sản</strong>.</li>
+    </ul>
+    <p class="tip">Phiếu hủy hoặc từ chối không tính vào số liệu. Báo cáo bán hàng nằm ở mục POS bên dưới.</p>
+  </article>
+
+  <article id="hrm-daily">
+    <h2>3. Quy trình hàng ngày &amp; cuối tháng</h2>
+    <ol>
+      <li>Sáng: Dashboard / chuông thông báo — duyệt phép, đổi ca, chấm mobile.</li>
+      <li>Trong ngày: <strong>Chấm công thô</strong> nếu thiếu log; tạo thưởng / phạt / ứng khi phát sinh.</li>
+      <li>Trước chốt 2–3 ngày: duyệt hết phép, tăng ca, thưởng, phạt, ứng trong kỳ.</li>
+      <li>Ngày chốt: Tổng hợp theo ca → Tính lương → gửi phiếu lương trên app cho nhân viên kiểm tra.</li>
+    </ol>
+  </article>
+
+  <article id="hrm-cases">
+    <h2>4. Tình huống HRM thường gặp</h2>
+    <ul>
+      <li><strong>Phạt dù vào sớm vài phút</strong> — tăng phút ân hạn trên Thiết lập ca.</li>
+      <li><strong>Thiếu chấm / không tính công</strong> — cửa hàng chỉ chấm 1 lần/ngày: chọn «Chấm vào (đủ ca)» trong Thiết lập lương.</li>
+      <li><strong>Quên chấm</strong> — phiếu Sửa giờ / Báo quên; quản lý duyệt, không xóa log máy.</li>
+      <li><strong>Máy ZK Offline</strong> — mạng máy + serial trên SBOX; hotline 0973 024 042.</li>
+      <li><strong>Quên mật khẩu</strong> — màn đăng nhập → Quên mật khẩu (email đã đăng ký).</li>
+    </ul>
+  </article>
+
+  <article id="pos-start">
+    <h2>5. POS: máy A6 / A7 &amp; thiết lập</h2>
+    <p><strong>A6 Sunmi T1</strong> chạy app POS. <strong>A7 / web / iOS</strong> bán hàng trong app HRM → menu <strong>Bán hàng</strong>. Cùng mã cửa hàng và quyền PosSell.</p>
+    <ol>
+      <li>Cài đặt → <strong>Ngành hàng &amp; bán hàng</strong> (retail / nhà hàng / salon…).</li>
+      <li>Cài đặt → <strong>Thiết lập cửa hàng</strong>: tên, địa chỉ, VAT, VietQR.</li>
+      <li>Menu <strong>Hàng hóa</strong>: danh mục, món/SP, giá.</li>
+      <li>F&amp;B: <strong>Quản lý bàn / phòng</strong>.</li>
+      <li>Cài đặt → <strong>Máy in</strong> và <strong>Mẫu in</strong> (hóa đơn K80, phiếu bếp, tem) — mặc định theo cửa hàng.</li>
+      <li>Bán thử 1 đơn, in thử.</li>
+    </ol>
+    <p class="tip">Sau khi cài POS trên A6, rút USB/ADB trước khi kiểm tra màn hình phụ khách.</p>
+  </article>
+
+  <article id="pos-sell">
+    <h2>6. Bán hàng, in, bếp, kho</h2>
+    <h3>Bán hàng</h3>
+    <ol>
+      <li>Mở Bán hàng (HRM) hoặc app POS (A6).</li>
+      <li>Retail: chọn/quét SP. F&amp;B: chọn bàn rồi chọn món.</li>
+      <li>Thanh toán tiền mặt / chuyển khoản / QR. Cần quyền duyệt PosSell để hoàn tất hóa đơn.</li>
+      <li>In hóa đơn. Xuất hóa đơn điện tử nếu khách cần (Cài đặt → Hóa đơn điện tử).</li>
+    </ol>
+    <h3>Bếp</h3>
+    <p>Thêm món → <strong>Gửi bếp</strong>. Gán máy + mẫu phiếu bếp riêng với máy hóa đơn.</p>
+    <h3>Kho</h3>
+    <p>Nhập hàng NCC (hoàn thành mới tăng tồn) → Kiểm kho → Xuất hủy / xuất nội bộ. Nhập trước khi bán món trừ nguyên liệu.</p>
+  </article>
+
+  <article id="pos-reports">
+    <h2>7. Báo cáo POS &amp; tổng kết cuối ngày</h2>
+    <p>Menu <strong>Báo cáo → Báo cáo POS</strong> (A7: Tổng quan POS hoặc Nhiều hơn). Chọn từ ngày–đến ngày rồi mở từng loại:</p>
+    <ul>
+      <li>Doanh thu · Hàng hóa bán ra · Doanh thu theo thu ngân</li>
+      <li>Tồn kho · Nhập hàng · Hàng sắp hết hạn</li>
+      <li>Phương thức thanh toán · Công nợ · Sổ quỹ</li>
+      <li>Lợi nhuận · Chi phí · Kết quả kinh doanh (P&amp;L) · Voucher</li>
+      <li>Báo cáo hủy/trả · Thuế hộ kinh doanh (nếu kê khai)</li>
+    </ul>
+    <h3>Tổng kết cuối ngày</h3>
+    <ol>
+      <li>Đóng bàn / đơn đang mở.</li>
+      <li>Mở <strong>Tổng kết cuối ngày</strong>, chọn khoảng ca.</li>
+      <li>Đối chiếu tiền mặt ngăn kéo với cột tiền mặt; QR với sao kê.</li>
+      <li>Nếu lệch: xem Đơn hàng trong ca + hủy/trả + PTTT trước khi bù tay vào quỹ.</li>
+    </ol>
+  </article>
+
+  <article id="pos-cases">
+    <h2>8. Tình huống POS thường gặp</h2>
+    <ul>
+      <li><strong>Không in hóa đơn</strong> — máy Online? Mẫu hóa đơn đã đặt mặc định cửa hàng?</li>
+      <li><strong>In HĐ nhưng không in bếp</strong> — gán máy + mẫu phiếu bếp riêng; gửi bếp trước khi thanh toán.</li>
+      <li><strong>A6 in khác A7</strong> — cùng cửa hàng: vào Mẫu in chọn lại mặc định store.</li>
+      <li><strong>Màn phụ A6 trắng</strong> — rút cáp USB debug rồi mở lại POS.</li>
+      <li><strong>Không thanh toán được</strong> — thiếu quyền duyệt PosSell.</li>
+      <li><strong>Bàn không hiện</strong> — ngành hàng chưa phải F&amp;B hoặc chưa tạo khu/bàn.</li>
+    </ul>
+    <p class="tip">Giao diện hướng dẫn đầy đủ (tìm kiếm, từng bước, ảnh): <a href="/guide">sboxhrm.com/guide</a> — tab Triển khai, Nâng cao và POS.</p>
+  </article>
+</div>
+<footer>
+  <a href="/">Trang chủ</a> · <a href="/privacy-policy.html">Quyền riêng tư</a> · <a href="/register">Đăng ký</a><br />
+  © 2026 SBOX HRM · support@sboxhrm.com
+</footer>
+</body>
+</html>

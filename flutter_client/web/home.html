@@ -199,7 +199,7 @@
     }
     .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
     .nav-logo img { width: 36px; height: 36px; object-fit: contain; border-radius: 8px; }
-    .nav-logo span { font-weight: 700; font-size: 18px; color: #1565C0; }
+    .nav-logo span { font-weight: 700; font-size: 15px; color: #1565C0; }
     .nav-links { display: flex; gap: 28px; list-style: none; }
     .nav-links a { text-decoration: none; color: #1a1a2e; font-size: 14px; font-weight: 600; transition: color .2s; }
     .nav-links a:hover { color: #1565C0; }
@@ -454,7 +454,10 @@
       filter: drop-shadow(0 4px 14px rgba(0,0,0,0.28));
     }
     .hero-brand-text {
-      color: #fff; font-size: 21px; font-weight: 800; letter-spacing: 0.2px;
+      color: #fff; font-size: 18px; font-weight: 800; letter-spacing: 0.2px;
+    }
+    .hero-brand-slogan {
+      color: rgba(255,255,255,0.78); font-size: 13px; font-weight: 500; margin-top: 2px;
     }
     .hero-badge {
       display: inline-flex; align-items: center; gap: 6px;
@@ -1093,8 +1096,8 @@
 <nav aria-label="Điều hướng chính">
   <div class="nav-inner">
   <a class="nav-logo" href="/">
-    <img src="images/landing/sbox-logo.png" alt="SBOX HRM" width="36" height="36">
-    <span>SBOX HRM</span>
+    <img src="images/landing/sbox-logo.png" alt="SBOX HRM - SBOX POS" width="36" height="36">
+    <span>SBOX HRM - SBOX POS</span>
   </a>
   <ul class="nav-links">
     <li><a href="#features">Tính năng</a></li>
@@ -1135,8 +1138,11 @@
   <div class="hero-inner">
     <div class="hero-copy">
       <div class="hero-brand">
-        <img src="images/landing/sbox-logo.png" alt="SBOX HRM logo" width="56" height="56">
-        <div class="hero-brand-text">SBOX HRM</div>
+        <img src="images/landing/sbox-logo.png" alt="SBOX HRM - SBOX POS logo" width="56" height="56">
+        <div>
+          <div class="hero-brand-text">SBOX HRM - SBOX POS</div>
+          <div class="hero-brand-slogan">Giải pháp quản lý toàn diện cho doanh nghiệp</div>
+        </div>
       </div>
       <div class="hero-badge">⚙ Phần mềm quản lý nhân sự · chấm công · POS</div>
       <h1 id="hero-title">Phần mềm quản lý nhân sự &amp; chấm công <span>SBOX HRM</span></h1>
@@ -1682,8 +1688,8 @@
   <div class="wrap">
     <div class="footer-grid">
       <div class="footer-brand">
-        <div class="fb-name" id="footer-brand-name">SBOX HRM</div>
-        <p id="footer-desc">Phần mềm quản lý nhân sự, chấm công ZKTeco và POS bán hàng — chạy đầy đủ trên Desktop, Android và iOS.</p>
+        <div class="fb-name" id="footer-brand-name">SBOX HRM - SBOX POS</div>
+        <p id="footer-desc">Giải pháp quản lý toàn diện cho doanh nghiệp — nhân sự, chấm công ZKTeco và POS bán hàng trên Desktop, Android và iOS.</p>
       </div>
       <div class="footer-col">
         <h5>Sản phẩm</h5>
@@ -1727,7 +1733,7 @@
       var p = new URLSearchParams(window.location.search);
       var section = p.get('guide');
       var step = p.get('step');
-      if ((section === 'basic' || section === 'advanced') && step) {
+      if ((section === 'basic' || section === 'advanced' || section === 'pos') && step) {
         window.location.replace('/guide?guide=' + encodeURIComponent(section) +
             '&step=' + encodeURIComponent(step));
         return;

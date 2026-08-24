@@ -417,8 +417,9 @@ class _PosCustomerDisplaySettingsScreenState
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
-              tr('T1 native: chỉ bill + mã VietQR (không video). '
-                  'Cần DisplayManager thấy màn 7″.'),
+              tr('T1: dùng ảnh trình chiếu bên dưới khi chờ khách. '
+                  'Video không chạy trên DSKernel — chọn «Android Flutter» '
+                  'hoặc «Window» nếu cần video.'),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
             ),
           ),
@@ -427,7 +428,7 @@ class _PosCustomerDisplaySettingsScreenState
           title: Text(tr('Tự mở khi vào bán hàng')),
           subtitle: Text(tr(cd.target == CustomerDisplayTarget.window
               ? 'Window: chỉ đẩy state — mở link trên máy/TV khác'
-              : 'Android: mở Presentation trên display phụ')),
+              : 'Android: mở Presentation / DSKernel trên display phụ')),
           value: cd.autoOpenOnPos,
           onChanged: busy || !cd.enabled
               ? null
@@ -437,7 +438,7 @@ class _PosCustomerDisplaySettingsScreenState
           contentPadding: EdgeInsets.zero,
           title: Text(tr('Chiếu thêm ảnh sản phẩm khi chờ')),
           subtitle: Text(tr(cd.target == CustomerDisplayTarget.t1Native
-              ? 'T1: chỉ lấy 1 ảnh promo đầu (không video)'
+              ? 'T1: lấy ảnh promo / sản phẩm đầu tiên làm welcome'
               : 'Lấy ảnh từ danh mục hàng hóa')),
           value: cd.useProductImages,
           onChanged: busy || !cd.enabled
@@ -468,7 +469,9 @@ class _PosCustomerDisplaySettingsScreenState
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
         const SizedBox(height: 4),
         Text(
-          tr('Đây là chỗ nhập ảnh chiếu trên màn phụ. Upload từ máy hoặc dán URL.'),
+          tr(cd.target == CustomerDisplayTarget.t1Native
+              ? 'Bắt buộc cho T1 khi chờ khách — upload ảnh hoặc dán URL.'
+              : 'Đây là chỗ nhập ảnh chiếu trên màn phụ. Upload từ máy hoặc dán URL.'),
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 10),
@@ -497,6 +500,7 @@ class _PosCustomerDisplaySettingsScreenState
         const SizedBox(height: 12),
         if (cd.promoImageUrls.isEmpty)
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
@@ -569,8 +573,11 @@ class _PosCustomerDisplaySettingsScreenState
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
         const SizedBox(height: 4),
         Text(
-          tr('Không upload video lên server SBOX (nặng máy chủ). '
-              'Upload lên Google Drive rồi dán link vào đây.'),
+          tr(cd.target == CustomerDisplayTarget.t1Native
+              ? 'T1 DSKernel chưa phát video — vẫn lưu được để dùng khi đổi sang '
+                  'Android Flutter / Window. Không upload video lên server SBOX.'
+              : 'Không upload video lên server SBOX (nặng máy chủ). '
+                  'Upload lên Google Drive rồi dán link vào đây.'),
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 8),

@@ -251,16 +251,7 @@ public class NotificationsController(
             });
         }
 
-        // Gỡ app không gọi DELETE token — vô hiệu token cũ cùng user+platform, chỉ giữ token hiện tại.
-        var stale = await db.UserDeviceTokens
-            .Where(t => t.UserId == userId
-                        && t.Platform == request.Platform
-                        && t.Token != request.Token
-                        && !t.IsDisabled)
-            .ToListAsync();
-        foreach (var t in stale)
-            t.IsDisabled = true;
-
+        // Giữ mọi máy của user. Token chết (gỡ app) sẽ bị Firebase Unregistered rồi disable khi gửi.
         await db.SaveChangesAsync();
         return Ok(AppResponse<bool>.Success(true));
     }

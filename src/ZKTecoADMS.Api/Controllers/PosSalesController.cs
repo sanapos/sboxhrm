@@ -62,11 +62,13 @@ public partial class PosSalesController(
             .Select(s => s.EnableCashierShift)
             .FirstOrDefaultAsync(ct);
         if (!enabled) return null;
+        var userId = CurrentUserId;
         var open = await dbContext.PosCashierShifts.AsNoTracking()
-            .AnyAsync(s => s.StoreId == sid && s.Deleted == null && s.Status == "Open", ct);
+            .AnyAsync(s => s.StoreId == sid && s.Deleted == null && s.Status == "Open"
+                && s.OpenedByUserId == userId, ct);
         if (open) return null;
         return BadRequest(AppResponse<SaleOrderDto>.Fail(
-            "Chưa mở ca thu ngân — vào Nhiều hơn → Ca thu ngân để mở ca trước khi thanh toán"));
+            "Chưa mở ca thu ngân — vào Menu ⋮ trên màn bán hàng → Ca thu ngân để mở ca trước khi thanh toán"));
     }
 
     async Task<bool> HasPosSellApproveAsync(CancellationToken ct = default)
@@ -118,6 +120,9 @@ public partial class PosSalesController(
         string? DeliveryAddress = null,
         string? DeliveryPhone = null,
         string? DeliveryPartner = null,
+        string? DeliveryProvince = null,
+        string? DeliveryDistrict = null,
+        string? DeliveryWard = null,
         string? DeliveryStatus = null,
         DateTime? DeliveryDate = null,
         string? SoldBy = null,
@@ -138,7 +143,9 @@ public partial class PosSalesController(
         int? InvoiceSlot = null,
         decimal VatAmount = 0,
         bool? IssueEInvoice = null,
-        EInvoiceBuyerDto? EInvoiceBuyer = null);
+        EInvoiceBuyerDto? EInvoiceBuyer = null,
+        decimal SurchargeAmount = 0,
+        decimal DeliveryFee = 0);
 
     public record EInvoiceBuyerDto(
         string? Name = null,
@@ -161,6 +168,9 @@ public partial class PosSalesController(
         string? DeliveryAddress = null,
         string? DeliveryPhone = null,
         string? DeliveryPartner = null,
+        string? DeliveryProvince = null,
+        string? DeliveryDistrict = null,
+        string? DeliveryWard = null,
         string? DeliveryStatus = null,
         DateTime? DeliveryDate = null,
         string? SoldBy = null,
@@ -181,7 +191,9 @@ public partial class PosSalesController(
         int? InvoiceSlot = null,
         decimal VatAmount = 0,
         bool? IssueEInvoice = null,
-        EInvoiceBuyerDto? EInvoiceBuyer = null);
+        EInvoiceBuyerDto? EInvoiceBuyer = null,
+        decimal SurchargeAmount = 0,
+        decimal DeliveryFee = 0);
 
     public record SaleOrderDto(
         Guid Id,
@@ -203,6 +215,9 @@ public partial class PosSalesController(
         string? DeliveryAddress,
         string? DeliveryPhone,
         string? DeliveryPartner,
+        string? DeliveryProvince,
+        string? DeliveryDistrict,
+        string? DeliveryWard,
         string? DeliveryStatus,
         DateTime? DeliveryDate,
         string? Note,
@@ -252,7 +267,13 @@ public partial class PosSalesController(
         string? EInvoiceError = null,
         string? EInvoiceBuyerName = null,
         string? EInvoiceBuyerTaxCode = null,
-        Guid? SplitFromOrderId = null);
+        Guid? SplitFromOrderId = null,
+        decimal SurchargeAmount = 0,
+        decimal DeliveryFee = 0,
+        string? DeliveryTrackingCode = null,
+        string? DeliveryCarrierOrderId = null,
+        string? DeliveryCarrierCode = null,
+        string? DeliveryLabelUrl = null);
 
     public record SaleOrderSummaryDto(
         Guid Id,
@@ -439,11 +460,11 @@ public partial class PosSalesController(
         [FromQuery] Guid? categoryId,
         [FromQuery] bool categoryIncludeChildren = true,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 500)
+        [FromQuery] int pageSize = 48)
     {
         var storeId = RequiredStoreId;
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 500);
+        pageSize = Math.Clamp(pageSize, 1, 100);
 
         var query = dbContext.PosProducts
             .AsNoTracking()
@@ -1492,6 +1513,20 @@ public partial class PosSalesController(
                 return BadRequest(AppResponse<object>.Fail(
                     "Đơn đã hoàn thành — hãy Hủy đơn trước, hoặc trả hết 100% rồi mới xóa"));
         }
+        else if (order.Status == PosSaleOrderStatus.Draft)
+        {
+            var priorLines = (order.Lines ?? [])
+                .Where(l => l.Deleted == null)
+                .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+                .ToList();
+            if (priorLines.Count > 0)
+            {
+                var releaseErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                    dbContext, storeId, priorLines, [], allowNegativeStock: true);
+                if (releaseErr != null)
+                    return BadRequest(AppResponse<object>.Fail(releaseErr));
+            }
+        }
 
         var deleted = await dbContext.PosSaleOrders
             .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null)
@@ -1502,6 +1537,9 @@ public partial class PosSalesController(
 
         if (deleted == 0)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn hàng hoặc đã xóa"));
+
+        // Đảm bảo ReservedQty đã nhả được ghi (nếu có thay đổi trước ExecuteUpdate).
+        await dbContext.SaveChangesAsync();
 
         return Ok(AppResponse<object>.Success(new { deleted = true }));
     }
@@ -1522,6 +1560,19 @@ public partial class PosSalesController(
         if (order.Status != PosSaleOrderStatus.Draft)
             return BadRequest(AppResponse<object>.Fail("Chỉ hủy được đơn tạm"));
 
+        var priorLines = await dbContext.PosSaleOrderLines.AsNoTracking()
+            .Where(l => l.SaleOrderId == id && l.Deleted == null)
+            .Select(l => new ValueTuple<Guid, decimal, Guid?, Guid?, string?>(
+                l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
+            .ToListAsync();
+        if (priorLines.Count > 0)
+        {
+            var releaseErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                dbContext, storeId, priorLines, [], allowNegativeStock: true);
+            if (releaseErr != null)
+                return BadRequest(AppResponse<object>.Fail(releaseErr));
+        }
+
         var now = DateTime.UtcNow;
         var deleted = await dbContext.PosSaleOrders
             .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null
@@ -1541,6 +1592,7 @@ public partial class PosSalesController(
         if (deleted == 0)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn tạm hoặc đã xóa"));
 
+        await dbContext.SaveChangesAsync();
         return Ok(AppResponse<object>.Success(new { deleted = true, split = order.SplitFromOrderId.HasValue }));
     }
 
@@ -1573,6 +1625,9 @@ public partial class PosSalesController(
             DeliveryAddress = src.DeliveryAddress,
             DeliveryPhone = src.DeliveryPhone,
             DeliveryPartner = src.DeliveryPartner,
+            DeliveryProvince = src.DeliveryProvince,
+            DeliveryDistrict = src.DeliveryDistrict,
+            DeliveryWard = src.DeliveryWard,
             DeliveryStatus = src.DeliveryStatus,
             DeliveryDate = src.DeliveryDate,
             Note = src.Note,
@@ -2257,7 +2312,9 @@ public partial class PosSalesController(
             order.PaymentMethod, order.CustomerName, order.CustomerId,
             customerCode, customerPhone,
             order.IsDelivery, order.DeliveryAddress, order.DeliveryPhone,
-            order.DeliveryPartner, order.DeliveryStatus, order.DeliveryDate,
+            order.DeliveryPartner,
+            order.DeliveryProvince, order.DeliveryDistrict, order.DeliveryWard,
+            order.DeliveryStatus, order.DeliveryDate,
             order.Note,
             order.SaleDate, order.SoldBy, order.SoldByEmployeeId, order.SalesChannel, order.PriceListName,
             order.PriceListId,
@@ -2290,7 +2347,13 @@ public partial class PosSalesController(
             order.EInvoiceError,
             order.EInvoiceBuyerName,
             order.EInvoiceBuyerTaxCode,
-            order.SplitFromOrderId);
+            order.SplitFromOrderId,
+            order.SurchargeAmount,
+            order.DeliveryFee,
+            order.DeliveryTrackingCode,
+            order.DeliveryCarrierOrderId,
+            order.DeliveryCarrierCode,
+            order.DeliveryLabelUrl);
     }
 
     private static SaleOrderSummaryDto MapSummary(

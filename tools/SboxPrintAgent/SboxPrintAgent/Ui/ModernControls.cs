@@ -229,23 +229,25 @@ public sealed class ModernButton : Button
     }
 }
 
-/// <summary>Thanh nút cố định chiều cao — không bị FlowLayoutPanel bẹp.</summary>
+/// <summary>Thanh nút cố định đáy card — không bị che bởi panel Fill.</summary>
 public static class ButtonBar
 {
     public static Panel Create(params Control[] buttons)
     {
         var host = new Panel
         {
-            Dock = DockStyle.Fill,
-            BackColor = Theme.Card,
+            Dock = DockStyle.Bottom,
+            Height = 56,
             MinimumSize = new Size(0, 56),
+            MaximumSize = new Size(0, 56),
+            BackColor = Theme.Card,
             Padding = new Padding(0, 6, 0, 2),
         };
         var flow = new FlowLayoutPanel
         {
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = true,
+            WrapContents = false,
             AutoSize = false,
             BackColor = Theme.Card,
             Padding = new Padding(0),
@@ -255,14 +257,14 @@ public static class ButtonBar
         {
             if (b is ModernButton mb)
             {
-                mb.Height = 44;
-                mb.MinimumSize = new Size(mb.MinimumSize.Width, 44);
-                mb.Margin = new Padding(0, 2, 10, 2);
+                mb.Height = 40;
+                mb.MinimumSize = new Size(Math.Max(88, mb.Width), 40);
+                mb.Margin = new Padding(0, 2, 8, 2);
             }
             else
             {
-                b.Height = 44;
-                b.Margin = new Padding(0, 2, 10, 2);
+                b.Height = 40;
+                b.Margin = new Padding(0, 2, 8, 2);
             }
             flow.Controls.Add(b);
         }

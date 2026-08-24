@@ -10,8 +10,7 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// Trợ lý ảo AI cá nhân - chat với Gemini có context người dùng (nghỉ phép, chấm công, lương, công việc).
-/// Chỉ truy cập dữ liệu cá nhân của chính user đang đăng nhập.
+/// Trợ lý ảo: bot rule (dữ liệu HRM + hướng dẫn) và Gemini (câu hỏi mở).
 /// </summary>
 [ApiController]
 [Route("api/ai/assistant")]
@@ -128,98 +127,53 @@ public class AiAssistantController(
                 }
             }
 
-            if (!geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
-            {
-                return BadRequest(AppResponse<ChatResponse>.Fail(
-                    "Gemini AI chưa được bật hoặc chưa cấu hình API key. Vào Cài đặt → Thiết lập AI (Gemini) để kích hoạt trợ lý."));
-            }
-
             if (string.Equals(dto.Provider, "deepseek", StringComparison.OrdinalIgnoreCase))
             {
                 return BadRequest(AppResponse<ChatResponse>.Fail(
-                    "DeepSeek đã ngừng hỗ trợ. Hệ thống chỉ dùng Google Gemini cho trợ lý ảo."));
+                    "DeepSeek đã ngừng hỗ trợ. Hệ thống dùng bot nội bộ và Google Gemini."));
             }
 
-            var reply = await geminiAiService.GenerateAssistantChatAsync(
-                systemPrompt, chatTurns, 2048, ct);
-            const string usedProvider = "gemini";
+            var geminiOk = geminiAiService.IsConfigured && geminiAiService.IsEnabled;
+            var rule = AiAssistantRuleBot.Build(
+                lastUserMessage.Content, contextText, helpHits,
+                allowedActions, allowedCreates, includeFallback: !geminiOk);
 
-            // Extract [[ACTION:xxx]] tags
-            var actions = new List<string>();
-            var cleaned = reply ?? string.Empty;
-            var start = 0;
-            while (true)
+            string reply;
+            string usedProvider;
+            if (rule.Matched)
             {
-                var i = cleaned.IndexOf("[[ACTION:", start, StringComparison.Ordinal);
-                if (i < 0) break;
-                var j = cleaned.IndexOf("]]", i, StringComparison.Ordinal);
-                if (j < 0) break;
-                var tag = cleaned.Substring(i + 9, j - (i + 9)).Trim();
-                if (!string.IsNullOrWhiteSpace(tag)) actions.Add(tag);
-                cleaned = cleaned.Remove(i, j - i + 2);
-                start = i;
+                reply = rule.Reply;
+                usedProvider = "sbox";
             }
-
-            // Extract [[CREATE:xxx]] tags (structured create intents)
-            var creates = new List<string>();
-            var cStart = 0;
-            while (true)
+            else
             {
-                var ci = cleaned.IndexOf("[[CREATE:", cStart, StringComparison.Ordinal);
-                if (ci < 0) break;
-                var cj = cleaned.IndexOf("]]", ci, StringComparison.Ordinal);
-                if (cj < 0) break;
-                var ctag = cleaned.Substring(ci + 9, cj - (ci + 9)).Trim();
-                if (!string.IsNullOrWhiteSpace(ctag))
+                try
                 {
-                    var validated = AiAssistantCreateValidator.ExtractAndValidate(
-                        ctag, permMap, isSuperUser, out _);
-                    creates.AddRange(validated);
+                    reply = await geminiAiService.GenerateAssistantChatAsync(
+                        systemPrompt, chatTurns, 2048, ct);
+                    usedProvider = "gemini";
                 }
-                cleaned = cleaned.Remove(ci, cj - ci + 2);
-                cStart = ci;
+                catch (Exception gemEx)
+                {
+                    logger.LogWarning(gemEx, "Gemini failed — falling back to rule bot");
+                    rule = AiAssistantRuleBot.Build(
+                        lastUserMessage.Content, contextText, helpHits,
+                        allowedActions, allowedCreates, includeFallback: true);
+                    reply = rule.Reply;
+                    usedProvider = "sbox";
+                }
             }
 
-            // Extract [[GUIDE:mode/stepId]]
-            var guides = new List<string>();
-            var gStart = 0;
-            while (true)
-            {
-                var gi = cleaned.IndexOf("[[GUIDE:", gStart, StringComparison.Ordinal);
-                if (gi < 0) break;
-                var gj = cleaned.IndexOf("]]", gi, StringComparison.Ordinal);
-                if (gj < 0) break;
-                var gtag = cleaned.Substring(gi + 8, gj - (gi + 8)).Trim();
-                if (AiAssistantHelpCorpus.TryParseGuideTag(gtag, out var mode, out var stepId))
-                    guides.Add($"{mode}/{stepId}");
-                cleaned = cleaned.Remove(gi, gj - gi + 2);
-                gStart = gi;
-            }
-
-            // Nếu hỏi hướng dẫn mà model quên GUIDE → gắn gợi ý top hit
-            if (guides.Count == 0 && suggestedGuides.Count > 0
-                && (lastUserMessage.Content.Contains("cách", StringComparison.OrdinalIgnoreCase)
-                    || lastUserMessage.Content.Contains("hướng dẫn", StringComparison.OrdinalIgnoreCase)
-                    || lastUserMessage.Content.Contains("làm sao", StringComparison.OrdinalIgnoreCase)
-                    || lastUserMessage.Content.Contains("ở đâu", StringComparison.OrdinalIgnoreCase)))
-            {
-                guides.Add(suggestedGuides[0]);
-            }
-
-            actions = actions
-                .Where(a => AiAssistantPermissionRules.CanAction(a, permMap, isSuperUser))
-                .Distinct()
-                .ToList();
-            creates = creates.Distinct().ToList();
-            guides = guides.Distinct().Take(2).ToList();
+            var parsed = AiAssistantReplyParser.Parse(
+                reply, permMap, isSuperUser, suggestedGuides, lastUserMessage.Content);
 
             return Ok(AppResponse<ChatResponse>.Success(new ChatResponse
             {
-                Reply = cleaned.Trim(),
+                Reply = parsed.Text,
                 Provider = usedProvider,
-                Actions = actions,
-                Creates = creates,
-                Guides = guides
+                Actions = parsed.Actions,
+                Creates = parsed.Creates,
+                Guides = parsed.Guides
             }));
         }
         catch (Exception ex)
@@ -235,6 +189,7 @@ public class AiAssistantController(
             return false;
         var c = m.Content.Trim();
         return c.StartsWith("Xin chào! Tôi là trợ lý", StringComparison.Ordinal)
+               || c.StartsWith("Xin chào! Tôi trả lời phép", StringComparison.Ordinal)
                || c.StartsWith("⚠️", StringComparison.Ordinal)
                || c.StartsWith("❌", StringComparison.Ordinal)
                || c.StartsWith("✅ Đã tạo", StringComparison.Ordinal)

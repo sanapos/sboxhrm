@@ -375,6 +375,31 @@ class _PosSellIndustrySettingsScreenState
                     _patchAndSave((cur) => cur.copyWith(defaultSellMode: v));
                   },
           ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Ca thu ngân (mở ca / đóng két)')),
+            subtitle: Text(tr(
+                'Mỗi tài khoản thu ngân mở ca riêng. Thanh toán bắt buộc có ca mở; '
+                'đếm két khi đóng ca. Vào Menu ⋮ trên màn bán hàng → Ca thu ngân.')),
+            value: s.enableCashierShift,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(enableCashierShift: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Khóa đơn tạm đa máy')),
+            subtitle: Text(tr(
+                'Bật: máy đang mở đơn tạm giữ khóa — máy khác phải «Nhận bàn» mới sửa. '
+                'Tắt: nhiều máy cùng sửa draft (dễ xung đột). Khuyến nghị bật khi ≥2 máy POS.')),
+            value: s.enableMultiDeviceDraftLock,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(enableMultiDeviceDraftLock: v)),
+          ),
           if (_showResources) const Divider(height: 28),
         ],
         if (_showResources) ...[
@@ -531,18 +556,6 @@ class _PosSellIndustrySettingsScreenState
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Ca thu ngân (mở ca / đóng két)')),
-            subtitle: Text(tr(
-                'Tắt mặc định. Bật khi quán cần mở ca, thanh toán bắt buộc '
-                'có ca mở, và đếm két khi đóng ca.')),
-            value: s.enableCashierShift,
-            onChanged: _saving
-                ? null
-                : (v) => _patchAndSave(
-                    (cur) => cur.copyWith(enableCashierShift: v)),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
             title: Text(tr('QR order tại bàn')),
             subtitle: Text(tr(
                 'Tắt mặc định. Bật thì khách quét QR trên bàn để gọi món; '
@@ -627,16 +640,21 @@ class _PosSellIndustrySettingsScreenState
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
           const SizedBox(height: 4),
           Text(
-            tr('Luôn tính theo giờ VN (UTC+7). Bật «ngày qua đêm» nếu muốn '
-                'ngày kinh doanh bắt đầu lúc sáng (vd. 06:00 → 06:00 hôm sau).'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            tr(
+              'Luôn theo giờ VN (UTC+7). '
+              'Bật «ngày qua đêm» khi quán bán qua nửa đêm: ví dụ bắt đầu 06:00 → '
+              'đơn 01:00 sáng vẫn thuộc ngày KD hôm trước. '
+              'Báo cáo doanh thu, cuối ngày và danh sách ca thu ngân dùng cùng giờ này.',
+            ),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.4),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(tr('Ngày qua đêm (báo cáo / cuối ngày)')),
             subtitle: Text(tr(s.overnightReportEnabled
-                ? 'Ngày KD bắt đầu ${s.reportDayStartHour.toString().padLeft(2, '0')}:00'
-                : 'Tắt: ngày lịch 00:00–24:00 (UTC+7)')),
+                ? 'Ngày KD: ${s.reportDayStartHour.toString().padLeft(2, '0')}:00 → '
+                    '${s.reportDayStartHour.toString().padLeft(2, '0')}:00 hôm sau'
+                : 'Tắt: theo ngày lịch 00:00–24:00')),
             value: s.overnightReportEnabled,
             onChanged: _saving
                 ? null
@@ -649,6 +667,10 @@ class _PosSellIndustrySettingsScreenState
               value: s.reportDayStartHour.clamp(1, 12),
               decoration: InputDecoration(
                 labelText: tr('Giờ bắt đầu ngày kinh doanh'),
+                helperText: tr(
+                  'Đơn trước giờ này tính vào ngày KD hôm trước. '
+                  'Preset «Hôm nay» trên báo cáo = ngày KD hiện tại (không phải lịch dương nếu đã qua giờ).',
+                ),
                 isDense: true,
                 border: const OutlineInputBorder(),
               ),

@@ -5,6 +5,7 @@
 
 #include "app_config.h"
 #include "cJSON.h"
+#include "discovery.h"
 #include "esp_app_desc.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
@@ -173,15 +174,15 @@ static esp_err_t info_get(httpd_req_t *req)
         }
     }
 
-    char json[720];
+    char json[780];
     snprintf(json, sizeof(json),
              "{\"product\":\"sbox-zk-gateway\",\"version\":\"%s\",\"build\":\"%s %s\","
-             "\"appSha\":\"%s\",\"name\":\"%s\","
+             "\"appSha\":\"%s\",\"name\":\"%s\",\"host\":\"%s\","
              "\"serial\":\"%s\",\"ip\":\"%s\",\"apSsid\":\"%s\",\"provisioned\":%s,"
              "\"wifiConnected\":%s,\"deviceOnline\":%s,\"serverOnline\":%s,\"locked\":%s}",
              app != NULL ? app->version : "?",
              app != NULL ? app->date : "?", app != NULL ? app->time : "?",
-             sha, cfg->gw_name,
+             sha, cfg->gw_name, discovery_hostname(),
              app_config_effective_serial(), wifi_mgr_sta_ip(), wifi_mgr_ap_ssid(),
              app_config_is_provisioned() ? "true" : "false",
              wifi_mgr_is_connected() ? "true" : "false",

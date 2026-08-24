@@ -10,6 +10,8 @@ public sealed record PrinterItem(
     bool IsDefault,
     bool IsActive,
     bool RequiresAgent,
+    bool IsDeviceLocal,
+    string? OwnerDeviceId,
     string HealthStatus,
     List<string> DocumentTypes,
     int DefaultCopies,
@@ -41,6 +43,40 @@ public static class ConnLabel
     public static bool CanPrintOnWindows(PrinterItem p) =>
         (IsLan(p) && !string.IsNullOrWhiteSpace(p.LanHost)) ||
         (IsUsb(p) && !string.IsNullOrWhiteSpace(p.UsbDeviceName));
+
+    /// <summary>Máy cloud Agent — bỏ bản ghi local từ A6/A7.</summary>
+    public static bool IsCloudAgentPrinter(PrinterItem p) =>
+        p.IsActive &&
+        !p.IsDeviceLocal &&
+        CanPrintOnWindows(p);
+
+    public static string AddressKey(PrinterItem p)
+    {
+        if (IsUsb(p))
+            return "usb:" + (p.UsbDeviceName ?? "").Trim().ToLowerInvariant();
+        var host = (p.LanHost ?? "").Trim().ToLowerInvariant();
+        var port = p.LanPort > 0 ? p.LanPort : 9100;
+        return $"lan:{host}:{port}";
+    }
+}
+
+/// <summary>Gộp máy trùng cùng IP/USB — ưu tiên RequiresAgent.</summary>
+public static class PrinterListNormalize
+{
+    public static List<PrinterItem> ForWindowsAgent(IEnumerable<PrinterItem> raw)
+    {
+        return raw
+            .Where(ConnLabel.IsCloudAgentPrinter)
+            .GroupBy(ConnLabel.AddressKey, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g
+                .OrderByDescending(p => p.RequiresAgent)
+                .ThenByDescending(p => p.IsDefault)
+                .ThenBy(p => p.Name.Length)
+                .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
+                .First())
+            .OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
 }
 
 public sealed record ClaimJob(
@@ -73,7 +109,6 @@ public sealed record AgentsSnapshot(
 
 public static class DocTypes
 {
-    /// <summary>Chỉ hiện tên dễ hiểu — Code dùng nội bộ khi gọi API.</summary>
     public static readonly (string Code, string Label)[] All =
     [
         ("SaleInvoice", "Hóa đơn"),
@@ -93,5 +128,20 @@ public static class DocTypes
         if (string.IsNullOrWhiteSpace(code)) return "—";
         var hit = All.FirstOrDefault(x => x.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
         return string.IsNullOrEmpty(hit.Label) ? code : hit.Label;
+    }
+}
+
+/// <summary>"192.168.1.230" → "192.168.1"</summary>
+public static class SubnetNormalize
+{
+    public static string Clean(string? input)
+    {
+        var s = (input ?? "").Trim().TrimEnd('.');
+        if (string.IsNullOrWhiteSpace(s)) return "";
+        var parts = s.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length >= 3 &&
+            parts.Take(3).All(p => int.TryParse(p, out var n) && n is >= 0 and <= 255))
+            return $"{parts[0]}.{parts[1]}.{parts[2]}";
+        return s;
     }
 }

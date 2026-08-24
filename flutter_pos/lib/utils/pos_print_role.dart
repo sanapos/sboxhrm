@@ -11,8 +11,8 @@ abstract final class PosPrintRole {
   static bool matchesPrinterId(String a, String b) =>
       _normId(a) == _normId(b);
 
-  /// Máy đang bật Print Agent (A6) — được ưu tiên in local.
-  /// Máy thu ngân (A7/web) → false: luôn gửi cloud, không thử LAN/USB «ảo».
+  /// Máy đang bật Print Agent — nhận lệnh in hộ từ A7/web.
+  /// Không dùng cờ này để quyết định in local trên chính máy đang cắm máy in.
   static Future<bool> isPrintAgentDevice() async {
     final settings = await PosPrintAgentSettings.load();
     return settings.enabled;

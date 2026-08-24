@@ -245,7 +245,9 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
             ["order_time"] = 0,
             ["path"] = path,
             ["service_id"] = serviceId,
-            ["payment_method"] = "BALANCE",
+            ["payment_method"] = ShippingFeePayer.ShopPaysCarrier(request.ShipFeePayer)
+                ? "BALANCE"
+                : "CASH",
             ["remarks"] = request.Note ?? order.Note ?? $"SBOX {order.OrderNo}",
         };
 

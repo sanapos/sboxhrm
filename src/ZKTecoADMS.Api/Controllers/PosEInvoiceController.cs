@@ -172,6 +172,13 @@ public class PosEInvoiceController(
             DefaultTaxPercent = JsonDec(body, "defaultTaxPercent", 10),
         };
 
+        if (incoming.Provider.Equals("Misa", StringComparison.OrdinalIgnoreCase) ||
+            incoming.Provider.Contains("misa", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(AppResponse<EInvoiceSettingsDto>.Fail(
+                "MISA chưa hỗ trợ xuất — chọn Viettel SInvoice hoặc Easy Invoice."));
+        }
+
         logger.LogInformation(
             "EInvoice save store={StoreId} provider={Provider} template={Template} series={Series} user={User} tax={Tax}",
             RequiredStoreId, incoming.Provider, incoming.TemplateCode, incoming.InvoiceSeries,

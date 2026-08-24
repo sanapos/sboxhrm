@@ -1,18 +1,19 @@
-#include "wifi_mgr.h"
-
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
-
 #include "app_config.h"
+#include "ble_prov.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_netif.h"
 #include "esp_timer.h"
+#include "esp_wifi.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
+#include "wifi_mgr.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include <strings.h>
 
 static const char *TAG = "wifi";
 
@@ -28,6 +29,7 @@ static int64_t s_disconnected_since;
 static esp_netif_t *s_netif_ap;
 
 static void start_ap_if_needed(void);
+static void stop_ap_if_active(void);
 
 static const char *disconnect_reason_text(uint8_t reason)
 {
@@ -70,6 +72,9 @@ static void on_wifi_event(void *arg, esp_event_base_t base, int32_t id, void *da
         s_connected = true;
         s_disconnected_since = 0;
         ESP_LOGI(TAG, "da vao mang WiFi, IP = %s", s_ip);
+        /* Tắt SoftAP sau khi STA đã có IP — tránh app còn thấy thẻ 192.168.4.1. */
+        stop_ap_if_active();
+        ble_prov_on_wifi_connected();
     }
 }
 
@@ -187,6 +192,20 @@ static void build_ap_ssid(void)
     snprintf(s_ap_ssid, sizeof(s_ap_ssid), "SBOX-Gateway-%02X%02X", mac[4], mac[5]);
 }
 
+static void stop_ap_if_active(void)
+{
+    if (!s_ap_active) {
+        return;
+    }
+    ESP_LOGW(TAG, "tat SoftAP cau hinh (STA da online)");
+    esp_err_t err = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "khong tat SoftAP: %s", esp_err_to_name(err));
+        return;
+    }
+    s_ap_active = false;
+}
+
 static void start_ap_if_needed(void)
 {
     if (s_ap_active) {
@@ -212,6 +231,10 @@ static void start_ap_if_needed(void)
     s_ap_active = true;
     ESP_LOGW(TAG, "diem phat cau hinh: SSID=%s mat khau=%s, vao http://192.168.4.1",
              s_ap_ssid, AP_PASSWORD);
+    /* SoftAP bật lại (mất WiFi lâu) — bật BLE để cấu hình mà không mất mạng trên điện thoại. */
+    if (!ble_prov_is_active()) {
+        (void)ble_prov_start();
+    }
 }
 
 esp_err_t wifi_mgr_apply_config(void)

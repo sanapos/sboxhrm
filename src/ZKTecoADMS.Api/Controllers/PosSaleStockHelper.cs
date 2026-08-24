@@ -475,6 +475,112 @@ internal static class PosSaleStockHelper
         }
     }
 
+
+    /// <summary>
+    /// Nhu cầu tồn (base) để giữ chỗ draft — gộp variant unit-only vào parent ReservedQty.
+    /// Không trừ OnHand; dùng chung logic combo/recipe/topping với PrepareSaleStock.
+    /// </summary>
+    public static async Task<(Dictionary<Guid, decimal> needs, string? error)> ComputeDraftReserveNeedsAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId)> lineInputs)
+    {
+        var inputs = lineInputs.ToList();
+        var needs = new Dictionary<Guid, decimal>();
+        if (inputs.Count == 0) return (needs, null);
+
+        // Tái dùng Prepare (allowNegative) để validate cấu trúc + nạp product/combo/recipe.
+        var (plan, err) = await PrepareSaleStockAsync(db, storeId, inputs, allowNegativeStock: true);
+        if (err != null || plan == null) return (needs, err ?? "Không tính được nhu cầu tồn");
+
+        var unitRates = await LoadUnitConversionRatesAsync(db, inputs.Select(l => l.UnitId));
+        foreach (var line in inputs)
+        {
+            if (!plan.Products.TryGetValue(line.ProductId, out var p)) continue;
+            if (p.ProductType == PosProductType.Service) continue;
+
+            var lineBaseQty = line.VariantId.HasValue
+                ? line.Qty
+                : QtyInBase(line.Qty, line.UnitId, unitRates);
+
+            if (line.VariantId.HasValue &&
+                !(plan.RecipeLinesMap.TryGetValue(p.Id, out var recipeForVariant) && recipeForVariant.Count > 0))
+            {
+                if (!plan.Variants.TryGetValue(line.VariantId.Value, out var v)) continue;
+                var baseNeed = PosVariantStockHelper.StockDeltaInBase(v, line.Qty);
+                // Unit-only / shared stock: giữ chỗ trên parent. Variant riêng: cũng cộng parent để AvailableOnHand phản ánh.
+                needs[p.Id] = needs.GetValueOrDefault(p.Id) + baseNeed;
+                continue;
+            }
+
+            if (plan.RecipeLinesMap.TryGetValue(p.Id, out var recipeLines) && recipeLines.Count > 0)
+            {
+                foreach (var cl in recipeLines)
+                    needs[cl.ComponentProductId] =
+                        needs.GetValueOrDefault(cl.ComponentProductId) + cl.Qty * lineBaseQty;
+            }
+            else if (p.ProductType == PosProductType.Combo &&
+                     plan.ComboLinesMap.TryGetValue(p.Id, out var comboLines))
+            {
+                foreach (var cl in comboLines)
+                    needs[cl.ComponentProductId] =
+                        needs.GetValueOrDefault(cl.ComponentProductId) + cl.Qty * lineBaseQty;
+            }
+            else
+            {
+                needs[p.Id] = needs.GetValueOrDefault(p.Id) + lineBaseQty;
+            }
+        }
+
+        return (needs, null);
+    }
+
+    /// <summary>
+    /// Đồng bộ ReservedQty: nhả nhu cầu draft cũ, giữ chỗ nhu cầu mới.
+    /// </summary>
+    public static async Task<string?> SyncDraftStockReservationAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId, string? ToppingsJson)>? priorLines,
+        IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId, string? ToppingsJson)>? nextLines,
+        bool allowNegativeStock)
+    {
+        var priorExpanded = ExpandStockInputsWithToppings(priorLines ?? []);
+        var nextExpanded = ExpandStockInputsWithToppings(nextLines ?? []);
+
+        var (priorNeeds, err1) = await ComputeDraftReserveNeedsAsync(db, storeId, priorExpanded);
+        if (err1 != null && priorExpanded.Count > 0) return err1;
+        var (nextNeeds, err2) = await ComputeDraftReserveNeedsAsync(db, storeId, nextExpanded);
+        if (err2 != null && nextExpanded.Count > 0) return err2;
+
+        var allIds = priorNeeds.Keys.Union(nextNeeds.Keys).ToList();
+        if (allIds.Count == 0) return null;
+
+        var products = await db.PosProducts.AsTracking()
+            .Where(p => allIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .ToDictionaryAsync(p => p.Id);
+
+        foreach (var pid in allIds)
+        {
+            var delta = nextNeeds.GetValueOrDefault(pid) - priorNeeds.GetValueOrDefault(pid);
+            if (delta == 0) continue;
+            if (!products.TryGetValue(pid, out var p)) continue;
+            if (p.ProductType == PosProductType.Service) continue;
+
+            if (delta > 0 && !allowNegativeStock)
+            {
+                var avail = AvailableOnHand(p);
+                if (avail < delta)
+                    return $"Không đủ tồn kho: {p.Name} (cần thêm {delta}, còn khả dụng {avail})";
+            }
+
+            p.ReservedQty = Math.Max(0m, p.ReservedQty + delta);
+            p.UpdatedAt = DateTime.UtcNow;
+        }
+
+        return null;
+    }
+
     public static async Task<(SaleStockPlan? plan, string? error)> PrepareSaleStockAsync(
         ZKTecoDbContext db,
         Guid storeId,
@@ -511,7 +617,7 @@ internal static class PosSaleStockHelper
         var comboLinesMap = comboIds.Count == 0
             ? new Dictionary<Guid, List<PosProductComboLine>>()
             : await db.PosProductComboLines.AsNoTracking()
-                .Where(c => comboIds.Contains(c.ComboProductId) && c.Deleted == null)
+                .Where(c => comboIds.Contains(c.ComboProductId) && c.StoreId == storeId && c.Deleted == null)
                 .GroupBy(c => c.ComboProductId)
                 .ToDictionaryAsync(g => g.Key, g => g.ToList());
 
@@ -521,7 +627,7 @@ internal static class PosSaleStockHelper
         var recipeLinesMap = recipeParentIds.Count == 0
             ? new Dictionary<Guid, List<PosProductRecipeLine>>()
             : await db.PosProductRecipeLines.AsNoTracking()
-                .Where(c => recipeParentIds.Contains(c.ParentProductId) && c.Deleted == null)
+                .Where(c => recipeParentIds.Contains(c.ParentProductId) && c.StoreId == storeId && c.Deleted == null)
                 .GroupBy(c => c.ParentProductId)
                 .ToDictionaryAsync(g => g.Key, g => g.ToList());
 
@@ -630,9 +736,14 @@ internal static class PosSaleStockHelper
                     if (avail < baseNeed)
                         return (null, $"Không đủ tồn kho: {p.Name} (cần {baseNeed}, còn {avail})");
                 }
-                else if (v.OnHandQty < need)
+                else
                 {
-                    return (null, $"Không đủ tồn kho: {v.Name} (cần {need}, còn {v.OnHandQty})");
+                    // Biến thể riêng: kiểm tra OnHand biến thể + tồn khả dụng parent (đã trừ ReservedQty đa máy).
+                    var avail = AvailableOnHand(p);
+                    if (avail < baseNeed)
+                        return (null, $"Không đủ tồn kho: {v.Name} (cần {baseNeed}, còn khả dụng {avail})");
+                    if (v.OnHandQty < need)
+                        return (null, $"Không đủ tồn kho: {v.Name} (cần {need}, còn {v.OnHandQty})");
                 }
             }
 
@@ -1045,17 +1156,20 @@ internal static class PosSaleStockHelper
     {
         var local = saleDate.HasValue ? VnTimeHelper.UtcToVn(saleDate.Value) : VnTimeHelper.NowVn();
         var prefix = $"HD{local.Day:D2}{local.Month:D2}{local.Year}";
-        var existing = await db.PosSaleOrders.IgnoreQueryFilters()
+        // Chỉ lấy 1 mã lớn nhất trong ngày (ORDER BY length+lex) — tránh load toàn bộ OrderNo khi data lớn.
+        var maxNo = await db.PosSaleOrders.IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(o => o.StoreId == storeId && o.OrderNo.StartsWith(prefix))
+            .Where(o => o.StoreId == storeId
+                && o.OrderNo.StartsWith(prefix)
+                && o.OrderNo.Length > prefix.Length)
+            .OrderByDescending(o => o.OrderNo.Length)
+            .ThenByDescending(o => o.OrderNo)
             .Select(o => o.OrderNo)
-            .ToListAsync();
+            .FirstOrDefaultAsync();
         var max = 0;
-        foreach (var no in existing)
-        {
-            if (no.Length <= prefix.Length) continue;
-            if (int.TryParse(no[prefix.Length..], out var n) && n > max) max = n;
-        }
+        if (maxNo != null && maxNo.Length > prefix.Length
+            && int.TryParse(maxNo.AsSpan(prefix.Length), out var n))
+            max = n;
         var next = max + 1;
         // Hỗ trợ > 9999 đơn/ngày: D4 cho 1..9999, sau đó không pad (HD…10000).
         return next <= 9999

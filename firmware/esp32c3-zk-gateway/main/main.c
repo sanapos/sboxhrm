@@ -1,6 +1,5 @@
-#include <stdio.h>
-
 #include "app_config.h"
+#include "ble_prov.h"
 #include "discovery.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
@@ -39,8 +38,11 @@ void app_main(void)
     discovery_start();
 
     if (!app_config_is_provisioned()) {
-        ESP_LOGW(TAG, "chua cau hinh - noi WiFi '%s' (mat khau sbox12345) roi vao http://192.168.4.1",
+        ESP_LOGW(TAG, "chua cau hinh - SoftAP '%s' (sbox12345) HOAC BLE cung ten",
                  wifi_mgr_ap_ssid());
+        if (ble_prov_start() != ESP_OK) {
+            ESP_LOGE(TAG, "khong bat duoc BLE provision — van dung SoftAP");
+        }
     }
 
     /* Đánh dấu firmware chạy tốt để không bị quay về bản cũ sau khi nạp OTA. */

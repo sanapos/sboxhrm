@@ -109,7 +109,9 @@ class PosPaymentGatewayApi {
   }
 
   static bool isTingeeEnabled(Map<String, dynamic>? settings) =>
-      settings?['tingeeEnabled'] == true;
+      settings?['tingeeEnabled'] == true &&
+      (settings?['platformTingeeConfigured'] == true ||
+          settings?['hasTingeeWebhookSecret'] == true);
 
   static bool preferTingee(Map<String, dynamic>? settings) =>
       (settings?['defaultTransferProvider']?.toString() ?? 'VietQr')

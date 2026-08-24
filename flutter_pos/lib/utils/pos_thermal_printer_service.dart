@@ -9,6 +9,7 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
 
 import '../models/pos_sale_order.dart';
+import '../models/pos_print_template_v2.dart';
 import 'pos_topping_format.dart';
 
 import 'pos_esc_pos_text_codec.dart';
@@ -229,6 +230,8 @@ class PosThermalPrinterService {
 
     double surchargeAmount = 0,
 
+    double deliveryFee = 0,
+
   }) =>
 
       _buildEscPosReceipt(
@@ -256,6 +259,8 @@ class PosThermalPrinterService {
 
         surchargeAmount: surchargeAmount,
 
+        deliveryFee: deliveryFee,
+
       );
 
 
@@ -279,6 +284,9 @@ class PosThermalPrinterService {
     required PosThermalPrinterSettings settings,
   }) async {
     final b = await _EscPosBuilder.create(settings);
+    b._frameStyle = output.frameStyle;
+    b._frameInsetMm = output.frameInsetMm;
+    b._frameMarginMm = output.frameMarginMm;
     for (final step in output.steps) {
       if (step is PosPrintCompiledQr) {
         if (b._useImageBatch) await b.flushImageBatch();
@@ -330,6 +338,8 @@ class PosThermalPrinterService {
         }
         if (line.center) {
           b.center();
+        } else if (line.right) {
+          b.right();
         } else {
           b.left();
         }
@@ -337,16 +347,24 @@ class PosThermalPrinterService {
           b.feed(1);
           continue;
         }
-        await b.boldLine(line.text, size: line.fontSize);
+        if (line.bold) {
+          await b.boldLine(line.text, size: line.fontSize);
+        } else {
+          await b.line(line.text);
+        }
       } else if (step is PosPrintCompiledSaleRow) {
         b.left();
         final layout = PosReceiptLayout.fromSettingsChars(b.maxChars);
-        final rows = layout.saleItemRows(
-          name: step.name,
-          qty: step.qty,
-          price: step.price,
-          total: step.total,
-        );
+        final rows = step.nameOnly
+            ? PosReceiptLayout.wrap(step.name, layout.chars)
+            : (step.showQty && !step.showPrice && !step.showTotal)
+                ? [layout.pair(step.name, step.qty)]
+                : layout.saleItemRows(
+                    name: step.name,
+                    qty: step.showQty ? step.qty : '',
+                    price: step.showPrice ? step.price : '',
+                    total: step.showTotal ? step.total : '',
+                  );
         for (final row in rows) {
           if (step.bold) {
             await b.boldLine(row, size: step.fontSize);
@@ -558,6 +576,8 @@ class PosThermalPrinterService {
 
     double surchargeAmount = 0,
 
+    double deliveryFee = 0,
+
   }) async {
 
     final isWarehouseSlip = warehouseSlip || kitchenSlip;
@@ -689,14 +709,24 @@ class PosThermalPrinterService {
 
     await _printLineTable(b, lines);
 
+    final extraSurcharge = isSubset
+        ? 0.0
+        : (surchargeAmount > 0 ? surchargeAmount : order.surchargeAmount);
+    final extraShip = isSubset
+        ? 0.0
+        : (deliveryFee > 0 ? deliveryFee : order.deliveryFee);
+    final extraVat = isSubset ? 0.0 : vatAmount;
+    final payableTotal = receiptTotal + extraVat + extraSurcharge + extraShip;
+
     await _printReceiptSummary(
       b,
       subTotal: isSubset ? linesTotal : (order.subTotal > 0 ? order.subTotal : linesTotal),
-      total: receiptTotal,
+      total: payableTotal,
       orderDiscount: orderDiscount,
       lineDiscount: lineDiscount,
-      vatAmount: isSubset ? 0 : vatAmount,
-      surchargeAmount: isSubset ? 0 : surchargeAmount,
+      vatAmount: extraVat,
+      surchargeAmount: extraSurcharge,
+      deliveryFee: extraShip,
       includePayment: !isWarehouseSlip,
       order: isWarehouseSlip ? null : order,
     );
@@ -768,7 +798,7 @@ class PosThermalPrinterService {
   ) async {
     b.left();
     final layout = PosReceiptLayout.fromSettingsChars(b.maxChars);
-    String money(double v) => PosReceiptLayout.moneyItemCompact(v);
+    String money(double v) => PosReceiptLayout.moneyItem(v);
     for (final h in layout.saleHeaders) {
       await b.boldLine(h, size: layout.k58 ? 19 : 21);
     }
@@ -814,6 +844,7 @@ class PosThermalPrinterService {
     double lineDiscount = 0,
     double vatAmount = 0,
     double surchargeAmount = 0,
+    double deliveryFee = 0,
     bool includePayment = true,
     PosSaleOrder? order,
   }) async {
@@ -830,6 +861,9 @@ class PosThermalPrinterService {
     }
     if (surchargeAmount > 0) {
       await b.pair('Phu thu:', _money.format(surchargeAmount));
+    }
+    if (deliveryFee > 0) {
+      await b.pair('Phi giao hang:', _money.format(deliveryFee));
     }
     await b.boldPair('Tong cong:', _money.format(total));
     if (includePayment && order != null) {
@@ -919,6 +953,12 @@ class _EscPosBuilder {
   bool _centered = false;
 
   bool get _useImageBatch => _textMode == PosThermalTextMode.image;
+
+  PosPrintFrameStyle _frameStyle = PosPrintFrameStyle.none;
+
+  double _frameInsetMm = 2.5;
+
+  double _frameMarginMm = 1.5;
 
   double get _bodyFontSize => _settings.paperWidthMm <= 58 ? 20.0 : 22.0;
 
@@ -1024,6 +1064,13 @@ class _EscPosBuilder {
     }
   }
 
+  void right() {
+    _centered = false;
+    if (!_useImageBatch) {
+      _add([0x1B, 0x61, 0x02]);
+    }
+  }
+
   void _queueImageLine(
     String text, {
     String? rightText,
@@ -1056,6 +1103,9 @@ class _EscPosBuilder {
     final raster = await PosThermalBitmapEncoder.receiptToRaster(
       _imageLines,
       paperDots: _paperDots,
+      frameStyle: _frameStyle,
+      frameInsetMm: _frameInsetMm,
+      frameMarginMm: _frameMarginMm,
     );
     _imageLines.clear();
     if (raster != null && PosThermalBitmapEncoder.rasterHasInk(raster)) {
@@ -1132,8 +1182,9 @@ class _EscPosBuilder {
     if (space >= 1) {
       await line('$l${' ' * space}$r');
     } else {
-      await line(l);
-      await line(r);
+      final keep = (maxChars - r.length - 1).clamp(1, maxChars);
+      final clipped = l.length > keep ? l.substring(0, keep) : l;
+      await line('$clipped $r');
     }
   }
 
@@ -1181,6 +1232,9 @@ class _EscPosBuilder {
       final raster = await PosThermalBitmapEncoder.receiptToRaster(
         _imageLines,
         paperDots: _paperDots,
+        frameStyle: _frameStyle,
+        frameInsetMm: _frameInsetMm,
+        frameMarginMm: _frameMarginMm,
       );
       if (raster != null && PosThermalBitmapEncoder.rasterHasInk(raster)) {
         _add(raster);
@@ -1199,7 +1253,7 @@ class _EscPosBuilder {
     }
 
     final n = _settings.resolvedFeedBeforeCut.clamp(1, 28);
-    if (!_useImageBatch) {
+    if (!_useImageBatch && !_settings.compactCutFeed) {
       feed(2);
     }
     _add([0x1B, 0x64, n]);

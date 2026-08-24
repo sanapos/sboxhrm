@@ -75,14 +75,18 @@ class PosSellDraftSyncBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final no = draftOrderNo;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: const Color(0xFFEFF6FF),
-      child: Text(
-        tr(no != null && no.isNotEmpty
-            ? 'Đồng bộ server · $no · tự lưu khi sửa hàng'
-            : 'Đồng bộ server · tự lưu khi sửa hàng'),
-        style: const TextStyle(fontSize: 12, height: 1.25, color: Color(0xFF1D4ED8)),
+    return SizedBox(
+      height: 32,
+      child: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        color: const Color(0xFFEFF6FF),
+        child: Text(
+          tr('Đồng bộ server · ${no != null && no.isNotEmpty ? no : '—'} · tự lưu khi sửa hàng'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, height: 1.25, color: Color(0xFF1D4ED8)),
+        ),
       ),
     );
   }

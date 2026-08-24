@@ -1202,6 +1202,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         t.vatRate = store.defaultVatRate;
       }
       _sellReady = true;
+      if (_useFloorAsPrimary) _catalogPaneKept = true;
     });
     _scheduleCatalogPrefetch();
     final warmupStoreId = _storeId?.trim();
@@ -1939,6 +1940,10 @@ class _PosSellScreenState extends State<PosSellScreen>
   bool _floorMapVisible = true;
   /// Tăng mỗi lần mở/thoát bàn — hủy attach/leave nền của bàn trước.
   int _tableAttachEpoch = 0;
+  bool _tableAttachStale([int? epoch]) =>
+      !mounted || (epoch != null && epoch != _tableAttachEpoch);
+  /// Đang mở bàn từ sơ đồ — giữ sơ đồ, không nháy giỏ trống.
+  bool _tableAttachBusy = false;
   /// Mobile F&B: giữ shell bán hàng sau lần mở bàn đầu — tránh dispose/mount lại.
   bool _mobileSellKept = false;
   /// Tổng tạm tính + số bàn mở — ValueNotifier để không rebuild cả màn bán.
@@ -2891,48 +2896,51 @@ class _PosSellScreenState extends State<PosSellScreen>
           ((resourceId ?? '').isNotEmpty &&
               (_tab.serviceResourceId ?? '').toLowerCase() !=
                   resourceId!.toLowerCase());
-      // Hiện menu ngay — xóa giỏ bàn cũ trước khi GET (tránh món cũ vài giây rồi thoát).
-      setState(() {
-        if (switchingTable) {
-          _tab.reset(
-            defaultVatRate: _storeSettings.defaultVatRate,
-            store: _storeSettings,
-          );
-          _tab.sellerEmployeeId = _defaultSellerEmployeeId;
-          _syncPaidAmount();
-          _pendingKitchenCancels.clear();
-        }
-        _tab.serviceResourceId = resourceId ?? _tab.serviceResourceId;
-        _tab.resourceSessionId =
-            isSplitBill ? null : (sessionId ?? _tab.resourceSessionId);
-        if (isSplitBill && (splitFrom ?? '').isNotEmpty) {
-          _tab.splitFromOrderId = splitFrom;
-        }
-        _tab.serviceResourceName = resourceName ?? _tab.serviceResourceName;
-        _tab.serviceAreaName = areaName ?? _tab.serviceAreaName;
-        if (startedAt != null) _tab.serviceStartedAt = startedAt;
-        _tab.serviceStartedAt ??= DateTime.now().toUtc();
-        if (guestCount > 0) _tab.tableGuestCount = guestCount;
-        applyPauseMeta(_tab);
-        _floorMapVisible = false;
-        _catalogPaneKept = true;
-        _mobileSellKept = true;
-        _tabletPaymentStage = false;
-        _mobileProductPickerOpen = false;
-      });
+      // Giữ sơ đồ đến khi hydrate xong — tránh nháy logo / Chọn món / Thanh toán.
+      if (switchingTable) {
+        _tab.reset(
+          defaultVatRate: _storeSettings.defaultVatRate,
+          store: _storeSettings,
+        );
+        _tab.sellerEmployeeId = _defaultSellerEmployeeId;
+        _syncPaidAmount();
+        _pendingKitchenCancels.clear();
+      }
+      _tab.serviceResourceId = resourceId ?? _tab.serviceResourceId;
+      _tab.resourceSessionId =
+          isSplitBill ? null : (sessionId ?? _tab.resourceSessionId);
+      if (isSplitBill && (splitFrom ?? '').isNotEmpty) {
+        _tab.splitFromOrderId = splitFrom;
+      }
+      _tab.serviceResourceName = resourceName ?? _tab.serviceResourceName;
+      _tab.serviceAreaName = areaName ?? _tab.serviceAreaName;
+      if (startedAt != null) _tab.serviceStartedAt = startedAt;
+      _tab.serviceStartedAt ??= DateTime.now().toUtc();
+      if (guestCount > 0) _tab.tableGuestCount = guestCount;
+      applyPauseMeta(_tab);
+      _tableAttachBusy = true;
+      _catalogPaneKept = true;
+      _floorMapVisible = false;
+      _mobileSellKept = true;
+      if (mounted) setState(() {});
       await _openDraftOrder(
         orderId,
         silent: true,
         viewOnlyOnConflict: !forceClaim,
         forceClaim: forceClaim,
+        attachEpoch: attachEpoch,
       );
-      if (!mounted || attachEpoch != _tableAttachEpoch) return;
+      if (_tableAttachStale(attachEpoch)) {
+        if (mounted) setState(() => _tableAttachBusy = false);
+        return;
+      }
       if (_tab.draftOrderId != orderId) {
         NotificationOverlayManager().showError(
           title: 'Không vào được bàn',
           message: tr('Đơn tạm chưa tải — vẫn ở sơ đồ bàn'),
         );
         setState(() {
+          _tableAttachBusy = false;
           _floorMapVisible = true;
           _tabletPaymentStage = false;
         });
@@ -2947,6 +2955,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               : 'Máy kia vẫn đang giữ bàn — thử lại sau vài giây',
         );
         setState(() {
+          _tableAttachBusy = false;
           _floorMapVisible = true;
           _tabletPaymentStage = false;
         });
@@ -2955,19 +2964,25 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
       final alreadyHydrated = _tab.cart.length == _tab.serverLineCount;
       if (!alreadyHydrated) {
-        await _verifyTableCartHydrated(orderId);
+        await _verifyTableCartHydrated(orderId, attachEpoch: attachEpoch);
       }
-      if (!mounted || attachEpoch != _tableAttachEpoch) return;
-      if (paidFromDeposit != null && paidFromDeposit > 0) {
-        setState(() {
+      if (_tableAttachStale(attachEpoch)) {
+        if (mounted) setState(() => _tableAttachBusy = false);
+        return;
+      }
+      setState(() {
+        _tableAttachBusy = false;
+        if (paidFromDeposit != null && paidFromDeposit > 0) {
           _tab.reservationDepositApplied = paidFromDeposit;
           _tab.paymentsManuallyEdited = false;
           _syncPaidAmount();
-        });
-      }
-      setState(() {
-        _suspendDraftAutosave = false;
+        }
+        _floorMapVisible = false;
+        _catalogPaneKept = true;
+        _mobileSellKept = true;
         _tabletPaymentStage = isSplitBill && _tab.cart.isNotEmpty;
+        _mobileProductPickerOpen = false;
+        _suspendDraftAutosave = false;
       });
       if (_tab.localDirty) _scheduleDraftAutosave();
       if (isSplitBill && _tab.cart.isEmpty) {
@@ -3191,6 +3206,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       _floorPaneKept = true;
       _tabletPaymentStage = false;
       _mobileProductPickerOpen = false;
+      _tableAttachBusy = false;
     });
     _scheduleFloorQuietRefresh();
     _scheduleCustomerDisplayPublish();
@@ -5578,6 +5594,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     bool silent = false,
     bool viewOnlyOnConflict = false,
     bool forceClaim = false,
+    int? attachEpoch,
   }) async {
     final existing = _tabs.indexWhere((t) => t.draftOrderId == orderId);
     if (existing >= 0) {
@@ -5586,7 +5603,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         setState(() => _tabs[existing].localDirty = false);
       }
       final cleared = await _reconcileDraftTabAgainstServer(_tabs[existing]);
-      if (!mounted) return;
+      if (_tableAttachStale(attachEpoch)) return;
       if (cleared) {
         _suspendDraftAutosave = false;
         return;
@@ -5595,7 +5612,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       Map<String, dynamic>? fresh;
       if (forceClaim) {
         fresh = await _fetchDraftOrderJson(orderId);
-        if (fresh != null && mounted) {
+        if (_tableAttachStale(attachEpoch)) return;
+        if (fresh != null) {
           final pre = PosSaleOrder.fromJson(fresh);
           setState(() {
             _tab.serverLineCount = pre.lines.length;
@@ -5607,8 +5625,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           forceTake: true,
           restartSync: false,
         );
-        if (!mounted || !ok) {
-          _suspendDraftAutosave = false;
+        if (_tableAttachStale(attachEpoch) || !ok) {
+          if (mounted) _suspendDraftAutosave = false;
           return;
         }
         setState(() {
@@ -5616,7 +5634,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           _tab.lockedByLabel = null;
         });
         fresh = await _fetchDraftOrderJson(orderId);
-        if (fresh != null && mounted) {
+        if (_tableAttachStale(attachEpoch)) return;
+        if (fresh != null) {
           final order = PosSaleOrder.fromJson(fresh);
           await _hydrateTabCartFromOrder(
             _tab,
@@ -5625,6 +5644,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             readOnly: false,
             notify: false,
             force: true,
+            attachEpoch: attachEpoch,
           );
         }
       } else {
@@ -5632,8 +5652,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           orderId,
           silentViewOnConflict: viewOnlyOnConflict || silent,
         );
-        if (!mounted || access == null) {
-          _suspendDraftAutosave = false;
+        if (_tableAttachStale(attachEpoch) || access == null) {
+          if (mounted) _suspendDraftAutosave = false;
           return;
         }
         setState(() {
@@ -5650,7 +5670,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           }
         });
         fresh = await _fetchDraftOrderJson(orderId);
-        if (fresh != null && mounted) {
+        if (_tableAttachStale(attachEpoch)) return;
+        if (fresh != null) {
           final order = PosSaleOrder.fromJson(fresh);
           setState(() {
             _tab.serverLineCount = order.lines.length;
@@ -5663,9 +5684,11 @@ class _PosSellScreenState extends State<PosSellScreen>
             readOnly: _tab.draftReadOnly,
             notify: false,
             force: true,
+            attachEpoch: attachEpoch,
           );
         }
       }
+      if (_tableAttachStale(attachEpoch)) return;
       if (mounted) {
         _restartDraftLockHeartbeat();
         if (!silent) {
@@ -5686,6 +5709,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       silent: silent,
       viewOnlyOnConflict: viewOnlyOnConflict || silent,
       forceClaim: forceClaim,
+      attachEpoch: attachEpoch,
     );
   }
 
@@ -6628,7 +6652,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     required bool readOnly,
     bool notify = false,
     bool force = false,
+    int? attachEpoch,
   }) async {
+    if (_tableAttachStale(attachEpoch)) return;
     // Món user vừa chọn khi mở bàn (GET/hydrate chậm) — giữ rồi merge sau snapshot server.
     final preserve = (tab.localDirty && tab.cart.isNotEmpty)
         ? List<_SellCartLine>.from(tab.cart)
@@ -6660,16 +6686,37 @@ class _PosSellScreenState extends State<PosSellScreen>
         await _ensurePriceOverrides(match.id);
       }
     }
-    if (!mounted) return;
+    if (_tableAttachStale(attachEpoch)) return;
 
     final products = await _resolveDraftProducts(order.lines);
-    if (!mounted) return;
+    if (_tableAttachStale(attachEpoch)) return;
     final variants = await _resolveDraftVariants(products, order.lines);
-    if (!mounted) return;
+    if (_tableAttachStale(attachEpoch)) return;
 
     final overrides = tab.priceListId != null
         ? (_priceOverrideCache[tab.priceListId!] ?? const <String, double>{})
         : const <String, double>{};
+
+    final viewsByProduct = <String, List<PosProductUnitView>>{};
+    final needApiViews = <String, PosProduct>{};
+    for (final line in order.lines) {
+      if (line.productId.isEmpty) continue;
+      final p = products[line.productId];
+      if (p == null) continue;
+      if (!posProductHasEmbeddedSellViews(p)) {
+        needApiViews.putIfAbsent(p.id, () => p);
+      }
+    }
+    if (needApiViews.isNotEmpty) {
+      final loaded = await Future.wait(
+        needApiViews.values.map((p) => loadPosSellUnitViews(_api, p)),
+      );
+      if (_tableAttachStale(attachEpoch)) return;
+      var i = 0;
+      for (final p in needApiViews.values) {
+        viewsByProduct[p.id] = loaded[i++];
+      }
+    }
 
     final cartLines = <_SellCartLine>[];
     for (final line in order.lines) {
@@ -6679,7 +6726,12 @@ class _PosSellScreenState extends State<PosSellScreen>
 
       var views = posProductHasEmbeddedSellViews(p)
           ? buildPosSellUnitViewsFromProduct(p)
-          : await loadPosSellUnitViews(_api, p);
+          : (viewsByProduct[p.id] ?? const <PosProductUnitView>[]);
+      if (views.isEmpty) {
+        views = await loadPosSellUnitViews(_api, p);
+        if (_tableAttachStale(attachEpoch)) return;
+        if (views.isEmpty) continue;
+      }
       views = applyPosPriceListToViews(views, p, overrides);
       final view = pickUnitView(
             views,
@@ -6732,10 +6784,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       cartLines.add(cartLine);
     }
 
-    if (!mounted) {
-      tab.cart.addAll(preserve);
-      return;
-    }
+    if (_tableAttachStale(attachEpoch)) return;
     final extra = tab.cart
         .where((l) => !originalRemainingIds.contains(l.rowId))
         .toList();
@@ -6870,12 +6919,16 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   /// Đảm bảo giỏ khớp server sau mở bàn (tránh Oppo/V2S lệch số món).
-  Future<void> _verifyTableCartHydrated(String orderId) async {
+  Future<void> _verifyTableCartHydrated(
+    String orderId, {
+    int? attachEpoch,
+  }) async {
     // User đang sửa — bỏ verify để không đè giỏ.
-    if (_tab.localDirty) return;
+    if (_tab.localDirty || _tableAttachStale(attachEpoch)) return;
     await _ensureDeviceReady();
+    if (_tableAttachStale(attachEpoch)) return;
     final orderJson = await _fetchDraftOrderJson(orderId);
-    if (!mounted || orderJson == null) return;
+    if (_tableAttachStale(attachEpoch) || orderJson == null) return;
     // Race: user vừa sửa trong lúc fetch — bỏ verify.
     if (_tab.localDirty) return;
     final order = PosSaleOrder.fromJson(orderJson);
@@ -6899,8 +6952,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       orderJson: orderJson,
       readOnly: _tab.draftReadOnly,
       notify: false,
+      attachEpoch: attachEpoch,
     );
-    if (!mounted) return;
+    if (_tableAttachStale(attachEpoch)) return;
     setState(() {
       _tab.serverLineCount = remoteLines;
       _tab.serverTotal = remoteTotal;
@@ -7550,11 +7604,13 @@ class _PosSellScreenState extends State<PosSellScreen>
     bool silent = false,
     bool viewOnlyOnConflict = false,
     bool forceClaim = false,
+    int? attachEpoch,
   }) async {
     await _ensureDeviceReady();
+    if (_tableAttachStale(attachEpoch)) return;
     _suspendDraftAutosave = true;
     var orderJson = await _fetchDraftOrderJson(orderId);
-    if (!mounted) return;
+    if (_tableAttachStale(attachEpoch)) return;
     if (orderJson == null) {
       _suspendDraftAutosave = false;
       NotificationOverlayManager().showError(
@@ -7576,6 +7632,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final switchingOrder = (_tab.draftOrderId ?? '') != orderId;
     var readOnly = false;
     Map<String, dynamic>? lockData;
+    if (_tableAttachStale(attachEpoch)) return;
     setState(() {
       final switchingTable = switchingOrder && _tab.isTableBound;
       final keepLocalCart =
@@ -7603,8 +7660,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         forceTake: true,
         restartSync: false,
       );
-      if (!mounted || !ok) {
-        if (mounted) {
+      if (_tableAttachStale(attachEpoch) || !ok) {
+        if (mounted && !_tableAttachStale(attachEpoch)) {
           setState(() {
             if (switchingOrder) {
               _tab.reset(defaultVatRate: _storeSettings.defaultVatRate, store: _storeSettings);
@@ -7624,7 +7681,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       readOnly = false;
       // GET lại sau claim — tránh lockVersion cũ + meta khóa máy kia.
       orderJson = await _fetchDraftOrderJson(orderId);
-      if (!mounted) return;
+      if (_tableAttachStale(attachEpoch)) return;
       if (orderJson == null) {
         _suspendDraftAutosave = false;
         NotificationOverlayManager().showError(
@@ -7638,14 +7695,17 @@ class _PosSellScreenState extends State<PosSellScreen>
         orderId,
         silentViewOnConflict: viewOnlyOnConflict || silent,
       );
-      if (!mounted || access == null) {
-        _suspendDraftAutosave = false;
+      if (_tableAttachStale(attachEpoch) || access == null) {
+        if (mounted && !_tableAttachStale(attachEpoch)) {
+          _suspendDraftAutosave = false;
+        }
         return;
       }
       readOnly = access.readOnly;
       lockData = access.lock;
     }
 
+    if (_tableAttachStale(attachEpoch)) return;
     final freshOrder = PosSaleOrder.fromJson(orderJson);
     setState(() {
       _tab.draftReadOnly = readOnly;
@@ -7677,15 +7737,16 @@ class _PosSellScreenState extends State<PosSellScreen>
       readOnly: _tab.draftReadOnly,
       notify: false,
       force: true,
+      attachEpoch: attachEpoch,
     );
 
-    if (!mounted) return;
+    if (_tableAttachStale(attachEpoch)) return;
     if (!_tab.localDirty) {
       setState(() => _tab.localDirty = false);
     }
     _restartDraftLockHeartbeat();
-    await _verifyTableCartHydrated(orderId);
-    if (!mounted) return;
+    await _verifyTableCartHydrated(orderId, attachEpoch: attachEpoch);
+    if (_tableAttachStale(attachEpoch)) return;
     if (!silent) {
       _suspendDraftAutosave = false;
     }
@@ -11907,7 +11968,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_tab.draftOrderId != null) _buildDraftSyncStatusBar(),
+          _buildDraftSyncStatusBar(),
           _buildMissingTimedServiceBanner(),
           Expanded(child: _buildKiotCartList()),
           if (showFooterTotal) _buildCartFooter(),
@@ -11953,7 +12014,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           Expanded(
             child: TextField(
               controller: _tab._noteCtrl,
-              readOnly: _tab.draftReadOnly,
+              readOnly: _tab.draftReadOnly || _tableAttachBusy,
               decoration: InputDecoration(
                 hintText: tr('Ghi chú đơn hàng'),
                 isDense: true,
@@ -11987,7 +12048,6 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget _buildCartHeader() {
-    final n = _tab.cart.length;
     return Container(
       height: _KiotLayout.cartHeaderHeight,
       padding: const EdgeInsets.symmetric(horizontal: _KiotLayout.sidePadding),
@@ -11997,9 +12057,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         border: Border(bottom: BorderSide(color: PosTheme.border)),
       ),
       child: Text(
-        tr(n == 0
-            ? _sellProfile.catalogColumnLabel
-            : '${_sellProfile.catalogColumnLabel} · $n món'),
+        tr('${_sellProfile.catalogColumnLabel} · ${_tab.cart.length} món'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
@@ -12012,8 +12070,13 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget _buildKiotCartList() {
-    if (_tab.cart.isEmpty) {
-      return PosEmptyCartBrand(
+    final Widget body;
+    if (_tableAttachBusy && _tab.cart.isEmpty) {
+      body = const Center(
+        child: CircularProgressIndicator(color: PosTheme.kiotBlue),
+      );
+    } else if (_tab.cart.isEmpty) {
+      body = PosEmptyCartBrand(
         hint: tr(_isSplitBill
             ? 'Hóa đơn tách chưa có món — thêm từ thực đơn hoặc xóa hóa đơn'
             : _sellProfile.emptyCartHint),
@@ -12032,15 +12095,8 @@ class _PosSellScreenState extends State<PosSellScreen>
               )
             : null,
       );
-    }
-
-    // Card layout: không cuộn ngang — thân thiện cảm ứng, tránh tràn cột.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildCartHeader(),
-        Expanded(
-          child: Scrollbar(
+    } else {
+      body = Scrollbar(
             thumbVisibility: _tab.cart.length > 5,
             child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(
@@ -12059,8 +12115,13 @@ class _PosSellScreenState extends State<PosSellScreen>
                 );
               },
             ),
-          ),
-        ),
+          );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildCartHeader(),
+        Expanded(child: body),
       ],
     );
   }
@@ -12561,7 +12622,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (_tab.draftOrderId != null) _buildDraftSyncStatusBar(),
+                _buildDraftSyncStatusBar(),
                 Expanded(child: _buildKiotCartList()),
               ],
             ),
@@ -12580,7 +12641,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 Expanded(
                   child: TextField(
                     controller: _tab._noteCtrl,
-                    readOnly: _tab.draftReadOnly,
+                    readOnly: _tab.draftReadOnly || _tableAttachBusy,
                     decoration: InputDecoration(
                       hintText: tr('Ghi chú đơn hàng'),
                       isDense: true,
@@ -14179,13 +14240,8 @@ class _PosSellScreenState extends State<PosSellScreen>
             if (!inHub) _buildMobileModeBar(),
           ],
         ),
-        Offstage(
-          offstage: !_mobileProductPickerOpen,
-          child: IgnorePointer(
-            ignoring: !_mobileProductPickerOpen,
-            child: _buildMobileProductPickerOverlay(),
-          ),
-        ),
+        if (_mobileProductPickerOpen)
+          Positioned.fill(child: _buildMobileProductPickerOverlay()),
       ],
     );
   }
@@ -14435,7 +14491,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_tab.draftOrderId != null) _buildDraftSyncStatusBar(),
+          _buildDraftSyncStatusBar(),
           Expanded(child: _buildKiotCartList()),
           Container(
             height: 36,
@@ -14453,7 +14509,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 Expanded(
                   child: TextField(
                     controller: _tab._noteCtrl,
-                    readOnly: _tab.draftReadOnly,
+                    readOnly: _tab.draftReadOnly || _tableAttachBusy,
                     decoration: InputDecoration(
                       hintText: tr('Ghi chú đơn hàng'),
                       isDense: true,
@@ -14512,7 +14568,6 @@ class _PosSellScreenState extends State<PosSellScreen>
       _floorSearchQuery,
       _floorPendingOpenCode ?? '',
       '$_floorPendingOpenToken',
-      _floorMapVisible ? '1' : '0',
       '${_industrySettings?.promptGuestCountOnOpen == true}',
       '${_industrySettings?.allowProvisionalBill != false}',
       '${_industrySettings?.sellProfile}',
@@ -14579,7 +14634,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           ),
         if (_catalogPaneKept)
           TickerMode(
-            enabled: !showFloor,
+            enabled: true,
             child: Offstage(
               offstage: showFloor,
               child: IgnorePointer(
@@ -14654,7 +14709,10 @@ class _PosSellScreenState extends State<PosSellScreen>
 
     return Material(
       color: _kiotBlue,
-      child: SizedBox(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
         height: _KiotLayout.topBarHeight + (compact ? 4 : 8),
         child: Row(
           children: [
@@ -14714,6 +14772,14 @@ class _PosSellScreenState extends State<PosSellScreen>
             const SizedBox(width: 4),
           ],
         ),
+          ),
+          if (_tableAttachBusy)
+            const LinearProgressIndicator(
+              minHeight: 2,
+              color: Colors.white,
+              backgroundColor: Color(0x33FFFFFF),
+            ),
+        ],
       ),
     );
   }
@@ -14842,9 +14908,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               ),
             ),
           ),
-          if (_useFloorAsPrimary &&
-              !_floorMapVisible &&
-              (_isTableOrderMode || _tab.cart.isNotEmpty))
+          if (_useFloorAsPrimary && _isTableOrderMode)
             TextButton.icon(
               onPressed: () => unawaited(_returnToFloorMap()),
               icon: const Icon(Icons.table_restaurant_outlined, size: 16),
@@ -14860,14 +14924,13 @@ class _PosSellScreenState extends State<PosSellScreen>
                 visualDensity: VisualDensity.compact,
               ),
             ),
-          if (_tab.cart.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: PosTheme.kiotBlueLight,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(tr(_lineCountText()),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: PosTheme.kiotBlueLight,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(tr(_lineCountText()),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -14881,6 +14944,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   /// Chân hóa đơn: Xuất kho / Thông báo bếp + Thanh toán (Tạm tính ở màn thanh toán).
+  /// Khung chữ cố định; số món / phiếu báo / tổng tiền / ghi chú cập nhật khi load.
   Widget _buildTabletOrderFooter({required bool canPay, required bool canOrder}) {
     return Container(
       decoration: const BoxDecoration(
@@ -14918,21 +14982,29 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   Widget _invoiceSecondaryButton({
     required String label,
+    String suffix = '',
     required VoidCallback? onPressed,
     required Color color,
     bool busy = false,
+    bool keepLabelWhenBusy = false,
     double height = 48,
   }) {
     return OutlinedButton(
-      onPressed: onPressed,
+      onPressed: () {
+        if (busy) return;
+        onPressed?.call();
+      },
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
+        disabledForegroundColor: color,
+        backgroundColor: Colors.white,
+        disabledBackgroundColor: Colors.white,
         side: BorderSide(color: color, width: 1.5),
         minimumSize: Size(0, height),
         padding: const EdgeInsets.symmetric(horizontal: 6),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      child: busy
+      child: busy && !keepLabelWhenBusy
           ? SizedBox(
               height: height * 0.4,
               width: height * 0.4,
@@ -14941,7 +15013,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           : FittedBox(
               fit: BoxFit.scaleDown,
               child: Text(
-                tr(label),
+                '${tr(label)}$suffix',
                 maxLines: 1,
                 style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
               ),
@@ -14983,9 +15055,11 @@ class _PosSellScreenState extends State<PosSellScreen>
         ),
         if (showKitchen)
         _invoiceSecondaryButton(
-          label: _kitchenNotifyButtonLabel,
+          label: 'Thông báo',
+          suffix: _kitchenActionCount > 0 ? ' ($_kitchenActionCount)' : '',
           color: PosTheme.kiotBlue,
           busy: _kitchenSending,
+          keepLabelWhenBusy: true,
           height: height,
           onPressed: canNotify
               ? () => unawaited(_kitchenSendCurrentTable())
@@ -14993,19 +15067,23 @@ class _PosSellScreenState extends State<PosSellScreen>
         ),
     ];
 
+    final payEnabled = cartOk && canPay && !busy;
+    final payBg = payIsPrimaryFilled ? PosTheme.payGreen : _kiotBlue;
     final payBtn = FilledButton(
-      onPressed: !cartOk || !canPay || busy ? null : onPay,
-      style: payIsPrimaryFilled
-          ? PosTheme.payButtonStyle(height: height, radius: 10)
-          : FilledButton.styleFrom(
-              backgroundColor: _kiotBlue,
-              disabledBackgroundColor: Colors.grey.shade300,
-              disabledForegroundColor: Colors.grey.shade600,
-              minimumSize: Size(0, height),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
+      onPressed: () {
+        if (!payEnabled) return;
+        onPay();
+      },
+      style: FilledButton.styleFrom(
+        backgroundColor: payBg,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: payBg,
+        disabledForegroundColor: Colors.white,
+        minimumSize: Size(0, height),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
       child: Text(
         tr(payLabel),
         maxLines: 1,
@@ -15341,6 +15419,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget _buildMobileSellActionBar() {
+    if (_tableAttachBusy && _tab.cart.isEmpty) {
+      return const SizedBox.shrink();
+    }
     final tableMode = _isTableOrderMode;
     return Material(
       color: const Color(0xFFFAFBFC),
@@ -15450,6 +15531,11 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget _buildMobileSellCartBody() {
+    if (_tableAttachBusy && _tab.cart.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: PosTheme.kiotBlue),
+      );
+    }
     if (_tab.cart.isEmpty) {
       if (_isTableOrderMode) {
         final table = (_tab.serviceResourceName ?? '').trim();

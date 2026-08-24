@@ -14,7 +14,15 @@ class PosPrintConfigSession {
   PosPrintTemplate? _kitchenSlipTemplate;
   PosPrintTemplate? _kitchenVoidTemplate;
   DateTime? _kitchenTemplateAt;
-  static const _templateTtl = Duration(minutes: 10);
+  DateTime? _lastFullWarmAt;
+  /// TTL đủ dài để mở lại màn bán / đổi tab không re-fetch mẫu + orchestrator.
+  static const _templateTtl = Duration(minutes: 5);
+
+  bool get isWarm {
+    final at = _lastFullWarmAt ?? _kitchenTemplateAt;
+    if (at == null) return false;
+    return DateTime.now().difference(at) < _templateTtl;
+  }
 
   Future<void> warmUp({String? warehouseTemplateId}) async {
     await Future.wait([
@@ -26,6 +34,19 @@ class PosPrintConfigSession {
       kitchenTemplate(isCancel: false),
       kitchenTemplate(isCancel: true),
     ]);
+    _lastFullWarmAt = DateTime.now();
+  }
+
+  /// Bỏ qua nếu phiên vẫn còn nóng — tránh invalidate + double refresh mỗi lần mở bán.
+  Future<void> warmUpIfStale({String? warehouseTemplateId}) async {
+    final key = warehouseTemplateId ?? '';
+    if (isWarm &&
+        _warehouseTemplate != null &&
+        _warehouseTemplateKey == key &&
+        _kitchenSlipTemplate != null) {
+      return;
+    }
+    await warmUp(warehouseTemplateId: warehouseTemplateId);
   }
 
   Future<PosPrintTemplate?> warehouseTemplate(
@@ -72,6 +93,7 @@ class PosPrintConfigSession {
     _warehouseTemplate = null;
     _warehouseTemplateKey = null;
     _warehouseTemplateAt = null;
+    _lastFullWarmAt = null;
     if (!warehouseTemplateOnly) {
       _kitchenSlipTemplate = null;
       _kitchenVoidTemplate = null;

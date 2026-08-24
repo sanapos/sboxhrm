@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/pos_store_printer.dart';
@@ -82,6 +83,131 @@ PosAssignPrinterPurpose purposeFromFlags({
       : PosAssignPrinterPurpose.kitchenSlip;
 }
 
+/// Copy/chuyển món đã gán máy nội bộ → máy Agent (mỗi món 1 máy/lane).
+Future<bool> copyProductAssignmentsFromLocal({
+  required BuildContext context,
+  required ApiService api,
+  required String targetPrinterId,
+  required String targetPrinterName,
+  required bool isLabel,
+}) async {
+  final res = await api.getPosPrinterProductSummary(includeLocal: true);
+  if (res['isSuccess'] != true || res['data'] is! List) {
+    NotificationOverlayManager().showError(
+      title: 'Không tải máy in',
+      message: res['message']?.toString() ?? 'Thử lại',
+    );
+    return false;
+  }
+  final all = (res['data'] as List)
+      .whereType<Map>()
+      .map((e) => _PrinterSummary.fromJson(Map<String, dynamic>.from(e)))
+      .where((p) => p.id.isNotEmpty && p.id != targetPrinterId)
+      .where((p) => p.isLabel == isLabel)
+      .toList();
+  final locals = all.where((p) => p.isDeviceLocal).toList();
+  final sources = [
+    ...locals,
+    ...all.where((p) => !p.isDeviceLocal),
+  ];
+  if (sources.isEmpty) {
+    NotificationOverlayManager().showWarning(
+      title: 'Không có máy nguồn',
+      message: tr(
+        'Chưa có máy nội bộ cùng loại (bếp/tem) để copy. '
+        'Gán món trên Máy in nội bộ trước.',
+      ),
+    );
+    return false;
+  }
+
+  if (!context.mounted) return false;
+  final picked = await showDialog<_PrinterSummary>(
+    context: context,
+    builder: (ctx) => SimpleDialog(
+      title: Text(tr('Copy món từ máy nội bộ')),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+          child: Text(
+            tr(
+              'Chuyển danh sách gán sang «$targetPrinterName». '
+              'Mỗi món chỉ thuộc 1 máy — món sẽ in qua Agent.',
+            ),
+            style: const TextStyle(fontSize: 13, height: 1.35),
+          ),
+        ),
+        for (final p in sources)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, p),
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              leading: Icon(
+                p.isDeviceLocal ? Icons.phone_android : Icons.print_outlined,
+                color: p.isDeviceLocal ? PosTheme.kiotBlue : Colors.grey,
+              ),
+              title: Text(tr(p.name)),
+              subtitle: Text(
+                tr(
+                  '${p.isDeviceLocal ? 'Máy nội bộ' : 'Máy cửa hàng'}'
+                  ' · ${p.productCount} sản phẩm',
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+  if (picked == null || !context.mounted) return false;
+
+  final yes = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(tr('Copy gán món?')),
+      content: Text(
+        tr(
+          'Chuyển ${picked.productCount} món từ «${picked.name}» '
+          'sang «$targetPrinterName».',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text(tr('Hủy')),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(tr('Copy')),
+        ),
+      ],
+    ),
+  );
+  if (yes != true) return false;
+
+  final copyRes = await api.copyPosPrinterProductAssignments(
+    targetPrinterId,
+    sourcePrinterId: picked.id,
+    forLabel: isLabel,
+  );
+  if (copyRes['isSuccess'] != true) {
+    NotificationOverlayManager().showError(
+      title: 'Không copy được',
+      message: copyRes['message']?.toString() ?? 'Lỗi máy chủ',
+    );
+    return false;
+  }
+  final data = copyRes['data'] is Map
+      ? Map<String, dynamic>.from(copyRes['data'] as Map)
+      : <String, dynamic>{};
+  await PosProductPrinterService.instance.invalidate();
+  NotificationOverlayManager().showSuccess(
+    title: 'Đã copy gán món',
+    message: (data['message'] ?? copyRes['message'] ?? '').toString(),
+  );
+  return true;
+}
+
 /// Danh sách máy in → chọn máy in → gán sản phẩm.
 class PosProductPrinterAssignmentScreen extends StatefulWidget {
   const PosProductPrinterAssignmentScreen({super.key, this.printers});
@@ -101,6 +227,8 @@ class _PosProductPrinterAssignmentScreenState
   bool _loading = true;
   List<_PrinterSummary> _printers = [];
   _PrinterKindFilter _filter = _PrinterKindFilter.all;
+  /// Hiện máy 0 món không còn trên chip Agent (mặc định ẩn).
+  bool _showOrphans = false;
 
   @override
   void initState() {
@@ -111,16 +239,18 @@ class _PosProductPrinterAssignmentScreenState
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
+      // May cloud khong con tren Agent: go mon ve tu do + xoa may.
+      await _autoCleanupAgentOrphans();
       final res = await _api.getPosPrinterProductSummary();
       if (res['isSuccess'] == true && res['data'] is List) {
         _printers = (res['data'] as List)
             .whereType<Map>()
             .map((e) => _PrinterSummary.fromJson(Map<String, dynamic>.from(e)))
-            .where((p) => p.id.isNotEmpty && !p.isDeviceLocal)
+            .where((p) => p.id.isNotEmpty)
             .toList();
       } else if (widget.printers != null && widget.printers!.isNotEmpty) {
         _printers = widget.printers!
-            .where((p) => p.isActive && !p.isDeviceLocal)
+            .where((p) => p.isActive)
             .map((p) => _PrinterSummary(
                   id: p.id,
                   name: p.name,
@@ -141,7 +271,7 @@ class _PosProductPrinterAssignmentScreenState
       debugPrint('PosProductPrinterAssignment load: $e');
       if (widget.printers != null && widget.printers!.isNotEmpty) {
         _printers = widget.printers!
-            .where((p) => p.isActive && !p.isDeviceLocal)
+            .where((p) => p.isActive)
             .map((p) => _PrinterSummary(
                   id: p.id,
                   name: p.name,
@@ -163,13 +293,140 @@ class _PosProductPrinterAssignmentScreenState
   }
 
   List<_PrinterSummary> get _visible {
-    switch (_filter) {
-      case _PrinterKindFilter.kitchen:
-        return _printers.where((p) => !p.isLabel).toList();
-      case _PrinterKindFilter.label:
-        return _printers.where((p) => p.isLabel).toList();
-      case _PrinterKindFilter.all:
-        return _printers;
+    Iterable<_PrinterSummary> list = switch (_filter) {
+      _PrinterKindFilter.kitchen => _printers.where((p) => !p.isLabel),
+      _PrinterKindFilter.label => _printers.where((p) => p.isLabel),
+      _PrinterKindFilter.all => _printers,
+    };
+    // Ẩn máy rác: 0 món + không còn trong danh sách chip Agent.
+    if (!_showOrphans) {
+      list = list.where((p) => !p.isOrphanEmpty);
+    }
+    return list.toList();
+  }
+
+  List<_PrinterSummary> get _orphanEmpty =>
+      _printers.where((p) => p.isOrphanEmpty).toList();
+
+
+  Future<void> _autoCleanupAgentOrphans() async {
+    try {
+      final res = await _api.cleanupPosAgentOrphanPrinters();
+      if (res['isSuccess'] != true || res['data'] is! Map) return;
+      final data = Map<String, dynamic>.from(res['data'] as Map);
+      if (data['skipped'] == true) return;
+      final deleted = _readInt(data, 'deletedPrinters') ?? 0;
+      final freed = _readInt(data, 'freedProducts') ?? 0;
+      if (deleted <= 0 && freed <= 0) return;
+      if (!mounted) return;
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã dọn máy ngoài Agent',
+        message: tr(
+          'Xóa $deleted máy · trả $freed món về chưa gán',
+        ),
+      );
+    } catch (e) {
+      debugPrint('autoCleanupAgentOrphans: $e');
+    }
+  }
+
+  Future<void> _deletePrinter(_PrinterSummary p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xóa máy in?')),
+        content: Text(
+          tr(
+            '«${p.name}» sẽ bị xóa khỏi cửa hàng'
+            '${p.productCount > 0 ? ' và gỡ gán ${p.productCount} món' : ''}.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Hủy')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Xóa')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final res = await _api.deletePosStorePrinter(p.id);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã xóa máy in',
+        message: tr(p.name),
+      );
+      await _load();
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Không xóa được',
+        message: res['message']?.toString() ?? tr('Thử lại'),
+      );
+    }
+  }
+
+  Future<void> _cleanupOrphans() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Dọn máy không còn trên Agent?')),
+        content: Text(
+          tr(
+            'Các máy cloud không còn trong danh sách máy của Agent sẽ bị xóa. '
+            'Món đã gán máy đó được trả về trạng thái chưa gán.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Hủy')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Dọn ngay')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _loading = true);
+    try {
+      final res = await _api.cleanupPosAgentOrphanPrinters();
+      if (!mounted) return;
+      if (res['isSuccess'] != true) {
+        NotificationOverlayManager().showError(
+          title: 'Không dọn được',
+          message: res['message']?.toString() ?? tr('Thử lại'),
+        );
+        return;
+      }
+      final data = res['data'] is Map
+          ? Map<String, dynamic>.from(res['data'] as Map)
+          : <String, dynamic>{};
+      if (data['skipped'] == true) {
+        NotificationOverlayManager().show(
+          title: 'Chưa dọn',
+          message: tr(
+            data['reason']?.toString() == 'no_agents'
+                ? 'Cửa hàng chưa có Print Agent.'
+                : 'Agent chưa khai báo chip máy in — không xóa tự động.',
+          ),
+        );
+      } else {
+        final deleted = _readInt(data, 'deletedPrinters') ?? 0;
+        final freed = _readInt(data, 'freedProducts') ?? 0;
+        NotificationOverlayManager().showSuccess(
+          title: deleted > 0 ? 'Đã dọn máy ngoài Agent' : 'Không có máy cần dọn',
+          message: tr('Xóa $deleted máy · trả $freed món về chưa gán'),
+        );
+      }
+    } finally {
+      if (mounted) await _load();
     }
   }
 
@@ -201,6 +458,26 @@ class _PosProductPrinterAssignmentScreenState
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
+          if (_orphanEmpty.isNotEmpty)
+            IconButton(
+              tooltip: tr('Dọn máy ngoài Agent (không Agent)'),
+              onPressed: _loading ? null : _cleanupOrphans,
+              icon: Badge(
+                label: Text('${_orphanEmpty.length}'),
+                child: const Icon(Icons.delete_sweep_outlined),
+              ),
+            ),
+          IconButton(
+            tooltip: _showOrphans
+                ? tr('Ẩn máy trống không Agent')
+                : tr('Hiện máy trống không Agent'),
+            onPressed: _loading
+                ? null
+                : () => setState(() => _showOrphans = !_showOrphans),
+            icon: Icon(
+              _showOrphans ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            ),
+          ),
           IconButton(
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh),
@@ -221,6 +498,7 @@ class _PosProductPrinterAssignmentScreenState
                       child: Text(
                         tr(
                           'Phân biệt máy báo bếp (nhiệt) và máy tem. '
+                          'Máy Agent: «Copy từ nội bộ» để lấy món đã gán máy cục bộ. '
                           'Món đã gán máy khác: bấm «Chuyển» để đổi nhanh.',
                         ),
                         style: TextStyle(
@@ -298,19 +576,49 @@ class _PosProductPrinterAssignmentScreenState
                                 subtitle: Text(
                                   tr(
                                     '${purpose.titleVi}\n'
-                                    '${p.isDeviceLocal ? 'Máy nội bộ' : 'Agent / cloud'}'
+                                    '${p.isDeviceLocal ? 'Máy cục bộ trên thiết bị này' : 'Máy cửa hàng'}'
                                     ' · ${p.productCount} sản phẩm'
-                                    '${p.hasOnlineAgent ? '' : '\n⚠ Chưa Agent nào nhận lệnh — phiếu sẽ không ra giấy'}',
+                                    '${p.isDeviceLocal || p.hasOnlineAgent ? '' : '\nA7/web cần Agent trên máy đang cắm máy in'}',
                                   ),
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: p.hasOnlineAgent
+                                    color: p.isDeviceLocal || p.hasOnlineAgent
                                         ? null
                                         : Colors.orange.shade900,
                                   ),
                                 ),
                                 isThreeLine: true,
-                                trailing: const Icon(Icons.chevron_right),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (p.productCount == 0)
+                                      IconButton(
+                                        tooltip: tr('Xóa máy in này'),
+                                        icon: Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.red.shade600,
+                                        ),
+                                        onPressed: () => unawaited(_deletePrinter(p)),
+                                      ),
+                                    if (!p.isDeviceLocal)
+                                      IconButton(
+                                        tooltip: tr('Copy món từ máy nội bộ'),
+                                        icon: const Icon(Icons.copy_all_outlined),
+                                        onPressed: () async {
+                                          final ok =
+                                              await copyProductAssignmentsFromLocal(
+                                            context: context,
+                                            api: _api,
+                                            targetPrinterId: p.id,
+                                            targetPrinterName: p.name,
+                                            isLabel: p.isLabel,
+                                          );
+                                          if (ok) _load();
+                                        },
+                                      ),
+                                    const Icon(Icons.chevron_right),
+                                  ],
+                                ),
                                 onTap: () => _openPrinter(p),
                               ),
                             );
@@ -350,6 +658,7 @@ class _PosPrinterManageProductsScreenState
   bool _busy = false;
   List<_ProductItem> _assigned = [];
   int _total = 0;
+  int _inactiveAssigned = 0;
   int _page = 1;
   static const _pageSize = 50;
 
@@ -379,6 +688,7 @@ class _PosPrinterManageProductsScreenState
       if (res['isSuccess'] == true && res['data'] != null) {
         final data = Map<String, dynamic>.from(res['data'] as Map);
         _total = _readInt(data, 'total') ?? 0;
+        _inactiveAssigned = _readInt(data, 'inactiveAssigned') ?? 0;
         final items = data['items'] ?? data['Items'];
         if (items is List) {
           _assigned = items
@@ -404,6 +714,38 @@ class _PosPrinterManageProductsScreenState
       }
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+
+  Future<void> _clearInactiveAssigned() async {
+    if (_busy || _inactiveAssigned <= 0) return;
+    setState(() => _busy = true);
+    try {
+      final res =
+          await _api.unassignInactiveProductsFromPosPrinter(widget.printerId);
+      if (res['isSuccess'] != true) {
+        if (mounted) {
+          NotificationOverlayManager().showError(
+            title: 'Không gỡ được',
+            message: res['message']?.toString() ?? 'Thử lại',
+          );
+        }
+        return;
+      }
+      final n = (res['data'] is Map)
+          ? (_readInt(Map<String, dynamic>.from(res['data'] as Map), 'updated') ??
+              _inactiveAssigned)
+          : _inactiveAssigned;
+      if (mounted) {
+        NotificationOverlayManager().showSuccess(
+          title: 'Đã gỡ món ngừng bán',
+          message: '$n món',
+        );
+      }
+      await _loadAssigned();
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -489,6 +831,25 @@ class _PosPrinterManageProductsScreenState
         backgroundColor: purpose.accent,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: tr('Copy món từ máy nội bộ'),
+            onPressed: _busy
+                ? null
+                : () async {
+                    final ok = await copyProductAssignmentsFromLocal(
+                      context: context,
+                      api: _api,
+                      targetPrinterId: widget.printerId,
+                      targetPrinterName: widget.printerName,
+                      isLabel: widget.isLabel,
+                    );
+                    if (ok) {
+                      _page = 1;
+                      await _loadAssigned();
+                    }
+                  },
+            icon: const Icon(Icons.copy_all_outlined),
+          ),
           if (_busy)
             const Padding(
               padding: EdgeInsets.all(16),
@@ -582,6 +943,33 @@ class _PosPrinterManageProductsScreenState
               ),
             ),
           ),
+          if (_inactiveAssigned > 0)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Material(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                child: ListTile(
+                  dense: true,
+                  leading: Icon(Icons.warning_amber_rounded,
+                      color: Colors.orange.shade800),
+                  title: Text(
+                    tr(
+                      '$_inactiveAssigned món ngừng bán vẫn đang gắn máy này',
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.orange.shade900,
+                    ),
+                  ),
+                  trailing: TextButton(
+                    onPressed: _busy ? null : _clearInactiveAssigned,
+                    child: Text(tr('Gỡ hết')),
+                  ),
+                ),
+              ),
+            ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -1196,8 +1584,8 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                     children: [
                       FilterChip(
                         label: Text(tr(widget.isLabel
-                            ? 'Gán tem cả cửa hàng'
-                            : 'Gán bếp cả cửa hàng')),
+                            ? 'Tất cả hàng đang bán ($_productTotal)'
+                            : 'Tất cả hàng đang bán ($_productTotal)')),
                         selected: _selectAll,
                         onSelected: _saving
                             ? null
@@ -1325,7 +1713,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                         title: Text(
                           tr(
                             _selectAll
-                                ? 'Đã chọn TẤT CẢ — bấm nút cam bên dưới để chuyển'
+                                ? 'Sẽ gán $_productTotal món đang bán (không gồm món ngừng bán)'
                                 : 'Đã chọn ${_selectionEstimate} món'
                                     '${_selectedOtherCount > 0 ? ' · $_selectedOtherCount đang máy khác' : ''}'
                                     ' — bấm nút dưới một lần',
@@ -1643,6 +2031,7 @@ class _PrinterSummary {
     bool isLabel = false,
     this.documentTypes = const [],
     this.hasOnlineAgent = true,
+    this.listedByAgent = true,
   }) : isLabelFlag = isLabel;
 
   final String id;
@@ -1653,6 +2042,14 @@ class _PrinterSummary {
   /// Máy in trùng tên (cắm lại USB sinh bản ghi mới) khiến món gán vào máy
   /// không Agent nào nhận lệnh: phiếu nằm hàng đợi rồi hết hạn, không ra giấy.
   final bool hasOnlineAgent;
+
+  /// Còn trong chip AssignedPrinterIds của ≥1 Agent (kể cả offline).
+  final bool listedByAgent;
+
+  /// 0 món + cửa hàng + không còn trên Agent → ẩn/dọn.
+  /// May cloud khong con tren chip Agent (ke ca con mon dang gan).
+  bool get isOrphanEmpty => !isDeviceLocal && !listedByAgent;
+
 
   /// Cờ thô từ server (hãng / khổ giấy) — chỉ dùng khi máy chưa cấu hình chứng từ.
   final bool isLabelFlag;
@@ -1693,6 +2090,9 @@ class _PrinterSummary {
         hasOnlineAgent: (j['hasOnlineAgent'] ?? j['HasOnlineAgent']) == null
             ? true
             : (j['hasOnlineAgent'] == true || j['HasOnlineAgent'] == true),
+        listedByAgent: (j['listedByAgent'] ?? j['ListedByAgent']) == null
+            ? true
+            : (j['listedByAgent'] == true || j['ListedByAgent'] == true),
       );
 }
 
@@ -1707,6 +2107,7 @@ class _ProductItem {
     this.defaultPrinterName,
     this.labelPrinterId,
     this.labelPrinterName,
+    this.isActive = true,
   });
 
   final String id;
@@ -1718,6 +2119,7 @@ class _ProductItem {
   final String? defaultPrinterName;
   final String? labelPrinterId;
   final String? labelPrinterName;
+  final bool isActive;
 
   factory _ProductItem.fromJson(Map<String, dynamic> j) => _ProductItem(
         id: (j['id'] ?? j['Id'] ?? j['productId'] ?? j['ProductId']).toString(),
@@ -1748,6 +2150,7 @@ class _ProductItem {
                 j['defaultLabelPrinterName'] ??
                 j['DefaultLabelPrinterName'])
             ?.toString(),
+        isActive: j['isActive'] != false && j['IsActive'] != false,
       );
 }
 

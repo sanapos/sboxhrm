@@ -22,6 +22,7 @@ Assert-True (Test-Path "$www\home.html") "wwwroot/home.html exists"
 Assert-True (Test-Path "$www\privacy-policy.html") "wwwroot/privacy-policy.html exists"
 Assert-True (Test-Path "$www\robots.txt") "wwwroot/robots.txt exists"
 Assert-True (Test-Path "$www\sitemap.xml") "wwwroot/sitemap.xml exists"
+Assert-True (Test-Path "$www\guide.html") "wwwroot/guide.html exists"
 
 $homeHtml = Get-Content "$www\home.html" -Raw
 Assert-True ($homeHtml -match "support@sboxhrm.com") "home.html uses support@sboxhrm.com"
@@ -60,7 +61,7 @@ if ($apiUrl) {
   try {
     $sm = Invoke-WebRequest -Uri "$apiUrl/sitemap.xml" -UseBasicParsing
     Assert-True ($sm.StatusCode -eq 200) "GET sitemap.xml returns 200"
-    Assert-True ($sm.Content -match "sbox.sana.vn") "sitemap contains site URL"
+    Assert-True ($sm.Content -match "sboxhrm.com") "sitemap contains site URL"
   } catch {
     Assert-True $false "sitemap.xml request failed: $_"
   }
