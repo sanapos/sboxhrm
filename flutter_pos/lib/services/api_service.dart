@@ -18501,13 +18501,17 @@ class ApiService {
 
   Future<Map<String, dynamic>> markPosPrintAgentOffline({
     required String deviceId,
+    bool forceStop = true,
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/print-jobs/agents/offline'),
             headers: _headers,
-            body: jsonEncode({'deviceId': deviceId}),
+            body: jsonEncode({
+              'deviceId': deviceId,
+              'forceStop': forceStop,
+            }),
           )
           .timeout(const Duration(seconds: 15));
       return _handleResponse(response);

@@ -35,9 +35,11 @@ public class PosPrintJobsController(
         string? DeviceName,
         string? EmployeeName,
         List<Guid> PrinterIds,
-        string? AppVersion);
+        string? AppVersion,
+        /// <summary>Subset đang in được trên thiết bị Agent (USB/LAN/BT sẵn sàng). Null = tất cả Online.</summary>
+        List<Guid>? OnlinePrinterIds = null);
 
-    public record AgentOfflineDto(string DeviceId);
+    public record AgentOfflineDto(string DeviceId, bool? ForceStop = null);
 
     /// <summary>
     /// Agent phải thuộc store và gắn đúng user đang đăng nhập (trừ QL/Admin).
@@ -388,7 +390,8 @@ public class PosPrintJobsController(
                 display,
                 CurrentUserId.ToString(),
                 dto.PrinterIds,
-                dto.AppVersion);
+                dto.AppVersion,
+                dto.OnlinePrinterIds);
         }
         catch (InvalidOperationException ex)
         {
@@ -433,7 +436,10 @@ public class PosPrintJobsController(
             if (owned != null) return owned;
         }
 
-        await dispatch.MarkAgentOfflineAsync(RequiredStoreId, dto.DeviceId.Trim());
+        await dispatch.MarkAgentOfflineAsync(
+            RequiredStoreId,
+            dto.DeviceId.Trim(),
+            forceStop: dto.ForceStop ?? true);
         return Ok(AppResponse<object>.Success(new { offline = true }));
     }
 

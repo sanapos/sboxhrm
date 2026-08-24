@@ -70,8 +70,23 @@ class PosStorePrinter {
   /// Danh sách «cloud / Agent» — máy nội bộ sync luôn RequiresAgent=false.
   bool get isCloudAgentPrinter => !isDeviceLocal && requiresAgent;
 
-  bool get isOnline =>
-      healthStatus == 'Online' || healthStatus == 'Busy';
+  /// Phiếu bếp / in lại: máy bếp + máy hóa đơn (Sunmi) khi máy bếp hỏng.
+  bool get canPrintKitchenSlip {
+    if (isLabelPrinter) return false;
+    if (isSunmi) return true;
+    return documentTypes.contains(PosCloudDocumentTypes.kitchenSlip) ||
+        documentTypes.contains(PosCloudDocumentTypes.kitchenVoid) ||
+        documentTypes.contains(PosCloudDocumentTypes.saleInvoice);
+  }
+
+  /// Online/Busy chỉ còn hiệu lực ~90s kể từ lastSeenAt (tránh Zywell/tem Offline vẫn Online).
+  bool get isOnline {
+    if (healthStatus != 'Online' && healthStatus != 'Busy') return false;
+    final seen = lastSeenAt;
+    if (seen == null) return false;
+    final age = DateTime.now().toUtc().difference(seen.toUtc());
+    return age.inSeconds <= 90;
+  }
 
   static bool _jsonBool(dynamic v) =>
       v == true || v == 1 || v?.toString().toLowerCase() == 'true';

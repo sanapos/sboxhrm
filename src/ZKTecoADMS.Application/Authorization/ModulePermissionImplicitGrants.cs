@@ -258,6 +258,15 @@ public static class ModulePermissionImplicitGrants
              HasAction(map, "PosPrinters", ModulePermissionAction.View)))
             return true;
 
+        // API /api/pos/printers vẫn Require PosPrinters; Super Admin tick PosStorePrinters.
+        // Không alias thì tick Hóa đơn / Cuối ngày → 403 «Không lưu được vai trò».
+        if (module.Equals("PosPrinters", StringComparison.Ordinal) &&
+            HasAction(map, "PosStorePrinters", action))
+            return true;
+        if (module.Equals("PosStorePrinters", StringComparison.Ordinal) &&
+            HasAction(map, "PosPrinters", action))
+            return true;
+
         // ĐVVC: thu ngân tạo/so sánh vận đơn từ PosSell; sửa cấu hình cần Edit riêng.
         if (module.Equals("PosShipping", StringComparison.Ordinal) &&
             action == ModulePermissionAction.Create &&

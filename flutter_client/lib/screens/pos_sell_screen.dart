@@ -1939,6 +1939,8 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   /// true = đang xem sơ đồ (chưa vào bàn).
   bool _floorMapVisible = true;
+  /// Tăng mỗi lần mở/thoát bàn — hủy attach/leave nền của bàn trước.
+  int _tableAttachEpoch = 0;
   /// Mobile F&B: giữ shell bán hàng sau lần mở bàn đầu — tránh dispose/mount lại.
   bool _mobileSellKept = false;
   /// Tổng tạm tính + số bàn mở — ValueNotifier để không rebuild cả màn bán.
@@ -2571,6 +2573,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
     }
     if (orderId != null && orderId.isNotEmpty) {
+      final attachEpoch = ++_tableAttachEpoch;
       _floorReleasedOrderIds.remove(orderId);
       if (resourceId != null && resourceId.isNotEmpty) {
         _floorFreedResourceIds = {
@@ -2582,8 +2585,21 @@ class _PosSellScreenState extends State<PosSellScreen>
       final forceClaim = result['forceClaim'] == true;
       final isSplitBill = result['isSplitBill'] == true;
       final splitFrom = result['splitFromOrderId']?.toString();
-      // Hiện menu ngay — không chờ lock/GET (A7/HRM chậm hơn A6 vì mount lưới lần đầu).
+      final switchingTable = (_tab.draftOrderId ?? '') != orderId ||
+          ((resourceId ?? '').isNotEmpty &&
+              (_tab.serviceResourceId ?? '').toLowerCase() !=
+                  resourceId!.toLowerCase());
+      // Hiện menu ngay — xóa giỏ bàn cũ trước khi GET (tránh món cũ vài giây rồi thoát).
       setState(() {
+        if (switchingTable) {
+          _tab.reset(
+            defaultVatRate: _storeSettings.defaultVatRate,
+            store: _storeSettings,
+          );
+          _tab.sellerEmployeeId = _defaultSellerEmployeeId;
+          _syncPaidAmount();
+          _pendingKitchenCancels.clear();
+        }
         _tab.serviceResourceId = resourceId ?? _tab.serviceResourceId;
         _tab.resourceSessionId =
             isSplitBill ? null : (sessionId ?? _tab.resourceSessionId);
@@ -2608,7 +2624,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         viewOnlyOnConflict: !forceClaim,
         forceClaim: forceClaim,
       );
-      if (!mounted) return;
+      if (!mounted || attachEpoch != _tableAttachEpoch) return;
       if (_tab.draftOrderId != orderId) {
         NotificationOverlayManager().showError(
           title: 'Không vào được bàn',
@@ -2639,7 +2655,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (!alreadyHydrated) {
         await _verifyTableCartHydrated(orderId);
       }
-      if (!mounted) return;
+      if (!mounted || attachEpoch != _tableAttachEpoch) return;
       if (paidFromDeposit != null && paidFromDeposit > 0) {
         setState(() {
           _tab.reservationDepositApplied = paidFromDeposit;
@@ -2839,6 +2855,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Về sơ đồ: hiện floor ngay (optimistic), unlock/autosave chạy nền.
   /// Chỉ xem (draftReadOnly) → không unlock / không «tạm rời» — giữ «Máy khác» của máy đang sửa.
   Future<void> _returnToFloorMap() async {
+    _tableAttachEpoch++;
     _draftAutosaveTimer?.cancel();
     _stopDraftLockHeartbeat();
     _suspendDraftAutosave = true;
@@ -2895,6 +2912,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     required String? resourceId,
     required String? sessionId,
   }) async {
+    final epoch = _tableAttachEpoch;
     await _awaitDraftAutosaveIdle(
       maxTicks: 20,
       tick: const Duration(milliseconds: 80),
@@ -2907,7 +2925,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         await Future<void>.delayed(const Duration(seconds: 2));
         unlocked = await _unlockDraftQuietly(draftId);
       }
-      if (!unlocked && mounted) {
+      if (!unlocked && mounted && epoch == _tableAttachEpoch) {
         NotificationOverlayManager().showWarning(
           title: 'Đang nhả khóa nền',
           message: tr(
@@ -2926,6 +2944,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       } catch (_) {}
     }
 
+    if (!mounted || epoch != _tableAttachEpoch) return;
     _suspendDraftAutosave = false;
   }
 
@@ -7284,7 +7303,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     var readOnly = false;
     Map<String, dynamic>? lockData;
     setState(() {
-      final keepLocalCart = _tab.localDirty && _tab.cart.isNotEmpty;
+      final switchingTable = switchingOrder && _tab.isTableBound;
+      final keepLocalCart =
+          !switchingTable && _tab.localDirty && _tab.cart.isNotEmpty;
       if (switchingOrder && !keepLocalCart) {
         _tab.reset(
           defaultVatRate: _storeSettings.defaultVatRate,
@@ -11075,11 +11096,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             label: _sellProfile.floorTabLabel,
             onTap: () {
               if (onFloor) return;
-              setState(() {
-                _floorMapVisible = true;
-                _floorPaneKept = true;
-                _tabletPaymentStage = false;
-              });
+              unawaited(_returnToFloorMap());
             },
           ),
           const SizedBox(width: 2),

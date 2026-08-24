@@ -20,15 +20,25 @@ import '../../utils/pos_printer_readiness.dart';
 import '../../utils/pos_thermal_printer_service.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
 import '../../utils/pos_store_printer_mapper.dart';
+import '../../utils/pos_usb_printer.dart';
+import '../../utils/pos_usb_labels.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/pos_lan_printer_scan_sheet.dart';
 import 'pos_local_printers_screen.dart';
 import 'pos_product_printer_assignment_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-/// Quản lý máy in cửa hàng + vai trò từng máy + Print Agent.
+/// Quản lý máy in cloud + vai trò từng máy + Print Agent.
 class PosStorePrintersScreen extends StatefulWidget {
-  const PosStorePrintersScreen({super.key});
+  const PosStorePrintersScreen({
+    super.key,
+    this.embeddedInSettings = false,
+  });
+
+  /// Hub thiết lập đã có AppBar ngoài — ẩn AppBar trong để tránh tràn tiêu đề.
+  final bool embeddedInSettings;
 
   @override
   State<PosStorePrintersScreen> createState() => _PosStorePrintersScreenState();
@@ -88,18 +98,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     if (forceStop &&
         !isOnlineFlag &&
         deviceId.isNotEmpty &&
-        deviceId == _myDeviceId &&
-        _agent.enabled) {
-      _agent = _agent.copyWith(enabled: false);
-      await _agent.save();
-      await PosPrintAgentService.instance.stop(markOffline: false);
-      if (mounted) {
-        setState(() {});
-        NotificationOverlayManager().showWarning(
-          title: 'Agent đã tắt từ máy khác',
-          message: tr('Chỉ giữ Agent trên máy gần máy in'),
-        );
-      }
+        deviceId == _myDeviceId) {
+      // Chỉ đồng bộ UI — PosPrintAgentService đã tắt Agent + toast.
+      _agent = await PosPrintAgentSettings.load();
+      if (mounted) setState(() {});
     }
 
     // Cập nhật list ngay từ SignalR — không chờ API / không forceRegister
@@ -750,6 +752,12 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         );
         await _load();
       }
+    } catch (e) {
+      NotificationOverlayManager().showError(
+        title: 'Không lưu được vai trò',
+        message: e.toString(),
+      );
+      await _load();
     } finally {
       if (mounted) setState(() => _savingRoutes = false);
     }
@@ -776,10 +784,58 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     if (saved != null) await _load();
   }
 
+  List<Widget> _cloudPrinterActions() => [
+        IconButton(
+          tooltip: tr('Máy in nội bộ'),
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const PosLocalPrintersScreen(),
+              ),
+            ).then((_) => _load());
+          },
+          icon: const Icon(Icons.phone_android),
+        ),
+        IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+      ];
+
+  PreferredSizeWidget? _cloudPrinterAppBar({required bool denyAccess}) {
+    final hideOuter = widget.embeddedInSettings || HrmPageChrome.isEmbedded;
+    if (hideOuter) return null;
+    return AppBar(
+      title: Text(
+        tr('Máy in cloud'),
+        overflow: TextOverflow.ellipsis,
+        maxLines: 1,
+      ),
+      backgroundColor: PosTheme.kiotBlue,
+      foregroundColor: Colors.white,
+      actions: denyAccess ? null : _cloudPrinterActions(),
+    );
+  }
+
+  Widget _embeddedToolbar() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final w in _cloudPrinterActions())
+            IconTheme(
+              data: const IconThemeData(color: PosTheme.kiotBlue),
+              child: w,
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
+    final hideOuter = widget.embeddedInSettings || HrmPageChrome.isEmbedded;
     if (!PermissionNavigation.canAccessModule(
       'PosStorePrinters',
       allowedModules: auth.user?.allowedModules,
@@ -788,11 +844,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     )) {
       return Scaffold(
         backgroundColor: PosTheme.background,
-        appBar: AppBar(
-          title: Text(tr('Máy in cloud')),
-          backgroundColor: PosTheme.kiotBlue,
-          foregroundColor: Colors.white,
-        ),
+        appBar: _cloudPrinterAppBar(denyAccess: true),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -807,26 +859,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     }
     return Scaffold(
       backgroundColor: PosTheme.background,
-      appBar: AppBar(
-        title: Text(tr('Máy in cloud')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            tooltip: tr('Máy in nội bộ'),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const PosLocalPrintersScreen(),
-                ),
-              ).then((_) => _load());
-            },
-            icon: const Icon(Icons.phone_android),
-          ),
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
-        ],
-      ),
+      appBar: _cloudPrinterAppBar(denyAccess: false),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -835,6 +868,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 // Chừa chỗ FAB «Thêm máy in».
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
                 children: [
+                  if (hideOuter) ...[
+                    _embeddedToolbar(),
+                    const SizedBox(height: 8),
+                  ],
                   Card(
                     color: const Color(0xFFFFF7ED),
                     child: Padding(
@@ -1810,6 +1847,82 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
     super.dispose();
   }
 
+  Future<void> _scanLanPrinters() async {
+    final hit = await showPosLanPrinterScanSheet(context);
+    if (hit == null || !mounted) return;
+    setState(() {
+      _lanHostCtrl.text = hit.host;
+      _lanPortCtrl.text = '${hit.port}';
+      if (hit.brand != PosThermalPrinterBrand.generic) {
+        _brand = hit.brand.key;
+      }
+      if (_nameCtrl.text.trim().isEmpty) {
+        _nameCtrl.text = hit.brand == PosThermalPrinterBrand.generic
+            ? 'LAN ${hit.host}'
+            : '${hit.brand.label} ${hit.host}';
+      }
+    });
+  }
+
+  Future<void> _pickUsbPort() async {
+    if (!PosUsbPrinter.isSupported) return;
+    final list = await PosUsbPrinter.listDevices();
+    if (!mounted) return;
+    if (list.isEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không thấy cổng USB',
+        message: tr('Cắm máy in USB, bật nguồn, rồi thử lại'),
+      );
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                tr('Chọn cổng USB'),
+                style: const TextStyle(
+                    fontSize: 17, fontWeight: FontWeight.w600),
+              ),
+            ),
+            ...list.map(
+              (d) => ListTile(
+                leading: const Icon(Icons.usb),
+                title: Text(PosUsbLabels.title(d)),
+                subtitle: Text(PosUsbLabels.subtitle(d)),
+                onTap: () async {
+                  var device = d;
+                  if (!device.hasPermission) {
+                    await PosUsbPrinter.requestPermission(device);
+                  }
+                  if (!mounted) return;
+                  setState(() {
+                    _usbNameCtrl.text = device.savedRef;
+                    if (_nameCtrl.text.trim().isEmpty) {
+                      _nameCtrl.text = PosUsbLabels.title(device);
+                    }
+                    final b = PosUsbLabels.brandEnum(
+                      vendorId: device.vendorId,
+                      manufacturer: device.manufacturerName,
+                      product: device.productName,
+                    );
+                    if (b != null) _brand = b.key;
+                  });
+                  Navigator.pop(ctx);
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickBluetooth() async {
     _btDevices = await widget.onRefreshBluetooth();
     if (!mounted) return;
@@ -1993,6 +2106,12 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
             ),
             if (_connection == 'Lan') ...[
               const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _scanLanPrinters,
+                icon: const Icon(Icons.wifi_tethering, size: 18),
+                label: Text(tr('Quét IP Zywell / Xprinter / HPRT')),
+              ),
+              const SizedBox(height: 10),
               TextField(
                 controller: _lanHostCtrl,
                 decoration: InputDecoration(
@@ -2039,10 +2158,21 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
             ],
             if (_connection == 'Usb') ...[
               const SizedBox(height: 10),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(tr('Cổng USB')),
+                subtitle: Text(
+                  tr(_usbNameCtrl.text.trim().isEmpty
+                      ? 'Chưa chọn — bấm để liệt kê cổng đang cắm'
+                      : PosUsbLabels.fromSavedRaw(_usbNameCtrl.text)),
+                ),
+                trailing: const Icon(Icons.usb),
+                onTap: _pickUsbPort,
+              ),
               TextField(
                 controller: _usbNameCtrl,
                 decoration: InputDecoration(
-                  labelText: tr('Tên thiết bị USB (tùy chọn)'),
+                  labelText: tr('Mã cổng đã lưu'),
                   border: OutlineInputBorder(),
                 ),
               ),

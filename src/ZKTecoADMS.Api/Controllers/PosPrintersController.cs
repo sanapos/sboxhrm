@@ -84,6 +84,8 @@ public partial class PosPrintersController(
     {
         var storeId = RequiredStoreId;
         await dispatch.EnsureDefaultRoutesAsync(storeId);
+        // Không chạy orphan cleanup trên GET list — unshare→reshare tạo twin mới
+        // rồi refreshConfig gọi List → cleanup xóa twin trước khi heartbeat gắn chip.
 
         var printers = await db.PosStorePrinters.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null)
@@ -132,6 +134,44 @@ public partial class PosPrintersController(
         return (pipe > 0 ? t[..pipe] : t).ToLowerInvariant();
     }
 
+    static bool SamePhysicalPort(PosStorePrinter a, PosStorePrinter b)
+    {
+        if (a.ConnectionType != b.ConnectionType) return false;
+        switch (a.ConnectionType)
+        {
+            case PosPrinterConnectionType.Usb:
+                var ua = UsbIdentity(a.UsbDeviceName);
+                var ub = UsbIdentity(b.UsbDeviceName);
+                return ua.Length > 0 && ub.Length > 0 && ua == ub;
+            case PosPrinterConnectionType.Lan:
+                return string.Equals((a.LanHost ?? "").Trim(), (b.LanHost ?? "").Trim(),
+                           StringComparison.OrdinalIgnoreCase)
+                       && a.LanPort == b.LanPort;
+            case PosPrinterConnectionType.Bluetooth:
+                return string.Equals((a.BluetoothAddress ?? "").Trim(),
+                    (b.BluetoothAddress ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
+            case PosPrinterConnectionType.Sunmi:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Bản cloud cùng cổng với máy nội bộ — gán món/A7 dùng ID này.</summary>
+    async Task<PosStorePrinter?> FindCloudTwinOfAsync(PosStorePrinter local)
+    {
+        if (!local.IsDeviceLocal) return null;
+        var candidates = await db.PosStorePrinters.AsNoTracking()
+            .Where(p => p.StoreId == local.StoreId && p.Deleted == null
+                && p.IsActive && !p.IsDeviceLocal
+                && p.ConnectionType == local.ConnectionType)
+            .ToListAsync();
+        return candidates.FirstOrDefault(p => SamePhysicalPort(local, p))
+            ?? candidates.FirstOrDefault(p =>
+                string.Equals(p.Name.Trim(), local.Name.Trim(),
+                    StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>
     /// Máy in cloud đã có cùng cổng vật lý. Cắm lại USB làm đổi đường dẫn bus
     /// nên app từng tạo thêm bản ghi trùng tên: chip Agent trỏ bản cũ, món gán
@@ -145,30 +185,50 @@ public partial class PosPrintersController(
             .Where(p => p.StoreId == storeId && p.Deleted == null
                 && !p.IsDeviceLocal && p.ConnectionType == dto.ConnectionType)
             .ToListAsync();
-        if (candidates.Count == 0) return null;
 
-        switch (dto.ConnectionType)
+        PosStorePrinter? Match(IEnumerable<PosStorePrinter> list)
         {
-            case PosPrinterConnectionType.Usb:
-                var usb = UsbIdentity(dto.UsbDeviceName);
-                if (usb.Length == 0) return null;
-                return candidates.FirstOrDefault(p => UsbIdentity(p.UsbDeviceName) == usb);
-            case PosPrinterConnectionType.Lan:
-                var host = (dto.LanHost ?? "").Trim();
-                if (host.Length == 0) return null;
-                return candidates.FirstOrDefault(p =>
-                    string.Equals((p.LanHost ?? "").Trim(), host, StringComparison.OrdinalIgnoreCase)
-                    && p.LanPort == dto.LanPort);
-            case PosPrinterConnectionType.Bluetooth:
-                var bt = (dto.BluetoothAddress ?? "").Trim();
-                if (bt.Length == 0) return null;
-                return candidates.FirstOrDefault(p =>
-                    string.Equals((p.BluetoothAddress ?? "").Trim(), bt, StringComparison.OrdinalIgnoreCase));
-            case PosPrinterConnectionType.Sunmi:
-                return candidates.FirstOrDefault();
-            default:
-                return null;
+            switch (dto.ConnectionType)
+            {
+                case PosPrinterConnectionType.Usb:
+                    var usb = UsbIdentity(dto.UsbDeviceName);
+                    if (usb.Length == 0) return null;
+                    return list.FirstOrDefault(p => UsbIdentity(p.UsbDeviceName) == usb);
+                case PosPrinterConnectionType.Lan:
+                    var host = (dto.LanHost ?? "").Trim();
+                    if (host.Length == 0) return null;
+                    return list.FirstOrDefault(p =>
+                        string.Equals((p.LanHost ?? "").Trim(), host, StringComparison.OrdinalIgnoreCase)
+                        && p.LanPort == dto.LanPort);
+                case PosPrinterConnectionType.Bluetooth:
+                    var bt = (dto.BluetoothAddress ?? "").Trim();
+                    if (bt.Length == 0) return null;
+                    return list.FirstOrDefault(p =>
+                        string.Equals((p.BluetoothAddress ?? "").Trim(), bt, StringComparison.OrdinalIgnoreCase));
+                case PosPrinterConnectionType.Sunmi:
+                    return list.FirstOrDefault();
+                default:
+                    return null;
+            }
         }
+
+        var hit = Match(candidates);
+        if (hit != null) return hit;
+
+        // Unshare soft-delete twin → reshare phải revive cùng GUID (tránh chip Agent stale + orphan cleanup).
+        var softDeleted = await db.PosStorePrinters.IgnoreQueryFilters().AsTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted != null
+                && !p.IsDeviceLocal && p.ConnectionType == dto.ConnectionType)
+            .OrderByDescending(p => p.Deleted)
+            .ToListAsync();
+        hit = Match(softDeleted);
+        if (hit == null) return null;
+        hit.Deleted = null;
+        hit.DeletedBy = null;
+        hit.IsActive = true;
+        hit.RequiresAgent = true;
+        hit.UpdatedAt = DateTime.UtcNow;
+        return hit;
     }
 
     [HttpPost]
@@ -270,6 +330,7 @@ public partial class PosPrintersController(
                 .SetProperty(x => x.UpdatedBy, by));
 
         await ClearProductAssignmentsAsync(storeId, id);
+        await PrunePrinterIdFromAgentsAsync(storeId, id);
 
         // Detach tracker — tránh query sau vẫn «nhìn» entity cũ.
         foreach (var entry in db.ChangeTracker.Entries<PosStorePrinter>()
@@ -278,6 +339,36 @@ public partial class PosPrintersController(
 
         await dispatch.EnsureDefaultRoutesAsync(storeId);
         return Ok(AppResponse<object>.Success(true));
+    }
+
+    /// <summary>Gỡ printerId khỏi AssignedPrinterIdsJson mọi Agent cửa hàng (sau unshare/xóa).</summary>
+    async Task PrunePrinterIdFromAgentsAsync(Guid storeId, Guid printerId)
+    {
+        var agents = await db.PosPrintAgents.AsTracking()
+            .Where(a => a.StoreId == storeId && a.Deleted == null)
+            .ToListAsync();
+        foreach (var a in agents)
+        {
+            var ids = ParsePrinterIdsJson(a.AssignedPrinterIdsJson);
+            if (!ids.Remove(printerId)) continue;
+            a.AssignedPrinterIdsJson = System.Text.Json.JsonSerializer.Serialize(ids);
+            a.UpdatedAt = DateTime.UtcNow;
+        }
+        if (agents.Count > 0)
+            await db.SaveChangesAsync();
+    }
+
+    static HashSet<Guid> ParsePrinterIdsJson(string? json)
+    {
+        var ids = new HashSet<Guid>();
+        if (string.IsNullOrWhiteSpace(json)) return ids;
+        try
+        {
+            foreach (var id in System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(json) ?? [])
+                ids.Add(id);
+        }
+        catch { /* ignore */ }
+        return ids;
     }
 
     /// <summary>
@@ -338,26 +429,33 @@ public partial class PosPrintersController(
     public async Task<ActionResult<AppResponse<object>>> SaveRoutes([FromBody] RoutesBulkDto dto)
     {
         var storeId = RequiredStoreId;
-        var printerIds = dto.Routes.Select(r => r.PrinterId).Distinct().ToList();
+        var incomingRoutes = dto.Routes ?? [];
+        var printerIds = incomingRoutes.Select(r => r.PrinterId).Distinct().ToList();
         var validPrinters = await db.PosStorePrinters
             .Where(p => printerIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
             .Select(p => p.Id).ToListAsync();
 
-        // AsTracking: bên dưới sửa/soft-delete các route cũ rồi SaveChanges.
+        // Unique (StoreId, DocumentType, PrinterId) gồm cả bản soft-delete.
+        // Bỏ tick Hóa đơn / Cuối ngày rồi tick lại → INSERT trùng 23505
+        // → client «Không lưu được vai trò».
         var existing = await db.PosPrinterDocumentRoutes.AsTracking()
-            .Where(r => r.StoreId == storeId && r.Deleted == null).ToListAsync();
+            .IgnoreQueryFilters()
+            .Where(r => r.StoreId == storeId)
+            .ToListAsync();
 
         var incoming = new HashSet<(PosPrintDocumentType DocumentType, Guid PrinterId)>();
-        foreach (var r in dto.Routes)
+        var now = DateTime.UtcNow;
+        var by = CurrentUserId.ToString();
+        foreach (var r in incomingRoutes)
         {
             if (!validPrinters.Contains(r.PrinterId)) continue;
-            if (!Enum.TryParse<PosPrintDocumentType>(r.DocumentType, out var dt)) continue;
+            if (!Enum.TryParse<PosPrintDocumentType>(r.DocumentType, true, out var dt)) continue;
 
             incoming.Add((dt, r.PrinterId));
             var row = existing.FirstOrDefault(x => x.DocumentType == dt && x.PrinterId == r.PrinterId);
             if (row == null)
             {
-                db.PosPrinterDocumentRoutes.Add(new PosPrinterDocumentRoute
+                var created = new PosPrinterDocumentRoute
                 {
                     Id = Guid.NewGuid(),
                     StoreId = storeId,
@@ -365,31 +463,56 @@ public partial class PosPrintersController(
                     DocumentType = dt,
                     DefaultCopies = Math.Clamp(r.DefaultCopies, 1, 10),
                     IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
-                    CreatedBy = CurrentUserId.ToString(),
-                });
+                    CreatedAt = now,
+                    CreatedBy = by,
+                };
+                db.PosPrinterDocumentRoutes.Add(created);
+                existing.Add(created);
             }
             else
             {
+                row.Deleted = null;
+                row.DeletedBy = null;
                 row.DefaultCopies = Math.Clamp(r.DefaultCopies, 1, 10);
                 row.IsActive = true;
-                row.UpdatedAt = DateTime.UtcNow;
-                row.UpdatedBy = CurrentUserId.ToString();
+                row.UpdatedAt = now;
+                row.UpdatedBy = by;
             }
         }
 
-        var now = DateTime.UtcNow;
         foreach (var row in existing)
         {
+            if (row.Deleted != null) continue;
             if (incoming.Contains((row.DocumentType, row.PrinterId))) continue;
             row.Deleted = now;
-            row.DeletedBy = CurrentUserId.ToString();
+            row.DeletedBy = by;
+            row.IsActive = false;
             row.UpdatedAt = now;
-            row.UpdatedBy = CurrentUserId.ToString();
+            row.UpdatedBy = by;
         }
 
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsRouteUniqueViolation(ex))
+        {
+            return Conflict(AppResponse<object>.Fail(
+                "Vai trò máy in đang được lưu từ máy khác — thử lại."));
+        }
         return Ok(AppResponse<object>.Success(true));
+    }
+
+    static bool IsRouteUniqueViolation(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+        {
+            if (e is Npgsql.PostgresException { SqlState: "23505" })
+                return true;
+            if (e.Message.Contains("IX_PosPrinterDocumentRoutes", StringComparison.Ordinal))
+                return true;
+        }
+        return false;
     }
 
     [HttpPost("{id:guid}/health")]
@@ -529,7 +652,15 @@ public partial class PosPrintersController(
                 CreatedBy = by,
             });
         }
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsRouteUniqueViolation(ex))
+        {
+            return Conflict(AppResponse<object>.Fail(
+                "Vai trò máy in đang được lưu từ máy khác — thử lại."));
+        }
 
         var types = (dto.DocumentTypes ?? [])
             .Where(t => Enum.TryParse<PosPrintDocumentType>(t, true, out _))

@@ -209,20 +209,60 @@ object UsbEscPosPrinter {
         return out
     }
 
+    private fun usbPortLabel(deviceName: String): String {
+        val m = Regex("""/bus/usb/(\d+)/(\d+)\s*$""", RegexOption.IGNORE_CASE).find(deviceName)
+        if (m != null) {
+            val bus = m.groupValues[1].toIntOrNull() ?: 0
+            val addr = m.groupValues[2].toIntOrNull() ?: 0
+            return "Cổng USB $bus-$addr"
+        }
+        val last = deviceName.substringAfterLast('/')
+        return if (last.isNotBlank()) "Cổng USB $last" else "Cổng USB"
+    }
+
+    private fun usbBrandLabel(
+        vendorId: Int,
+        manufacturer: String?,
+        product: String?,
+    ): String {
+        val blob = "${manufacturer.orEmpty()} ${product.orEmpty()}".lowercase()
+        val p = product?.trim().orEmpty()
+        fun named(brand: String): String {
+            if (p.isBlank()) return brand
+            if (p.lowercase().contains(brand.lowercase())) return p
+            return "$brand $p"
+        }
+        when {
+            blob.contains("xprinter") || blob.contains("xp-") -> return named("Xprinter")
+            blob.contains("zywell") || blob.contains("zp-") -> return named("Zywell")
+            blob.contains("hprt") -> return named("HPRT")
+            blob.contains("epson") -> return named("Epson")
+            blob.contains("sunmi") -> return named("Sunmi")
+        }
+        return when (vendorId) {
+            0x0FE6, 0x2D84 -> named("HPRT")
+            0x28E9 -> named("Zywell")
+            0x0416, 0x0483, 0x1FC9 -> named("Xprinter")
+            0x04B8 -> named("Epson")
+            0x0525, 0x2730 -> named("Sunmi")
+            else -> when {
+                p.isNotBlank() -> p
+                !manufacturer.isNullOrBlank() -> manufacturer.trim()
+                else -> "USB nhiệt"
+            }
+        }
+    }
+
     private fun buildDisplayName(
         device: UsbDevice,
         manufacturer: String?,
         product: String?,
         serial: String?,
     ): String {
-        val label = listOfNotNull(
-            manufacturer?.takeIf { it.isNotBlank() },
-            product?.takeIf { it.isNotBlank() },
-        ).joinToString(" ")
-        val base = if (label.isNotBlank()) label else "USB ${device.deviceName}"
-        val ids = "VID=${device.vendorId.toString(16).uppercase()} PID=${device.productId.toString(16).uppercase()}"
+        val brand = usbBrandLabel(device.vendorId, manufacturer, product)
+        val port = usbPortLabel(device.deviceName ?: "")
         val sn = serial?.takeIf { it.isNotBlank() }?.let { " · SN $it" } ?: ""
-        return "$base ($ids$sn)"
+        return "$brand · $port$sn"
     }
 
     private fun findDevice(ctx: Context, call: MethodCall): UsbDevice? {

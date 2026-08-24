@@ -14,9 +14,11 @@ import '../../utils/pos_printer_readiness.dart';
 import '../../utils/pos_thermal_printer_service.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
 import '../../utils/pos_usb_printer.dart';
+import '../../utils/pos_usb_labels.dart';
 import '../../utils/pos_printer_hardware.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/pos_lan_printer_scan_sheet.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 import 'pos_product_printer_assignment_screen.dart';
 
@@ -259,16 +261,13 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
     final localRow = orch.printers
         .where((x) => x.id.toLowerCase() == id.toLowerCase())
         .firstOrNull;
-    final target =
-        localRow == null ? null : orch.preferCloudAgentPrinter(localRow);
-    if (target == null || target.isDeviceLocal) {
-      NotificationOverlayManager().showWarning(
-        title: tr('Gán món trên máy cửa hàng'),
-        message: tr(
-          'Gán sản phẩm chỉ áp dụng cho máy in cửa hàng (Agent/cloud).\n'
-          'Tạo máy cửa hàng cùng cổng/tên với «${p.name}», rồi gán món tại đó. '
-          'Máy nội bộ chỉ để in thử trên thiết bị này.',
-        ),
+    final target = localRow == null
+        ? null
+        : orch.preferCloudAgentPrinter(localRow);
+    if (target == null) {
+      NotificationOverlayManager().showError(
+        title: tr('Không tìm thấy máy in'),
+        message: tr('Đồng bộ lại máy «${p.name}» rồi gán món.'),
       );
       return;
     }
@@ -622,7 +621,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
     final savedUsb = (i?.usbDeviceName ?? '').trim();
     if (savedUsb.isNotEmpty) {
       _usbStableId = savedUsb;
-      _usbDisplayLabel = savedUsb;
+      _usbDisplayLabel = PosUsbLabels.fromSavedRaw(savedUsb);
     }
     PosThermalPrinterService.isSunmiDevice().then((v) {
       if (mounted) setState(() => _isSunmi = v);
@@ -668,6 +667,25 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
         _name.text = kind == PosLocalPrinterKind.label
             ? 'Máy in tem nội bộ'
             : 'Máy in nhiệt nội bộ';
+      }
+    });
+  }
+
+  Future<void> _scanLanPrinters() async {
+    final hit = await showPosLanPrinterScanSheet(context);
+    if (hit == null || !mounted) return;
+    setState(() {
+      _lanHost.text = hit.host;
+      _lanPort.text = '${hit.port}';
+      if (hit.brand != PosThermalPrinterBrand.generic) {
+        _brand = hit.brand;
+      }
+      if (_name.text.trim().isEmpty ||
+          _name.text == 'Máy in nhiệt nội bộ' ||
+          _name.text == 'Máy in tem nội bộ') {
+        _name.text = hit.brand == PosThermalPrinterBrand.generic
+            ? 'LAN ${hit.host}'
+            : '${hit.brand.label} ${hit.host}';
       }
     });
   }
@@ -793,7 +811,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                   .firstOrNull;
           if (hit != null) {
             _usbStableId = hit.stableId;
-            _usbDisplayLabel = hit.displayName;
+            _usbDisplayLabel = PosUsbLabels.title(hit);
             _usbName.text = hit.savedRef;
           }
         }
@@ -899,16 +917,8 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                         Icons.usb,
                         color: selected ? PosTheme.kiotBlue : null,
                       ),
-                      title: Text(tr(d.displayName)),
-                      subtitle: Text(
-                        tr(
-                          '${d.deviceName}\n'
-                          'VID=${d.vendorId.toRadixString(16).toUpperCase()} '
-                          'PID=${d.productId.toRadixString(16).toUpperCase()}'
-                          '${d.hasPermission ? '' : ' · chưa cấp quyền'}',
-                        ),
-                      ),
-                      isThreeLine: true,
+                      title: Text(PosUsbLabels.title(d)),
+                      subtitle: Text(PosUsbLabels.subtitle(d)),
                       trailing: selected
                           ? const Icon(Icons.check_circle,
                               color: PosTheme.kiotBlue)
@@ -934,16 +944,22 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                         if (!mounted) return;
                         setState(() {
                           _usbStableId = device.stableId;
-                          _usbDisplayLabel = device.displayName;
+                          _usbDisplayLabel = PosUsbLabels.title(device);
                           // Lưu stableId|deviceName — phân biệt nhiều máy cùng model.
                           _usbName.text = device.savedRef;
                           if (_name.text.trim().isEmpty ||
                               _name.text == 'Máy in nhiệt nội bộ' ||
                               _name.text == 'Máy in tem nội bộ') {
-                            _name.text =
-                                device.productName?.trim().isNotEmpty == true
-                                    ? device.productName!.trim()
-                                    : 'USB ${device.vendorId}:${device.productId}';
+                            _name.text = PosUsbLabels.title(device);
+                          }
+                          final b = PosUsbLabels.brandEnum(
+                            vendorId: device.vendorId,
+                            manufacturer: device.manufacturerName,
+                            product: device.productName,
+                          );
+                          if (b != null &&
+                              _type != PosThermalConnectionType.sunmi) {
+                            _brand = b;
                           }
                         });
                         if (ctx.mounted) Navigator.pop(ctx);
@@ -1175,6 +1191,12 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
               },
             ),
             if (_type == PosThermalConnectionType.lan) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _testing ? null : _scanLanPrinters,
+                icon: const Icon(Icons.wifi_tethering, size: 18),
+                label: Text(tr('Quét IP Zywell / Xprinter / HPRT')),
+              ),
               const SizedBox(height: 10),
               TextField(
                 controller: _lanHost,

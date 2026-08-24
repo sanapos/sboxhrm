@@ -8,7 +8,6 @@ import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
 import 'pos_device_identity.dart';
 import 'pos_label_printer_settings.dart';
-import 'pos_print_role.dart';
 import 'pos_thermal_printer_settings.dart';
 
 /// Loại máy in nội bộ trên thiết bị.
@@ -73,12 +72,13 @@ class PosLocalPrinterRoles {
   static List<String> forKind(PosLocalPrinterKind kind) =>
       kind == PosLocalPrinterKind.label ? labelRoles : receiptRoles;
 
-  /// Vai trò cần gán sản phẩm (bếp / hủy bếp / kho / tem ly).
+  /// Vai trò cần gán sản phẩm (bếp / hủy bếp / kho / tem ly / tem mã vạch).
   static bool needsProductAssignment(Set<String> roles) =>
       roles.contains(kitchenSlip) ||
       roles.contains(kitchenVoid) ||
       roles.contains(stockIssue) ||
-      roles.contains(kitchenLabel);
+      roles.contains(kitchenLabel) ||
+      roles.contains(barcodeLabel);
 }
 
 /// Một máy in nội bộ trên thiết bị POS (BT/LAN/USB/Sunmi) — nhiệt hoặc tem.
@@ -614,16 +614,12 @@ class PosLocalPrintersStore {
   }
 
   /// Máy nội bộ trên máy này, trùng máy cloud + chức năng.
-  /// Có profile LAN nội bộ → in LAN local; chỉ thấy lanHost từ Agent/cloud → null (cloud).
+  /// Có cổng trên thiết bị → in local (không cần bật Agent). A7/web không có
+  /// profile khớp cổng thì null → gửi cloud.
   Future<PosLocalPrinterProfile?> resolveOnDeviceForStorePrinter(
     PosStorePrinter printer, {
     required String documentRole,
   }) async {
-    // Máy thu ngân: chip Agent luôn cloud — không coi profile LAN/USB local là «có sẵn».
-    if (printer.requiresAgent &&
-        !await PosPrintRole.isAgentForPrinter(printer.id)) {
-      return null;
-    }
     final local = await resolveForStorePrinter(printer);
     if (local == null || !profileAllowsDirectLocal(local)) return null;
     if (!roleMatchesDocument(local.roles, documentRole)) return null;

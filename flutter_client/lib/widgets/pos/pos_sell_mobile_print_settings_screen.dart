@@ -364,7 +364,11 @@ class _PosSellMobilePrintSettingsScreenState
       appBar: embedded
           ? null
           : AppBar(
-              title: Text(tr('Thiết lập in')),
+              title: Text(
+                tr('Thiết lập in'),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
               backgroundColor: Colors.white,
               foregroundColor: PosTheme.textPrimary,
               elevation: 0,
@@ -390,12 +394,12 @@ class _PosSellMobilePrintSettingsScreenState
                         ),
                       );
                     },
-                    icon: const Icon(Icons.print_outlined),
+                    icon: const Icon(Icons.cloud_outlined),
                   ),
-                TextButton(
+                IconButton(
+                  tooltip: tr('Lưu'),
                   onPressed: _loading ? null : _save,
-                  child: Text(tr('Lưu'),
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  icon: const Icon(Icons.save_outlined),
                 ),
               ],
             ),
@@ -403,7 +407,10 @@ class _PosSellMobilePrintSettingsScreenState
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 24),
               children: [
                 if (embedded) ...[
-                  Row(
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       OutlinedButton.icon(
                         onPressed: () {
@@ -416,7 +423,6 @@ class _PosSellMobilePrintSettingsScreenState
                         icon: const Icon(Icons.phone_android, size: 18),
                         label: Text(tr('Máy nội bộ')),
                       ),
-                      const SizedBox(width: 8),
                       if (canStore)
                         OutlinedButton.icon(
                           onPressed: () {
@@ -426,10 +432,9 @@ class _PosSellMobilePrintSettingsScreenState
                               ),
                             );
                           },
-                          icon: const Icon(Icons.print_outlined, size: 18),
-                          label: Text(tr('Máy cửa hàng')),
+                          icon: const Icon(Icons.cloud_outlined, size: 18),
+                          label: Text(tr('Máy in cloud')),
                         ),
-                      const Spacer(),
                       FilledButton(
                         onPressed: _loading ? null : _save,
                         child: Text(tr('Lưu')),

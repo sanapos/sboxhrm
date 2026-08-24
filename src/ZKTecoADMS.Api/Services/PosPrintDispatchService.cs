@@ -21,8 +21,8 @@ public interface IPosPrintDispatchService
     Task<PosPrintJob?> FailJobAsync(Guid jobId, Guid? agentId, string errorCode, string errorMessage, CancellationToken ct = default);
     /// Agent nhận nhầm (vd. USB không gắn) → trả Queued để máy Agent khác claim.
     Task<PosPrintJob?> ReleaseClaimAsync(Guid jobId, Guid agentId, string? reason, string? errorCode = null, CancellationToken ct = default);
-    Task RegisterAgentHeartbeatAsync(Guid storeId, string deviceId, string? deviceName, string? employeeName, string? userId, IEnumerable<Guid> printerIds, string? appVersion, CancellationToken ct = default);
-    Task MarkAgentOfflineAsync(Guid storeId, string deviceId, CancellationToken ct = default);
+    Task RegisterAgentHeartbeatAsync(Guid storeId, string deviceId, string? deviceName, string? employeeName, string? userId, IEnumerable<Guid> printerIds, string? appVersion, IEnumerable<Guid>? onlinePrinterIds = null, CancellationToken ct = default);
+    Task MarkAgentOfflineAsync(Guid storeId, string deviceId, bool forceStop = true, CancellationToken ct = default);
     Task SetPrinterHealthAsync(Guid printerId, PosPrinterHealthStatus status, string? errorMessage, CancellationToken ct = default);
 }
 
@@ -805,21 +805,41 @@ public class PosPrintDispatchService(
 
     public async Task RegisterAgentHeartbeatAsync(
         Guid storeId, string deviceId, string? deviceName, string? employeeName,
-        string? userId, IEnumerable<Guid> printerIds, string? appVersion, CancellationToken ct = default)
+        string? userId, IEnumerable<Guid> printerIds, string? appVersion,
+        IEnumerable<Guid>? onlinePrinterIds = null, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
         var requested = printerIds.Distinct().ToList();
+        // Null = Agent cu (Win) chưa gửi onlinePrinterIds → KHÔNG stamp Online (tránh ghi đè Offline từ probe).
+        // Có list (kể cả rỗng) = Agent mới đã probe → cập nhật Online/Offline theo probe.
+        var healthKnown = onlinePrinterIds != null;
+        var onlineSet = healthKnown
+            ? onlinePrinterIds!.Distinct().ToHashSet()
+            : new HashSet<Guid>();
         var aliveIds = new List<Guid>();
         foreach (var pid in requested)
         {
-            var updated = await db.PosStorePrinters
-                .Where(p => p.Id == pid && p.StoreId == storeId && p.Deleted == null)
-                .ExecuteUpdateAsync(s => s
-                    .SetProperty(p => p.HealthStatus, PosPrinterHealthStatus.Online)
-                    .SetProperty(p => p.LastSeenAt, now)
-                    .SetProperty(p => p.LastErrorMessage, (string?)null)
-                    .SetProperty(p => p.RequiresAgent, true)
-                    .SetProperty(p => p.UpdatedAt, now), ct);
+            var isOnline = healthKnown && onlineSet.Contains(pid);
+            int updated;
+            if (isOnline)
+            {
+                updated = await db.PosStorePrinters
+                    .Where(p => p.Id == pid && p.StoreId == storeId && p.Deleted == null)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(p => p.HealthStatus, PosPrinterHealthStatus.Online)
+                        .SetProperty(p => p.LastSeenAt, now)
+                        .SetProperty(p => p.LastErrorMessage, (string?)null)
+                        .SetProperty(p => p.RequiresAgent, true)
+                        .SetProperty(p => p.UpdatedAt, now), ct);
+            }
+            else
+            {
+                updated = await db.PosStorePrinters
+                    .Where(p => p.Id == pid && p.StoreId == storeId && p.Deleted == null)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(p => p.RequiresAgent, true)
+                        .SetProperty(p => p.UpdatedAt, now), ct);
+            }
             if (updated > 0) aliveIds.Add(pid);
         }
         if (aliveIds.Count == 0)
@@ -891,6 +911,25 @@ public class PosPrintDispatchService(
             agent.AppVersion = safeAppVersion;
         }
 
+        // Chỉ demote khi Agent đã gửi onlinePrinterIds (probe). Null = Agent cũ → bỏ qua.
+        if (healthKnown)
+        {
+            foreach (var pid in requested.Where(id => !onlineSet.Contains(id)))
+            {
+                var coveredElsewhere = await HasOtherLiveAgentForPrinterAsync(
+                    storeId, pid, agent.Id, now, ct);
+                if (coveredElsewhere) continue;
+                await db.PosStorePrinters
+                    .Where(p => p.Id == pid && p.StoreId == storeId && p.Deleted == null)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(p => p.HealthStatus, PosPrinterHealthStatus.Offline)
+                        .SetProperty(p => p.LastSeenAt, now)
+                        .SetProperty(p => p.LastErrorMessage, "Mất kết nối trên máy Agent")
+                        .SetProperty(p => p.RequiresAgent, true)
+                        .SetProperty(p => p.UpdatedAt, now), ct);
+            }
+        }
+
         // Mark stale agents offline
         var staleBefore = now.Subtract(AgentOfflineThreshold);
         await db.PosPrintAgents
@@ -915,7 +954,7 @@ public class PosPrintDispatchService(
     }
 
     public async Task MarkAgentOfflineAsync(
-        Guid storeId, string deviceId, CancellationToken ct = default)
+        Guid storeId, string deviceId, bool forceStop = true, CancellationToken ct = default)
     {
         var agent = await db.PosPrintAgents
             .FirstOrDefaultAsync(a => a.StoreId == storeId && a.DeviceId == deviceId && a.Deleted == null, ct);
@@ -929,6 +968,8 @@ public class PosPrintDispatchService(
                 .SetProperty(a => a.IsOnline, false)
                 // tránh client vẫn coi «vừa heartbeat»
                 .SetProperty(a => a.LastHeartbeatAt, (DateTime?)null)
+                // Unshare hết chip → không giữ GUID máy đã xóa (orphan cleanup poison).
+                .SetProperty(a => a.AssignedPrinterIdsJson, "[]")
                 .SetProperty(a => a.UpdatedAt, DateTime.UtcNow), ct);
 
         await hubContext.Clients.Group(StoreGroup(storeId)).SendAsync("PrinterAgentHeartbeat", new
@@ -939,7 +980,9 @@ public class PosPrintDispatchService(
             employeeName = agent.EmployeeName,
             userId = agent.UserId,
             isOnline = false,
-            forceStop = true, // client đích tắt Agent local
+            // Chỉ true khi máy khác bấm «Tắt Agent». Self-offline (hết chip / tắt local)
+            // mà forceStop thì A6 tự nhận SignalR → báo nhầm «tắt từ máy khác».
+            forceStop,
             printerIds = Array.Empty<Guid>(),
             at = DateTime.UtcNow,
         }, ct);
@@ -974,9 +1017,39 @@ public class PosPrintDispatchService(
 
     async Task UpsertRouteAsync(Guid storeId, Guid printerId, PosPrintDocumentType documentType, CancellationToken ct)
     {
-        var existing = await db.PosPrinterDocumentRoutes
-            .FirstOrDefaultAsync(r => r.StoreId == storeId && r.DocumentType == documentType && r.Deleted == null, ct);
-        if (existing != null) return;
+        // Unique (StoreId, DocumentType, PrinterId) gồm cả bản soft-delete.
+        // Unshare → reshare revive cùng PrinterId: nếu INSERT lại sẽ 23505
+        // → client «Không tạo máy in Agent / đã xảy ra lỗi hệ thống».
+        var samePrinter = await db.PosPrinterDocumentRoutes
+            .IgnoreQueryFilters()
+            .AsTracking()
+            .FirstOrDefaultAsync(
+                r => r.StoreId == storeId
+                     && r.PrinterId == printerId
+                     && r.DocumentType == documentType,
+                ct);
+        if (samePrinter != null)
+        {
+            if (samePrinter.Deleted != null || !samePrinter.IsActive)
+            {
+                samePrinter.Deleted = null;
+                samePrinter.DeletedBy = null;
+                samePrinter.IsActive = true;
+                samePrinter.DefaultCopies = samePrinter.DefaultCopies <= 0 ? 1 : samePrinter.DefaultCopies;
+                samePrinter.UpdatedAt = DateTime.UtcNow;
+            }
+            return;
+        }
+
+        // Đã có route sống cho loại chứng từ (máy khác) → không ép gán thêm.
+        var liveOther = await db.PosPrinterDocumentRoutes
+            .AsNoTracking()
+            .AnyAsync(
+                r => r.StoreId == storeId
+                     && r.DocumentType == documentType
+                     && r.Deleted == null,
+                ct);
+        if (liveOther) return;
 
         db.PosPrinterDocumentRoutes.Add(new PosPrinterDocumentRoute
         {

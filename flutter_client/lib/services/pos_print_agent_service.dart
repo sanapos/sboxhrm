@@ -203,7 +203,10 @@ class PosPrintAgentService {
     }
     if (markOffline && wasRunning && deviceId != null && deviceId.isNotEmpty) {
       try {
-        await _api.markPosPrintAgentOffline(deviceId: deviceId);
+        await _api.markPosPrintAgentOffline(
+          deviceId: deviceId,
+          forceStop: false,
+        );
       } catch (_) {}
     }
     _storeId = null;
@@ -349,7 +352,10 @@ class PosPrintAgentService {
     }
     _lastOfflineMarkAt = now;
     try {
-      await _api.markPosPrintAgentOffline(deviceId: deviceId);
+      await _api.markPosPrintAgentOffline(
+        deviceId: deviceId,
+        forceStop: false,
+      );
     } catch (e) {
       debugPrint('Print Agent mark offline: $e');
     }

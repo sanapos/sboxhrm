@@ -524,15 +524,11 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       } catch (_) {}
       await orch.refreshConfig(force: true);
       final deviceId = await PosPrintOrchestrator.stableDeviceId();
-      // Nội bộ máy này + mọi máy cloud cửa hàng (kể cả Offline).
-      final active = orch.printers.where((p) {
-        if (!p.isActive) return false;
-        if (p.isDeviceLocal) {
-          final owner = (p.ownerDeviceId ?? '').trim();
-          return owner.isEmpty || owner == deviceId;
-        }
-        return true;
-      }).toList();
+      // 1 máy / cổng — ẩn nội bộ máy khác và clone Cloud+Nội bộ.
+      final active = PosPrintOrchestrator.uniquePrintersForPicker(
+        orch.printers,
+        deviceId: deviceId,
+      );
       active.sort((a, b) {
         final ao = a.isOnline ? 0 : 1;
         final bo = b.isOnline ? 0 : 1;
@@ -571,7 +567,8 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         candidates = active
             .where((p) =>
                 !p.isLabelPrinter &&
-                (p.documentTypes.isEmpty ||
+                (p.canPrintKitchenSlip ||
+                    p.documentTypes.isEmpty ||
                     p.documentTypes.any((d) =>
                         d == PosPrintDocumentTypes.kitchenSlip ||
                         d == PosPrintDocumentTypes.kitchenVoid ||

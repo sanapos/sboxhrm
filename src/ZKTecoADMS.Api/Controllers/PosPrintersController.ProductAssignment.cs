@@ -41,7 +41,8 @@ public partial class PosPrintersController
         Guid? LabelPrinterId = null,
         string? LabelPrinterName = null,
         Guid? CategoryLabelPrinterId = null,
-        string? CategoryLabelPrinterName = null);
+        string? CategoryLabelPrinterName = null,
+        bool IsActive = true);
 
     public record ProductPrinterSetDto
     {
@@ -62,7 +63,9 @@ public partial class PosPrintersController
         List<string>? DocumentTypes = null,
         /// <summary>Có Agent online nhận lệnh cho máy này — gán món vào máy
         /// không ai phục vụ thì phiếu chỉ nằm hàng đợi rồi hết hạn.</summary>
-        bool HasOnlineAgent = false);
+        bool HasOnlineAgent = false,
+        /// <summary>Máy còn trong chip AssignedPrinterIds của ≥1 Agent (kể cả offline).</summary>
+        bool ListedByAgent = false);
 
     public record PrinterAssignedProductDto(
         Guid Id,
@@ -71,7 +74,8 @@ public partial class PosPrintersController
         Guid? CategoryId,
         string? CategoryName,
         Guid? DefaultPrinterId = null,
-        string? DefaultPrinterName = null);
+        string? DefaultPrinterName = null,
+        bool IsActive = true);
 
     public class PrinterAssignProductsDto
     {
@@ -85,6 +89,13 @@ public partial class PosPrintersController
         /// null = suy ra từ PrinterBrand / khổ tem / document types.
         /// </summary>
         public bool? ForLabel { get; set; }
+    }
+
+    public class PrinterCopyAssignmentsDto
+    {
+        public Guid SourcePrinterId { get; set; }
+        public bool? ForLabel { get; set; }
+        public bool CopyCategories { get; set; } = true;
     }
 
     public record ProductPrinterConflictDto(
@@ -147,30 +158,45 @@ public partial class PosPrintersController
 
     [HttpGet("product-assignment/printers/summary")]
     [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
-    public async Task<ActionResult<AppResponse<List<PrinterProductSummaryDto>>>> GetPrinterProductSummary()
+    public async Task<ActionResult<AppResponse<List<PrinterProductSummaryDto>>>> GetPrinterProductSummary(
+        [FromQuery] bool includeLocal = false,
+        [FromQuery] bool autoCleanup = true)
     {
         var storeId = RequiredStoreId;
+        if (autoCleanup)
+            await CleanupAgentOrphanPrintersCoreAsync(storeId);
+        // Chỉ máy còn hoạt động — máy đã xóa/tắt không hiện ở màn gán món.
         var printers = await db.PosStorePrinters.AsNoTracking()
             .Include(p => p.DocumentRoutes)
-            .Where(p => p.StoreId == storeId && p.Deleted == null && !p.IsDeviceLocal)
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive)
             .OrderBy(p => p.SortOrder).ThenBy(p => p.Name)
             .ToListAsync();
+        var cloud = printers.Where(p => !p.IsDeviceLocal).ToList();
+        var visible = new List<PosStorePrinter>(cloud);
+        foreach (var local in printers.Where(p => p.IsDeviceLocal))
+        {
+            if (includeLocal || !cloud.Any(c => SamePhysicalPort(local, c)))
+                visible.Add(local);
+        }
 
         var kitchenCounts = await db.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultPrinterId != null)
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && p.DefaultPrinterId != null)
             .GroupBy(p => p.DefaultPrinterId!.Value)
             .Select(g => new { PrinterId = g.Key, Count = g.Count() })
             .ToListAsync();
         var labelCounts = await db.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.DefaultLabelPrinterId != null)
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && p.DefaultLabelPrinterId != null)
             .GroupBy(p => p.DefaultLabelPrinterId!.Value)
             .Select(g => new { PrinterId = g.Key, Count = g.Count() })
             .ToListAsync();
         var kitchenMap = kitchenCounts.ToDictionary(x => x.PrinterId, x => x.Count);
         var labelMap = labelCounts.ToDictionary(x => x.PrinterId, x => x.Count);
         var servedByAgent = await OnlineAgentPrinterIdsAsync(storeId);
+        // Chip Agent (online + offline gần đây): máy không còn trong list Agent
+        // và 0 món → client có thể ẩn / dọn.
+        var listedByAgent = await AnyAgentPrinterIdsAsync(storeId);
 
-        var items = printers.Select(p =>
+        var items = visible.Select(p =>
         {
             var isLabel = IsLabelPrinterEntity(p);
             var docTypes = p.DocumentRoutes?
@@ -190,9 +216,142 @@ public partial class PosPrintersController
                 p.OwnerDeviceId,
                 isLabel,
                 docTypes,
-                servedByAgent.Contains(p.Id));
+                servedByAgent.Contains(p.Id),
+                listedByAgent.Contains(p.Id));
         }).ToList();
         return Ok(AppResponse<List<PrinterProductSummaryDto>>.Success(items));
+    }
+
+
+    /// <summary>
+    /// May cloud khong con trong AssignedPrinterIds cua bat ky Agent nao:
+    /// go gan mon (ve tu do) + soft-delete may. Khong dung may noi bo (IsDeviceLocal).
+    /// Chi chay khi store co it nhat 1 Agent dang khai bao chip may (tranh xoa het khi chua sync Agent).
+    /// </summary>
+    [HttpPost("product-assignment/printers/cleanup-agent-orphans")]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> CleanupAgentOrphanPrinters()
+    {
+        var storeId = RequiredStoreId;
+        var result = await CleanupAgentOrphanPrintersCoreAsync(storeId);
+        return Ok(AppResponse<object>.Success(result));
+    }
+
+    async Task<object> CleanupAgentOrphanPrintersCoreAsync(Guid storeId)
+    {
+        var agentCount = await db.PosPrintAgents.AsNoTracking()
+            .CountAsync(a => a.StoreId == storeId && a.Deleted == null);
+        if (agentCount == 0)
+        {
+            return new
+            {
+                skipped = true,
+                reason = "no_agents",
+                deletedPrinters = 0,
+                freedProducts = 0,
+                freedCategories = 0,
+            };
+        }
+
+        var listed = await AnyAgentPrinterIdsAsync(storeId);
+        var liveIds = await db.PosStorePrinters.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null)
+            .Select(p => p.Id)
+            .ToListAsync();
+        var liveSet = liveIds.ToHashSet();
+        // Bỏ GUID đã soft-delete khỏi «chip bảo vệ» — tránh P1 chết chặn P2 sống.
+        listed.RemoveWhere(id => !liveSet.Contains(id));
+
+        // listed rỗng: KHÔNG xóa hết cloud (Agent vừa unshare / offline để lại JSON rỗng
+        // hoặc poison đã bị lọc). Chỉ xóa máy cloud không nằm trong chip live.
+        if (listed.Count == 0)
+        {
+            return new
+            {
+                skipped = true,
+                reason = "no_live_agent_chips",
+                deletedPrinters = 0,
+                freedProducts = 0,
+                freedCategories = 0,
+            };
+        }
+
+        var graceBefore = DateTime.UtcNow.AddMinutes(-3);
+        var orphans = await db.PosStorePrinters.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && !p.IsDeviceLocal)
+            .ToListAsync();
+        orphans = orphans.Where(p =>
+            !listed.Contains(p.Id) && p.CreatedAt < graceBefore).ToList();
+        // Ưu tiên soft-delete active; inactive orphan cũng xóa để sạch danh sách.
+        if (orphans.Count == 0)
+        {
+            return new
+            {
+                skipped = false,
+                deletedPrinters = 0,
+                freedProducts = 0,
+                freedCategories = 0,
+                names = Array.Empty<string>(),
+            };
+        }
+
+        var now = DateTime.UtcNow;
+        var by = CurrentUserId.ToString();
+        var freedProducts = 0;
+        var freedCategories = 0;
+        var names = new List<string>();
+
+        foreach (var p in orphans)
+        {
+            var kitchen = await db.PosProducts.IgnoreQueryFilters()
+                .CountAsync(x => x.StoreId == storeId && x.Deleted == null && x.DefaultPrinterId == p.Id);
+            var label = await db.PosProducts.IgnoreQueryFilters()
+                .CountAsync(x => x.StoreId == storeId && x.Deleted == null && x.DefaultLabelPrinterId == p.Id);
+            var catK = await db.PosProductCategories.IgnoreQueryFilters()
+                .CountAsync(c => c.StoreId == storeId && c.Deleted == null && c.DefaultPrinterId == p.Id);
+            var catL = await db.PosProductCategories.IgnoreQueryFilters()
+                .CountAsync(c => c.StoreId == storeId && c.Deleted == null && c.DefaultLabelPrinterId == p.Id);
+
+            await ClearProductAssignmentsAsync(storeId, p.Id);
+            freedProducts += kitchen + label;
+            freedCategories += catK + catL;
+
+            await db.PosStorePrinters.IgnoreQueryFilters()
+                .Where(x => x.Id == p.Id && x.StoreId == storeId && x.Deleted == null)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.Deleted, now)
+                    .SetProperty(x => x.DeletedBy, by)
+                    .SetProperty(x => x.IsActive, false)
+                    .SetProperty(x => x.IsDefault, false)
+                    .SetProperty(x => x.UpdatedAt, now)
+                    .SetProperty(x => x.UpdatedBy, by));
+
+            await db.PosPrinterDocumentRoutes.IgnoreQueryFilters()
+                .Where(r => r.PrinterId == p.Id && r.StoreId == storeId && r.Deleted == null)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.Deleted, now)
+                    .SetProperty(x => x.DeletedBy, by)
+                    .SetProperty(x => x.IsActive, false)
+                    .SetProperty(x => x.UpdatedAt, now)
+                    .SetProperty(x => x.UpdatedBy, by));
+
+            names.Add(p.Name);
+        }
+
+        foreach (var entry in db.ChangeTracker.Entries<PosStorePrinter>()
+                     .Where(e => orphans.Any(o => o.Id == e.Entity.Id)).ToList())
+            entry.State = EntityState.Detached;
+
+        await dispatch.EnsureDefaultRoutesAsync(storeId);
+
+        return new
+        {
+            skipped = false,
+            deletedPrinters = orphans.Count,
+            freedProducts,
+            freedCategories,
+            names,
+        };
     }
 
     /// <summary>PrinterId đang được ít nhất một Agent online nhận lệnh.</summary>
@@ -204,10 +363,25 @@ public partial class PosPrintersController
                 && a.LastHeartbeatAt != null && a.LastHeartbeatAt >= staleBefore)
             .Select(a => a.AssignedPrinterIdsJson)
             .ToListAsync();
+        return ParseAgentPrinterIds(jsons);
+    }
 
+    /// <summary>PrinterId xuất hiện trên chip của bất kỳ Agent nào (kể cả offline).</summary>
+    async Task<HashSet<Guid>> AnyAgentPrinterIdsAsync(Guid storeId)
+    {
+        var jsons = await db.PosPrintAgents.AsNoTracking()
+            .Where(a => a.StoreId == storeId && a.Deleted == null)
+            .Select(a => a.AssignedPrinterIdsJson)
+            .ToListAsync();
+        return ParseAgentPrinterIds(jsons);
+    }
+
+    static HashSet<Guid> ParseAgentPrinterIds(IEnumerable<string?> jsons)
+    {
         var ids = new HashSet<Guid>();
         foreach (var json in jsons)
         {
+            if (string.IsNullOrWhiteSpace(json)) continue;
             try
             {
                 foreach (var id in System.Text.Json.JsonSerializer
@@ -216,7 +390,7 @@ public partial class PosPrintersController
                     ids.Add(id);
                 }
             }
-            catch { /* JSON hỏng → coi như agent không phục vụ máy nào */ }
+            catch { /* JSON hỏng → bỏ qua agent đó */ }
         }
         return ids;
     }
@@ -248,7 +422,7 @@ public partial class PosPrintersController
             .Include(p => p.Category)
             .Include(p => p.DefaultPrinter)
             .Include(p => p.DefaultLabelPrinter)
-            .Where(p => p.StoreId == storeId && p.Deleted == null);
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive);
 
         if (assignedOnly)
         {
@@ -268,6 +442,17 @@ public partial class PosPrintersController
         }
 
         var total = await query.CountAsync();
+        var inactiveAssigned = 0;
+        if (assignedOnly)
+        {
+            inactiveAssigned = lane
+                ? await db.PosProducts.AsNoTracking().CountAsync(p =>
+                    p.StoreId == storeId && p.Deleted == null && !p.IsActive &&
+                    p.DefaultLabelPrinterId == printerId)
+                : await db.PosProducts.AsNoTracking().CountAsync(p =>
+                    p.StoreId == storeId && p.Deleted == null && !p.IsActive &&
+                    p.DefaultPrinterId == printerId);
+        }
         var items = await query
             .OrderBy(p => p.Name)
             .Skip((page - 1) * pageSize)
@@ -281,10 +466,14 @@ public partial class PosPrintersController
                 lane ? p.DefaultLabelPrinterId : p.DefaultPrinterId,
                 lane
                     ? (p.DefaultLabelPrinter != null ? p.DefaultLabelPrinter.Name : null)
-                    : (p.DefaultPrinter != null ? p.DefaultPrinter.Name : null)))
+                    : (p.DefaultPrinter != null ? p.DefaultPrinter.Name : null),
+                p.IsActive))
             .ToListAsync();
 
-        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items, forLabel = lane }));
+        return Ok(AppResponse<object>.Success(new {
+            total, page, pageSize, items, forLabel = lane,
+            inactiveAssigned,
+        }));
     }
 
     [HttpPost("product-assignment/printers/{printerId:guid}/assign")]
@@ -300,8 +489,14 @@ public partial class PosPrintersController
             .FirstOrDefaultAsync(p => p.Id == printerId && p.StoreId == storeId && p.Deleted == null);
         if (printer == null) return BadRequest(AppResponse<object>.Fail("Máy in không hợp lệ"));
         if (printer.IsDeviceLocal)
-            return BadRequest(AppResponse<object>.Fail(
-                "Không gán SP vào máy nội bộ — chọn máy Agent/cloud (cùng tên trên máy nhận lệnh in)"));
+        {
+            var twin = await FindCloudTwinOfAsync(printer);
+            if (twin != null)
+            {
+                printerId = twin.Id;
+                printer = twin;
+            }
+        }
         var forLabel = await ResolveAssignForLabelAsync(printerId, storeId, dto.ForLabel);
         var laneName = forLabel ? "tem" : "phiếu bếp";
 
@@ -408,6 +603,175 @@ public partial class PosPrintersController
         }));
     }
 
+    /// <summary>
+    /// Copy/chuyển gán món từ máy nguồn (thường là máy nội bộ) sang máy đích (Agent).
+    /// Mỗi món chỉ 1 máy/lane — đây là chuyển DefaultPrinterId, không nhân đôi.
+    /// </summary>
+    [HttpPost("product-assignment/printers/{printerId:guid}/copy-from")]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> CopyProductAssignmentsFromPrinter(
+        Guid printerId, [FromBody] PrinterCopyAssignmentsDto dto)
+    {
+        if (dto == null || dto.SourcePrinterId == Guid.Empty)
+            return BadRequest(AppResponse<object>.Fail("Chưa chọn máy nguồn"));
+
+        var storeId = RequiredStoreId;
+        var target = await db.PosStorePrinters.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == printerId && p.StoreId == storeId && p.Deleted == null);
+        if (target == null) return BadRequest(AppResponse<object>.Fail("Máy in đích không hợp lệ"));
+        if (target.IsDeviceLocal)
+        {
+            var twin = await FindCloudTwinOfAsync(target);
+            if (twin != null)
+            {
+                printerId = twin.Id;
+                target = twin;
+            }
+        }
+
+        var source = await db.PosStorePrinters.AsNoTracking()
+            .FirstOrDefaultAsync(p =>
+                p.Id == dto.SourcePrinterId && p.StoreId == storeId && p.Deleted == null);
+        if (source == null) return BadRequest(AppResponse<object>.Fail("Máy in nguồn không hợp lệ"));
+
+        var sourceIds = await CollectPrinterIdFamilyAsync(source, storeId);
+        if (sourceIds.Contains(printerId))
+        {
+            return Ok(AppResponse<object>.Success(new
+            {
+                alreadySame = true,
+                forLabel = false,
+                productsCopied = 0,
+                categoriesCopied = 0,
+                message = "Máy nội bộ và máy Agent cùng cổng — đã dùng chung danh sách gán món.",
+            }));
+        }
+
+        var forLabel = await ResolveAssignForLabelAsync(printerId, storeId, dto.ForLabel);
+        int productsCopied;
+        int categoriesCopied = 0;
+        if (forLabel)
+        {
+            productsCopied = await db.PosProducts
+                .Where(p => p.StoreId == storeId && p.Deleted == null &&
+                            p.DefaultLabelPrinterId != null &&
+                            sourceIds.Contains(p.DefaultLabelPrinterId.Value) &&
+                            p.DefaultLabelPrinterId != printerId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.DefaultLabelPrinterId, printerId)
+                    .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+            if (dto.CopyCategories)
+            {
+                categoriesCopied = await db.PosProductCategories
+                    .Where(c => c.StoreId == storeId && c.Deleted == null &&
+                                c.DefaultLabelPrinterId != null &&
+                                sourceIds.Contains(c.DefaultLabelPrinterId.Value) &&
+                                c.DefaultLabelPrinterId != printerId)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(c => c.DefaultLabelPrinterId, printerId)
+                        .SetProperty(c => c.UpdatedAt, DateTime.UtcNow)
+                        .SetProperty(c => c.UpdatedBy, CurrentUserEmail));
+            }
+        }
+        else
+        {
+            productsCopied = await db.PosProducts
+                .Where(p => p.StoreId == storeId && p.Deleted == null &&
+                            p.DefaultPrinterId != null &&
+                            sourceIds.Contains(p.DefaultPrinterId.Value) &&
+                            p.DefaultPrinterId != printerId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.DefaultPrinterId, printerId)
+                    .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+            if (dto.CopyCategories)
+            {
+                categoriesCopied = await db.PosProductCategories
+                    .Where(c => c.StoreId == storeId && c.Deleted == null &&
+                                c.DefaultPrinterId != null &&
+                                sourceIds.Contains(c.DefaultPrinterId.Value) &&
+                                c.DefaultPrinterId != printerId)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(c => c.DefaultPrinterId, printerId)
+                        .SetProperty(c => c.UpdatedAt, DateTime.UtcNow)
+                        .SetProperty(c => c.UpdatedBy, CurrentUserEmail));
+            }
+        }
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            alreadySame = false,
+            forLabel,
+            productsCopied,
+            categoriesCopied,
+            sourcePrinterId = source.Id,
+            targetPrinterId = printerId,
+            message = productsCopied == 0 && categoriesCopied == 0
+                ? "Máy nguồn chưa có món gán (hoặc đã nằm trên máy đích)."
+                : $"Đã chuyển {productsCopied} món" +
+                  (categoriesCopied > 0 ? $" và {categoriesCopied} nhóm" : "") +
+                  " sang máy Agent.",
+        }));
+    }
+
+    async Task<List<Guid>> CollectPrinterIdFamilyAsync(PosStorePrinter printer, Guid storeId)
+    {
+        var ids = new HashSet<Guid> { printer.Id };
+        if (printer.IsDeviceLocal)
+        {
+            var twin = await FindCloudTwinOfAsync(printer);
+            if (twin != null) ids.Add(twin.Id);
+        }
+        else
+        {
+            var locals = await db.PosStorePrinters.AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsDeviceLocal
+                    && p.ConnectionType == printer.ConnectionType)
+                .ToListAsync();
+            foreach (var local in locals)
+            {
+                if (SamePhysicalPort(local, printer) ||
+                    string.Equals(local.Name.Trim(), printer.Name.Trim(),
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    ids.Add(local.Id);
+                }
+            }
+        }
+        return ids.ToList();
+    }
+
+    /// <summary>Go gan cac mon ngung ban (IsActive=false) khoi may — don rac sau khi gan ca cua hang cu.</summary>
+    [HttpPost("product-assignment/printers/{printerId:guid}/unassign-inactive")]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> UnassignInactiveProductsFromPrinter(Guid printerId)
+    {
+        var storeId = RequiredStoreId;
+        var forLabel = await IsLabelPrinterAsync(printerId, storeId);
+        int updated;
+        if (forLabel)
+        {
+            updated = await db.PosProducts
+                .Where(p => p.StoreId == storeId && p.Deleted == null && !p.IsActive &&
+                            p.DefaultLabelPrinterId == printerId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.DefaultLabelPrinterId, (Guid?)null)
+                    .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+        }
+        else
+        {
+            updated = await db.PosProducts
+                .Where(p => p.StoreId == storeId && p.Deleted == null && !p.IsActive &&
+                            p.DefaultPrinterId == printerId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.DefaultPrinterId, (Guid?)null)
+                    .SetProperty(p => p.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(p => p.UpdatedBy, CurrentUserEmail));
+        }
+        return Ok(AppResponse<object>.Success(new { updated, forLabel }));
+    }
     [HttpPost("product-assignment/printers/{printerId:guid}/unassign")]
     [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> UnassignProductsFromPrinter(
@@ -418,7 +782,7 @@ public partial class PosPrintersController
 
         var storeId = RequiredStoreId;
         var forLabel = await IsLabelPrinterAsync(printerId, storeId);
-        var targetIds = await ResolveAssignProductIdsAsync(storeId, dto);
+        var targetIds = await ResolveAssignProductIdsAsync(storeId, dto, activeOnly: false);
         if (targetIds.Count == 0)
             return BadRequest(AppResponse<object>.Fail("Chưa chọn sản phẩm"));
 
@@ -448,15 +812,19 @@ public partial class PosPrintersController
         return Ok(AppResponse<object>.Success(new { updated, forLabel }));
     }
 
-    async Task<HashSet<Guid>> ResolveAssignProductIdsAsync(Guid storeId, PrinterAssignProductsDto dto)
+    /// <param name="activeOnly">
+    /// true = chi hang dang ban (gan mon). false = ca mon ngung ban (go gan / don dep).
+    /// </param>
+    async Task<HashSet<Guid>> ResolveAssignProductIdsAsync(
+        Guid storeId, PrinterAssignProductsDto dto, bool activeOnly = true)
     {
         var ids = new HashSet<Guid>();
         if (dto.ProductIds is { Count: > 0 })
         {
-            var validProductIds = await db.PosProducts.AsNoTracking()
-                .Where(p => p.StoreId == storeId && p.Deleted == null && dto.ProductIds.Contains(p.Id))
-                .Select(p => p.Id)
-                .ToListAsync();
+            var q = db.PosProducts.AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null && dto.ProductIds.Contains(p.Id));
+            if (activeOnly) q = q.Where(p => p.IsActive);
+            var validProductIds = await q.Select(p => p.Id).ToListAsync();
             foreach (var id in validProductIds) ids.Add(id);
         }
 
@@ -473,20 +841,20 @@ public partial class PosPrintersController
                 }
             }
 
-            var fromCats = await db.PosProducts.AsNoTracking()
+            var q = db.PosProducts.AsNoTracking()
                 .Where(p => p.StoreId == storeId && p.Deleted == null &&
-                            p.CategoryId != null && categoryIds.Contains(p.CategoryId.Value))
-                .Select(p => p.Id)
-                .ToListAsync();
+                            p.CategoryId != null && categoryIds.Contains(p.CategoryId.Value));
+            if (activeOnly) q = q.Where(p => p.IsActive);
+            var fromCats = await q.Select(p => p.Id).ToListAsync();
             foreach (var id in fromCats) ids.Add(id);
         }
 
         if (dto.AllProducts)
         {
-            var all = await db.PosProducts.AsNoTracking()
-                .Where(p => p.StoreId == storeId && p.Deleted == null)
-                .Select(p => p.Id)
-                .ToListAsync();
+            var q = db.PosProducts.AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null);
+            if (activeOnly) q = q.Where(p => p.IsActive);
+            var all = await q.Select(p => p.Id).ToListAsync();
             foreach (var id in all) ids.Add(id);
         }
 
@@ -499,7 +867,7 @@ public partial class PosPrintersController
     {
         var storeId = RequiredStoreId;
         var items = await db.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null)
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive)
             .Select(p => new ProductPrinterMapItem(
                 p.Id,
                 p.DefaultPrinterId,
@@ -525,7 +893,7 @@ public partial class PosPrintersController
                 c.ParentId,
                 c.DefaultPrinterId,
                 c.DefaultPrinter != null ? c.DefaultPrinter.Name : null,
-                c.Products.Count(p => p.Deleted == null),
+                c.Products.Count(p => p.Deleted == null && p.IsActive),
                 c.DefaultLabelPrinterId,
                 c.DefaultLabelPrinter != null ? c.DefaultLabelPrinter.Name : null))
             .ToListAsync();
@@ -551,7 +919,7 @@ public partial class PosPrintersController
             .Include(p => p.Category!).ThenInclude(c => c!.DefaultLabelPrinter)
             .Include(p => p.DefaultPrinter)
             .Include(p => p.DefaultLabelPrinter)
-            .Where(p => p.StoreId == storeId && p.Deleted == null);
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive);
 
         if (categoryId.HasValue)
             query = query.Where(p => p.CategoryId == categoryId);
@@ -594,7 +962,8 @@ public partial class PosPrintersController
                 p.Category != null ? p.Category.DefaultLabelPrinterId : null,
                 p.Category != null && p.Category.DefaultLabelPrinter != null
                     ? p.Category.DefaultLabelPrinter.Name
-                    : null))
+                    : null,
+                p.IsActive))
             .ToListAsync();
 
         return Ok(AppResponse<object>.Success(new { total, page, pageSize, items, forLabel }));
@@ -616,13 +985,20 @@ public partial class PosPrintersController
         var forLabel = dto.ForLabel == true;
         if (dto.PrinterId.HasValue)
         {
-            var brand = await db.PosStorePrinters.AsNoTracking()
-                .Where(p => p.Id == dto.PrinterId && p.StoreId == storeId && p.Deleted == null && p.IsActive)
-                .Select(p => p.PrinterBrand)
-                .FirstOrDefaultAsync();
-            if (brand == null && dto.PrinterId.HasValue)
+            var entity = await db.PosStorePrinters.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == dto.PrinterId && p.StoreId == storeId && p.Deleted == null && p.IsActive);
+            if (entity == null)
                 return BadRequest(AppResponse<object>.Fail("Máy in không hợp lệ"));
-            forLabel = IsLabelBrand(brand);
+            if (entity.IsDeviceLocal)
+            {
+                var twin = await FindCloudTwinOfAsync(entity);
+                if (twin != null)
+                {
+                    dto.PrinterId = twin.Id;
+                    entity = twin;
+                }
+            }
+            forLabel = IsLabelBrand(entity.PrinterBrand);
         }
 
         if (forLabel)
@@ -715,13 +1091,20 @@ public partial class PosPrintersController
         var forLabel = dto.ForLabel == true;
         if (dto.PrinterId.HasValue)
         {
-            var brand = await db.PosStorePrinters.AsNoTracking()
-                .Where(p => p.Id == dto.PrinterId && p.StoreId == storeId && p.Deleted == null && p.IsActive)
-                .Select(p => p.PrinterBrand)
-                .FirstOrDefaultAsync();
-            if (brand == null)
+            var entity = await db.PosStorePrinters.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == dto.PrinterId && p.StoreId == storeId && p.Deleted == null && p.IsActive);
+            if (entity == null)
                 return BadRequest(AppResponse<object>.Fail("Máy in không hợp lệ"));
-            forLabel = IsLabelBrand(brand);
+            if (entity.IsDeviceLocal)
+            {
+                var twin = await FindCloudTwinOfAsync(entity);
+                if (twin != null)
+                {
+                    dto.PrinterId = twin.Id;
+                    entity = twin;
+                }
+            }
+            forLabel = IsLabelBrand(entity.PrinterBrand);
         }
 
         if (forLabel)
@@ -748,7 +1131,7 @@ public partial class PosPrintersController
             categoryIds.AddRange(await GetProductAssignmentDescendantCategoryIdsAsync(storeId, categoryId));
 
         var products = await db.PosProducts.AsTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null &&
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
                         p.CategoryId != null && categoryIds.Contains(p.CategoryId.Value))
             .ToListAsync();
 

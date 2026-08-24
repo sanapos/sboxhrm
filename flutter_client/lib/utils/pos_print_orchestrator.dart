@@ -608,6 +608,90 @@ class PosPrintOrchestrator {
     return out;
   }
 
+  /// In lại / in thử: 1 máy / cổng vật lý — ẩn nội bộ máy khác và clone Cloud+Nội bộ.
+  static List<PosStorePrinter> uniquePrintersForPicker(
+    List<PosStorePrinter> raw, {
+    String? deviceId,
+  }) {
+    final mine = (deviceId ?? '').trim();
+    final eligible = <PosStorePrinter>[];
+    for (final p in raw) {
+      if (!p.isActive || p.id.isEmpty) continue;
+      if (p.isDeviceLocal) {
+        final owner = (p.ownerDeviceId ?? '').trim();
+        if (owner.isEmpty || mine.isEmpty || owner != mine) continue;
+      }
+      eligible.add(p);
+    }
+
+    PosStorePrinter better(PosStorePrinter a, PosStorePrinter b) {
+      int score(PosStorePrinter p) {
+        var s = 0;
+        if (!p.isDeviceLocal) s += 8;
+        if (p.isOnline) s += 4;
+        if (p.isDefault) s += 2;
+        if (p.documentTypes.isNotEmpty) s += 1;
+        return s;
+      }
+
+      return score(b) > score(a) ? b : a;
+    }
+
+    final byKey = <String, PosStorePrinter>{};
+    final unmatched = <PosStorePrinter>[];
+    for (final p in eligible) {
+      final key = _physicalPickerKey(p) ?? _namePickerKey(p);
+      if (key.isEmpty) {
+        unmatched.add(p);
+        continue;
+      }
+      final prev = byKey[key];
+      byKey[key] = prev == null ? p : better(prev, p);
+    }
+
+    var list = [...byKey.values, ...unmatched];
+    if (list.any((p) => !p.isDeviceLocal && p.isLan)) {
+      list = list.where((p) => !(p.isDeviceLocal && p.isLan)).toList();
+    }
+
+    final seen = <String>{};
+    final out = <PosStorePrinter>[];
+    for (final p in list) {
+      if (!seen.add(p.id.toLowerCase())) continue;
+      out.add(p);
+    }
+    out.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return out;
+  }
+
+  static String? _physicalPickerKey(PosStorePrinter p) {
+    if (p.isUsb) {
+      final usb = _normPort(p.usbDeviceName);
+      return usb.isEmpty ? null : 'usb:$usb';
+    }
+    if (p.isLan) {
+      final host = (p.lanHost ?? '').trim().toLowerCase();
+      return host.isEmpty ? null : 'lan:$host:${p.lanPort}';
+    }
+    if (p.isBluetooth) {
+      final bt = (p.bluetoothAddress ?? '').trim().toLowerCase();
+      return bt.isEmpty ? null : 'bt:$bt';
+    }
+    if (p.isSunmi) return 'sunmi';
+    return null;
+  }
+
+  static String _namePickerKey(PosStorePrinter p) {
+    final tokens = _stripLocalName(p.name)
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((t) => t.isNotEmpty && t != 'in' && t != 'may')
+        .toList()
+      ..sort();
+    if (tokens.isEmpty) return '';
+    return '${p.connectionType.toLowerCase()}:${tokens.join(' ')}';
+  }
+
   int copiesFor(String documentType, {String? printerId, int fallback = 1}) {
     if (printerId != null && printerId.isNotEmpty) {
       final perPrinter = _routes

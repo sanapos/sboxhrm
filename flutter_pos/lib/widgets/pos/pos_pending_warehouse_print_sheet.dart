@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/pos_store_printer.dart';
 import '../../utils/pos_kitchen_print.dart';
 import '../../utils/pos_pending_print_store.dart';
+import '../../utils/pos_print_orchestrator.dart';
 import '../../utils/pos_sale_order_print.dart';
 import '../pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -145,25 +146,29 @@ class _PendingWarehousePrintSheetBodyState
       _localKitchenJobs.length +
       _localCupJobs.length;
 
-  List<PosStorePrinter> get _sortedPrinters {
-    final list = widget.printers.toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    return list;
+  String _pickerKind(PosStorePrinter p) {
+    if (p.isLabelPrinter) return 'Tem';
+    if (p.isSunmi) return 'Sunmi';
+    return p.connectionType;
   }
 
   Future<PosStorePrinter?> _pickPrinter({
     required String title,
     bool kitchenOnly = false,
   }) async {
-    var list = _sortedPrinters;
+    final deviceId = await PosPrintOrchestrator.stableDeviceId();
+    var list = PosPrintOrchestrator.uniquePrintersForPicker(
+      widget.printers,
+      deviceId: deviceId,
+    );
     if (kitchenOnly) {
-      final kitchen = list
-          .where((p) =>
-              p.documentTypes.contains(PosCloudDocumentTypes.kitchenSlip) ||
-              p.documentTypes.contains(PosCloudDocumentTypes.kitchenVoid))
-          .toList();
-      // Nếu chưa gán vai trò bếp cho máy nào — vẫn cho chọn tất cả (ép in).
-      if (kitchen.isNotEmpty) list = kitchen;
+      // Máy bếp + máy hóa đơn — khi máy bếp hỏng vẫn in phiếu ra Sunmi/USB hóa đơn.
+      final kitchen = list.where((p) => p.canPrintKitchenSlip).toList();
+      if (kitchen.isNotEmpty) {
+        list = kitchen;
+      } else {
+        list = list.where((p) => !p.isLabelPrinter).toList();
+      }
     }
     if (list.isEmpty) {
       setState(() => _statusMessage =
@@ -180,9 +185,9 @@ class _PendingWarehousePrintSheetBodyState
             child: Text(
               tr(
                 kitchenOnly
-                    ? '${list.length} máy bếp — in ép lên máy chọn (không cần gán SP). '
-                        'Chỉ in đúng món đang treo của máy lỗi.'
-                    : '${list.length} máy — chọn máy cloud/Agent hoặc nội bộ',
+                    ? '${list.length} máy nhiệt — bếp hoặc hóa đơn (khi máy bếp hỏng). '
+                        'In ép lên máy chọn, chỉ món đang treo.'
+                    : '${list.length} máy cửa hàng',
               ),
               style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
             ),
@@ -193,9 +198,7 @@ class _PendingWarehousePrintSheetBodyState
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Text(
-                  tr(p.isDeviceLocal
-                      ? '[Nội bộ] ${p.name}'
-                      : '[Cloud] ${p.name} · ${p.connectionType}'),
+                  tr('${p.name} · ${_pickerKind(p)}'),
                   style: const TextStyle(fontSize: 14),
                 ),
               ),
