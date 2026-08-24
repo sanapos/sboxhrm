@@ -1235,6 +1235,8 @@ public class ZKTecoDbInitializer(
                         ""Note"" character varying(500) NULL,
                         ""Status"" character varying(20) NOT NULL DEFAULT 'Open',
                         ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" character varying(200) NULL,
                         ""CreatedAt"" timestamp without time zone NOT NULL,
                         ""CreatedBy"" character varying(200) NULL,
                         ""UpdatedAt"" timestamp without time zone NULL,
@@ -1243,6 +1245,8 @@ public class ZKTecoDbInitializer(
                         ""DeletedBy"" character varying(200) NULL,
                         CONSTRAINT ""PK_PosCashierShifts"" PRIMARY KEY (""Id"")
                     );
+                    ALTER TABLE ""PosCashierShifts"" ADD COLUMN IF NOT EXISTS ""LastModified"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosCashierShifts"" ADD COLUMN IF NOT EXISTS ""LastModifiedBy"" character varying(200) NULL;
                     CREATE INDEX IF NOT EXISTS ""IX_PosCashierShifts_Store_Status""
                         ON ""PosCashierShifts"" (""StoreId"", ""Status"");
                     UPDATE ""PosCashierShifts"" AS s
@@ -1253,16 +1257,17 @@ public class ZKTecoDbInitializer(
                         SELECT ""Id"" FROM (
                             SELECT ""Id"",
                                    ROW_NUMBER() OVER (
-                                       PARTITION BY ""StoreId""
+                                       PARTITION BY ""StoreId"", COALESCE(""OpenedByUserId"", '00000000-0000-0000-0000-000000000000'::uuid)
                                        ORDER BY ""OpenedAt"" DESC NULLS LAST, ""Id"" DESC) AS rn
                             FROM ""PosCashierShifts""
                             WHERE ""Status"" = 'Open' AND ""Deleted"" IS NULL
                         ) ranked WHERE rn > 1
                     ) extra
                     WHERE s.""Id"" = extra.""Id"";
-                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosCashierShifts_Store_OneOpen""
-                        ON ""PosCashierShifts"" (""StoreId"")
-                        WHERE ""Status"" = 'Open' AND ""Deleted"" IS NULL;
+                    DROP INDEX IF EXISTS ""IX_PosCashierShifts_Store_OneOpen"";
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosCashierShifts_Store_User_OneOpen""
+                        ON ""PosCashierShifts"" (""StoreId"", ""OpenedByUserId"")
+                        WHERE ""Status"" = 'Open' AND ""Deleted"" IS NULL AND ""OpenedByUserId"" IS NOT NULL;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""DefaultHourlyProductId"" uuid NULL;
                     ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""DefaultServiceProductId"" uuid NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""GraceMinutes"" integer NULL;
@@ -1331,6 +1336,34 @@ public class ZKTecoDbInitializer(
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosShippingCarrierSettings_StoreId_CarrierCode""
                         ON ""PosShippingCarrierSettings"" (""StoreId"", ""CarrierCode"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosQrMenuItems"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""ShowOnTable"" boolean NOT NULL DEFAULT true,
+                        ""ShowOnOnline"" boolean NOT NULL DEFAULT true,
+                        ""QrPrice"" numeric(18,2) NULL,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosQrMenuItems"" PRIMARY KEY (""Id""),
+                        CONSTRAINT ""FK_PosQrMenuItems_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosQrMenuItems_PosProducts_ProductId""
+                            FOREIGN KEY (""ProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE CASCADE
+                    );
+                    ALTER TABLE ""PosQrMenuItems"" ADD COLUMN IF NOT EXISTS ""LastModified"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosQrMenuItems"" ADD COLUMN IF NOT EXISTS ""LastModifiedBy"" text NULL;
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosQrMenuItems_StoreId_ProductId""
+                        ON ""PosQrMenuItems"" (""StoreId"", ""ProductId"");
 
                     CREATE INDEX IF NOT EXISTS ""IX_PosSaleOrders_Store_EInvoiceStatus""
                         ON ""PosSaleOrders"" (""StoreId"", ""EInvoiceStatus"");
@@ -1761,6 +1794,67 @@ public class ZKTecoDbInitializer(
                     CREATE INDEX IF NOT EXISTS ""IX_PosPaymentWebhookEvents_ReceivedAt""
                         ON ""PosPaymentWebhookEvents"" (""ReceivedAt"");
 
+                    CREATE TABLE IF NOT EXISTS ""PosPlatformNotificationCredits"" (
+                        ""Id"" uuid NOT NULL,
+                        ""RemainingCount"" integer NOT NULL DEFAULT 0,
+                        ""TotalPurchased"" integer NOT NULL DEFAULT 0,
+                        ""TotalAllocated"" integer NOT NULL DEFAULT 0,
+                        ""LastCostPerCredit"" numeric(18,2) NOT NULL DEFAULT 200,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosPlatformNotificationCredits"" PRIMARY KEY (""Id"")
+                    );
+
+                    CREATE TABLE IF NOT EXISTS ""PosPlatformNotificationCreditLedgers"" (
+                        ""Id"" uuid NOT NULL,
+                        ""Delta"" integer NOT NULL DEFAULT 0,
+                        ""BalanceAfter"" integer NOT NULL DEFAULT 0,
+                        ""Source"" integer NOT NULL DEFAULT 0,
+                        ""StoreId"" uuid NULL,
+                        ""ReferenceId"" uuid NULL,
+                        ""Note"" character varying(500) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosPlatformNotificationCreditLedgers"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosPlatformNotificationCreditLedgers_Created""
+                        ON ""PosPlatformNotificationCreditLedgers"" (""CreatedAt"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosPlatformTingeeSettings"" (
+                        ""Id"" uuid NOT NULL,
+                        ""TingeeEnabled"" boolean NOT NULL DEFAULT false,
+                        ""TingeeClientId"" character varying(100) NULL,
+                        ""TingeeSecretKey"" character varying(300) NULL,
+                        ""TingeeWebhookSecret"" character varying(300) NULL,
+                        ""ApiEnvironment"" character varying(20) NOT NULL DEFAULT 'Production',
+                        ""ApiBaseUrlOverride"" character varying(200) NULL,
+                        ""DefaultVaAccountNumber"" character varying(100) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_PosPlatformTingeeSettings"" PRIMARY KEY (""Id"")
+                    );
+
                     -- Không còn dùng «cần dọn» — bàn trống ngay sau thanh toán.
                     UPDATE ""PosServiceResources"" SET ""NeedsCleaning"" = false WHERE ""NeedsCleaning"" = true;
 
@@ -1886,6 +1980,9 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SortOrder"" integer NOT NULL DEFAULT 0;
                     CREATE INDEX IF NOT EXISTS ""IX_PosProducts_Store_SortOrder""
                         ON ""PosProducts"" (""StoreId"", ""SortOrder"");
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""LengthCm"" numeric(18,2) NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WidthCm"" numeric(18,2) NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""HeightCm"" numeric(18,2) NULL;
                 ");
 
                 // WorkSchedules: ensure per-shift unique index
@@ -2824,6 +2921,8 @@ public class ZKTecoDbInitializer(
         ["PosQrOrder"] = Guid.Parse("11111111-1111-1111-1111-111111111104"),
         ["PosCashierShift"] = Guid.Parse("11111111-1111-1111-1111-111111111105"),
         ["PosPrinters"] = Guid.Parse("11111111-1111-1111-1111-111111111106"),
+        ["PosStorePrinters"] = Guid.Parse("11111111-1111-1111-1111-111111111123"),
+        ["PosShipping"] = Guid.Parse("11111111-1111-1111-1111-111111111122"),
     };
 
     private async Task SeedPermissionModulesAsync()
@@ -2907,7 +3006,7 @@ public class ZKTecoDbInitializer(
     private async Task PatchPosSellOpsRolePermissionsAsync()
     {
         var opsCodes = PosPackageDefaults.SellAddonModules
-            .Concat(["PosKds", "PosQrOrder", "PosCashierShift", "PosPrinters", "PosEInvoice"])
+            .Concat(["PosKds", "PosQrOrder", "PosCashierShift", "PosPrinters", "PosEInvoice", "PosShipping"])
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         var perms = await context.Permissions
@@ -2944,6 +3043,12 @@ public class ZKTecoDbInitializer(
                     v = src.CanView;
                     c = src.CanCreate && op.Module is "PosKds" or "PosCashierShift";
                     e = (src.CanEdit || src.CanCreate) && op.Module is "PosQrOrder" or "PosPrinters";
+                    if (op.Module == "PosShipping")
+                    {
+                        v = src.CanView;
+                        c = src.CanCreate;
+                        e = src.CanEdit;
+                    }
                     a = src.CanApprove && op.Module == "PosEInvoice";
                     if (op.Module == "PosEInvoice") v = src.CanView;
                     if (op.Module is "PosPrinters" or "PosQrOrder" or "PosKds") v = src.CanView;

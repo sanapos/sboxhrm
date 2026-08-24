@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/pos_print_template.dart';
 import '../../screens/pos_print_templates_screen.dart';
 import '../../services/api_service.dart';
 import '../../screens/pos/pos_local_printers_screen.dart';
 import '../../screens/pos/pos_store_printers_screen.dart';
-import '../../utils/pos_barcode_print.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/permission_provider.dart';
+import '../../utils/permission_navigation.dart';
 import '../../utils/pos_label_printer_service.dart';
 import '../../utils/pos_label_printer_settings.dart';
 import '../../utils/pos_print_template_loader.dart';
+import '../../utils/pos_print_config_session.dart';
 import '../../utils/pos_sell_print_settings.dart';
 import '../../utils/pos_printer_transport.dart';
 import '../../utils/pos_thermal_printer_service.dart';
@@ -183,16 +187,20 @@ class _PosSellMobilePrintSettingsScreenState
             ),
             ...templates.map(
               (t) => ListTile(
-                title: Text(tr(t.name)),
-                subtitle: Text(
-                  tr(PosPrintPaperSizes.displayLabel(t.paperSize)),
-                ),
+                title: Text(tr(t.shortLabel)),
+                subtitle: t.isDefault
+                    ? Text(tr('Mặc định cửa hàng'))
+                    : Text(tr(PosPrintPaperSizes.shortLabel(t.paperSize))),
                 trailing: selectedId == t.id
                     ? const Icon(Icons.check, color: _blue)
                     : null,
-                onTap: () {
+                onTap: () async {
                   onPick(t.id);
-                  Navigator.pop(ctx);
+                  try {
+                    await _api.setDefaultPosPrintTemplate(t.id);
+                    PosPrintConfigSession.instance.invalidate();
+                  } catch (_) {}
+                  if (ctx.mounted) Navigator.pop(ctx);
                 },
               ),
             ),
@@ -336,9 +344,21 @@ class _PosSellMobilePrintSettingsScreenState
     await _load();
   }
 
+  bool _canStorePrinters(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    return PermissionNavigation.canAccessModule(
+      'PosStorePrinters',
+      allowedModules: auth.user?.allowedModules,
+      perm: perm,
+      role: auth.user?.role,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final embedded = HrmPageChrome.isEmbedded;
+    final canStore = _canStorePrinters(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: embedded
@@ -360,17 +380,18 @@ class _PosSellMobilePrintSettingsScreenState
                   },
                   icon: const Icon(Icons.phone_android),
                 ),
-                IconButton(
-                  tooltip: tr('Máy in cửa hàng'),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const PosStorePrintersScreen(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.print_outlined),
-                ),
+                if (canStore)
+                  IconButton(
+                    tooltip: tr('Máy in cửa hàng'),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const PosStorePrintersScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.print_outlined),
+                  ),
                 TextButton(
                   onPressed: _loading ? null : _save,
                   child: Text(tr('Lưu'),
@@ -396,17 +417,18 @@ class _PosSellMobilePrintSettingsScreenState
                         label: Text(tr('Máy nội bộ')),
                       ),
                       const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const PosStorePrintersScreen(),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.print_outlined, size: 18),
-                        label: Text(tr('Máy cửa hàng')),
-                      ),
+                      if (canStore)
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const PosStorePrintersScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.print_outlined, size: 18),
+                          label: Text(tr('Máy cửa hàng')),
+                        ),
                       const Spacer(),
                       FilledButton(
                         onPressed: _loading ? null : _save,
@@ -505,10 +527,14 @@ class _PosSellMobilePrintSettingsScreenState
                                         trailing: _resolveTemplateId() == t.id
                                             ? const Icon(Icons.check, color: _blue)
                                             : null,
-                                        onTap: () {
+                                        onTap: () async {
                                           setState(() =>
                                               _print = _print.copyWith(templateId: t.id));
-                                          Navigator.pop(ctx);
+                                          try {
+                                            await _api.setDefaultPosPrintTemplate(t.id);
+                                            PosPrintConfigSession.instance.invalidate();
+                                          } catch (_) {}
+                                          if (ctx.mounted) Navigator.pop(ctx);
                                         },
                                       ),
                                     ),
@@ -713,7 +739,7 @@ class _PosSellMobilePrintSettingsScreenState
                     leading: const Icon(Icons.phone_android, color: _blue),
                     title: Text(tr('Máy in nội bộ')),
                     subtitle: Text(
-                      tr('Thêm máy → Lưu → In thử ngay. Gán vai trò Hóa đơn / Báo bếp / Báo kho / Tem ly / Tem SP.'),
+                      tr('Thêm máy → In thử. Gán món và vai trò Hóa đơn / Báo bếp — bán trên máy này in ngay, không cần Agent.'),
                       style: const TextStyle(fontSize: 12),
                     ),
                     trailing: const Icon(Icons.chevron_right),
@@ -726,26 +752,28 @@ class _PosSellMobilePrintSettingsScreenState
                     },
                   ),
                 ]),
-                const SizedBox(height: 16),
-                _sectionTitle('Máy in cửa hàng (Cloud / Agent)'),
-                _card([
-                  ListTile(
-                    leading: const Icon(Icons.cloud_outlined, color: _blue),
-                    title: Text(tr('Máy in cửa hàng')),
-                    subtitle: Text(
-                      tr('Máy in qua Print Agent hoặc máy dùng chung cửa hàng — không gắn trực tiếp máy POS này.'),
-                      style: const TextStyle(fontSize: 12),
+                if (canStore) ...[
+                  const SizedBox(height: 16),
+                  _sectionTitle('Máy in cửa hàng (Cloud / Agent)'),
+                  _card([
+                    ListTile(
+                      leading: const Icon(Icons.cloud_outlined, color: _blue),
+                      title: Text(tr('Máy in cửa hàng')),
+                      subtitle: Text(
+                        tr('Máy dùng chung cửa hàng. A7/web in được khi máy cắm cổng bật Agent.'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const PosStorePrintersScreen(),
+                          ),
+                        );
+                      },
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const PosStorePrintersScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ]),
+                  ]),
+                ],
               ],
             ),
     );

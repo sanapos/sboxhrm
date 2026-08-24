@@ -67,7 +67,7 @@ public static class ModulePermissionImplicitGrants
         "PosSell", "PosSaleOrders", "PosSaleReturns", "PosPurchaseReceipts", "PosPurchaseReturns",
         "PosStockCounts", "PosDamageIssues", "PosInternalUseIssues", "PosPrintTemplates",
         "PosBooking", "PosCustomers", "PosWarranty", "PosCustomerDisplay", "PosEInvoice",
-        "PosKds", "PosQrOrder", "PosCashierShift", "PosPrinters",
+        "PosKds", "PosQrOrder", "PosCashierShift", "PosShipping",
     ];
 
     public static bool TryGrant(
@@ -243,10 +243,30 @@ public static class ModulePermissionImplicitGrants
             HasAction(map, "PosSell", action))
             return true;
 
-        // Addon tách từ PosSell: thu ngân vẫn dùng CRM / booking / BH / màn phụ / KDS / QR / ca / máy in.
+        // Addon vận hành khi bán: chỉ kế thừa Xem từ PosSell — không kế thừa Sửa
+        // (thiết lập máy in / KDS / QR / ca do tick riêng, tránh thu ngân sửa hệ thống).
         if ((module is "PosCustomers" or "PosBooking" or "PosWarranty" or "PosCustomerDisplay"
-                or "PosEInvoice" or "PosKds" or "PosQrOrder" or "PosCashierShift" or "PosPrinters") &&
-            HasAction(map, "PosSell", action))
+                or "PosEInvoice" or "PosKds" or "PosQrOrder" or "PosCashierShift" or "PosShipping") &&
+            action == ModulePermissionAction.View &&
+            HasAction(map, "PosSell", ModulePermissionAction.View))
+            return true;
+
+        // Máy in cửa hàng: xem thiết lập khi đã có SettingsHub / máy in thiết bị (gói vẫn tick riêng).
+        if (module.Equals("PosStorePrinters", StringComparison.Ordinal) &&
+            action == ModulePermissionAction.View &&
+            (HasAction(map, "SettingsHub", ModulePermissionAction.View) ||
+             HasAction(map, "PosPrinters", ModulePermissionAction.View)))
+            return true;
+
+        // ĐVVC: thu ngân tạo/so sánh vận đơn từ PosSell; sửa cấu hình cần Edit riêng.
+        if (module.Equals("PosShipping", StringComparison.Ordinal) &&
+            action == ModulePermissionAction.Create &&
+            HasAction(map, "PosSell", ModulePermissionAction.Create))
+            return true;
+        if (module.Equals("PosShipping", StringComparison.Ordinal) &&
+            action == ModulePermissionAction.Edit &&
+            (HasAction(map, "PosSell", ModulePermissionAction.Edit) ||
+             HasAction(map, "SettingsHub", ModulePermissionAction.Edit)))
             return true;
 
         // POS: có quyền trên PosProducts (kho/SP) → submodule cùng action (QL hàng được bán/nhập…).

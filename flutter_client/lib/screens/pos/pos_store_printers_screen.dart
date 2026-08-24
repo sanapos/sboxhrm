@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 
 import '../../models/pos_store_printer.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/permission_provider.dart';
+import '../../utils/permission_navigation.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_print_agent_service.dart';
 import '../../services/signalr_service.dart';
@@ -776,6 +778,33 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context);
+    final auth = Provider.of<AuthProvider>(context);
+    if (!PermissionNavigation.canAccessModule(
+      'PosStorePrinters',
+      allowedModules: auth.user?.allowedModules,
+      perm: perm,
+      role: auth.user?.role,
+    )) {
+      return Scaffold(
+        backgroundColor: PosTheme.background,
+        appBar: AppBar(
+          title: Text(tr('Máy in cửa hàng')),
+          backgroundColor: PosTheme.kiotBlue,
+          foregroundColor: Colors.white,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              tr('Gói dịch vụ chưa bao gồm Máy in cửa hàng. Super Admin có thể bật module này trong Gói dịch vụ.'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: PosTheme.textSecondary, height: 1.4),
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(

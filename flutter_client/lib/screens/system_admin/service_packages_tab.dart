@@ -70,6 +70,8 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   }
 
   /// Khớp PosPackageDefaults.SellModules (backend).
+  /// PosKds đã là module riêng trong gói (Màn hình bếp).
+  /// PosStorePrinters (Máy in cửa hàng) không nằm preset — Super Admin tick từng gói.
   static const List<String> _posSellPreset = [
     'PosProducts',
     'PosSell',

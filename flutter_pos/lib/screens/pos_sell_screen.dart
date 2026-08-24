@@ -2479,20 +2479,6 @@ class _PosSellScreenState extends State<PosSellScreen>
           enabled: _cupLabelActionEnabled,
         ));
       }
-      if (!tableMode) {
-        actions.add(const _SellMoreAction(
-          id: 'price_list',
-          icon: Icons.sell_outlined,
-          label: 'Bảng giá',
-          iconColor: PosTheme.kiotBlue,
-        ));
-        actions.add(const _SellMoreAction(
-          id: 'scan_continuous',
-          icon: Icons.qr_code_scanner,
-          label: 'Quét liên tục',
-          iconColor: PosTheme.kiotBlue,
-        ));
-      }
       if (tableMode) {
         actions.add(_SellMoreAction(
           id: 'guests',
@@ -10706,6 +10692,38 @@ class _PosSellScreenState extends State<PosSellScreen>
         maxHeight: MediaQuery.sizeOf(context).height - menuTop - 16,
       ),
       items: [
+        PopupMenuItem<String>(
+          enabled: false,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+          child: Row(
+            children: [
+              Image.asset(
+                'assets/logo.png',
+                height: 36,
+                width: 36,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.point_of_sale,
+                  size: 32,
+                  color: PosTheme.kiotBlue,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'SBOX POS',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: PosTheme.kiotBlue,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
         PopupMenuItem(
           value: 'go_home',
           child: ListTile(
@@ -10773,26 +10791,6 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        if (!_isTableOrderMode) ...[
-          PopupMenuItem(
-            value: 'price_list',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.sell_outlined, size: 20),
-              title: Text(tr('Bảng giá')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          PopupMenuItem(
-            value: 'scan_continuous',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.qr_code_scanner, size: 20),
-              title: Text(tr('Quét liên tục')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
         PopupMenuItem(
           value: 'customer_display',
           child: ListTile(

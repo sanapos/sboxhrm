@@ -23,14 +23,23 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
   List<Map<String, dynamic>> _permissions = [];
 
   static const _posModules = <({String code, String label, String group})>[
-    (code: 'PosSell', label: 'Bán hàng', group: 'Bán hàng'),
-    (code: 'PosProducts', label: 'Hàng hóa', group: 'Bán hàng'),
-    (code: 'PosSaleOrders', label: 'Hóa đơn', group: 'Bán hàng'),
-    (code: 'PosSaleReturns', label: 'Trả hàng', group: 'Bán hàng'),
-    (code: 'SettingsHub', label: 'Thiết lập POS', group: 'Bán hàng'),
-    (code: 'UserManagement', label: 'Tài khoản', group: 'Bán hàng'),
-    (code: 'Role', label: 'Phân quyền', group: 'Bán hàng'),
-    (code: 'PosSalesReport', label: 'Hub báo cáo', group: 'Báo cáo'),
+    (code: 'PosSell', label: 'Bán hàng (màn bán)', group: 'Menu bán hàng'),
+    (code: 'PosSaleOrders', label: 'Đơn hàng', group: 'Menu bán hàng'),
+    (code: 'PosProducts', label: 'Thêm hàng hóa / catalog mẫu', group: 'Menu bán hàng'),
+    (code: 'PosSaleReturns', label: 'Trả hàng', group: 'Menu bán hàng'),
+    (code: 'PosCashierShift', label: 'Ca thu ngân', group: 'Menu bán hàng'),
+    (code: 'PosKds', label: 'Màn hình bếp (KDS)', group: 'Menu bán hàng'),
+    (code: 'PosQrOrder', label: 'QR order bàn', group: 'Menu bán hàng'),
+    (code: 'CashTransaction', label: 'Phiếu thu / phiếu chi', group: 'Menu bán hàng'),
+    (code: 'PosCustomerDisplay', label: 'Màn hình phụ (khi bán)', group: 'Menu bán hàng'),
+    (code: 'PosSalesReport', label: 'Báo cáo POS / cuối ngày', group: 'Menu bán hàng'),
+    (code: 'SettingsHub', label: 'Thiết lập POS (cửa hàng, ngành hàng, cổng CK)', group: 'Thiết lập POS'),
+    (code: 'PosPrinters', label: 'Máy in thiết bị', group: 'Thiết lập POS'),
+    (code: 'PosStorePrinters', label: 'Máy in cửa hàng (Cloud)', group: 'Thiết lập POS'),
+    (code: 'PosPrintTemplates', label: 'Mẫu in', group: 'Thiết lập POS'),
+    (code: 'PosEInvoice', label: 'Hóa đơn điện tử', group: 'Thiết lập POS'),
+    (code: 'UserManagement', label: 'Tài khoản', group: 'Thiết lập POS'),
+    (code: 'Role', label: 'Phân quyền', group: 'Thiết lập POS'),
     (code: 'PosReportRevenue', label: 'Doanh thu', group: 'Báo cáo'),
     (code: 'PosReportSoldGoods', label: 'Hàng hóa bán ra', group: 'Báo cáo'),
     (code: 'PosReportStock', label: 'Tồn kho', group: 'Báo cáo'),
@@ -134,30 +143,83 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     return p['canView'] == true || p['CanView'] == true;
   }
 
+  bool _edit(String code) {
+    final p = _perm(code);
+    if (p == null) return false;
+    if (code == 'PosSaleReturns') {
+      return p['canApprove'] == true || p['CanApprove'] == true;
+    }
+    if (code == 'PosCashierShift' || code == 'PosKds') {
+      return p['canCreate'] == true ||
+          p['CanCreate'] == true ||
+          p['canEdit'] == true ||
+          p['CanEdit'] == true;
+    }
+    return p['canEdit'] == true || p['CanEdit'] == true;
+  }
+
+  bool _showEdit(String code) =>
+      !code.startsWith('PosReport') && code != 'PosSalesReport' && code != 'HkdBooks';
+
+  Map<String, dynamic> _ensurePerm(String code) {
+    var p = _perm(code);
+    if (p != null) return p;
+    p = {
+      'module': code,
+      'canView': false,
+      'canCreate': false,
+      'canEdit': false,
+      'canDelete': false,
+      'canExport': false,
+      'canApprove': false,
+    };
+    _permissions.add(p);
+    return p;
+  }
+
   void _setView(String code, bool on) {
     setState(() {
-      var p = _perm(code);
-      if (p == null) {
-        p = {
-          'module': code,
-          'canView': on,
-          'canCreate': false,
-          'canEdit': false,
-          'canDelete': false,
-          'canExport': on,
-          'canApprove': false,
-        };
-        _permissions.add(p);
-      } else {
-        p['canView'] = on;
-        p['CanView'] = on;
-        if (code.startsWith('PosReport') || code == 'PosSalesReport') {
-          p['canExport'] = on;
-        }
-        if (code == 'PosSell' && on) {
-          p['canCreate'] = true;
-          p['canApprove'] = true;
-        }
+      final p = _ensurePerm(code);
+      p['canView'] = on;
+      p['CanView'] = on;
+      if (code.startsWith('PosReport') || code == 'PosSalesReport') {
+        p['canExport'] = on;
+      }
+      if (code == 'PosSell' && on) {
+        p['canCreate'] = true;
+        p['canApprove'] = true;
+      }
+      if (!on) {
+        p['canEdit'] = false;
+        p['CanEdit'] = false;
+        p['canCreate'] = false;
+        p['canApprove'] = false;
+        p['canExport'] = false;
+      }
+    });
+  }
+
+  void _setEdit(String code, bool on) {
+    setState(() {
+      final p = _ensurePerm(code);
+      if (on) {
+        p['canView'] = true;
+        p['CanView'] = true;
+      }
+      p['canEdit'] = on;
+      p['CanEdit'] = on;
+      if (code == 'PosSell' && on) {
+        p['canCreate'] = true;
+        p['canApprove'] = true;
+      }
+      if (code == 'PosSaleReturns') {
+        p['canApprove'] = on;
+      }
+      if (code == 'PosCashierShift' || code == 'PosKds' || code == 'PosProducts') {
+        p['canCreate'] = on;
+      }
+      if (code == 'SettingsHub' || code == 'PosPrinters' || code == 'Role') {
+        p['canCreate'] = on;
       }
     });
   }
@@ -304,10 +366,52 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Text(
-                                  tr('Admin không chỉnh sửa — chọn Cashier để giới hạn báo cáo.'),
+                                  tr('Admin không chỉnh sửa — chọn Cashier / Waiter để giới hạn menu và thiết lập.'),
                                   style: const TextStyle(color: PosTheme.textSecondary),
                                 ),
+                              )
+                            else
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Text(
+                                  tr('Xem = mở menu. Sửa = đổi cấu hình / gán món / tách bill. Thu ngân chỉ cần Xem bán hàng — không tick Sửa thiết lập POS.'),
+                                  style: const TextStyle(
+                                    color: PosTheme.textSecondary,
+                                    fontSize: 12,
+                                    height: 1.35,
+                                  ),
+                                ),
                               ),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 4),
+                              child: Row(
+                                children: [
+                                  const Spacer(),
+                                  SizedBox(
+                                    width: 52,
+                                    child: Text(
+                                      tr('Xem'),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: 52,
+                                    child: Text(
+                                      tr('Sửa'),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                             for (final g in groups.entries) ...[
                               Padding(
                                 padding: const EdgeInsets.only(top: 8, bottom: 4),
@@ -320,13 +424,39 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                                 ),
                               ),
                               for (final m in g.value)
-                                SwitchListTile(
-                                  value: _view(m.code),
-                                  onChanged: _roleLocked
-                                      ? null
-                                      : (v) => _setView(m.code, v),
-                                  title: Text(tr(m.label)),
-                                  dense: true,
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          tr(m.label),
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 52,
+                                        child: Checkbox(
+                                          value: _view(m.code),
+                                          onChanged: _roleLocked
+                                              ? null
+                                              : (v) => _setView(m.code, v ?? false),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 52,
+                                        child: _showEdit(m.code)
+                                            ? Checkbox(
+                                                value: _edit(m.code),
+                                                onChanged: _roleLocked
+                                                    ? null
+                                                    : (v) =>
+                                                        _setEdit(m.code, v ?? false),
+                                              )
+                                            : const SizedBox.shrink(),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                             ],
                           ],

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_tr.dart';
 import '../models/hrm.dart';
 import '../utils/notification_sound.dart';
+import '../utils/vietnamese_text_fix.dart';
 
 import './pos/pos_theme.dart';
 
@@ -39,8 +40,8 @@ class NotificationOverlayManager {
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final item = NotificationOverlayItem(
       id: id,
-      title: title,
-      message: message,
+      title: fixVietnameseMojibake(title),
+      message: fixVietnameseMojibake(message),
       type: type,
       relatedEntityType: relatedEntityType,
       onTap: onTap,

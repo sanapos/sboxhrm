@@ -31,6 +31,7 @@ import 'pos_split_report_screens.dart';
 import 'pos_customer_display_settings_screen.dart';
 import 'pos_payment_gateway_settings_screen.dart';
 import 'pos_shipping_settings_screen.dart';
+import 'pos_store_printers_screen.dart';
 import 'pos_transfer_confirm_screen.dart';
 import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
@@ -279,6 +280,12 @@ class PosMoreScreen extends StatelessWidget {
                       Icons.local_shipping_outlined,
                       'SettingsHub',
                       const PosShippingSettingsScreen(),
+                    ),
+                    _Item(
+                      'Máy in cửa hàng',
+                      Icons.cloud_outlined,
+                      'PosStorePrinters',
+                      const PosStorePrintersScreen(),
                     ),
                     _Item(
                       'Thiết lập cửa hàng',

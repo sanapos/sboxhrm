@@ -42,6 +42,7 @@ import 'pos/pos_einvoice_settings_screen.dart';
 import 'pos/pos_shipping_settings_screen.dart';
 import 'pos/pos_store_settings_hub_screen.dart';
 import 'pos/pos_printer_settings_hub_screen.dart';
+import 'pos/pos_store_printers_screen.dart';
 import 'pos/pos_payment_gateway_settings_screen.dart';
 import 'pos/pos_resource_floor_screen.dart';
 import 'pos/pos_appointment_day_screen.dart';
@@ -308,6 +309,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const PosShippingSettingsScreen();
       case 18:
         return const PosPrinterSettingsHubScreen();
+      case 29:
+        return const PosStorePrintersScreen();
       case 19:
         return const PosResourceFloorScreen(
           manageMode: true,

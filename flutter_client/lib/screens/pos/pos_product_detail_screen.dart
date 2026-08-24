@@ -217,16 +217,16 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Chi tiết hàng hóa')),
-        backgroundColor: PosTheme.primary,
+        backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: _loading
           ? const Center(
-              child: CircularProgressIndicator(color: PosTheme.primary),
+              child: CircularProgressIndicator(color: PosTheme.kiotBlue),
             )
           : RefreshIndicator(
-              color: PosTheme.primary,
+              color: PosTheme.kiotBlue,
               onRefresh: _loadDetail,
               child: ListView(
                 padding: const EdgeInsets.all(16),
@@ -372,7 +372,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
             title: Text(tr('Ngừng kinh doanh')),
             subtitle: Text(tr('Ẩn sản phẩm khỏi mọi kênh bán')),
             value: !_product.isActive,
-            activeColor: PosTheme.primary,
+            activeColor: PosTheme.kiotBlue,
             onChanged: (v) => _toggleActive(!v),
           ),
           const Divider(height: 1),
@@ -380,7 +380,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
             title: Text(tr('Ẩn POS')),
             subtitle: Text(tr('Không hiển thị trên màn hình bán hàng')),
             value: !_product.isDirectSale,
-            activeColor: PosTheme.primary,
+            activeColor: PosTheme.kiotBlue,
             onChanged: _product.isActive ? (v) => _toggleDirectSale(!v) : null,
           ),
         ],
@@ -585,8 +585,8 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
             icon: const Icon(Icons.copy, size: 18),
             label: Text(tr('Sao chép')),
             style: OutlinedButton.styleFrom(
-              foregroundColor: PosTheme.primary,
-              side: const BorderSide(color: PosTheme.primary),
+              foregroundColor: PosTheme.kiotBlue,
+              side: const BorderSide(color: PosTheme.kiotBlue),
             ),
           ),
         if (perm.canDelete('PosProducts'))

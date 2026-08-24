@@ -151,6 +151,7 @@ class PermissionRoleCatalog {
         'PosQrOrder',
         'PosCashierShift',
         'PosPrinters',
+        'PosStorePrinters',
         'PosShipping',
         'SettingsHub',
         'PosPurchaseReceipts',

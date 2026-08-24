@@ -195,7 +195,9 @@ class PermissionNavigation {
       case 'PosCashierShift':
         return 'Ca thu ngân';
       case 'PosPrinters':
-        return 'Máy in POS';
+        return 'Máy in thiết bị';
+      case 'PosStorePrinters':
+        return 'Máy in cửa hàng';
       case 'PosShipping':
         return 'Đơn vị giao hàng';
       case 'PenaltyReport':

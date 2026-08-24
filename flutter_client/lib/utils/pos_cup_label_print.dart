@@ -25,7 +25,7 @@ import 'pos_thermal_printer_settings.dart';
 import 'pos_topping_format.dart';
 import '../l10n/app_tr.dart';
 
-/// Má»™t tem dÃ¡n ly (1 pháº§n = 1 tem).
+/// Một tem dán ly (1 phần = 1 tem).
 class CupLabelTicket {
   const CupLabelTicket({
     required this.productName,
@@ -59,7 +59,7 @@ bool _cloudLabelPrinterReady(PosStorePrinter p) {
   return p.isDeviceLocal || p.isOnline;
 }
 
-/// MÃ¡y tem ná»™i bá»™ (USB/BT/LAN) hoáº·c mÃ¡y tem cá»­a hÃ ng Ä‘ang káº¿t ná»‘i (Agent online).
+/// Máy tem nội bộ (USB/BT/LAN) hoặc máy tem cửa hàng đang kết nối (Agent online).
 Future<bool> hasReadyCupLabelPrinter() async {
   if (!kIsWeb) {
     final all = await PosLocalPrintersStore.instance.loadAll();
@@ -74,10 +74,10 @@ Future<bool> hasReadyCupLabelPrinter() async {
   return PosPrintOrchestrator.instance.printers.any(_cloudLabelPrinterReady);
 }
 
-/// In tem trÃ  sá»¯a / dÃ¡n ly.
+/// In tem trà sữa / dán ly.
 ///
-/// Æ¯u tiÃªn **mÃ¡y in tem** (KitchenLabel / má»i mÃ¡y kind=label),
-/// khÃ´ng Ä‘áº©y sang mÃ¡y hÃ³a Ä‘Æ¡n Sunmi trá»« khi khÃ´ng cÃ³ mÃ¡y tem.
+/// Ưu tiên **máy in tem** (KitchenLabel / mọi máy kind=label),
+/// không đẩy sang máy hóa đơn Sunmi trừ khi không có máy tem.
 Future<bool> printCupLabels({
   required List<CupLabelTicket> tickets,
   DateTime? printedAt,
@@ -88,13 +88,13 @@ Future<bool> printCupLabels({
   if (!await hasReadyCupLabelPrinter()) {
     if (showFeedback) {
       NotificationOverlayManager().showWarning(
-        title: 'ChÆ°a cÃ³ mÃ¡y in tem',
+        title: 'Chưa có máy in tem',
         message: tr(
-          'Káº¿t ná»‘i mÃ¡y tem trong cá»­a hÃ ng rá»“i in. KhÃ´ng táº¡o phiáº¿u chá» khi chÆ°a cÃ³ mÃ¡y.',
+          'Kết nối máy tem trong cửa hàng rồi in. Không tạo phiếu chờ khi chưa có máy.',
         ),
       );
     }
-    debugPrint('Cup label: bá» qua â€” khÃ´ng cÃ³ mÃ¡y tem káº¿t ná»‘i');
+    debugPrint('Cup label: bỏ qua — không có máy tem kết nối');
     return false;
   }
   final timeFmt = DateFormat('dd/MM/yyyy');
@@ -104,15 +104,15 @@ Future<bool> printCupLabels({
 
   if (!kIsWeb) {
     final all = await PosLocalPrintersStore.instance.loadAll();
-    // 1) MÃ¡y tem ná»™i bá»™ Ä‘Ã£ cÃ i (USB/BT/Sunmi/LAN) + role KitchenLabel.
-    // KhÃ´ng cÃ³ local â€” chá»‰ lanHost Agent â†’ cloud phÃ­a dÆ°á»›i.
+    // 1) Máy tem nội bộ đã cài (USB/BT/Sunmi/LAN) + role KitchenLabel.
+    // Không có local — chỉ lanHost Agent → cloud phía dưới.
     var labelTargets = all
         .where((p) =>
             PosLocalPrintersStore.profileAllowsDirectLocal(p) &&
             p.isLabel &&
             p.hasRole(PosLocalPrinterRoles.kitchenLabel))
         .toList();
-    // 2) Má»i mÃ¡y tem ná»™i bá»™ Ä‘ang báº­t (ká»ƒ cáº£ chá»‰ BarcodeLabel)
+    // 2) Mọi máy tem nội bộ đang bật (kể cả chỉ BarcodeLabel)
     if (labelTargets.isEmpty) {
       labelTargets = all
           .where((p) =>
@@ -122,7 +122,7 @@ Future<bool> printCupLabels({
 
     if (labelTargets.isNotEmpty) {
       final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
-      // Khá»• váº­t lÃ½ = mÃ¡y tem (TSPL SIZE/GAP). Layout máº«u scale vÃ o canvas mÃ¡y â€” trÃ¡nh trÃ´i.
+      // Khổ vật lý = máy tem (TSPL SIZE/GAP). Layout mẫu scale vào canvas máy — tránh trôi.
       var anyOk = false;
       for (final p in labelTargets) {
         final settings = p.toLabelSettings().copyWith(enabled: true);
@@ -153,7 +153,7 @@ Future<bool> printCupLabels({
             fontScale: settings.fontScale,
           );
           if (!PosLabelRenderer.hasEnoughInk(r.raster)) {
-            // Fallback raster cá»©ng náº¿u máº«u trá»‘ng.
+            // Fallback raster cứng nếu mẫu trống.
             final t = tickets[i];
             final fallback = await PosLabelRenderer.renderCupTicket(
               productName: t.productName,
@@ -187,8 +187,8 @@ Future<bool> printCupLabels({
         if (jobs.isEmpty) {
           if (showFeedback) {
             NotificationOverlayManager().showError(
-              title: 'Tem ly trá»‘ng',
-              message: tr('KhÃ´ng render Ä‘Æ°á»£c chá»¯ tem. Thá»­ láº¡i hoáº·c kiá»ƒm tra font.'),
+              title: 'Tem ly trống',
+              message: tr('Không render được chữ tem. Thử lại hoặc kiểm tra font.'),
             );
           }
           continue;
@@ -200,7 +200,7 @@ Future<bool> printCupLabels({
           heightMm: heightMm,
         );
         if (ok) {
-          // Chá»‰ 1 mÃ¡y tem â€” trÃ¡nh in Ä‘Ã´i khi cÃ³ 2 profile cÃ¹ng role.
+          // Chỉ 1 máy tem — tránh in đôi khi có 2 profile cùng role.
           anyOk = true;
           break;
         }
@@ -209,14 +209,14 @@ Future<bool> printCupLabels({
         if (showFeedback) {
           NotificationOverlayManager().showSuccess(
             title: 'Tem ly',
-            message: tr('ÄÃ£ in lÃªn mÃ¡y tem'),
+            message: tr('Đã in lên máy tem'),
           );
         }
         return true;
       }
     }
 
-    // 3) MÃ¡y nhiá»‡t ná»™i bá»™ cÃ³ role KitchenLabel â€” khÃ´ng dÃ¹ng mÃ¡y phiáº¿u cháº¿ biáº¿n.
+    // 3) Máy nhiệt nội bộ có role KitchenLabel — không dùng máy phiếu chế biến.
     final thermalCup = all
         .where((p) =>
             PosLocalPrintersStore.profileAllowsDirectLocal(p) &&
@@ -243,7 +243,7 @@ Future<bool> printCupLabels({
           feedBeforeCut: 8,
           openCashDrawer: false,
         );
-        // KhÃ´ng Ã©p Sunmi khi connection khÃ´ng pháº£i sunmi.
+        // Không ép Sunmi khi connection không phải sunmi.
         final ok = await _printCupOutputsLocal(
           outputs: outputs,
           cupSettings: cupSettings,
@@ -258,7 +258,7 @@ Future<bool> printCupLabels({
         if (showFeedback) {
           NotificationOverlayManager().showSuccess(
             title: 'Tem ly',
-            message: tr('ÄÃ£ in tem ly'),
+            message: tr('Đã in tem ly'),
           );
         }
         return true;
@@ -281,11 +281,11 @@ Future<bool> printCupLabels({
   final cloudPrinter = _resolveCupLabelCloudPrinter();
   if (cloudPrinter != null && outputs.isNotEmpty) {
     try {
-      // MÃ¡y tem (TSPL/Xprinter): pháº£i gá»­i bitmap TSPL â€” EscPos ghi USB Â«OKÂ»
-      // nhÆ°ng Tem 350BM khÃ´ng in gÃ¬.
+      // Máy tem (TSPL/Xprinter): phải gửi bitmap TSPL — EscPos ghi USB «OK»
+      // nhưng Tem 350BM không in gì.
       if (cloudPrinter.isLabelPrinter) {
         final labelSettings = toLabelSettings(cloudPrinter);
-        // Khá»• váº­t lÃ½ theo mÃ¡y tem â€” khÃ´ng dÃ¹ng mm máº«u thiáº¿t káº¿ (trÃ¡nh trÃ´i/cáº¯t).
+        // Khổ vật lý theo máy tem — không dùng mm mẫu thiết kế (tránh trôi/cắt).
         final machineTpl = labelSettings.template ??
             posBarcodeLabelTemplateById('roll_1_50x30')!;
         final widthMm = machineTpl.labelWidthMm;
@@ -350,7 +350,7 @@ Future<bool> printCupLabels({
               showFeedback: showFeedback && i == jobs.length - 1,
               successTitle: 'Tem ly',
               skipDedup: true,
-              // KhÃ´ng treo UI 90s chá» Completed â€” Agent Claimed = Ä‘ang in tem.
+              // Không treo UI 90s chờ Completed — Agent Claimed = đang in tem.
               waitForCompletion: false,
               acceptClaimedAsSuccess: true,
               hangAfter: const Duration(seconds: 90),
@@ -388,7 +388,7 @@ Future<bool> printCupLabels({
         if (ok) return true;
       } else {
         debugPrint(
-          'Cup label: bá» Agent ${cloudPrinter.name} â€” mÃ¡y phiáº¿u cháº¿ biáº¿n',
+          'Cup label: bỏ Agent ${cloudPrinter.name} — máy phiếu chế biến',
         );
       }
     } catch (e) {
@@ -396,22 +396,22 @@ Future<bool> printCupLabels({
     }
   }
 
-  // KhÃ´ng fallback EscPos Â«Ban: â€¦Â» lÃªn mÃ¡y phiáº¿u cháº¿ biáº¿n / mÃ¡y báº¥t ká»³.
+  // Không fallback EscPos «Ban: …» lên máy phiếu chế biến / máy bất kỳ.
   debugPrint(
-    'Cup label: khÃ´ng in â€” cáº§n mÃ¡y tem (KitchenLabel), khÃ´ng Ä‘áº©y Agent lÃªn mÃ¡y báº¿p',
+    'Cup label: không in — cần máy tem (KitchenLabel), không đẩy Agent lên máy bếp',
   );
   if (showFeedback) {
     NotificationOverlayManager().showError(
-      title: 'ChÆ°a in tem ly',
+      title: 'Chưa in tem ly',
       message: tr(
-        'ChÆ°a cÃ³ mÃ¡y in tem. VÃ o MÃ¡y in ná»™i bá»™ â†’ thÃªm mÃ¡y Tem, gÃ¡n vai trÃ² Tem báº¿p.',
+        'Chưa có máy in tem. Vào Máy in nội bộ → thêm máy Tem, gán vai trò Tem bếp.',
       ),
     );
   }
   return false;
 }
 
-/// MÃ¡y tem tháº­t (TSPL) Ä‘ang káº¿t ná»‘i â€” khÃ´ng gá»­i phiáº¿u cloud khi Agent offline.
+/// Máy tem thật (TSPL) đang kết nối — không gửi phiếu cloud khi Agent offline.
 PosStorePrinter? _resolveCupLabelCloudPrinter() {
   final orch = PosPrintOrchestrator.instance;
   for (final doc in [
@@ -450,7 +450,7 @@ List<PosPrintCompiledOutput> _compileCupOutputs({
       'Ngay': timeFmt.format(when),
       'Gio': hourFmt.format(when),
       'Ten_Hang_Hoa':
-          t.productName.trim().isEmpty ? 'MÃ³n' : t.productName.trim(),
+          t.productName.trim().isEmpty ? 'Món' : t.productName.trim(),
       'Ghi_Chu': noteParts.join('\n'),
       'So_Luong': (t.qtyLabel ?? '1').trim().isEmpty
           ? '1'
@@ -461,7 +461,7 @@ List<PosPrintCompiledOutput> _compileCupOutputs({
       'Don_Gia': '',
       'Tieu_De_In': 'TEM LY',
     };
-    // Khá»‘iã€ŒTÃªn hÃ ngã€lÃ  lineItems â€” pháº£i cÃ³ 1 dÃ²ng, náº¿u khÃ´ng in tháº­t trá»‘ng dÃ¹ preview cÃ³ sample.
+    // Khối「Tên hàng」là lineItems — phải có 1 dòng, nếu không in thật trống dù preview có sample.
     final lineRow = <String, String>{
       'Ten_Hang_Hoa': data['Ten_Hang_Hoa'] ?? '',
       'So_Luong': data['So_Luong'] ?? '1',

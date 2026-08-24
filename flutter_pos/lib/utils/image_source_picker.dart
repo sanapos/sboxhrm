@@ -14,7 +14,7 @@ class PickedImageResult {
   const PickedImageResult(this.bytes, this.name);
 }
 
-/// Bottom sheet: Chá»¥p áº£nh / Chá»n thÆ° viá»‡n (mobile). Web â†’ file picker.
+/// Bottom sheet: Chụp ảnh / Chọn thư viện (mobile). Web → file picker.
 Future<PickedImageResult?> pickSingleImageWithCamera(
   BuildContext context, {
   List<String>? allowedExtensions,
@@ -75,8 +75,8 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
                 backgroundColor: Color(0xFFE3F2FD),
                 child: Icon(Icons.camera_alt, color: Colors.blue),
               ),
-              title: Text(tr('Chá»¥p áº£nh')),
-              subtitle: Text(tr('Sá»­ dá»¥ng camera Ä‘á»ƒ chá»¥p')),
+              title: Text(tr('Chụp ảnh')),
+              subtitle: Text(tr('Sử dụng camera để chụp')),
               onTap: () => Navigator.pop(ctx, 'camera'),
             ),
             ListTile(
@@ -84,8 +84,8 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
                 backgroundColor: Color(0xFFE8F5E9),
                 child: Icon(Icons.photo_library, color: Colors.green),
               ),
-              title: Text(tr('Chá»n tá»« thÆ° viá»‡n')),
-              subtitle: Text(tr('Chá»n áº£nh cÃ³ sáºµn trong mÃ¡y')),
+              title: Text(tr('Chọn từ thư viện')),
+              subtitle: Text(tr('Chọn ảnh có sẵn trong máy')),
               onTap: () => Navigator.pop(ctx, 'gallery'),
             ),
             const SizedBox(height: 8),

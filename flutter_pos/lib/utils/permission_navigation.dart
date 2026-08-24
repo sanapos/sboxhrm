@@ -13,12 +13,14 @@ class PermissionNavigation {
     'PosCustomers': ['PosSell'],
     'PosBooking': ['PosSell'],
     'PosWarranty': ['PosSell'],
-    'PosCustomerDisplay': ['PosSell'],
     'PosEInvoice': ['PosSell'],
+    // Vận hành khi bán — thu ngân vẫn vào được nếu đã có PosSell.
+    // Thiết lập (máy in / hub / tài khoản / phân quyền) KHÔNG alias.
     'PosKds': ['PosSell'],
     'PosQrOrder': ['PosSell'],
     'PosCashierShift': ['PosSell'],
-    'PosPrinters': ['PosSell'],
+    'PosCustomerDisplay': ['PosSell'],
+    'PosShipping': ['PosSell'],
     'HkdBooks': ['PosSalesReport'],
   };
 
@@ -29,9 +31,7 @@ class PermissionNavigation {
     'PosKds': ['PosSell'],
     'PosQrOrder': ['PosSell'],
     'PosCashierShift': ['PosSell'],
-    'PosPrinters': ['PosSell'],
-    'UserManagement': ['PosSell', 'SettingsHub'],
-    'Role': ['PosSell', 'SettingsHub'],
+    'PosShipping': ['PosSell'],
     'HkdBooks': ['PosSalesReport', 'PosSell'],
   };
 
@@ -199,7 +199,11 @@ class PermissionNavigation {
       case 'PosCashierShift':
         return 'Ca thu ngân';
       case 'PosPrinters':
-        return 'Máy in POS';
+        return 'Máy in thiết bị';
+      case 'PosStorePrinters':
+        return 'Máy in cửa hàng';
+      case 'PosShipping':
+        return 'Đơn vị giao hàng';
       case 'PenaltyReport':
         return 'Báo cáo phạt';
       case 'CashReport':
@@ -215,7 +219,7 @@ class PermissionNavigation {
       case 'Settings':
         return 'Cài đặt';
       case 'SettingsHub':
-        return 'Thiết lập HRM';
+        return 'Thiết lập Sbox';
       default:
         return moduleCode;
     }

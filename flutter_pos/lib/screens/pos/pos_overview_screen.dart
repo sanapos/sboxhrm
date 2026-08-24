@@ -8,7 +8,7 @@ import '../../utils/navigation_notifier.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
-import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/reports/pos_report_widgets.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 
@@ -228,6 +228,8 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildMetricsSection(),
+        const SizedBox(height: 14),
+        _buildRevenueChartSection(),
         ..._stockAlertSliver(),
         const SizedBox(height: 14),
         _buildTopProductsSection(),
@@ -245,6 +247,8 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildMetricsSection(),
+              const SizedBox(height: 14),
+              _buildRevenueChartSection(),
               ..._stockAlertSliver(),
             ],
           ),
@@ -328,6 +332,29 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
           );
         },
       ),
+    );
+  }
+
+  DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    if (v is DateTime) return v;
+    return DateTime.tryParse(v.toString());
+  }
+
+  Widget _buildRevenueChartSection() {
+    final byDay = (_sales?['byDay'] as List?) ?? [];
+    final points = byDay.whereType<Map>().map((d) {
+      final dt = _parseDate(d['date']) ?? DateTime.now();
+      return (date: dt, value: _num(d['total']));
+    }).toList();
+
+    return PosMobileHubSection(
+      title: 'Doanh thu',
+      trailing: Text(
+        tr(_time.displayLabel),
+        style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+      ),
+      child: PosReportBarChart(points: points, height: 168),
     );
   }
 

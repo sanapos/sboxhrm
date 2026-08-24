@@ -237,6 +237,15 @@ class SettingsHubCatalog {
       moduleCode: 'PosPrinters',
     ),
     SettingsHubItemDef(
+      index: 29,
+      icon: Icons.cloud_outlined,
+      label: 'Máy in cửa hàng',
+      desc: 'Cloud / Print Agent — bật theo gói dịch vụ',
+      accent: HrmPageChrome.primaryNavy,
+      groupTitle: 'POS / Bán hàng',
+      moduleCode: 'PosStorePrinters',
+    ),
+    SettingsHubItemDef(
       index: 19,
       icon: Icons.table_restaurant_outlined,
       label: 'Quản lý bàn / phòng',

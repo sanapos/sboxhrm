@@ -76,7 +76,8 @@ class PermissionModuleLabels {
     'PosKds': 'Màn hình bếp (KDS)',
     'PosQrOrder': 'QR order bàn',
     'PosCashierShift': 'Ca thu ngân',
-    'PosPrinters': 'Máy in POS',
+    'PosPrinters': 'Máy in thiết bị',
+    'PosStorePrinters': 'Máy in cửa hàng',
     'PosShipping': 'Đơn vị giao hàng',
     // Tài chính
     'BonusPenalty': 'Phiếu thưởng',

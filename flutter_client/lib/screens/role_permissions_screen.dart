@@ -544,6 +544,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'PosQrOrder': {'canView', 'canEdit'},
     'PosCashierShift': {'canView', 'canCreate'},
     'PosPrinters': {'canView', 'canEdit'},
+    'PosStorePrinters': {'canView', 'canEdit'},
     'PosBooking': {'canView', 'canCreate', 'canEdit'},
     'PosCustomers': {'canView', 'canCreate', 'canEdit'},
     'PosWarranty': {'canView'},
@@ -2639,6 +2640,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           return 'Xem máy in';
         case 'canEdit':
           return 'Gán máy in';
+      }
+    }
+    if (module == 'PosStorePrinters') {
+      switch (action) {
+        case 'canView':
+          return 'Xem máy in cửa hàng';
+        case 'canEdit':
+          return 'Sửa máy in cửa hàng';
       }
     }
     if (module == 'PosEInvoice') {

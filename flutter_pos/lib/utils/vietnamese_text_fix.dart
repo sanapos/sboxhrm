@@ -2,9 +2,12 @@ import 'dart:convert';
 
 /// Sửa chuỗi tiếng Việt bị lỗi encoding (UTF-8 đọc nhầm Latin-1).
 String fixVietnameseMojibake(String input) {
+  // Chỉ sửa khi có dấu hiệu mojibake (tránh đụng chuỗi UTF-8 đúng có chữ ư/Đ).
   if (!(input.contains('Ã') ||
       input.contains('Â') ||
       input.contains('áº') ||
+      input.contains('á»') ||
+      input.contains('Æ¡') ||
       input.contains('Æ°'))) {
     return input;
   }
