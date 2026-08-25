@@ -16,3 +16,12 @@ MediaQueryData mediaQueryWithSystemPadding(MediaQueryData mq) {
     ),
   );
 }
+
+/// Khi [padding.top] vẫn = 0 (SafeArea không ăn), chừa [viewPadding].
+Widget withFallbackTopInset(BuildContext context, Widget child) {
+  final mq = MediaQuery.of(context);
+  if (mq.padding.top > 0.5) return child;
+  final top = mq.viewPadding.top;
+  if (top <= 0) return child;
+  return Padding(padding: EdgeInsets.only(top: top), child: child);
+}

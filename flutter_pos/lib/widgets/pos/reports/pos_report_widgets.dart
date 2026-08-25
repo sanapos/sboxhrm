@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../utils/media_query_safe_padding.dart';
 import '../../../utils/pos_kiot_time_range.dart';
 import '../pos_kiot_time_filter.dart';
 import '../pos_mobile_widgets.dart';
@@ -250,8 +251,11 @@ class PosReportMobileScaffold extends StatelessWidget {
         child: Column(
           children: [
             posNeedsTopSafeArea(context)
-                ? SafeArea(bottom: false, child: header)
-                : header,
+                ? withFallbackTopInset(
+                    context,
+                    SafeArea(bottom: false, child: header),
+                  )
+                : withFallbackTopInset(context, header),
             Expanded(
               child: DefaultTextStyle(
                 style: const TextStyle(

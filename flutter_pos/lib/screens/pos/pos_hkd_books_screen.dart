@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -10,9 +11,8 @@ import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/hkd_book_preview_panel.dart';
 import '../../widgets/notification_overlay.dart';
-import '../../widgets/pos/pos_hub_scope.dart';
-import '../../widgets/pos/pos_kiot_time_filter.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Sổ thuế hộ kinh doanh (TT 152/2025) — dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ.
@@ -282,71 +282,62 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
         perm.canExport('PosSalesReport') ||
         perm.canExport('CashReport');
     final canEdit = perm.canEdit('HkdBooks');
-    final pushed = PosHubScope.pushedSubPageOf(context);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      appBar: AppBar(
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: pushed,
-        title: Text(tr('Thuế hộ kinh doanh')),
-        actions: [
-          if (canEdit)
-            TextButton(
-              onPressed: _saving || _loading ? null : _saveSettings,
-              child: Text(
-                tr('Lưu'),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
-              ),
-            ),
-        ],
-      ),
+    return PosReportMobileScaffold(
+      title: 'Thuế hộ kinh doanh',
+      time: _time,
+      onTimeChanged: (v) {
+        setState(() => _time = v);
+        _loadPreview();
+      },
+      onRefresh: _loadPreview,
+      onExportExcel: canExport ? () => unawaited(_exportSelected()) : null,
+      filterBar: _buildBookChips(),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Text(
-                  tr('Sổ sách kế toán hộ kinh doanh'),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: PosTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  tr('Theo Thông tư 152/2025/TT-BTC. Xem chi tiết trên màn hình; xuất Excel khi cần nộp cơ quan thuế.'),
-                  style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
-                ),
-                  const SizedBox(height: 16),
-                _card(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Kỳ dữ liệu'),
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                      const SizedBox(height: 12),
-                      PosKiotTimeFilter(
-                        state: _time,
-                        onChanged: (v) {
-                          setState(() => _time = v);
-                          _loadPreview();
-                        },
+          : LayoutBuilder(
+              builder: (context, c) {
+                final profileH = canEdit ? 72.0 : 0.0;
+                final tableH =
+                    (c.maxHeight - profileH - 16).clamp(200.0, c.maxHeight);
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                  children: [
+                    SizedBox(
+                      height: tableH,
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        elevation: 0,
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: PosTheme.border),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                          child: HkdBookPreviewPanel(
+                            preview: _preview,
+                            loading: _previewLoading,
+                            error: _previewError,
+                            accent: PosTheme.kiotBlue,
+                            canExport: canExport,
+                            exporting: _exporting,
+                            showExportButton: false,
+                            fillHeight: true,
+                            onExport: _exportSelected,
+                            onRetry: _loadPreview,
+                          ),
+                        ),
                       ),
+                    ),
+                    if (canEdit) ...[
+                      const SizedBox(height: 8),
+                      _card(child: _buildProfileCard(canEdit)),
                     ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _card(child: _buildBookCard(canExport)),
-                const SizedBox(height: 16),
-                _card(child: _buildProfileCard(canEdit)),
-                if (_exporting) ...[
-                  const SizedBox(height: 12),
-                  const LinearProgressIndicator(),
-                ],
-              ],
+                  ],
+                );
+              },
             ),
     );
   }
@@ -498,50 +489,42 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
               ),
             ],
           ),
+          if (canEdit) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                onPressed: _saving || _loading ? null : _saveSettings,
+                child: Text(tr('Lưu hồ sơ')),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildBookCard(bool canExport) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(tr('Sổ theo mẫu TT152'),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-        const SizedBox(height: 4),
-        Text(
-          tr('Chọn sổ để xem bảng chi tiết ngay trên màn hình. Xuất Excel chỉ khi cần nộp.'),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _visibleBooks.map((b) {
-            final selected = _selectedBook == b.id;
-            return FilterChip(
-              selected: selected,
-              label: Text(b.title),
-              tooltip: b.subtitle,
-              onSelected: (_) => _selectBook(b.id),
-              selectedColor: PosTheme.kiotBlue.withOpacity(0.12),
-              checkmarkColor: PosTheme.kiotBlue,
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 16),
-        HkdBookPreviewPanel(
-          preview: _preview,
-          loading: _previewLoading,
-          error: _previewError,
-          accent: PosTheme.kiotBlue,
-          canExport: canExport,
-          exporting: _exporting,
-          onExport: _exportSelected,
-          onRetry: _loadPreview,
-        ),
-      ],
+  Widget _buildBookChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final b in _visibleBooks)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: FilterChip(
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                selected: _selectedBook == b.id,
+                label: Text(b.title, style: const TextStyle(fontSize: 12)),
+                tooltip: b.subtitle,
+                onSelected: (_) => _selectBook(b.id),
+                selectedColor: PosTheme.kiotBlue.withOpacity(0.12),
+                checkmarkColor: PosTheme.kiotBlue,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

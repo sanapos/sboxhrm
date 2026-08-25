@@ -15,6 +15,8 @@ class HkdBookPreviewPanel extends StatefulWidget {
     this.onRetry,
     this.canExport = false,
     this.exporting = false,
+    this.showExportButton = true,
+    this.fillHeight = false,
   });
 
   final Map<String, dynamic>? preview;
@@ -25,6 +27,8 @@ class HkdBookPreviewPanel extends StatefulWidget {
   final VoidCallback? onRetry;
   final bool canExport;
   final bool exporting;
+  final bool showExportButton;
+  final bool fillHeight;
 
   @override
   State<HkdBookPreviewPanel> createState() => _HkdBookPreviewPanelState();
@@ -78,6 +82,14 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
     return mapped.where((row) {
       return row.values.any((v) => '$v'.toLowerCase().contains(q));
     }).toList();
+  }
+
+  Widget _tableArea({required Widget child}) {
+    if (widget.fillHeight) return Expanded(child: child);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 420),
+      child: child,
+    );
   }
 
   @override
@@ -157,7 +169,7 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
                 ],
               ),
             ),
-            if (widget.canExport)
+            if (widget.showExportButton && widget.canExport)
               FilledButton.icon(
                 onPressed: widget.exporting ? null : widget.onExport,
                 style: FilledButton.styleFrom(backgroundColor: widget.accent),
@@ -252,8 +264,7 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
             ),
           )
         else ...[
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 420),
+          _tableArea(
             child: Scrollbar(
               thumbVisibility: true,
               child: SingleChildScrollView(
@@ -270,10 +281,17 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
                 columns: [
                   for (final c in columns)
                     DataColumn(
-                      label: Text(
-                        tr(c['label']?.toString() ?? c['key']?.toString() ?? ''),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 12),
+                      label: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 120),
+                        child: Text(
+                          tr(c['label']?.toString() ??
+                              c['key']?.toString() ??
+                              ''),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 12),
+                        ),
                       ),
                       numeric: c['money'] == true ||
                           c['Money'] == true ||

@@ -1457,7 +1457,7 @@ class LandingUsageGuide {
         'Phương thức thanh toán · Công nợ · Sổ quỹ',
         'Lợi nhuận · Chi phí · Kết quả kinh doanh (P&L)',
         'Doanh thu theo nhân viên (thu ngân) · Voucher',
-        'Báo cáo hủy / trả (menu riêng)',
+        'Báo cáo hủy / trả (menu riêng) · Thuế hộ kinh doanh',
         'Xuất Excel trên từng báo cáo khi gửi kế toán',
       ],
       tip:
