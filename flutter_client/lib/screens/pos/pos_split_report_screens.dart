@@ -18,7 +18,6 @@ import '../../widgets/pos/reports/pos_goods_filter_sheet.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import '../pos_reports_screen.dart';
 import 'pos_end_of_day_screen.dart';
-import '../hkd_books_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Hub 14 báo cáo — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
@@ -55,7 +54,6 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Sổ quỹ', subtitle: 'Tiền mặt', icon: Icons.menu_book_outlined, module: 'PosReportCashbook', screen: const PosCashbookReportScreen()),
       (label: 'Kết quả kinh doanh', subtitle: 'P&L', icon: Icons.account_balance, module: 'PosReportPnl', screen: const PosPnlReportScreen()),
       (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
-      (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const HkdBooksScreen()),
     ].where((item) => PermissionNavigation.canAccessModule(
           item.module,
           allowedModules: auth.user?.allowedModules,

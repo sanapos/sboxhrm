@@ -98,7 +98,6 @@ import 'pos_sale_return_list_screen.dart';
 import 'pos_supplier_list_screen.dart';
 import 'warehouse/wh_mobile_nav.dart';
 import 'pos/pos_split_report_screens.dart';
-import 'hkd_books_screen.dart';
 import 'pos/pos_cancel_return_history_screen.dart';
 import 'pos/pos_customer_debt_report_screen.dart';
 import 'pos/pos_customers_screen.dart';
@@ -1796,17 +1795,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSalesReport',
-    ),
-    NavItem(
-      icon: Icons.menu_book_outlined,
-      activeIcon: Icons.menu_book,
-      label: 'Thuế hộ kinh doanh',
-      subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ',
-      screen: const HkdBooksScreen(),
-      group: 'Báo cáo',
-      showInSidebar: true,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'HkdBooks',
     ),
     NavItem(
       icon: Icons.history,

@@ -26,7 +26,6 @@ import 'pos_qr_menu_screen.dart';
 import 'pos_qr_online_orders_screen.dart';
 import 'pos_kds_screen.dart';
 import 'pos_end_of_day_screen.dart';
-import 'pos_hkd_books_screen.dart';
 import 'pos_split_report_screens.dart';
 import 'pos_customer_display_settings_screen.dart';
 import 'pos_payment_gateway_settings_screen.dart';
@@ -159,9 +158,6 @@ class PosMoreScreen extends StatelessWidget {
                         const WhAdaptivePurchaseReturnList()),
                     _Item('Cuối ngày', Icons.nightlight_round, 'PosReportEndOfDay',
                         const PosEndOfDayScreen(),
-                        altModules: const ['PosSalesReport']),
-                    _Item('Thuế hộ kinh doanh', Icons.request_quote_outlined, 'HkdBooks',
-                        const PosHkdBooksScreen(),
                         altModules: const ['PosSalesReport']),
                     _Item('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift',
                         const PosCashierShiftScreen(),
