@@ -11,7 +11,6 @@ import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
@@ -116,11 +115,15 @@ object SunmiDsCustomerDisplay {
         override fun onSendProcess(totle: Long, sended: Long) {}
     }
 
-    fun isLikelyAvailable(context: Context): Boolean {
-        if (Build.MANUFACTURER.equals("SUNMI", ignoreCase = true)) return true
+    fun isLikelyAvailable(context: Context): Boolean = shouldInit(context)
+
+    fun shouldInit(context: Context): Boolean {
+        val model = (Build.MODEL ?: "").uppercase()
+        val device = (Build.DEVICE ?: "").uppercase()
+        if (model.contains("T1") || device.contains("T1")) return true
         return try {
-            val sub = Settings.Global.getString(context.contentResolver, "sunmi_sub_model")
-            !sub.isNullOrBlank()
+            context.packageManager.getPackageInfo("sunmi.dsd", 0)
+            true
         } catch (_: Exception) {
             false
         }
@@ -128,6 +131,10 @@ object SunmiDsCustomerDisplay {
 
     @Synchronized
     fun ensureInit(context: Context) {
+        if (!shouldInit(context)) {
+            Log.i(TAG, "skip DSKernel on ${Build.MODEL}")
+            return
+        }
         appContext = context.applicationContext
         if (kernel != null) return
         try {
@@ -136,8 +143,8 @@ object SunmiDsCustomerDisplay {
             k.addReceiveCallback(receiveCb)
             kernel = k
             Log.i(TAG, "DSKernel init")
-        } catch (e: Exception) {
-            Log.e(TAG, "DSKernel init failed", e)
+        } catch (t: Throwable) {
+            Log.e(TAG, "DSKernel init failed", t)
             kernel = null
         }
     }

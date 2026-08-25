@@ -370,29 +370,37 @@ class _PosCustomerDisplaySettingsScreenState
           onChanged:
               busy ? null : (v) => _patchCd((c) => c.copyWith(enabled: v)),
         ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Loại màn hình phụ')),
-          subtitle: Text(
-            tr(cd.target.hintVi),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        Text(
+          tr('Loại màn hình phụ'),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          tr(cd.target.hintVi),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<CustomerDisplayTarget>(
+          isExpanded: true,
+          value: cd.target,
+          decoration: const InputDecoration(
+            isDense: true,
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           ),
-          trailing: DropdownButton<CustomerDisplayTarget>(
-            value: cd.target,
-            items: [
-              for (final t in CustomerDisplayTarget.values)
-                DropdownMenuItem(
-                  value: t,
-                  child: Text(tr(t.labelVi), style: const TextStyle(fontSize: 13)),
-                ),
-            ],
-            onChanged: busy || !cd.enabled
-                ? null
-                : (v) {
-                    if (v == null) return;
-                    _patchCd((c) => c.copyWith(target: v));
-                  },
-          ),
+          items: [
+            for (final t in CustomerDisplayTarget.values)
+              DropdownMenuItem(
+                value: t,
+                child: Text(tr(t.labelVi), style: const TextStyle(fontSize: 13)),
+              ),
+          ],
+          onChanged: busy || !cd.enabled
+              ? null
+              : (v) {
+                  if (v == null) return;
+                  _patchCd((c) => c.copyWith(target: v));
+                },
         ),
         if (cd.target == CustomerDisplayTarget.t1Native)
           Padding(

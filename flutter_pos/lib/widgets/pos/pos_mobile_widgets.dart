@@ -340,8 +340,10 @@ bool posUseMobileList(BuildContext context) =>
     !Responsive.preferTableListLayout(context);
 
 /// SafeArea trên cùng — hub / AppBar ngoài đã xử lý thì bỏ qua.
+/// Trang push từ «Nhiều hơn» (báo cáo, kho, sổ sách…) luôn cần chừa status bar.
 bool posNeedsTopSafeArea(BuildContext context) {
   if (!posUseMobileList(context)) return false;
+  if (PosHubScope.pushedSubPageOf(context)) return true;
   if (PosHubScope.of(context)) return false;
   if (HrmPageChrome.usesMainLayoutAppBar) return false;
   return true;

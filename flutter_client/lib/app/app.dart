@@ -21,6 +21,7 @@ import '../screens/agent_register_screen.dart';
 import '../screens/admin_login_screen.dart';
 import '../screens/landing_guide_screen.dart';
 import '../screens/pos/pos_customer_display_screen.dart';
+import '../utils/media_query_safe_padding.dart';
 import '../utils/web_route_parser.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/app_boot_screen.dart';
@@ -88,7 +89,8 @@ class ZKTecoApp extends StatelessWidget {
           ],
           locale: themeProvider.locale,
           builder: (context, child) {
-            final mediaQuery = MediaQuery.of(context);
+            final mediaQuery =
+                mediaQueryWithSystemPadding(MediaQuery.of(context));
             return MediaQuery(
               data: mediaQuery.copyWith(
                 textScaler: AppTextScaler.resolve(context),

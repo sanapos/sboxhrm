@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -13,15 +14,20 @@ class PosProductImageCacheManager {
       PosProductImageCacheManager._();
 
   static const _cacheName = 'posProductImageCache';
-  static const _maxMemoryEntries = 240;
+  /// Sunmi / máy yếu (V2s 3GB): giữ ít ảnh full-bytes trong RAM.
+  static const _maxMemoryEntries = 48;
+  /// Giới hạn HTTP ảnh song song toàn app.
+  static const _maxConcurrentHttp = 2;
 
   static final Map<String, Uint8List> _memory = {};
+  static int _httpInFlight = 0;
+  static final List<Completer<void>> _httpWaiters = [];
 
   late final CacheManager manager = CacheManager(
     Config(
       _cacheName,
       stalePeriod: const Duration(days: 30),
-      maxNrOfCacheObjects: 800,
+      maxNrOfCacheObjects: 400,
     ),
   );
 
@@ -43,7 +49,7 @@ class PosProductImageCacheManager {
 
   void memoryPut(String key, Uint8List bytes) {
     if (bytes.isEmpty) return;
-    if (_memory.length >= _maxMemoryEntries) {
+    while (_memory.length >= _maxMemoryEntries) {
       final first = _memory.keys.first;
       _memory.remove(first);
     }
@@ -56,6 +62,22 @@ class PosProductImageCacheManager {
       try {
         await manager.removeFile(key);
       } catch (_) {}
+    }
+  }
+
+  Future<void> _acquireHttpSlot() async {
+    while (_httpInFlight >= _maxConcurrentHttp) {
+      final c = Completer<void>();
+      _httpWaiters.add(c);
+      await c.future;
+    }
+    _httpInFlight++;
+  }
+
+  void _releaseHttpSlot() {
+    if (_httpInFlight > 0) _httpInFlight--;
+    if (_httpWaiters.isNotEmpty) {
+      _httpWaiters.removeAt(0).complete();
     }
   }
 
@@ -82,6 +104,7 @@ class PosProductImageCacheManager {
       } catch (_) {}
     }
 
+    await _acquireHttpSlot();
     try {
       final uri = kIsWeb
           ? Uri.parse(url).replace(
@@ -93,7 +116,7 @@ class PosProductImageCacheManager {
           : Uri.parse(url);
       final response = await http
           .get(uri, headers: headers ?? const {})
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 20));
       if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
         return null;
       }
@@ -112,6 +135,8 @@ class PosProductImageCacheManager {
       return bytes;
     } catch (_) {
       return null;
+    } finally {
+      _releaseHttpSlot();
     }
   }
 

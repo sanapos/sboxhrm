@@ -2278,6 +2278,12 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   void _enterPaymentStage() {
+    unawaited(_enterPaymentStageAsync());
+  }
+
+  Future<void> _enterPaymentStageAsync() async {
+    if (!await _ensureOpenCashierShiftIfRequired()) return;
+    if (!mounted) return;
     setState(() {
       _syncCheckoutKitchenChip();
       _tabletPaymentStage = true;
@@ -9078,17 +9084,61 @@ class _PosSellScreenState extends State<PosSellScreen>
         .showSuccess(title: 'Đã trả về trống', message: name);
   }
 
+  Future<void> _openCashierShiftScreen() async {
+    if (!mounted) return;
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute(
+        builder: (_) => const PosHubScope(
+          embeddedInHub: false,
+          pushedSubPage: true,
+          child: PosCashierShiftScreen(),
+        ),
+      ),
+    );
+  }
+
+  /// Dialog trên root navigator — toast overlay nằm dưới màn Thanh toán iPhone.
+  Future<void> _showBlockingPayDialog({
+    required String title,
+    required String message,
+    String? actionLabel,
+    Future<void> Function()? onAction,
+  }) async {
+    NotificationOverlayManager().showWarning(title: title, message: message);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr(title)),
+        content: Text(tr(message)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('Đóng')),
+          ),
+          if (actionLabel != null && onAction != null)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                unawaited(onAction());
+              },
+              child: Text(tr(actionLabel)),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<bool> _ensureOpenCashierShiftIfRequired() async {
     if (_industrySettings?.enableCashierShift != true) return true;
     final res = await _api.getPosCashierShiftCurrent();
     if (!mounted) return false;
     if (res['isSuccess'] != true || res['data'] is! Map) {
-      NotificationOverlayManager().showWarning(
+      await _showBlockingPayDialog(
         title: 'Không kiểm tra được ca',
-        message: tr(
-          res['message']?.toString() ??
-              'Mạng lỗi hoặc máy chủ không phản hồi. Thử lại trước khi thanh toán.',
-        ),
+        message: res['message']?.toString() ??
+            'Mạng lỗi hoặc máy chủ không phản hồi. Thử lại trước khi thanh toán.',
       );
       return false;
     }
@@ -9097,10 +9147,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!enabled) return true;
     final open = data['open'] == true || data['Open'] == true;
     if (open) return true;
-    NotificationOverlayManager().showWarning(
+    await _showBlockingPayDialog(
       title: 'Chưa mở ca',
-      message: tr(
-          'Vào Menu ⋮ trên màn bán hàng → Ca thu ngân để mở ca trước khi thanh toán'),
+      message: 'Cần mở ca thu ngân trước khi thanh toán.',
+      actionLabel: 'Mở ca',
+      onAction: _openCashierShiftScreen,
     );
     return false;
   }
@@ -9373,9 +9424,14 @@ class _PosSellScreenState extends State<PosSellScreen>
         if (_isLockConflict(res)) {
           await _handleMutationLockConflict(res, title: 'Không thanh toán được');
         } else {
-          NotificationOverlayManager().showError(
-            title: 'Lỗi',
-            message: res['message']?.toString() ?? 'Thanh toán thất bại',
+          final msg = res['message']?.toString() ?? 'Thanh toán thất bại';
+          final shiftBlocked = msg.contains('Chưa mở ca') ||
+              msg.toLowerCase().contains('ca thu ngân');
+          await _showBlockingPayDialog(
+            title: shiftBlocked ? 'Chưa mở ca' : 'Không thanh toán được',
+            message: msg,
+            actionLabel: shiftBlocked ? 'Mở ca' : null,
+            onAction: shiftBlocked ? _openCashierShiftScreen : null,
           );
         }
         return;
@@ -10892,15 +10948,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           ),
         );
       case 'cashier_shift':
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const PosHubScope(
-              embeddedInHub: false,
-              pushedSubPage: true,
-              child: PosCashierShiftScreen(),
-            ),
-          ),
-        );
+        await _openCashierShiftScreen();
       case 'printers':
         await Navigator.of(context).push(
           MaterialPageRoute(
@@ -15010,14 +15058,29 @@ class _PosSellScreenState extends State<PosSellScreen>
     final payBg = payIsPrimaryFilled ? PosTheme.payGreen : _kiotBlue;
     final payBtn = FilledButton(
       onPressed: () {
-        if (!payEnabled) return;
+        if (busy) return;
+        if (!cartOk) {
+          unawaited(_showBlockingPayDialog(
+            title: 'Chưa có hàng',
+            message: 'Thêm món vào đơn trước khi thanh toán.',
+          ));
+          return;
+        }
+        if (!canPay) {
+          unawaited(_showBlockingPayDialog(
+            title: 'Không có quyền thanh toán',
+            message:
+                'Tài khoản Order chỉ tạm tính — cần tài khoản Thu ngân để thanh toán',
+          ));
+          return;
+        }
         onPay();
       },
       style: FilledButton.styleFrom(
-        backgroundColor: payBg,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: payBg,
-        disabledForegroundColor: Colors.white,
+        backgroundColor: payEnabled ? payBg : Colors.grey.shade300,
+        foregroundColor: payEnabled ? Colors.white : Colors.grey.shade600,
+        disabledBackgroundColor: Colors.grey.shade300,
+        disabledForegroundColor: Colors.grey.shade600,
         minimumSize: Size(0, height),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -16026,7 +16089,24 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _openMobilePaymentScreen(PermissionProvider perm) async {
-    if (_tab.cart.isEmpty || _checkingOut) return;
+    if (_checkingOut) return;
+    if (_tab.cart.isEmpty) {
+      await _showBlockingPayDialog(
+        title: 'Chưa có hàng',
+        message: 'Thêm món vào đơn trước khi thanh toán.',
+      );
+      return;
+    }
+    if (!perm.canPosPay()) {
+      await _showBlockingPayDialog(
+        title: 'Không có quyền thanh toán',
+        message:
+            'Tài khoản Order chỉ tạm tính — cần tài khoản Thu ngân để thanh toán',
+      );
+      return;
+    }
+    if (!await _ensureOpenCashierShiftIfRequired()) return;
+    if (!mounted) return;
     final canPay = perm.canPosPay();
     var paying = false;
     _orderDiscountPresetsVisible = false;

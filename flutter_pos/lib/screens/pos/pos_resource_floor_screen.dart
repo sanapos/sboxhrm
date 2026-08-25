@@ -1751,10 +1751,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               (data['Items'] as List?) ??
               const [])
           : ((data as List?) ?? const []);
-      final list = raw
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
+      final seen = <String>{};
+      final list = <Map<String, dynamic>>[];
+      for (final e in raw.whereType<Map>()) {
+        final m = Map<String, dynamic>.from(e);
+        final id = (m['id'] ?? m['Id'] ?? '').toString().trim().toLowerCase();
+        if (id.isEmpty || !seen.add(id)) continue;
+        list.add(m);
+      }
       setLocal(() {
         loading = false;
         hits = list;

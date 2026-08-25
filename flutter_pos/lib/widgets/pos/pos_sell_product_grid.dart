@@ -294,7 +294,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   void _onScrollNearEnd() {
     if (!_gridScroll.hasClients) return;
     final pos = _gridScroll.position;
-    if (pos.maxScrollExtent <= 0) return;
+    // List ngắn (menu F&B trên iPhone): maxScrollExtent < 320 → pixels=0
+    // vẫn thỏa "gần cuối" và gọi loadMore page 1, cache bị ghép trùng.
+    if (pos.maxScrollExtent < 320) return;
     if (pos.pixels >= pos.maxScrollExtent - 320) {
       unawaited(_loadMore());
     }
@@ -390,17 +392,21 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       final cached = await PosSellCatalogCache.instance.read(storeId);
       if (cached != null && cached.items.isNotEmpty && gen == _loadGen) {
         if (!mounted) return;
+        final unique = uniquePosProductsById(cached.items);
         setState(() {
-          _allProducts = cached.items;
-          _products = List<PosProduct>.from(cached.items);
-          _serverTotal = cached.items.length;
+          _allProducts = unique;
+          _products = List<PosProduct>.from(unique);
+          _serverTotal = unique.length;
           _loading = false;
+          // Snapshot cache = đủ catalog; không loadMore page 1 chồng lên.
+          _hasMore = false;
         });
         _prefetchPageUnitViews();
         // Cache còn nóng → không gọi API catalog (tránh decode/write lại trên UI).
         if (!await PosSellCatalogCache.instance.shouldSync(storeId)) {
           return;
         }
+        _hasMore = true;
       }
     }
 
@@ -412,6 +418,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   Future<void> _loadMore() async {
     if (_loading || _loadingMore || !_hasMore) return;
+    _loadingMore = true;
     final storeId = widget.storeId?.trim() ?? '';
     await _fetchCatalogPage(storeId, reset: false, gen: _loadGen);
   }
@@ -421,7 +428,6 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     required bool reset,
     required int gen,
   }) async {
-    if (!reset && _loadingMore) return;
     if (!reset) _loadingMore = true;
     DateTime? catalogVersion;
     String? error;
@@ -450,6 +456,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             );
           } catch (_) {}
         }
+        final uniqueBatch = uniquePosProductsById(batch);
+        batch
+          ..clear()
+          ..addAll(uniqueBatch);
         _serverTotal = (data['total'] as num?)?.toInt() ??
             (reset ? batch.length : _allProducts.length + batch.length);
         final verRaw = data['catalogVersion'];
@@ -464,7 +474,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
       if (storeId.isNotEmpty && !_hasActiveFilter && batch.isNotEmpty) {
         try {
-          final toCache = reset ? batch : [..._allProducts, ...batch];
+          final toCache = uniquePosProductsById(
+            reset ? batch : [..._allProducts, ...batch],
+          );
           await PosSellCatalogCache.instance.write(
             storeId,
             items: toCache,
@@ -485,17 +497,17 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     setState(() {
       if (error == null) {
         if (reset) {
-          _allProducts = batch;
-          _products = List<PosProduct>.from(batch);
+          _allProducts = uniquePosProductsById(batch);
+          _products = List<PosProduct>.from(_allProducts);
           _unitViewsCache.clear();
           _unitViewsLoading.clear();
         } else if (batch.isNotEmpty) {
-          final seen = {for (final p in _allProducts) p.id};
+          final seen = {for (final p in _allProducts) p.id.trim().toLowerCase()};
           for (final p in batch) {
-            if (seen.add(p.id)) {
-              _allProducts.add(p);
-              _products.add(p);
-            }
+            final id = p.id.trim().toLowerCase();
+            if (id.isEmpty || !seen.add(id)) continue;
+            _allProducts.add(p);
+            _products.add(p);
           }
         }
       }

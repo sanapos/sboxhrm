@@ -1279,6 +1279,154 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     }
   }
 
+  String _printBtnLabel(PosSaleOrder o) =>
+      o.printCount > 0 ? 'In (${o.printCount})' : 'In';
+
+  Widget _compactOrderBtn({
+    required String label,
+    required VoidCallback onPressed,
+    bool filled = false,
+    Color? color,
+    bool enabled = true,
+  }) {
+    final child = Text(
+      tr(label),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+    );
+    final pad = const EdgeInsets.symmetric(horizontal: 10);
+    if (filled) {
+      return FilledButton(
+        onPressed: enabled ? onPressed : null,
+        style: FilledButton.styleFrom(
+          backgroundColor: color ?? PosTheme.kiotBlue,
+          visualDensity: VisualDensity.compact,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: pad,
+          minimumSize: const Size(0, 36),
+        ),
+        child: child,
+      );
+    }
+    return OutlinedButton(
+      onPressed: enabled ? onPressed : null,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        visualDensity: VisualDensity.compact,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: pad,
+        minimumSize: const Size(0, 36),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _orderDetailActionBar(List<Widget> children) {
+    if (children.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: children.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (_, i) => children[i],
+      ),
+    );
+  }
+
+  List<Widget> _orderActionButtons(
+    PosSaleOrder o,
+    bool canEdit, {
+    BuildContext? sheetCtx,
+    bool desktopExtras = false,
+  }) {
+    void run(VoidCallback fn) {
+      if (sheetCtx != null) Navigator.pop(sheetCtx);
+      fn();
+    }
+
+    final btns = <Widget>[];
+    if (o.status == 'Completed') {
+      btns.add(_compactOrderBtn(
+        label: _printBtnLabel(o),
+        filled: true,
+        onPressed: () => run(() => _printOrder(o)),
+      ));
+    }
+    if (canEdit && o.status == 'Draft') {
+      btns.add(_compactOrderBtn(
+        label: 'Sửa',
+        filled: true,
+        onPressed: () => run(() => _openEditor(orderId: o.id)),
+      ));
+      if (desktopExtras) {
+        btns.add(_compactOrderBtn(
+          label: _completingId == o.id ? '…' : 'Hoàn thành',
+          enabled: _completingId == null,
+          onPressed: () => _completeOrder(o),
+        ));
+      }
+    }
+    if (canEdit && o.canCancelWithStock) {
+      btns.add(_compactOrderBtn(
+        label: 'Hoàn kho',
+        color: Colors.red.shade700,
+        onPressed: () => run(() => _cancelOrder(o)),
+      ));
+    }
+    if (canEdit &&
+        o.isDelivery &&
+        (o.deliveryTrackingCode == null || o.deliveryTrackingCode!.isEmpty) &&
+        o.status != 'Cancelled') {
+      btns.add(_compactOrderBtn(
+        label: 'Vận đơn',
+        filled: true,
+        color: const Color(0xFF0F766E),
+        onPressed: () => run(() => _createShipmentFromList(o)),
+      ));
+    }
+    if (canEdit && o.status == 'Completed' && !o.isFullyReturned) {
+      btns.add(_compactOrderBtn(
+        label: 'Trả hàng',
+        onPressed: () async {
+          if (sheetCtx != null) Navigator.pop(sheetCtx);
+          final ok = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(
+              builder: (_) => PosSaleReturnScreen(orderId: o.id),
+            ),
+          );
+          if (ok == true && mounted) _load();
+        },
+      ));
+    }
+    if (desktopExtras && canEdit && o.status == 'Completed') {
+      if ((o.eInvoiceStatus ?? 'None') != 'Issued') {
+        btns.add(_compactOrderBtn(
+          label: 'HĐĐT',
+          onPressed: () => _issueEInvoice(o),
+        ));
+      } else {
+        btns.add(_compactOrderBtn(
+          label: 'HĐĐT',
+          onPressed: () {},
+        ));
+      }
+      btns.add(_compactOrderBtn(
+        label: 'Sao chép',
+        onPressed: () => _copyOrder(o),
+      ));
+    }
+    if (canEdit && o.canDeleteFromList) {
+      btns.add(_compactOrderBtn(
+        label: 'Xóa',
+        color: Colors.red,
+        onPressed: () => run(() => _deleteOrder(o)),
+      ));
+    }
+    return btns;
+  }
+
   Future<void> _showMobileOrderDetail(PosSaleOrder summary, bool canEdit) async {
     PosSaleOrder order = summary;
     final res = await _api.getPosSale(summary.id);
@@ -1334,87 +1482,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (order.status == 'Completed')
-                      FilledButton.icon(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _printOrder(order);
-                        },
-                        icon: const Icon(Icons.print, size: 16),
-                        label: Text(
-                          tr(order.printCount > 0
-                              ? 'In lại (đã in ${order.printCount} lần)'
-                              : 'In'),
-                        ),
-                        style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-                      ),
-                    if (canEdit && order.status == 'Draft')
-                      FilledButton.icon(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _openEditor(orderId: order.id);
-                        },
-                        icon: const Icon(Icons.edit, size: 16),
-                        label: Text(tr('Chỉnh sửa')),
-                      ),
-                    if (canEdit && order.canCancelWithStock)
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _cancelOrder(order);
-                        },
-                        icon: const Icon(Icons.cancel_outlined, size: 16),
-                        label: Text(tr('Hủy đơn (hoàn kho)')),
-                      ),
-                    if (canEdit &&
-                        order.isDelivery &&
-                        (order.deliveryTrackingCode == null ||
-                            order.deliveryTrackingCode!.isEmpty) &&
-                        order.status != 'Cancelled')
-                      FilledButton.icon(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _createShipmentFromList(order);
-                        },
-                        icon: const Icon(Icons.local_shipping_outlined, size: 16),
-                        label: Text(tr('Tạo mã vận đơn')),
-                        style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF0F766E)),
-                      ),
-                    if (canEdit &&
-                        order.status == 'Completed' &&
-                        !order.isFullyReturned)
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          Navigator.pop(ctx);
-                          final ok = await Navigator.of(context).push<bool>(
-                            MaterialPageRoute(
-                              builder: (_) => PosSaleReturnScreen(orderId: order.id),
-                            ),
-                          );
-                          if (ok == true && mounted) _load();
-                        },
-                        icon: const Icon(Icons.assignment_return_outlined, size: 16),
-                        label: Text(tr('Trả hàng')),
-                      ),
-                    if (canEdit && order.canDeleteFromList)
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _deleteOrder(order);
-                        },
-                        icon: const Icon(Icons.delete_outline, size: 16),
-                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                        label: Text(tr(order.status == 'Draft'
-                            ? 'Xóa phiếu tạm'
-                            : 'Xóa khỏi DS')),
-                      ),
-                  ],
+                padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                child: _orderDetailActionBar(
+                  _orderActionButtons(order, canEdit, sheetCtx: ctx),
                 ),
               ),
             ),
@@ -1762,101 +1832,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           ),
           const SizedBox(height: 8),
           if (_detailTab == 0) _buildInfoTab(o) else _buildPaymentsTab(o),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (canEdit && o.status == 'Draft') ...[
-                FilledButton.icon(
-                  onPressed: () => _openEditor(orderId: o.id),
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: Text(tr('Chỉnh sửa')),
-                  style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _completingId != null
-                      ? null
-                      : () => _completeOrder(o),
-                  icon: const Icon(Icons.check_circle_outline, size: 16),
-                  label: Text(
-                    tr(_completingId == o.id ? 'Đang xử lý…' : 'Hoàn thành'),
-                  ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _deleteOrder(o),
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: Text(tr('Xóa khỏi DS')),
-                ),
-              ],
-              if (canEdit && o.status == 'Completed') ...[
-                if (o.isDelivery &&
-                    (o.deliveryTrackingCode == null ||
-                        o.deliveryTrackingCode!.isEmpty))
-                  FilledButton.icon(
-                    onPressed: () => _createShipmentFromList(o),
-                    icon: const Icon(Icons.local_shipping_outlined, size: 16),
-                    label: Text(tr('Tạo mã vận đơn')),
-                    style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F766E)),
-                  ),
-                if (o.canCancelWithStock)
-                  OutlinedButton.icon(
-                    onPressed: () => _cancelOrder(o),
-                    icon: const Icon(Icons.cancel_outlined, size: 16),
-                    label: Text(tr('Hủy đơn (hoàn kho)')),
-                  ),
-                if (!o.isFullyReturned)
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final ok = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => PosSaleReturnScreen(orderId: o.id),
-                        ),
-                      );
-                      if (ok == true && mounted) _load();
-                    },
-                    icon: const Icon(Icons.assignment_return_outlined, size: 16),
-                    label: Text(tr('Trả hàng')),
-                  ),
-                OutlinedButton.icon(
-                  onPressed: () => _printOrder(o),
-                  icon: const Icon(Icons.print, size: 16),
-                  label: Text(
-                    tr(o.printCount > 0
-                        ? 'In lại (đã in ${o.printCount} lần)'
-                        : 'In'),
-                  ),
-                ),
-                if (o.status == 'Completed' &&
-                    (o.eInvoiceStatus ?? 'None') != 'Issued')
-                  OutlinedButton.icon(
-                    onPressed: () => _issueEInvoice(o),
-                    icon: const Icon(Icons.request_quote_outlined, size: 16),
-                    label: Text(tr('Xuất HĐĐT')),
-                  ),
-                if (o.status == 'Completed' && o.eInvoiceStatus == 'Issued')
-                  OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.verified_outlined, size: 16),
-                    label: Text(tr(
-                        'HĐĐT ${o.eInvoiceNo ?? ''} ${o.eInvoiceSeries ?? ''}'
-                            .trim())),
-                  ),
-                OutlinedButton.icon(
-                  onPressed: () => _copyOrder(o),
-                  icon: const Icon(Icons.copy, size: 16),
-                  label: Text(tr('Sao chép')),
-                ),
-              ],
-              if (canEdit && o.canDeleteFromList)
-                OutlinedButton.icon(
-                  onPressed: () => _deleteOrder(o),
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                  label: Text(tr(o.status == 'Draft' ? 'Xóa phiếu tạm' : 'Xóa khỏi DS')),
-                ),
-            ],
+          const SizedBox(height: 8),
+          _orderDetailActionBar(
+            _orderActionButtons(o, canEdit, desktopExtras: true),
           ),
         ],
       ),

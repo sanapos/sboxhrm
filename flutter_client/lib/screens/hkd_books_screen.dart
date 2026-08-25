@@ -403,7 +403,9 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
         backgroundColor: HrmPageChrome.background,
         body: _loading
             ? const LoadingWidget()
-            : ListView(
+            : SafeArea(
+                top: !HrmPageChrome.usesMainLayoutAppBar,
+                child: ListView(
                 padding: EdgeInsets.all(isMobile ? 12 : 20),
                 children: [
                   Text(
@@ -431,6 +433,7 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
                   ],
                 ],
               ),
+            ),
       ),
     );
   }

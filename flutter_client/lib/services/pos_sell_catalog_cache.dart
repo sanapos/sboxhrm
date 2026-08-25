@@ -55,6 +55,18 @@ _CatalogDecodeResult _decodeCatalogIsolate(String raw) {
 
 String _encodeCatalogIsolate(Map<String, dynamic> root) => jsonEncode(root);
 
+/// Giữ 1 dòng / productId — cache từng bị ghép trùng khi iOS gọi loadMore page 1.
+List<PosProduct> uniquePosProductsById(Iterable<PosProduct> items) {
+  final seen = <String>{};
+  final out = <PosProduct>[];
+  for (final p in items) {
+    final id = p.id.trim().toLowerCase();
+    if (id.isEmpty || !seen.add(id)) continue;
+    out.add(p);
+  }
+  return out;
+}
+
 /// Cache catalog bán hàng theo storeId — hiển thị ngay, sync nền sau TTL.
 class PosSellCatalogCache {
   PosSellCatalogCache._();
@@ -80,7 +92,18 @@ class PosSellCatalogCache {
 
   Future<PosSellCatalogSnapshot?> read(String storeId) async {
     if (storeId.isEmpty) return null;
-    if (_memory != null && _memoryStoreId == storeId) return _memory;
+    if (_memory != null && _memoryStoreId == storeId) {
+      final unique = uniquePosProductsById(_memory!.items);
+      if (unique.length != _memory!.items.length) {
+        _memory = PosSellCatalogSnapshot(
+          items: unique,
+          cachedAt: _memory!.cachedAt,
+          catalogVersion: _memory!.catalogVersion,
+        );
+        _scheduleDiskWrite(storeId);
+      }
+      return _memory;
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final metaKey = '$_metaPrefix$storeId';
@@ -98,6 +121,7 @@ class PosSellCatalogCache {
         } catch (_) {}
       }
       if (items.isEmpty) return null;
+      final unique = uniquePosProductsById(items);
 
       DateTime? catalogVersion;
       if (decoded.catalogVersionIso != null) {
@@ -106,10 +130,13 @@ class PosSellCatalogCache {
       _lastStoreId = storeId;
       _memoryStoreId = storeId;
       _memory = PosSellCatalogSnapshot(
-        items: items,
+        items: unique,
         cachedAt: DateTime.fromMillisecondsSinceEpoch(cachedAtMs),
         catalogVersion: catalogVersion,
       );
+      if (unique.length != items.length) {
+        _scheduleDiskWrite(storeId);
+      }
       return _memory;
     } catch (_) {
       return null;
@@ -132,7 +159,7 @@ class PosSellCatalogCache {
     _lastStoreId = storeId;
     _memoryStoreId = storeId;
     _memory = PosSellCatalogSnapshot(
-      items: items,
+      items: uniquePosProductsById(items),
       cachedAt: DateTime.now(),
       catalogVersion: catalogVersion ?? _memory?.catalogVersion,
     );

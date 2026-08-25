@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'utils/web_route_parser.dart';
 import 'utils/vietnamese_font.dart';
+import 'utils/low_ram_tuning.dart';
 import 'utils/app_error_utils.dart';
 import 'widgets/app_fatal_error_screen.dart';
 import 'app/app.dart';
@@ -16,6 +17,7 @@ import 'services/fcm_service_stub.dart'
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  applyLowRamImageCache();
 
   if (!kIsWeb) {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);

@@ -66,7 +66,7 @@ class PosQrOrderVoiceAlert {
 
   Future<void> start() async {
     if (_sub != null) return;
-    await _ensureTts();
+    // Không init TTS lúc login — V2s/A7 3GB + engine Google TTS dễ OOM / crash.
     _sub = SignalRService().onPosFloorChanged.listen(_onFloor);
   }
 

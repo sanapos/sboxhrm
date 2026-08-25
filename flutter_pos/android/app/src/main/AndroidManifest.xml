@@ -31,6 +31,8 @@
         android:fullBackupContent="false"
         android:usesCleartextTraffic="false"
         android:requestLegacyExternalStorage="true"
+        android:largeHeap="true"
+        android:extractNativeLibs="true"
         tools:replace="android:allowBackup,android:fullBackupContent">
         <activity
             android:name=".CustomerDisplayActivity"
@@ -75,6 +77,10 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Impeller/Vulkan SIGSEGV trên Mali + Android 11 (Sunmi V2s 3GB). -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
         <!-- Sunmi HCService ↔ DSKernel (màn phụ 7″ T1) -->
         <receiver
             android:name="sunmi.ds.MsgReceiver"

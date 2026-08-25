@@ -2320,6 +2320,24 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         !posHubFullscreen && !isBottomNav;
     final safeBottomIndex = isBottomNav ? bottomNavIndex : -1;
 
+    // POS fullscreen: không dựng MainLayout (Home + drawer + bottom nav) — OOM V2s 3GB.
+    if (posHubFullscreen) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) async {
+          if (didPop) return;
+          await _handleSystemBackAlignedWithUi(inPosHub: true);
+        },
+        child: _wrapAppShell(
+          PosMobileHubScreen(
+            key: const ValueKey('pos_mobile_hub'),
+            initialTab: PosHubModules.tabIndexForModule(moduleCode),
+            restoreLastTab: false,
+          ),
+        ),
+      );
+    }
+
     final scaffold = Scaffold(
       key: _mobileScaffoldKey,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -2385,37 +2403,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       bottomNavigationBar: _buildModernBottomNav(safeBottomIndex, l),
       drawer: _buildDrawer(),
     );
-
-    // POS fullscreen: keep MainLayout shell (Home IndexedStack) mounted Offstage
-    // so returning home does not remount and flicker.
-    if (posHubFullscreen) {
-      return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) async {
-          if (didPop) return;
-          await _handleSystemBackAlignedWithUi(inPosHub: true);
-        },
-        child: _wrapAppShell(
-          Stack(
-            fit: StackFit.expand,
-            children: [
-              Offstage(
-                offstage: true,
-                child: TickerMode(
-                  enabled: false,
-                  child: scaffold,
-                ),
-              ),
-              PosMobileHubScreen(
-                key: const ValueKey('pos_mobile_hub'),
-                initialTab: PosHubModules.tabIndexForModule(moduleCode),
-                restoreLastTab: false,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
 
     return PopScope(
       canPop: false,
@@ -2519,33 +2506,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final stackIdx = rawStackIdx.clamp(0, bottomNavIndices.length - 1);
     cacheIndex(bottomNavIndices[stackIdx]);
 
-    final stack = IndexedStack(
-      index: stackIdx,
-      sizing: StackFit.expand,
-      children: [
-        for (final i in bottomNavIndices)
-          KeyedSubtree(
-            key: ValueKey('mobile_bottom_$i'),
-            child: _mobileBottomScreenCache[i] ?? const SizedBox.shrink(),
-          ),
-      ],
+    final visibleIndex = bottomNavIndices[stackIdx];
+    cacheIndex(visibleIndex);
+
+    // Một tab tại một thời điểm — IndexedStack giữ Home+POS+… làm V2s 3GB bị dừng.
+    final current = KeyedSubtree(
+      key: ValueKey('mobile_bottom_$visibleIndex'),
+      child: _mobileBottomScreenCache[visibleIndex] ?? const SizedBox.shrink(),
     );
 
-    if (bottomStackOnly || isBottomNav) return stack;
+    if (bottomStackOnly || isBottomNav) return current;
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Offstage(
-          offstage: true,
-          child: TickerMode(
-            enabled: false,
-            child: stack,
-          ),
-        ),
-        _getScreenForIndex(_selectedIndex),
-      ],
-    );
+    return _getScreenForIndex(_selectedIndex);
   }
 
   // Mobile bottom nav: 5 ô cố định, chức năng tùy chỉnh qua [MobileBottomNavPrefs].

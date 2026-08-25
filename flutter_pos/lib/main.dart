@@ -29,6 +29,8 @@ import 'utils/pos_print_agent_settings.dart';
 import 'utils/pos_print_orchestrator.dart';
 import 'utils/pos_qr_order_voice.dart';
 import 'utils/pos_payment_gateway_listener.dart';
+import 'utils/media_query_safe_padding.dart';
+import 'utils/low_ram_tuning.dart';
 import 'utils/ssl_trust.dart';
 import 'utils/vietnamese_font.dart';
 import 'widgets/app_boot_screen.dart';
@@ -38,6 +40,7 @@ import 'widgets/pos/pos_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  applyLowRamImageCache();
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     debugPrint('FlutterError: ${details.exceptionAsString()}');
@@ -155,19 +158,19 @@ class SboxPosApp extends StatelessWidget {
           '/customer-display': (_) => const PosCustomerDisplayScreen(),
         },
         builder: (context, child) {
-          final mq = MediaQuery.of(context);
+          var mq = mediaQueryWithSystemPadding(MediaQuery.of(context));
           final maxIme = mq.size.height / 3;
           Widget body = child ?? const SizedBox.shrink();
           // A6: IME Sunmi thường >½ màn — clamp inset để UI giữ ~⅔ phía trên.
           if (mq.viewInsets.bottom > maxIme) {
-            body = MediaQuery(
-              data: mq.copyWith(
-                viewInsets: mq.viewInsets.copyWith(bottom: maxIme),
-              ),
-              child: body,
+            mq = mq.copyWith(
+              viewInsets: mq.viewInsets.copyWith(bottom: maxIme),
             );
           }
-          return NotificationOverlay(child: body);
+          return MediaQuery(
+            data: mq,
+            child: NotificationOverlay(child: body),
+          );
         },
         home: Consumer<AuthProvider>(
           builder: (context, auth, _) {

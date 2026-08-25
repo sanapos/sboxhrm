@@ -14,10 +14,10 @@ class PosProductImageCacheManager {
       PosProductImageCacheManager._();
 
   static const _cacheName = 'posProductImageCache';
-  /// Sunmi / máy yếu: giữ ít ảnh full-bytes trong RAM.
-  static const _maxMemoryEntries = 96;
+  /// Sunmi / máy yếu (V2s 3GB): giữ ít ảnh full-bytes trong RAM.
+  static const _maxMemoryEntries = 48;
   /// Giới hạn HTTP ảnh song song toàn app.
-  static const _maxConcurrentHttp = 3;
+  static const _maxConcurrentHttp = 2;
 
   static final Map<String, Uint8List> _memory = {};
   static int _httpInFlight = 0;
@@ -27,7 +27,7 @@ class PosProductImageCacheManager {
     Config(
       _cacheName,
       stalePeriod: const Duration(days: 30),
-      maxNrOfCacheObjects: 800,
+      maxNrOfCacheObjects: 400,
     ),
   );
 
