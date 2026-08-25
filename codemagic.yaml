@@ -189,7 +189,7 @@ workflows:
         - appstore_credentials
       vars:
         APP_STORE_APP_ID: "6762365741"
-        APP_VERSION: "1.0.480"
+        APP_VERSION: "1.0.497"
 
     scripts:
       - name: Submit processed TestFlight build to App Store review
@@ -200,24 +200,30 @@ workflows:
             exit 1
           fi
           export APP_STORE_CONNECT_MAX_BUILD_PROCESSING_WAIT=90
-          BUILDS_JSON=$(app-store-connect builds list \
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
-            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY" \
-            --app-id "$APP_STORE_APP_ID" \
-            --pre-release-version "$APP_VERSION" \
-            --processing-state VALID \
-            --not-expired \
-            --platform IOS \
-            --json)
-          BUILD_ID=$(BUILDS_JSON="$BUILDS_JSON" APP_VERSION="$APP_VERSION" python3 - <<'PY'
+          echo "Waiting for a VALID TestFlight build of $APP_VERSION (cancel pending review, then submit)"
+          BUILD_ID=""
+          for i in $(seq 1 40); do
+            BUILDS_JSON=$(app-store-connect builds list \
+              --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+              --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+              --private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY" \
+              --app-id "$APP_STORE_APP_ID" \
+              --pre-release-version "$APP_VERSION" \
+              --processing-state VALID \
+              --not-expired \
+              --platform IOS \
+              --json) || true
+            BUILD_ID=$(BUILDS_JSON="$BUILDS_JSON" APP_VERSION="$APP_VERSION" python3 - <<'PY'
           import json, os, sys
-          data = json.loads(os.environ["BUILDS_JSON"])
+          raw = os.environ.get("BUILDS_JSON") or ""
           version = os.environ["APP_VERSION"]
+          try:
+              data = json.loads(raw) if raw.strip() else []
+          except json.JSONDecodeError:
+              sys.exit(0)
           items = data if isinstance(data, list) else data.get("data") or data.get("builds") or []
           if not items:
-              sys.stderr.write(f"No VALID TestFlight builds found for version {version}\n")
-              sys.exit(1)
+              sys.exit(0)
 
           def build_version(item):
               attrs = item.get("attributes") or {}
@@ -228,22 +234,31 @@ workflows:
 
           items = sorted(items, key=build_version, reverse=True)
           build_id = items[0].get("id") or items[0].get("Id")
-          if not build_id:
-              sys.stderr.write("Could not resolve build id from App Store Connect response\n")
-              sys.exit(1)
-          print(build_id)
+          if build_id:
+              print(build_id)
           PY
-          )
-          echo "Submitting build $BUILD_ID ($APP_VERSION) to App Store review"
+            ) || true
+            if [ -n "$BUILD_ID" ]; then
+              echo "Found VALID build $BUILD_ID after ${i} attempt(s)"
+              break
+            fi
+            echo "Attempt $i/40: $APP_VERSION still processing in TestFlight, wait 30s"
+            sleep 30
+          done
+          if [ -z "$BUILD_ID" ]; then
+            echo "ERROR: No VALID TestFlight build for $APP_VERSION after waiting"
+            exit 1
+          fi
+          echo "Submitting build $BUILD_ID ($APP_VERSION) to App Store review (cancels previous submission)"
           app-store-connect builds submit-to-app-store "$BUILD_ID" \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
             --private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY" \
             --version-string "$APP_VERSION" \
             --locale vi \
-            --whats-new "Cập nhật 1.0.480: quét QR chọn hàng liên tục trên màn bán; thanh thu ngân mobile gọn hơn; thông báo tự cập nhật; In treo trên toolbar." \
+            --whats-new "Cập nhật 1.0.497: bỏ Thuế hộ kinh doanh khỏi báo cáo POS; ổn định máy Android RAM thấp (V2s)." \
             --cancel-previous-submissions \
-            --release-type MANUAL
+            --release-type AFTER_APPROVAL
           echo "=== Submitted $APP_VERSION to App Store review ==="
 
   ios-debug:
