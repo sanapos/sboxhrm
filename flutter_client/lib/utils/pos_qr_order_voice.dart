@@ -113,17 +113,8 @@ class PosQrOrderVoiceAlert {
     }
     final tts = FlutterTts();
     try {
-      if (!kIsWeb) {
-        try {
-          final engines = await tts.getEngines;
-          final names = engines is List
-              ? engines.map((e) => e.toString()).toList()
-              : const <String>[];
-          if (names.any((e) => e.contains('com.google.android.tts'))) {
-            await tts.setEngine('com.google.android.tts');
-          }
-        } catch (_) {}
-      }
+      // Không gọi setEngine sau FlutterTts() — plugin gửi onInit 2 lần,
+      // A7 crash native: IllegalStateException Reply already submitted.
       await tts.setLanguage('vi-VN');
       await tts.setVolume(1.0);
       await tts.setPitch(1.0);

@@ -13,10 +13,12 @@ import '../../utils/pos_end_of_day_print.dart';
 import '../../utils/pos_report_export.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../utils/pos_sell_settings_helper.dart';
+import '../../utils/media_query_safe_padding.dart';
 import '../../utils/store_role_helper.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
+import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 import 'package:sbox_pos/l10n/app_ui_locale.dart';
@@ -55,6 +57,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   final _pngKey = GlobalKey();
   List<Map<String, dynamic>> _cashierShifts = const [];
   bool _cashierShiftEnabled = false;
+  bool _filtersOpen = false;
 
   @override
   void initState() {
@@ -317,9 +320,12 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hideAppBar = HrmPageChrome.usesMainLayoutAppBar;
+    final hideAppBar = HrmPageChrome.usesMainLayoutAppBar &&
+        !PosHubScope.pushedSubPageOf(context);
     final pushed = PosHubScope.pushedSubPageOf(context);
-    return Scaffold(
+    return withFallbackTopInset(
+      context,
+      Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: hideAppBar
           ? null
@@ -359,18 +365,12 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
           _buildBottomBar(),
         ],
       ),
+    ),
     );
   }
 
   Widget _buildToolbar() {
-    return Material(
-      color: Colors.white,
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: PosTheme.border)),
-        ),
-        child: Wrap(
+    final filters = Wrap(
           spacing: 12,
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -524,9 +524,44 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               ),
             ),
           ],
+    );
+    final mobile = posUseMobileList(context);
+    return Material(
+      color: Colors.white,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: PosTheme.border)),
         ),
+        child: mobile
+            ? PosFilterCollapse(
+                expanded: _filtersOpen,
+                onToggle: () => setState(() => _filtersOpen = !_filtersOpen),
+                title: 'Bộ lọc',
+                subtitle: _eodFilterSummary,
+                child: filters,
+              )
+            : filters,
       ),
     );
+  }
+
+  String get _eodFilterSummary {
+    var staff = _canPickStaff ? 'Tất cả NV' : 'Tài khoản này';
+    if (_canPickStaff && _selectedStaffKey != null) {
+      for (final s in _staff) {
+        if (_staffKey(s) == _selectedStaffKey) {
+          staff = s.displayName;
+          break;
+        }
+      }
+    }
+    final fmt = switch (_format) {
+      PosEndOfDayPrintFormat.bill58 => 'K58',
+      PosEndOfDayPrintFormat.bill80 => 'K80',
+      _ => 'A4',
+    };
+    return '${_time.displayLabel} · $staff · $fmt';
   }
 
   Widget _buildBody() {

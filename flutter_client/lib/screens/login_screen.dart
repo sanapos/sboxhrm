@@ -12,6 +12,7 @@ import '../services/api_service.dart';
 import '../services/app_permission_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/sbox_hrm_brand.dart';
+import '../config/sbox_app_variant.dart';
 import '../widgets/store_agent_support_card.dart';
 import '../utils/web_marketing_gate_stub.dart'
     if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
@@ -279,7 +280,16 @@ class _LoginScreenState extends State<LoginScreen>
         final role = authProvider.userRole;
         if (!mounted) return;
         if (role == 'SuperAdmin' || role == 'Agent') {
-          Navigator.of(context).pushNamedAndRemoveUntil('/admin', (_) => false);
+          if (SboxAppVariant.standalonePos) {
+            await authProvider.logout();
+            if (!mounted) return;
+            NotificationOverlayManager().showError(
+              title: 'Admin',
+              message: 'Dùng app SBOX HRM để vào cổng quản trị.',
+            );
+          } else {
+            Navigator.of(context).pushNamedAndRemoveUntil('/admin', (_) => false);
+          }
         } else {
           Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
         }
@@ -421,7 +431,7 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
                 const SizedBox(height: 24),
                 // Title - font-headline text-5xl font-extrabold
-                Text(tr('Quản lý nhân sự\nthời gian thực'),
+                Text(tr(SboxAppVariant.loginHeroTitle),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 38,
@@ -874,7 +884,9 @@ class _LoginScreenState extends State<LoginScreen>
 
   /// Footer nằm trong panel đăng nhập (cuộn theo form), không cố định viewport.
   Widget _buildLoginFooter({required bool isDesktop}) {
-    const copyright = '@2026 SBOX HRM - SBOX POS';
+    final copyright = SboxAppVariant.standalonePos
+        ? '@2026 SBOX POS'
+        : '@2026 SBOX HRM - SBOX POS';
     final copyrightStyle = TextStyle(
       color: Colors.grey.shade400,
       fontSize: 11,

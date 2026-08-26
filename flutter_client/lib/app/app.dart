@@ -21,6 +21,8 @@ import '../screens/agent_register_screen.dart';
 import '../screens/admin_login_screen.dart';
 import '../screens/landing_guide_screen.dart';
 import '../screens/pos/pos_customer_display_screen.dart';
+import '../screens/pos/pos_standalone_shell.dart';
+import '../config/sbox_app_variant.dart';
 import '../utils/media_query_safe_padding.dart';
 import '../utils/web_route_parser.dart';
 import '../utils/store_role_helper.dart';
@@ -71,7 +73,7 @@ class ZKTecoApp extends StatelessWidget {
           Provider.of<PermissionProvider>(context, listen: false),
         );
         return MaterialApp(
-          title: 'SBOX HRM - SBOX POS',
+          title: SboxAppVariant.materialAppTitle,
           debugShowCheckedModeBanner: false,
           theme: themeProvider.lightTheme,
           darkTheme: themeProvider.darkTheme,
@@ -131,7 +133,9 @@ class ZKTecoApp extends StatelessWidget {
               }
               return const ForgotPasswordScreen();
             },
-            '/admin': (context) => const _AdminRouteGuard(),
+            '/admin': (context) => SboxAppVariant.standalonePos
+                ? const LoginScreen()
+                : const _AdminRouteGuard(),
             '/login-app': (context) => const LoginScreen(),
             '/landing': (context) => const WebStaticHomeRedirect(),
             '/guide': (context) => const LandingGuideScreen(),
@@ -201,9 +205,15 @@ class ZKTecoApp extends StatelessWidget {
                     : const LoginScreen();
               }
               if (StoreRoleHelper.isSystemPortalRole(state.role)) {
+                if (SboxAppVariant.standalonePos) {
+                  return const _StandalonePosAdminBlocked();
+                }
                 return SystemAdminScreen(
                   agentMode: state.role.toLowerCase() == 'agent',
                 );
+              }
+              if (SboxAppVariant.standalonePos) {
+                return const PosStandaloneShell();
               }
               return const MainLayout();
             },
@@ -239,4 +249,27 @@ class _AdminRouteGuard extends StatelessWidget {
       },
     );
   }
+}
+
+/// POS Play: SuperAdmin/Agent không vào cổng HRM — đăng xuất về màn đăng nhập.
+class _StandalonePosAdminBlocked extends StatefulWidget {
+  const _StandalonePosAdminBlocked();
+
+  @override
+  State<_StandalonePosAdminBlocked> createState() =>
+      _StandalonePosAdminBlockedState();
+}
+
+class _StandalonePosAdminBlockedState extends State<_StandalonePosAdminBlocked> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<AuthProvider>().logout();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const AppBootScreen();
 }

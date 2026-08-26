@@ -363,6 +363,10 @@ class PosStoreSellSettingsDto {
     this.reportDayStartHour = 0,
     this.defaultHourlyProductId,
     this.extraJson,
+    this.loyaltyEnabled = true,
+    this.loyaltyEarnPerAmount = 10000,
+    this.loyaltyRedeemValue = 100,
+    this.loyaltyMaxRedeemPercent = 100,
   });
 
   final String id;
@@ -392,6 +396,14 @@ class PosStoreSellSettingsDto {
   /// SP dịch vụ tính giờ mặc định khi mở bàn.
   final String? defaultHourlyProductId;
   final String? extraJson;
+  /// Tích / đổi điểm — mỗi cửa hàng tự cấu hình.
+  final bool loyaltyEnabled;
+  /// Số tiền (đ) để được 1 điểm. 0 = không tích.
+  final double loyaltyEarnPerAmount;
+  /// 1 điểm = bao nhiêu đồng giảm giá. 0 = không đổi.
+  final double loyaltyRedeemValue;
+  /// Tối đa % đơn (sau voucher) được trả bằng điểm.
+  final double loyaltyMaxRedeemPercent;
 
   factory PosStoreSellSettingsDto.fromJson(Map<String, dynamic> json) =>
       PosStoreSellSettingsDto(
@@ -435,7 +447,26 @@ class PosStoreSellSettingsDto {
                 json['DefaultHourlyProductId'])
             ?.toString(),
         extraJson: (json['extraJson'] ?? json['ExtraJson'])?.toString(),
+        loyaltyEnabled: json['loyaltyEnabled'] != false &&
+            json['LoyaltyEnabled'] != false,
+        loyaltyEarnPerAmount: _loyaltyNum(
+            json['loyaltyEarnPerAmount'] ?? json['LoyaltyEarnPerAmount'],
+            10000),
+        loyaltyRedeemValue: _loyaltyNum(
+            json['loyaltyRedeemValue'] ?? json['LoyaltyRedeemValue'], 100),
+        loyaltyMaxRedeemPercent: () {
+          final v = _loyaltyNum(
+              json['loyaltyMaxRedeemPercent'] ??
+                  json['LoyaltyMaxRedeemPercent'],
+              100);
+          return v.clamp(1, 100).toDouble();
+        }(),
       );
+
+  static double _loyaltyNum(dynamic v, double fallback) {
+    if (v is num) return v.toDouble();
+    return double.tryParse('$v') ?? fallback;
+  }
 
   Map<String, dynamic> toSaveBody({bool applyProfileDefaults = true}) {
     // Luôn gửi đủ cờ + tên ngành (string) để server không phụ thuộc enum-bind.
@@ -458,6 +489,10 @@ class PosStoreSellSettingsDto {
       'defaultHourlyProductId': defaultHourlyProductId,
       'setDefaultHourlyProductId': true,
       if (extraJson != null) 'extraJson': extraJson,
+      'loyaltyEnabled': loyaltyEnabled,
+      'loyaltyEarnPerAmount': loyaltyEarnPerAmount,
+      'loyaltyRedeemValue': loyaltyRedeemValue,
+      'loyaltyMaxRedeemPercent': loyaltyMaxRedeemPercent.clamp(1, 100),
       'applyProfileDefaults': applyProfileDefaults,
     };
   }
@@ -560,6 +595,10 @@ class PosStoreSellSettingsDto {
     String? defaultHourlyProductId,
     bool clearDefaultHourlyProductId = false,
     String? extraJson,
+    bool? loyaltyEnabled,
+    double? loyaltyEarnPerAmount,
+    double? loyaltyRedeemValue,
+    double? loyaltyMaxRedeemPercent,
   }) =>
       PosStoreSellSettingsDto(
         id: id,
@@ -586,6 +625,12 @@ class PosStoreSellSettingsDto {
             ? null
             : (defaultHourlyProductId ?? this.defaultHourlyProductId),
         extraJson: extraJson ?? this.extraJson,
+        loyaltyEnabled: loyaltyEnabled ?? this.loyaltyEnabled,
+        loyaltyEarnPerAmount:
+            loyaltyEarnPerAmount ?? this.loyaltyEarnPerAmount,
+        loyaltyRedeemValue: loyaltyRedeemValue ?? this.loyaltyRedeemValue,
+        loyaltyMaxRedeemPercent:
+            loyaltyMaxRedeemPercent ?? this.loyaltyMaxRedeemPercent,
       );
 }
 

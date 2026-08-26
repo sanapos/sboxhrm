@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../utils/branch_filter_helper.dart';
+import '../../utils/department_filter_helper.dart';
 import '../../utils/report_screen_helpers.dart';
 import '../../utils/vietnamese_font.dart';
 import '../hrm_collapsible_overview.dart';
@@ -398,6 +399,119 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
   }
 }
 
+/// Chi nhánh + phòng ban cạnh nhau (ẩn từng dropdown khi chỉ có 1 lựa chọn).
+class ReportOrgFilterRow extends StatelessWidget {
+  final ReportBranchFilter orgFilter;
+  final String? selectedBranchId;
+  final ValueChanged<String?>? onBranchChanged;
+  final String? selectedDepartmentId;
+  final ValueChanged<String?>? onDepartmentChanged;
+  final bool dense;
+
+  const ReportOrgFilterRow({
+    super.key,
+    required this.orgFilter,
+    this.selectedBranchId,
+    this.onBranchChanged,
+    this.selectedDepartmentId,
+    this.onDepartmentChanged,
+    this.dense = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final showBranch =
+        BranchFilterHelper.showBranchFilter(orgFilter.branches);
+    final showDept =
+        DepartmentFilterHelper.showDepartmentFilter(orgFilter.departments);
+    if (!showBranch && !showDept) return const SizedBox.shrink();
+
+    final branch = showBranch
+        ? _dropdown(
+            icon: Icons.account_tree_outlined,
+            value: _validId(selectedBranchId, orgFilter.branches),
+            allLabel: 'Tất cả chi nhánh',
+            items: orgFilter.branches,
+            onChanged: onBranchChanged,
+          )
+        : null;
+    final dept = showDept
+        ? _dropdown(
+            icon: Icons.business_outlined,
+            value: _validId(selectedDepartmentId, orgFilter.departments),
+            allLabel: 'Tất cả phòng ban',
+            items: orgFilter.departments,
+            onChanged: onDepartmentChanged,
+          )
+        : null;
+
+    if (branch != null && dept != null) {
+      return Row(
+        children: [
+          Expanded(child: branch),
+          const SizedBox(width: 8),
+          Expanded(child: dept),
+        ],
+      );
+    }
+    return branch ?? dept!;
+  }
+
+  String? _validId(String? id, List<Map<String, dynamic>> items) {
+    if (id == null) return null;
+    final ok = items.any((e) => e['id']?.toString() == id);
+    return ok ? id : null;
+  }
+
+  Widget _dropdown({
+    required IconData icon,
+    required String? value,
+    required String allLabel,
+    required List<Map<String, dynamic>> items,
+    required ValueChanged<String?>? onChanged,
+  }) {
+    return Container(
+      height: dense ? 36 : 40,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: const Color(0xFF6B7280)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                value: value,
+                isExpanded: true,
+                isDense: true,
+                hint: Text(tr(allLabel),
+                    style: vietnameseTextStyle(const TextStyle(
+                        fontSize: 13, color: Color(0xFF6B7280)))),
+                style: vietnameseTextStyle(
+                    const TextStyle(fontSize: 13, color: Color(0xFF111827))),
+                items: [
+                  DropdownMenuItem<String?>(
+                      value: null, child: Text(tr(allLabel))),
+                  ...items.map((e) => DropdownMenuItem<String?>(
+                        value: e['id']?.toString(),
+                        child: Text(tr(e['name']?.toString() ?? ''),
+                            overflow: TextOverflow.ellipsis),
+                      )),
+                ],
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Bộ lọc chung. [embedded]=true khi nằm trong [ReportCollapsibleChrome]
 /// (không còn ExpansionTile lồng — tránh thu gọn kép).
 class ReportFilterSection extends StatefulWidget {
@@ -411,6 +525,8 @@ class ReportFilterSection extends StatefulWidget {
   final ReportBranchFilter? branchFilter;
   final String? selectedBranchId;
   final ValueChanged<String?>? onBranchChanged;
+  final String? selectedDepartmentId;
+  final ValueChanged<String?>? onDepartmentChanged;
   final String empSearch;
   final ValueChanged<String> onEmpSearchChanged;
   final List<String> empSuggestions;
@@ -432,6 +548,8 @@ class ReportFilterSection extends StatefulWidget {
     this.branchFilter,
     this.selectedBranchId,
     this.onBranchChanged,
+    this.selectedDepartmentId,
+    this.onDepartmentChanged,
     this.empSearch = '',
     required this.onEmpSearchChanged,
     this.empSuggestions = const [],
@@ -466,6 +584,15 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
         if (name.isNotEmpty) parts.add(name);
       }
     }
+    if (widget.selectedDepartmentId != null && widget.branchFilter != null) {
+      final match = widget.branchFilter!.departments.where(
+        (d) => d['id']?.toString() == widget.selectedDepartmentId,
+      );
+      if (match.isNotEmpty) {
+        final name = match.first['name']?.toString() ?? '';
+        if (name.isNotEmpty) parts.add(name);
+      }
+    }
     if (widget.empSearch.isNotEmpty) {
       parts.add('NV: ${widget.empSearch}');
     }
@@ -485,10 +612,18 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
       widget.statusFilter,
       if (widget.showTeamFilters) ...[
         if (widget.branchFilter != null &&
-            BranchFilterHelper.showBranchFilter(
-                widget.branchFilter!.branches)) ...[
+            (BranchFilterHelper.showBranchFilter(
+                    widget.branchFilter!.branches) ||
+                DepartmentFilterHelper.showDepartmentFilter(
+                    widget.branchFilter!.departments))) ...[
           const SizedBox(height: 8),
-          _branchDropdown(),
+          ReportOrgFilterRow(
+            orgFilter: widget.branchFilter!,
+            selectedBranchId: widget.selectedBranchId,
+            onBranchChanged: widget.onBranchChanged,
+            selectedDepartmentId: widget.selectedDepartmentId,
+            onDepartmentChanged: widget.onDepartmentChanged,
+          ),
         ],
         const SizedBox(height: 8),
         _empSearchField(),
@@ -536,7 +671,8 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
   @override
   Widget build(BuildContext context) {
     final hasExtraFilters = widget.empSearch.isNotEmpty ||
-        widget.selectedBranchId != null;
+        widget.selectedBranchId != null ||
+        widget.selectedDepartmentId != null;
     final body = _filterBody(hasExtraFilters);
 
     if (widget.embedded) {
@@ -580,40 +716,6 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
             size: 22,
           ),
           children: body,
-        ),
-      ),
-    );
-  }
-
-  Widget _branchDropdown() {
-    return Container(
-      height: 40,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String?>(
-          value: widget.selectedBranchId,
-          isExpanded: true,
-          isDense: true,
-          hint: Text(tr('Tất cả chi nhánh'),
-              style: vietnameseTextStyle(
-                  const TextStyle(fontSize: 13, color: Color(0xFF6B7280)))),
-          style: vietnameseTextStyle(
-              const TextStyle(fontSize: 13, color: Color(0xFF111827))),
-          items: [
-            DropdownMenuItem<String?>(
-                value: null, child: Text(tr('Tất cả chi nhánh'))),
-            ...widget.branchFilter!.branches.map((b) => DropdownMenuItem<String?>(
-                  value: b['id']?.toString(),
-                  child: Text(tr(b['name']?.toString() ?? ''),
-                      overflow: TextOverflow.ellipsis),
-                )),
-          ],
-          onChanged: widget.onBranchChanged,
         ),
       ),
     );

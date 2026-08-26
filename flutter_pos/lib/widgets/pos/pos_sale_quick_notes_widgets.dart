@@ -93,6 +93,7 @@ class PosLineQuickNotesPicker extends StatelessWidget {
     required this.extraController,
     required this.onExtraChanged,
     this.onAddQuickNote,
+    this.onDeleteQuickNote,
   });
 
   final List<String> quickNotes;
@@ -102,6 +103,8 @@ class PosLineQuickNotesPicker extends StatelessWidget {
   final VoidCallback onExtraChanged;
   /// Lưu ghi chú thành chip của món (catalog + lần sau gợi ý).
   final Future<void> Function(String note)? onAddQuickNote;
+  /// Xóa ghi chú khỏi món (catalog + máy này).
+  final Future<void> Function(String note)? onDeleteQuickNote;
 
   Future<void> _addQuickNote(BuildContext context) async {
     var text = extraController.text.trim();
@@ -144,6 +147,31 @@ class PosLineQuickNotesPicker extends StatelessWidget {
     await onAddQuickNote?.call(text);
   }
 
+  Future<void> _deleteQuickNote(BuildContext context, String note) async {
+    if (onDeleteQuickNote == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xóa ghi chú nhanh?')),
+        content: Text(tr('«$note» sẽ không còn gợi ý trên món này.')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Hủy')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Xóa')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final next = Set<String>.from(selected)..remove(note);
+    onSelectedChanged(next);
+    await onDeleteQuickNote!(note);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -152,8 +180,11 @@ class PosLineQuickNotesPicker extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: Text(tr('Ghi chú nhanh'),
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              child: Text(
+                tr(quickNotes.isEmpty
+                    ? 'Ghi chú nhanh'
+                    : 'Ghi chú nhanh (${quickNotes.length})'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),
             TextButton.icon(
@@ -171,35 +202,50 @@ class PosLineQuickNotesPicker extends StatelessWidget {
         ),
         if (quickNotes.isNotEmpty) ...[
           const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: quickNotes.map((note) {
-              final active = selected.contains(note);
-              return FilterChip(
-                label: Text(tr(note), style: const TextStyle(fontSize: 12)),
-                selected: active,
-                showCheckmark: true,
-                selectedColor: PosTheme.kiotBlueLight,
-                checkmarkColor: _kiotBlue,
-                side: BorderSide(
-                  color: active ? _kiotBlue : PosTheme.border,
-                ),
-                onSelected: (v) {
-                  final next = Set<String>.from(selected);
-                  if (v) {
-                    next.add(note);
-                  } else {
-                    next.remove(note);
-                  }
-                  onSelectedChanged(next);
-                },
-              );
-            }).toList(),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 168),
+            child: SingleChildScrollView(
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: quickNotes.map((note) {
+                  final active = selected.contains(note);
+                  return InputChip(
+                    label: Text(tr(note), style: const TextStyle(fontSize: 12)),
+                    selected: active,
+                    showCheckmark: true,
+                    selectedColor: PosTheme.kiotBlueLight,
+                    checkmarkColor: _kiotBlue,
+                    deleteIcon: const Icon(Icons.close, size: 16),
+                    onDeleted: onDeleteQuickNote == null
+                        ? null
+                        : () => unawaited(_deleteQuickNote(context, note)),
+                    side: BorderSide(
+                      color: active ? _kiotBlue : PosTheme.border,
+                    ),
+                    onSelected: (v) {
+                      final next = Set<String>.from(selected);
+                      if (v) {
+                        next.add(note);
+                      } else {
+                        next.remove(note);
+                      }
+                      onSelectedChanged(next);
+                    },
+                  );
+                }).toList(),
+              ),
+            ),
           ),
           const SizedBox(height: 8),
         ] else
-          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              tr('Chưa có ghi chú nhanh trên món này — bấm Thêm để tạo.'),
+              style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+            ),
+          ),
         PosImeAwareFocus(
           child: TextField(
           controller: extraController,

@@ -1,30 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../models/cash_transaction.dart';
-import '../../services/api_service.dart';
 import '../../utils/pos_sell_store_settings.dart';
-import 'pos_bank_account_form_dialog.dart';
 import 'pos_sell_fee_defaults_fields.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
-/// Dialog thiết lập cửa hàng, thuế và VietQR.
+/// Dialog thiết lập cửa hàng, thuế và phụ phí.
 Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
   BuildContext context, {
   required PosSellStoreSettings initial,
 }) async {
-  final api = ApiService();
-  final banksRes = await api.getPosBankAccounts();
-  var bankAccounts = <BankAccount>[];
-  if (banksRes['isSuccess'] == true && banksRes['data'] is List) {
-    bankAccounts = (banksRes['data'] as List)
-        .map((e) => BankAccount.fromJson(e as Map<String, dynamic>))
-        .where((a) => a.isActive)
-        .toList();
-  }
-
   if (!context.mounted) return null;
 
   final nameCtrl = TextEditingController(text: tr(initial.storeName));
@@ -44,28 +31,9 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
   );
   var taxMode = initial.taxMode;
   var vatRate = initial.defaultVatRate;
-  var vietQrBankId = initial.vietQrBankAccountId;
-  var showVietQr = initial.showVietQrAtPayment;
   var enableSurcharge = initial.enableSurcharge;
   var enableDeliveryFee = initial.enableDeliveryFee;
   var surchargeIsPercent = initial.surchargeIsPercent;
-  var accounts = List<BankAccount>.from(bankAccounts);
-
-  Future<void> reloadAccounts(StateSetter setDlg) async {
-    final res = await api.getPosBankAccounts();
-    if (res['isSuccess'] == true && res['data'] is List) {
-      setDlg(() {
-        accounts = (res['data'] as List)
-            .map((e) => BankAccount.fromJson(e as Map<String, dynamic>))
-            .where((a) => a.isActive)
-            .toList();
-        if (vietQrBankId != null &&
-            !accounts.any((a) => a.id == vietQrBankId)) {
-          vietQrBankId = null;
-        }
-      });
-    }
-  }
 
   final result = await showDialog<PosSellStoreSettings>(
     context: context,
@@ -104,80 +72,6 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                     labelText: tr('Số điện thoại'),
                     border: OutlineInputBorder(),
                   ),
-                ),
-                const SizedBox(height: 14),
-                Text(tr('Tài khoản VietQR'),
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 6),
-                if (accounts.isEmpty)
-                  Text(tr('Chưa có tài khoản ngân hàng. Thêm tài khoản để tạo mã QR thanh toán.'),
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  )
-                else
-                  DropdownButtonFormField<String?>(
-                    value: vietQrBankId ??
-                        accounts
-                            .where((a) => a.isDefault)
-                            .map((a) => a.id)
-                            .firstOrNull ??
-                        accounts.first.id,
-                    decoration: InputDecoration(
-                      labelText: tr('Tài khoản nhận tiền'),
-                      border: OutlineInputBorder(),
-                    ),
-                    items: accounts
-                        .map(
-                          (a) => DropdownMenuItem(
-                            value: a.id,
-                            child: Text(
-                              tr('${a.bankShortName ?? a.bankName} · ${a.accountNumber}'
-                              '${a.isDefault ? ' (Mặc định)' : ''}'),
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) => setDlg(() => vietQrBankId = v),
-                  ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    TextButton.icon(
-                      onPressed: () async {
-                        final ok = await showPosBankAccountFormDialog(ctx);
-                        if (ok) await reloadAccounts(setDlg);
-                      },
-                      icon: const Icon(Icons.add, size: 18),
-                      label: Text(tr('Thêm tài khoản')),
-                    ),
-                    if (accounts.isNotEmpty) ...[
-                      const SizedBox(width: 4),
-                      TextButton(
-                        onPressed: () async {
-                          final current = accounts.firstWhere(
-                            (a) => a.id == (vietQrBankId ?? accounts.first.id),
-                            orElse: () => accounts.first,
-                          );
-                          final ok = await showPosBankAccountFormDialog(
-                            ctx,
-                            account: current,
-                          );
-                          if (ok) await reloadAccounts(setDlg);
-                        },
-                        child: Text(tr('Sửa')),
-                      ),
-                    ],
-                  ],
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(tr('Hiện mã VietQR khi thanh toán')),
-                  subtitle: Text(tr('Tạo QR động theo tổng tiền trên điện thoại'),
-                    style: TextStyle(fontSize: 11),
-                  ),
-                  value: showVietQr,
-                  onChanged: (v) => setDlg(() => showVietQr = v),
                 ),
                 const Divider(height: 20),
                 Text(tr('Phụ phí khi thanh toán'),
@@ -260,7 +154,8 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                   ),
                 ],
                 const SizedBox(height: 8),
-                Text(tr('In mã VietQR trên hóa đơn: bật trong Thiết lập máy in.'),
+                Text(
+                  tr('Tài khoản ngân hàng / VietQR: Cổng thanh toán. In QR trên hóa đơn: Thiết lập máy in.'),
                   style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                 ),
               ],
@@ -280,8 +175,8 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                   phone: phoneCtrl.text.trim(),
                   taxMode: taxMode,
                   defaultVatRate: vatRate,
-                  vietQrBankAccountId: vietQrBankId,
-                  showVietQrAtPayment: showVietQr,
+                  vietQrBankAccountId: initial.vietQrBankAccountId,
+                  showVietQrAtPayment: initial.showVietQrAtPayment,
                   enableSurcharge: enableSurcharge,
                   enableDeliveryFee: enableDeliveryFee,
                   surchargeLabel: surchargeNameCtrl.text.trim(),

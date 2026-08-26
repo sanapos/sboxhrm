@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../models/device.dart';
 import '../services/api_service.dart';
 import '../utils/device_setup_guide.dart';
 import '../utils/responsive_helper.dart';
@@ -39,44 +40,106 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     _loadDevices();
   }
 
-  Future<void> _loadDevices() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadDevices({bool showSpinner = false}) async {
+    final useSpinner = showSpinner || _devices.isEmpty;
+    if (useSpinner && mounted) setState(() => _isLoading = true);
     try {
       final devices = await _apiService.getDevices(storeOnly: true);
       if (!mounted) return;
       setState(() {
-        _devices = devices.map((d) => Map<String, dynamic>.from(d)).toList();
+        _devices = devices
+            .whereType<Map>()
+            .map((d) => Map<String, dynamic>.from(d))
+            .toList();
+        _isLoading = false;
       });
     } catch (e) {
       debugPrint('Error loading devices: $e');
       if (mounted) {
+        setState(() => _isLoading = false);
         appNotification.showError(
           title: 'Lỗi tải dữ liệu',
           message: tr('Không thể tải danh sách thiết bị: $e'),
         );
       }
     }
-    if (mounted) setState(() => _isLoading = false);
   }
 
   bool _isOnline(Map<String, dynamic> device) {
-    // Ưu tiên dùng trạng thái do backend tính sẵn
-    final status = device['deviceStatus']?.toString().toLowerCase();
-    if (status != null && status.isNotEmpty) {
-      return status == 'online';
+    final last = device['lastOnline'] ?? device['LastOnline'];
+    if (isLastOnlineFresh(last)) return true;
+    if (last != null) return false;
+    final status = (device['deviceStatus'] ?? device['DeviceStatus'])
+        ?.toString()
+        .toLowerCase();
+    return status == 'online';
+  }
+
+  void _upsertDevice(Map<String, dynamic> device) {
+    final id = (device['id'] ?? device['Id'])?.toString();
+    final sn = (device['serialNumber'] ?? device['SerialNumber'])?.toString();
+    final idx = _devices.indexWhere((d) {
+      final did = d['id']?.toString();
+      final dsn = d['serialNumber']?.toString();
+      return (id != null && id.isNotEmpty && did == id) ||
+          (sn != null && sn.isNotEmpty && dsn == sn);
+    });
+    if (idx >= 0) {
+      _devices[idx] = {..._devices[idx], ...device};
+    } else {
+      _devices = [device, ..._devices];
     }
-    // Fallback: tính từ lastOnline (server lưu UTC, phải parse đúng)
-    final lastOnline = device['lastOnline'];
-    if (lastOnline == null) return false;
-    try {
-      final raw = lastOnline.toString();
-      // Nếu không có timezone info → server lưu UTC → thêm Z
-      final dateStr = (raw.contains('Z') || raw.contains('+')) ? raw : '${raw}Z';
-      final dt = DateTime.parse(dateStr);
-      return DateTime.now().toUtc().difference(dt).inMinutes < 5;
-    } catch (e) {
-      debugPrint('Parse lastOnline error: $e');
-      return false;
+  }
+
+  Future<void> _afterDeviceAdded(Map<String, dynamic>? created) async {
+    if (!mounted) return;
+    setState(() {
+      _statusFilter = 'all';
+      if (created != null) _upsertDevice(Map<String, dynamic>.from(created));
+    });
+    await _loadDevices();
+    if (!mounted) return;
+
+    Map<String, dynamic>? row;
+    final id = (created?['id'] ?? created?['Id'])?.toString();
+    final sn = (created?['serialNumber'] ?? created?['SerialNumber'])?.toString();
+    for (final d in _devices) {
+      if (id != null && id.isNotEmpty && d['id']?.toString() == id) {
+        row = d;
+        break;
+      }
+      if (sn != null && sn.isNotEmpty && d['serialNumber']?.toString() == sn) {
+        row = d;
+        break;
+      }
+    }
+
+    if (row != null) {
+      final deviceId = row['id']?.toString();
+      if (deviceId != null && deviceId.isNotEmpty) {
+        final fresh = await _apiService.refreshDeviceStatus(deviceId);
+        if (fresh != null && mounted) {
+          setState(() {
+            row!['deviceStatus'] = fresh['deviceStatus'] ?? fresh['DeviceStatus'];
+            row['lastOnline'] = fresh['lastOnline'] ?? fresh['LastOnline'];
+          });
+        }
+      }
+    }
+
+    if (!mounted) return;
+    final online = row != null && _isOnline(row);
+    if (online) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Thành công',
+        message: tr('Đã thêm thiết bị — đang Online'),
+      );
+    } else {
+      NotificationOverlayManager().showWarning(
+        title: 'Đã thêm thiết bị',
+        message: tr(
+            'Máy hiện Offline — chưa gửi tín hiệu trong 2 phút. Kéo xuống để tải lại hoặc kiểm tra ADMS/mạng.'),
+      );
     }
   }
 
@@ -399,7 +462,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     if (!mounted) return;
     if (success) {
       NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã cập nhật thiết bị'));
-      _loadDevices();
+      await _loadDevices();
     } else {
       NotificationOverlayManager().showError(title: 'Lỗi', message: tr('Cập nhật thất bại'));
     }
@@ -415,7 +478,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     String? serialSuccess;
     bool isCheckingSerial = false;
 
-    await showDialog<bool>(
+    final added = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
@@ -444,8 +507,12 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                     isCheckingSerial = false;
                   });
                 } else {
+                  final online = isLastOnlineFresh(
+                      result['lastOnline'] ?? result['LastOnline']);
                   setDialogState(() {
-                    serialSuccess = 'Thiết bị hợp lệ — đã kết nối server';
+                    serialSuccess = online
+                        ? 'Thiết bị hợp lệ — máy đang Online'
+                        : 'Thiết bị hợp lệ — SN đã có trên server (hiện Offline)';
                     serialError = null;
                     isCheckingSerial = false;
                   });
@@ -525,19 +592,40 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               setDialogState(() => isCheckingSerial = false);
             }
 
-            Navigator.pop(ctx);
+            final sn = snCtrl.text.trim();
+            final name = nameCtrl.text.trim();
+            final location = locationCtrl.text.trim();
+            final description = descCtrl.text.trim();
 
-            final createResult = await _apiService.createDevice({
-              'serialNumber': snCtrl.text.trim(),
-              'deviceName': nameCtrl.text.trim(),
-              'location': locationCtrl.text.trim(),
-              'description': descCtrl.text.trim(),
-            });
-            if (!mounted) return;
+            setDialogState(() => isCheckingSerial = true);
+            Map<String, dynamic> createResult;
+            try {
+              createResult = await _apiService.createDevice({
+                'serialNumber': sn,
+                'deviceName': name,
+                'location': location,
+                'description': description,
+              });
+            } catch (e) {
+              if (!ctx.mounted) return;
+              setDialogState(() => isCheckingSerial = false);
+              NotificationOverlayManager().showError(
+                  title: 'Lỗi', message: tr('Thêm thiết bị thất bại: $e'));
+              return;
+            }
+            if (!ctx.mounted) return;
             if (createResult['success'] == true) {
-              NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã thêm thiết bị'));
-              _loadDevices();
+              final created = createResult['device'];
+              Navigator.pop(
+                  ctx,
+                  created is Map
+                      ? Map<String, dynamic>.from(created)
+                      : <String, dynamic>{
+                          'serialNumber': sn,
+                          'deviceName': name,
+                        });
             } else {
+              setDialogState(() => isCheckingSerial = false);
               final msg = createResult['message'] ?? 'Thêm thiết bị thất bại';
               NotificationOverlayManager().showError(title: 'Lỗi', message: msg);
             }
@@ -638,7 +726,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               child: Scaffold(
                 appBar: AppBar(
                   title: Text(tr('Thêm máy chấm công')),
-                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx, false)),
+                  leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                   actions: [
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
@@ -668,7 +756,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               child: SingleChildScrollView(child: formBody),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: isCheckingSerial ? null : submitDevice,
                 child: Text(tr('Thêm')),
@@ -683,6 +771,10 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     nameCtrl.dispose();
     locationCtrl.dispose();
     descCtrl.dispose();
+
+    if (added != null && mounted) {
+      await _afterDeviceAdded(added);
+    }
   }
 
   Future<void> _deleteDevice(Map<String, dynamic> device) async {
@@ -707,7 +799,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     if (!mounted) return;
     if (result['success'] == true) {
       NotificationOverlayManager().showSuccess(title: 'Thành công', message: tr('Đã xóa thiết bị'));
-      _loadDevices();
+      await _loadDevices();
     } else {
       final msg = result['message'] ?? 'Xóa thất bại';
       NotificationOverlayManager().showError(title: 'Lỗi', message: msg);
@@ -725,10 +817,12 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     
     if (result != null) {
       setState(() {
-        device['deviceStatus'] = result['deviceStatus'];
-        device['lastOnline'] = result['lastOnline'];
+        device['deviceStatus'] = result['deviceStatus'] ?? result['DeviceStatus'];
+        device['lastOnline'] = result['lastOnline'] ?? result['LastOnline'];
       });
-      final isOnline = result['isOnline'] == true;
+      final isOnline = result['isOnline'] == true ||
+          result['IsOnline'] == true ||
+          _isOnline(device);
       if (isOnline) {
         NotificationOverlayManager().showSuccess(title: 'Online', message: tr('Thiết bị đang Online'));
       } else {

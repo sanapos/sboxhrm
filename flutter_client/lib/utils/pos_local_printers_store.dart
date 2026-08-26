@@ -591,6 +591,14 @@ class PosLocalPrintersStore {
   static bool profileAllowsDirectLocal(PosLocalPrinterProfile p) =>
       p.enabled && isOnDeviceDirectPort(p.connectionType);
 
+  /// User đã thêm máy in nội bộ trên thiết bị này khớp máy cloud.
+  /// Máy Sunmi có sẵn in trong máy nhưng chưa cài trong app → false → cloud.
+  Future<bool> hasInstalledOnDevice(PosStorePrinter printer) async {
+    if (printer.id.isEmpty) return false;
+    final local = await resolveForStorePrinter(printer);
+    return local != null && profileAllowsDirectLocal(local);
+  }
+
   /// Vai trò chứng từ khớp máy nội bộ (bếp/hủy, tem/barcode).
   static bool roleMatchesDocument(Set<String> roles, String documentRole) {
     if (roles.contains(documentRole)) return true;

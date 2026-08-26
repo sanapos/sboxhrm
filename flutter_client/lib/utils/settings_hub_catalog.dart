@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../config/sbox_app_variant.dart';
 import '../models/settings_hub_sidebar_config.dart';
 import '../widgets/hrm_page_chrome.dart';
 
@@ -174,6 +175,15 @@ class SettingsHubCatalog {
       moduleCode: 'Branch',
     ),
     SettingsHubItemDef(
+      index: 30,
+      icon: Icons.devices_other_outlined,
+      label: 'Thiết bị truy cập',
+      desc: 'Nhả điện thoại / web / POS chiếm slot gói dịch vụ',
+      accent: HrmPageChrome.primaryNavy,
+      groupTitle: 'Quản trị hệ thống',
+      moduleCode: 'SettingsHub',
+    ),
+    SettingsHubItemDef(
       index: 15,
       icon: Icons.print_outlined,
       label: 'Mẫu in',
@@ -195,7 +205,7 @@ class SettingsHubCatalog {
       index: 17,
       icon: Icons.store_outlined,
       label: 'Thiết lập cửa hàng',
-      desc: 'Tên, địa chỉ, VAT, VietQR, phụ thu, phí giao hàng',
+      desc: 'Tên, địa chỉ, VAT, phụ thu, phí giao hàng',
       accent: HrmPageChrome.primaryNavy,
       groupTitle: 'POS / Bán hàng',
       moduleCode: 'SettingsHub',
@@ -204,7 +214,7 @@ class SettingsHubCatalog {
       index: 28,
       icon: Icons.account_balance_outlined,
       label: 'Cổng thanh toán',
-      desc: 'Tingee, VietQR chuyển khoản, webhook xác nhận',
+      desc: 'Bật/tắt VietQR, Tingee · tài khoản NH · token',
       accent: HrmPageChrome.primaryNavy,
       groupTitle: 'POS / Bán hàng',
       moduleCode: 'PosSell',
@@ -293,7 +303,18 @@ class SettingsHubCatalog {
   ];
 
   static List<int> get defaultOrder =>
-      allItems.map((item) => item.index).toList();
+      itemsForCurrentApp.map((item) => item.index).toList();
+
+  /// HRM: toàn bộ thiết lập. POS độc lập: POS + quản trị cửa hàng (không chấm công/lương).
+  static List<SettingsHubItemDef> get itemsForCurrentApp {
+    if (!SboxAppVariant.standalonePos) return allItems;
+    return allItems
+        .where((i) =>
+            i.groupTitle == 'POS / Bán hàng' ||
+            i.groupTitle == 'Quản trị hệ thống' ||
+            i.moduleCode == 'AIGemini')
+        .toList();
+  }
 
   static SettingsHubItemDef? byIndex(int index) {
     for (final item in allItems) {

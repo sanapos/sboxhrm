@@ -61,7 +61,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
   String? _categoryFilter;
   CashTransactionStatus? _statusFilter;
 
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = false;
 
   // Inline summary for transactions tab
   CashTransactionSummary? _inlineSummary;
@@ -141,6 +141,24 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         return 'Tùy chọn';
       default: return 'Tháng này';
     }
+  }
+
+  String _compactMoney(num v) {
+    final sign = v < 0 ? '-' : '';
+    final abs = v.abs();
+    if (abs >= 1000000000) {
+      return '$sign${(abs / 1000000000).toStringAsFixed(abs >= 10000000000 ? 0 : 1)} tỷ';
+    }
+    if (abs >= 1000000) {
+      return '$sign${(abs / 1000000).toStringAsFixed(abs >= 100000000 ? 0 : 1)} tr';
+    }
+    return '$sign${_currencyFormat.format(abs)}';
+  }
+
+  String get _overviewCollapsedHint {
+    final s = _inlineSummary;
+    if (s == null) return _datePresetLabel;
+    return '$_datePresetLabel · Thu ${_compactMoney(s.totalIncome)} · Chi ${_compactMoney(s.totalExpense)}';
   }
 
   Future<void> _loadInitialData() async {
@@ -1157,6 +1175,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       expanded: _showOverviewPanel,
       onToggle: () =>
           setState(() => _showOverviewPanel = !_showOverviewPanel),
+      subtitle: _overviewCollapsedHint,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1344,17 +1363,16 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       return HrmFilterBar(
         margin: EdgeInsets.zero,
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        children: HrmFilterBar.mobileStack([
-          dateDropdown,
-          typeDropdown,
-          statusDropdown,
-          categoryDropdown,
+        children: [
+          ...HrmFilterBar.mobileGrid([
+            dateDropdown,
+            typeDropdown,
+            statusDropdown,
+            categoryDropdown,
+          ]),
           if (clearBtn != null)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [clearBtn],
-            ),
-        ]),
+            Align(alignment: Alignment.centerRight, child: clearBtn),
+        ],
       );
     }
 
@@ -1398,19 +1416,19 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       HrmStatItem(
         icon: Icons.arrow_downward,
         label: 'Thu',
-        value: _currencyFormat.format(s.totalIncome),
+        value: _compactMoney(s.totalIncome),
         subtitle: '${s.incomeTransactions} giao dịch',
       ),
       HrmStatItem(
         icon: Icons.arrow_upward,
         label: 'Chi',
-        value: _currencyFormat.format(s.totalExpense),
+        value: _compactMoney(s.totalExpense),
         subtitle: '${s.expenseTransactions} giao dịch',
       ),
       HrmStatItem(
         icon: s.balance >= 0 ? Icons.trending_up : Icons.trending_down,
         label: 'Số dư',
-        value: _currencyFormat.format(s.balance),
+        value: _compactMoney(s.balance),
         subtitle: _datePresetLabel,
       ),
       if (s.pendingTransactions > 0) ...[

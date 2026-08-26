@@ -7,6 +7,7 @@ import 'utils/web_route_parser.dart';
 import 'utils/vietnamese_font.dart';
 import 'utils/low_ram_tuning.dart';
 import 'utils/app_error_utils.dart';
+import 'config/sbox_app_variant.dart';
 import 'widgets/app_fatal_error_screen.dart';
 import 'app/app.dart';
 import 'providers/auth_provider.dart';
@@ -62,6 +63,8 @@ void main() async {
   };
 
   await preloadVietnameseFonts();
+
+  await SboxAppVariant.bootstrap();
 
   InitialWebRoute.capture();
 

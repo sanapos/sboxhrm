@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_tr.dart';
 import 'pos/pos_theme.dart';
 
-/// Thanh «Tổng quan & bộ lọc» — mặc định mở, bấm để ẩn/hiện nội dung.
+/// Thanh «Tổng quan & bộ lọc» — bấm để ẩn/hiện. [subtitle] hiện khi đang thu.
 class HrmCollapsibleOverview extends StatelessWidget {
   const HrmCollapsibleOverview({
     super.key,
@@ -11,6 +11,7 @@ class HrmCollapsibleOverview extends StatelessWidget {
     required this.onToggle,
     required this.child,
     this.title = 'Tổng quan & bộ lọc',
+    this.subtitle,
     this.trailing,
   });
 
@@ -18,6 +19,7 @@ class HrmCollapsibleOverview extends StatelessWidget {
   final VoidCallback onToggle;
   final Widget child;
   final String title;
+  final String? subtitle;
   final Widget? trailing;
 
   @override
@@ -39,13 +41,30 @@ class HrmCollapsibleOverview extends StatelessWidget {
                   Icon(Icons.analytics_outlined, size: 16, color: accent),
                   const SizedBox(width: 6),
                   Expanded(
-                    child: Text(
-                      tr(title),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: accent,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr(title),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: accent,
+                          ),
+                        ),
+                        if (!expanded &&
+                            subtitle != null &&
+                            subtitle!.trim().isNotEmpty)
+                          Text(
+                            tr(subtitle!),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF71717A),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                   if (trailing != null) ...[

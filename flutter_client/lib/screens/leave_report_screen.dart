@@ -32,6 +32,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   int? _statusFilter;
   String _empSearch = '';
   String? _selectedBranchId;
+  String? _selectedDepartmentId;
   int _viewTab = 0;
   int _page = 1;
   static const _pageSize = 50;
@@ -58,16 +59,15 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   }
 
   List<Map<String, dynamic>> get _filtered {
-    Set<String>? branchIds;
-    if (_teamView && _selectedBranchId != null) {
-      branchIds = _branchFilter.userIdsForBranch(_selectedBranchId);
-      if (branchIds.isEmpty) return [];
-    }
     return _leaves.where((l) {
-      final empKey = l['employeeUserId']?.toString() ??
-          l['employeeId']?.toString() ??
-          '';
-      if (branchIds != null && !branchIds.contains(empKey)) return false;
+      if (_teamView &&
+          !_branchFilter.mapRowInScope(
+            l,
+            branchId: _selectedBranchId,
+            departmentId: _selectedDepartmentId,
+          )) {
+        return false;
+      }
       if (_teamView &&
           _empSearch.isNotEmpty &&
           !(l['employeeName']?.toString() ?? '')
@@ -92,7 +92,9 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     _load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_teamView) {
-        _branchFilter.loadBranches(_api).then((_) {
+        _branchFilter.loadOrgFilters(_api).then((_) async {
+          await _branchFilter.ensureEmployees(_api,
+              branchId: _selectedBranchId);
           if (mounted) setState(() {});
         });
       } else {
@@ -175,6 +177,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         startDate: _from,
         endDate: _to,
         branchId: _teamView ? _selectedBranchId : null,
+        departmentId: _teamView ? _selectedDepartmentId : null,
         includeChildBranches: true,
       );
       if (res['isSuccess'] == true && res['data'] is Map) {
@@ -447,6 +450,10 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                         await _branchFilter.ensureEmployees(_api, branchId: v);
                         if (mounted) setState(() => _selectedBranchId = v);
                       },
+                      selectedDepartmentId: _selectedDepartmentId,
+                      onDepartmentChanged: (v) {
+                        if (mounted) setState(() => _selectedDepartmentId = v);
+                      },
                       empSearch: _empSearch,
                       onEmpSearchChanged: (v) => setState(() => _empSearch = v),
                       empSuggestions: _empSuggestions,
@@ -458,6 +465,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                           ? () => setState(() {
                                 _empSearch = '';
                                 _selectedBranchId = null;
+                                _selectedDepartmentId = null;
                               })
                           : null,
                     ),
@@ -575,14 +583,19 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   }
 
   Widget _buildByEmployee() {
-    if (_byEmployee.isEmpty) {
+    final rows = _branchFilter.filterEmployeeRows(
+      _byEmployee,
+      branchId: _teamView ? _selectedBranchId : null,
+      departmentId: _teamView ? _selectedDepartmentId : null,
+    );
+    if (rows.isEmpty) {
       return const ReportEmptyState(
         title: 'Chưa có dữ liệu tổng hợp',
         subtitle: 'Thử đổi khoảng thời gian',
       );
     }
     return Column(
-      children: _byEmployee.map((e) {
+      children: rows.map((e) {
         final name = e['employeeName']?.toString() ??
             e['EmployeeName']?.toString() ??
             '—';

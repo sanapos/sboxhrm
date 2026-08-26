@@ -1538,8 +1538,8 @@ class PosPrintOrchestrator {
       'isDeviceLocal=${printer.isDeviceLocal}',
     );
 
-    // Máy in trong Sunmi: chỉ khi đích thật sự là Sunmi VÀ không map sang
-    // cổng USB/LAN (A6 hay gán nhầm chip sunmi → phiếu preset khác mẫu gốc).
+    // Máy in trong Sunmi: chỉ khi đã cài máy nội bộ Sunmi trên thiết bị này.
+    // Chưa cài (dù hardware có in) → cloud cho Agent / máy đã cài.
     if (!effectiveForceCloud &&
         !kIsWeb &&
         printer.isSunmi &&
@@ -1549,9 +1549,8 @@ class PosPrintOrchestrator {
           : PosLocalPrinterRoles.kitchenSlip;
       final ownedLocal = await PosLocalPrintersStore.instance
           .resolveOnDeviceForStorePrinter(printer, documentRole: role);
-      final localIsSunmi = ownedLocal == null ||
-          ownedLocal.connectionType == PosThermalConnectionType.sunmi;
-      if (localIsSunmi) {
+      if (ownedLocal != null &&
+          ownedLocal.connectionType == PosThermalConnectionType.sunmi) {
         return _printKitchenNativeOnThisDevice(
           printer: printer,
           tableName: tableName,
@@ -1564,10 +1563,12 @@ class PosPrintOrchestrator {
           successTitle: successTitle,
         );
       }
-      debugPrint(
-        'Kitchen DBG: bỏ native Sunmi — ${printer.name} map cổng '
-        '${ownedLocal!.connectionType} (${ownedLocal.name})',
-      );
+      if (ownedLocal != null) {
+        debugPrint(
+          'Kitchen DBG: bỏ native Sunmi — ${printer.name} map cổng '
+          '${ownedLocal.connectionType} (${ownedLocal.name})',
+        );
+      }
     }
 
     // In local trên thiết bị này (USB/BT/LAN nội bộ) khi không force cloud.
@@ -2566,9 +2567,10 @@ class PosPrintOrchestrator {
       );
     }
 
-    // Sunmi trên chính máy → in native cục bộ (không qua cloud).
+    // Sunmi trên chính máy → native chỉ khi đã cài máy in nội bộ.
     if (!forceRemote &&
         printer.isSunmi &&
+        await _canDispatchLocallyNow(printer) &&
         await PosPrinterTransport.isSunmiDevice()) {
       final settings = toThermalSettings(printer);
       final ok = await PosSunmiNativePrint.printTest(
@@ -2619,8 +2621,11 @@ class PosPrintOrchestrator {
     await ensureListening();
     final hasCloud = await refreshConfig();
 
-    // Agent trên chính máy + không forceCloud → native trực tiếp.
-    if (!forceCloud && await PosPrinterTransport.isSunmiDevice()) {
+    // Agent trên chính máy + đã cài Sunmi nội bộ + không forceCloud → native.
+    if (!forceCloud &&
+        printer.isSunmi &&
+        await _canDispatchLocallyNow(printer) &&
+        await PosPrinterTransport.isSunmiDevice()) {
       final settings = toThermalSettings(printer);
       final ok = await PosSunmiNativePrint.printTest(
         storeLabel: printer.name,
@@ -2946,8 +2951,8 @@ class PosPrintOrchestrator {
   }
 
   /// Cổng in thẳng từ máy gửi lệnh: phải có profile nội bộ khớp máy
-  /// (USB/BT/LAN/Sunmi). Không dùng lanHost/USB cloud khi máy này không cắm.
-  /// Sunmi built-in: in native nếu đây là máy Sunmi.
+  /// (USB/BT/LAN/Sunmi) — user đã cài máy in trên thiết bị này.
+  /// Hardware Sunmi chưa thêm vào «Máy in nội bộ» → false → đẩy cloud.
   /// Public cho màn Mẫu in — quyết định In thử local vs Agent.
   Future<bool> canProbeLocalPortForTest(PosStorePrinter printer) =>
       _canDispatchLocallyNow(printer);
@@ -2958,7 +2963,7 @@ class PosPrintOrchestrator {
         await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
     if (local == null ||
         !PosLocalPrintersStore.profileAllowsDirectLocal(local)) {
-      return printer.isSunmi && await PosPrinterTransport.isSunmiDevice();
+      return false;
     }
     if (printer.isLan ||
         local.connectionType == PosThermalConnectionType.lan) {

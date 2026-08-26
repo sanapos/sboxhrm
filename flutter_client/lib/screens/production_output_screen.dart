@@ -1,22 +1,93 @@
-import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
-import '../widgets/hrm_page_chrome.dart';
-import '../widgets/hrm_fab_clearance.dart';
-import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' as xl;
-import '../utils/file_saver.dart' as file_saver;
-import '../services/api_service.dart';
-import '../utils/responsive_helper.dart';
-import '../utils/report_screen_helpers.dart';
-import '../utils/branch_filter_helper.dart';
-import '../widgets/notification_overlay.dart';
-import '../widgets/app_scroll_safe.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
+
+import '../providers/permission_provider.dart';
+import '../services/api_service.dart';
+import '../utils/branch_filter_helper.dart';
+import '../utils/file_saver.dart' as file_saver;
+import '../utils/report_screen_helpers.dart';
+import '../utils/responsive_helper.dart';
+import '../widgets/app_scroll_safe.dart';
+import '../widgets/employee_search_picker.dart';
+import '../widgets/hrm_fab_clearance.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/notification_overlay.dart';
+import '../widgets/page_top_actions.dart';
+
+/// Parse Excel trên isolate — tránh đơ UI khi bấm Import file lớn.
+Map<String, dynamic> _parseProductionExcelIsolate(List<int> bytes) {
+  final excel = xl.Excel.decodeBytes(bytes);
+  if (excel.tables.isEmpty) {
+    return {'rows': <Map<String, dynamic>>[], 'hasDateColumn': false};
+  }
+  final sheet = excel.tables.values.first;
+  final rows = <Map<String, dynamic>>[];
+  var detectedDateCol = false;
+
+  if (sheet.maxRows > 0) {
+    final header = sheet.row(0);
+    final headerA = header.isNotEmpty
+        ? header[0]?.value?.toString().trim().toLowerCase() ?? ''
+        : '';
+    detectedDateCol = headerA.contains('ngày') ||
+        headerA.contains('date') ||
+        headerA.contains('ngay');
+  }
+
+  for (var i = 1; i < sheet.maxRows; i++) {
+    final row = sheet.row(i);
+    if (row.isEmpty) continue;
+
+    if (detectedDateCol) {
+      final dateStr =
+          row.isNotEmpty ? row[0]?.value?.toString().trim() ?? '' : '';
+      final empCode =
+          row.length > 1 ? row[1]?.value?.toString().trim() ?? '' : '';
+      final prodCode =
+          row.length > 2 ? row[2]?.value?.toString().trim() ?? '' : '';
+      final qty = row.length > 3
+          ? double.tryParse(row[3]?.value?.toString() ?? '') ?? 0.0
+          : 0.0;
+      final note =
+          row.length > 4 ? row[4]?.value?.toString().trim() ?? '' : '';
+      if (empCode.isNotEmpty && prodCode.isNotEmpty && qty > 0) {
+        rows.add({
+          'workDate': dateStr,
+          'employeeCode': empCode,
+          'productCode': prodCode,
+          'quantity': qty,
+          'note': note,
+        });
+      }
+    } else {
+      final empCode =
+          row.isNotEmpty ? row[0]?.value?.toString().trim() ?? '' : '';
+      final prodCode =
+          row.length > 1 ? row[1]?.value?.toString().trim() ?? '' : '';
+      final qty = row.length > 2
+          ? double.tryParse(row[2]?.value?.toString() ?? '') ?? 0.0
+          : 0.0;
+      final note =
+          row.length > 3 ? row[3]?.value?.toString().trim() ?? '' : '';
+      if (empCode.isNotEmpty && prodCode.isNotEmpty && qty > 0) {
+        rows.add({
+          'employeeCode': empCode,
+          'productCode': prodCode,
+          'quantity': qty,
+          'note': note,
+        });
+      }
+    }
+  }
+  return {'rows': rows, 'hasDateColumn': detectedDateCol};
+}
 
 class ProductionOutputScreen extends StatefulWidget {
   const ProductionOutputScreen({super.key});
@@ -26,6 +97,7 @@ class ProductionOutputScreen extends StatefulWidget {
 
 class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     with SingleTickerProviderStateMixin {
+  static const _accent = HrmPageChrome.primaryNavy;
   final ApiService _apiService = ApiService();
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
 
@@ -192,68 +264,47 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
-    const primary = Color(0xFF059669);
-    final canCreateProduction = isMobile &&
-        Provider.of<PermissionProvider>(context, listen: false)
-            .canCreate('Production');
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      floatingActionButton: canCreateProduction
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                if (_items.isEmpty) {
-                  NotificationOverlayManager().showError(
-                    title: 'Chưa có sản phẩm',
-                    message: tr('Vui lòng thêm sản phẩm trước khi nhập sản lượng'),
-                  );
-                  return;
-                }
-                _showAddEntryDialog();
-              },
-              icon: const Icon(Icons.add, size: 18),
-              label: Text(tr('Nhập SL')),
-              backgroundColor: primary,
-              foregroundColor: Colors.white,
-              elevation: 4,
-            )
-          : null,
-      body: Column(
-        children: [
-          _buildToolbarRow(),
-
-          Expanded(
-            child: HrmFabClearance(
-              fabVisible: canCreateProduction,
-              extendedFab: true,
-              child: Column(
-                children: [
-                  Container(
-                    color: Colors.white,
-                    child: TabBar(
-                      controller: _tabCtl,
-                      labelColor: primary,
-                      unselectedLabelColor: const Color(0xFF71717A),
-                      indicatorColor: primary,
-                      tabs: [
-                        Tab(text: tr('Chi tiết')),
-                        Tab(text: tr('Tổng hợp')),
-                      ],
+    final fabVisible = isMobile && _buildTopActions().isNotEmpty;
+    return RegisterPageTopActions(
+      actions: _buildTopActions(),
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        body: Column(
+          children: [
+            _buildToolbarRow(),
+            Expanded(
+              child: HrmFabClearance(
+                fabVisible: fabVisible,
+                child: Column(
+                  children: [
+                    Container(
+                      color: Colors.white,
+                      child: TabBar(
+                        controller: _tabCtl,
+                        labelColor: _accent,
+                        unselectedLabelColor: const Color(0xFF71717A),
+                        indicatorColor: _accent,
+                        tabs: [
+                          Tab(text: tr('Chi tiết')),
+                          Tab(text: tr('Tổng hợp')),
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabCtl,
-                      children: [
-                        _buildEntriesTab(),
-                        _buildSummaryTab(),
-                      ],
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabCtl,
+                        children: [
+                          _buildEntriesTab(),
+                          _buildSummaryTab(),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -271,25 +322,6 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     if (_filterItemId != null) n++;
     if (_filterBranchId != null) n++;
     return n;
-  }
-
-  List<Map<String, dynamic>> get _filterableEmployees {
-    var list = _employees;
-    if (_filterBranchId != null) {
-      list = list
-          .where((e) => e['branchId']?.toString() == _filterBranchId)
-          .toList();
-    }
-    return list
-        .where((e) => (e['id']?.toString() ?? '').isNotEmpty)
-        .toList();
-  }
-
-  List<Map<String, dynamic>> get _filterableItems {
-    if (_filterGroupId == null) return _items;
-    return _items
-        .where((i) => i['productGroupId']?.toString() == _filterGroupId)
-        .toList();
   }
 
   String _employeeLabel(String id) {
@@ -319,14 +351,65 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           ?.toString() ??
       id;
 
-  String _branchLabel(String id) =>
-      _branches
-          .firstWhere(
-            (b) => b['id']?.toString() == id,
-            orElse: () => <String, dynamic>{'name': id},
-          )['name']
-          ?.toString() ??
-      id;
+  List<EmployeePickerItem> _pickerEmployees(
+          [List<Map<String, dynamic>>? src]) =>
+      EmployeePickerItem.fromMaps(src ?? _employees);
+
+  void _openAddEntry() {
+    if (_items.isEmpty) {
+      NotificationOverlayManager().showError(
+        title: 'Chưa có sản phẩm',
+        message: tr('Vui lòng thêm sản phẩm trước khi nhập sản lượng'),
+      );
+      return;
+    }
+    _showAddEntryDialog();
+  }
+
+  List<Widget> _buildTopActions() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canCreate = perm.canCreate('Production');
+    final canExport = perm.canExport('Production');
+    return [
+      HrmTopBarAction(
+        icon: Icons.refresh,
+        label: 'Tải lại',
+        onPressed: _reloadCurrentTab,
+      ),
+      if (canExport)
+        HrmTopBarAction(
+          icon: Icons.file_download_outlined,
+          label: 'Xuất Excel',
+          onPressed: _isExporting ? null : _exportExcel,
+        ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: Icons.table_chart_outlined,
+          label: 'Import Excel',
+          onPressed: _showExcelImportDialog,
+        ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: Icons.cloud_download_outlined,
+          label: 'Đồng bộ Google Sheet',
+          onPressed: _showGSheetSyncDialog,
+        ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: Icons.inventory_2_outlined,
+          label: 'Thêm sản phẩm',
+          onPressed: _showAddProductDialog,
+        ),
+      if (canCreate)
+        HrmTopBarAction(
+          icon: Icons.add,
+          label: 'Nhập sản lượng',
+          primary: true,
+          showLabel: true,
+          onPressed: _openAddEntry,
+        ),
+    ];
+  }
 
   void _clearFilters() {
     setState(() {
@@ -338,180 +421,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     _reloadCurrentTab();
   }
 
-  String? _validDropdownValue(String? value, Iterable<String?> options) {
-    if (value == null || value.isEmpty) return null;
-    for (final o in options) {
-      if (o == value) return value;
-    }
-    return null;
-  }
-
-  void _showMobileImportMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2)),
-            ),
-            ListTile(
-              leading: const Icon(Icons.table_chart, color: Color(0xFF059669)),
-              title: Text(tr('Import từ Excel')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showExcelImportDialog();
-              },
-            ),
-            ListTile(
-              leading:
-                  const Icon(Icons.cloud_download, color: Color(0xFF1A73E8)),
-              title: Text(tr('Đồng bộ Google Sheet')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showGSheetSyncDialog();
-              },
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildToolbarRow() {
     final isMobile = Responsive.isMobile(context);
-    const primary = Color(0xFF059669);
-    final perm = Provider.of<PermissionProvider>(context, listen: false);
-    final canCreate = perm.canCreate('Production');
-    final canExport = perm.canExport('Production');
-
-    Widget buildActions({bool compact = false}) {
-      final importBtn = compact
-          ? IconButton(
-              tooltip: tr('Import dữ liệu'),
-              onPressed: () => _showMobileImportMenu(context),
-              icon: const Icon(Icons.file_upload_outlined, size: 20),
-              style: IconButton.styleFrom(foregroundColor: primary),
-            )
-          : PopupMenuButton<String>(
-              tooltip: tr('Import dữ liệu'),
-              icon: const Icon(Icons.file_upload_outlined, size: 18),
-              padding: EdgeInsets.zero,
-              onSelected: (v) {
-                if (v == 'excel') _showExcelImportDialog();
-                if (v == 'gsheet') _showGSheetSyncDialog();
-              },
-              itemBuilder: (ctx) => [
-                PopupMenuItem(
-                    value: 'excel',
-                    child: Row(children: [
-                      Icon(Icons.table_chart,
-                          size: 18, color: Color(0xFF059669)),
-                      SizedBox(width: 8),
-                      Text(tr('Import từ Excel')),
-                    ])),
-                PopupMenuItem(
-                    value: 'gsheet',
-                    child: Row(children: [
-                      Icon(Icons.cloud_download,
-                          size: 18, color: Color(0xFF1A73E8)),
-                      SizedBox(width: 8),
-                      Text(tr('Đồng bộ Google Sheet')),
-                    ])),
-              ],
-            );
-
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (canExport)
-            compact
-                ? IconButton(
-                    tooltip: tr('Xuất Excel'),
-                    onPressed: _isExporting ? null : _exportExcel,
-                    icon: _isExporting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.file_download_outlined, size: 20),
-                    style: IconButton.styleFrom(foregroundColor: primary),
-                  )
-                : OutlinedButton.icon(
-                    onPressed: _isExporting ? null : _exportExcel,
-                    icon: _isExporting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.file_download_outlined, size: 16),
-                    label: Text(tr(_isExporting ? 'Đang xuất...' : 'Xuất Excel'),
-                        style: const TextStyle(fontSize: 13)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: primary,
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                    ),
-                  ),
-          importBtn,
-          if (canCreate) ...[
-            compact
-                ? IconButton(
-                    tooltip: tr('Thêm sản phẩm'),
-                    onPressed: _showAddProductDialog,
-                    icon: const Icon(Icons.inventory_2_outlined, size: 20),
-                    style: IconButton.styleFrom(foregroundColor: primary),
-                  )
-                : OutlinedButton.icon(
-                    onPressed: _showAddProductDialog,
-                    icon: const Icon(Icons.inventory_2_outlined, size: 16),
-                    label: Text(tr('Thêm SP'),
-                        style: TextStyle(fontSize: 13)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: primary,
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                    ),
-                  ),
-            if (!compact)
-              FilledButton.icon(
-                onPressed: () {
-                  if (_items.isEmpty) {
-                    NotificationOverlayManager().showError(
-                      title: 'Chưa có sản phẩm',
-                      message: tr('Vui lòng thêm sản phẩm trước khi nhập sản lượng'),
-                    );
-                    return;
-                  }
-                  _showAddEntryDialog();
-                },
-                icon: const Icon(Icons.add, size: 16),
-                label: Text(tr('Nhập SL'),
-                    style: TextStyle(fontSize: 13)),
-                style: FilledButton.styleFrom(
-                  backgroundColor: primary,
-                  visualDensity: VisualDensity.compact,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                ),
-              ),
-          ],
-        ],
-      );
-    }
-
     final toolbarContent = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -519,132 +430,31 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         const SizedBox(width: 8),
         _buildCompactDateRange(),
         const SizedBox(width: 8),
-        if (isMobile) ...[
-          OutlinedButton.icon(
-            onPressed: _showFilterSheet,
-            icon: Badge(
-              isLabelVisible: _activeFilterCount > 0,
-              label: Text(tr('$_activeFilterCount'),
-                  style: const TextStyle(fontSize: 10)),
-              child: const Icon(Icons.tune, size: 16),
-            ),
-            label: Text(
-              tr(_activeFilterCount > 0 ? 'Lọc ($_activeFilterCount)' : 'Lọc'),
-              style: const TextStyle(fontSize: 12),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: primary,
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            ),
+        OutlinedButton.icon(
+          onPressed: _showFilterSheet,
+          icon: Badge(
+            isLabelVisible: _activeFilterCount > 0,
+            label: Text(tr('$_activeFilterCount'),
+                style: const TextStyle(fontSize: 10)),
+            child: const Icon(Icons.tune, size: 16),
           ),
-        ] else ...[
-          SizedBox(
-              width: 150,
-              child: _buildFilterDropdownField(
-                label: 'Nhân viên',
-                value: _filterEmployeeId,
-                items: [
-                  DropdownMenuItem<String?>(
-                      value: null, child: Text(tr('Tất cả NV'))),
-                  ..._filterableEmployees.map((e) {
-                    final name =
-                        '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'
-                            .trim();
-                    return DropdownMenuItem<String?>(
-                      value: e['id']?.toString(),
-                      child:
-                          Text(tr(name), overflow: TextOverflow.ellipsis),
-                    );
-                  }),
-                ],
-                onChanged: (v) {
-                  setState(() => _filterEmployeeId = v);
-                  _reloadCurrentTab();
-                },
-              )),
-          const SizedBox(width: 6),
-          SizedBox(
-              width: 120,
-              child: _buildFilterDropdownField(
-                label: 'Nhóm',
-                value: _filterGroupId,
-                items: [
-                  DropdownMenuItem<String?>(
-                      value: null, child: Text(tr('Tất cả'))),
-                  ..._groups.map((g) => DropdownMenuItem<String?>(
-                        value: g['id']?.toString(),
-                        child: Text(tr(g['name']?.toString() ?? ''),
-                            overflow: TextOverflow.ellipsis),
-                      )),
-                ],
-                onChanged: (v) {
-                  setState(() {
-                    _filterGroupId = v;
-                    if (_filterItemId != null &&
-                        !_filterableItems.any((i) =>
-                            i['id']?.toString() == _filterItemId)) {
-                      _filterItemId = null;
-                    }
-                  });
-                  _reloadCurrentTab();
-                },
-              )),
-          const SizedBox(width: 6),
-          SizedBox(
-              width: 120,
-              child: _buildFilterDropdownField(
-                label: 'Sản phẩm',
-                value: _filterItemId,
-                items: [
-                  DropdownMenuItem<String?>(
-                      value: null, child: Text(tr('Tất cả'))),
-                  ..._filterableItems.map((i) => DropdownMenuItem<String?>(
-                        value: i['id']?.toString(),
-                        child: Text(tr(i['name']?.toString() ?? ''),
-                            overflow: TextOverflow.ellipsis),
-                      )),
-                ],
-                onChanged: (v) {
-                  setState(() => _filterItemId = v);
-                  _reloadCurrentTab();
-                },
-              )),
-          if (BranchFilterHelper.showBranchFilter(_branches)) ...[
-            const SizedBox(width: 6),
-            SizedBox(
-                width: 120,
-                child: _buildFilterDropdownField(
-                  label: 'Chi nhánh',
-                  value: _filterBranchId,
-                  items: [
-                    DropdownMenuItem<String?>(
-                        value: null, child: Text(tr('Tất cả'))),
-                    ..._branches.map((b) => DropdownMenuItem<String?>(
-                          value: b['id']?.toString(),
-                          child: Text(tr(b['name']?.toString() ?? ''),
-                              overflow: TextOverflow.ellipsis),
-                        )),
-                  ],
-                  onChanged: (v) {
-                    setState(() {
-                      _filterBranchId = v;
-                      if (v != null) _filterEmployeeId = null;
-                    });
-                    _reloadCurrentTab();
-                  },
-                )),
-          ],
-          if (_hasActiveFilters)
-            IconButton(
-              tooltip: tr('Xóa bộ lọc'),
-              onPressed: _clearFilters,
-              icon: const Icon(Icons.filter_alt_off, size: 18),
-              visualDensity: VisualDensity.compact,
-            ),
-        ],
-        const Spacer(),
-        buildActions(compact: isMobile),
+          label: Text(
+            tr(_activeFilterCount > 0 ? 'Lọc ($_activeFilterCount)' : 'Lọc'),
+            style: const TextStyle(fontSize: 12),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _accent,
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          ),
+        ),
+        if (_hasActiveFilters)
+          IconButton(
+            tooltip: tr('Xóa bộ lọc'),
+            onPressed: _clearFilters,
+            icon: const Icon(Icons.filter_alt_off, size: 18),
+            visualDensity: VisualDensity.compact,
+          ),
       ],
     );
 
@@ -684,7 +494,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       fillColor: Colors.white,
       labelStyle: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
       floatingLabelStyle:
-          const TextStyle(fontSize: 12, color: Color(0xFF059669)),
+          const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
@@ -696,7 +506,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFF059669)),
+        borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
       ),
     );
   }
@@ -894,29 +704,6 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     }
   }
 
-  Widget _buildFilterDropdownField({
-    required String label,
-    required String? value,
-    required List<DropdownMenuItem<String?>> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    final safeValue = _validDropdownValue(
-      value,
-      items.map((i) => i.value),
-    );
-    return DropdownButtonFormField<String?>(
-      key: ValueKey('$label-$safeValue'),
-      initialValue: safeValue,
-      isExpanded: true,
-      dropdownColor: Colors.white,
-      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6B7280)),
-      decoration: _toolbarFieldDecoration(label),
-      style: _toolbarFieldText,
-      items: items,
-      onChanged: onChanged,
-    );
-  }
-
   void _showFilterSheet() {
     var employeeId = _filterEmployeeId;
     var groupId = _filterGroupId;
@@ -997,29 +784,17 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   ),
                   const SizedBox(height: 10),
                 ],
-                DropdownButtonFormField<String?>(
+                EmployeePickerFormField(
                   key: ValueKey('sheet-emp-$employeeId'),
-                  initialValue: employeeId,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: tr('Nhân viên'),
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: [
-                    DropdownMenuItem<String?>(
-                        value: null, child: Text(tr('Tất cả nhân viên'))),
-                    ...sheetEmployees.map((e) {
-                      final name =
-                          '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'
-                              .trim();
-                      return DropdownMenuItem<String?>(
-                        value: e['id']?.toString(),
-                        child: Text(tr(name)),
-                      );
-                    }),
-                  ],
-                  onChanged: (v) => setSheet(() => employeeId = v),
+                  candidates: _pickerEmployees(sheetEmployees),
+                  selectedId: employeeId,
+                  allowClear: true,
+                  labelText: 'Nhân viên',
+                  hintText: 'Tất cả nhân viên',
+                  pickerTitle: 'Lọc nhân viên',
+                  presentation: EmployeePickerPresentation.bottomSheet,
+                  onChanged: (picked) =>
+                      setSheet(() => employeeId = picked?.id),
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String?>(
@@ -1087,7 +862,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   icon: const Icon(Icons.check, size: 18),
                   label: Text(tr('Áp dụng')),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF059669),
+                    backgroundColor: HrmPageChrome.primaryNavy,
                     minimumSize: const Size(double.infinity, 44),
                   ),
                 ),
@@ -1136,7 +911,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           title: Row(
             children: [
               Icon(Icons.inventory_2_outlined,
-                  size: 22, color: Color(0xFF059669)),
+                  size: 22, color: HrmPageChrome.primaryNavy),
               SizedBox(width: 8),
               Text(tr('Thêm sản phẩm')),
             ],
@@ -1270,7 +1045,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 }
               },
               style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF059669)),
+                  backgroundColor: HrmPageChrome.primaryNavy),
               child: Text(tr('Thêm')),
             ),
           ],
@@ -1322,7 +1097,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               }
             },
             style:
-                FilledButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+                FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
             child: Text(tr('Thêm')),
           ),
         ],
@@ -1362,6 +1137,18 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     const SizedBox(height: 16),
                     Text(tr('Chưa có dữ liệu sản lượng'),
                         style: TextStyle(color: Colors.grey[500])),
+                    if (Provider.of<PermissionProvider>(context, listen: false)
+                        .canCreate('Production')) ...[
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: _openAddEntry,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: Text(tr('Nhập sản lượng')),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: HrmPageChrome.primaryNavy,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -1505,7 +1292,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   Widget _buildEntryCard(Map<String, dynamic> entry, int index) {
     final workDate = DateTime.tryParse(entry['workDate'] ?? '');
     final amount = _toDouble(entry['amount']);
-    const primary = Color(0xFF059669);
+    const primary = HrmPageChrome.primaryNavy;
 
     return Container(
       decoration: BoxDecoration(
@@ -1749,11 +1536,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       CircleAvatar(
                         radius: 20,
                         backgroundColor:
-                            const Color(0xFF059669).withValues(alpha: 0.1),
+                            HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                         child: Text(
                           tr('${e.key + 1}'),
                           style: const TextStyle(
-                              color: Color(0xFF059669),
+                              color: HrmPageChrome.primaryNavy,
                               fontWeight: FontWeight.w700),
                         ),
                       ),
@@ -1780,7 +1567,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                             style: const TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 16,
-                                color: Color(0xFF059669)),
+                                color: HrmPageChrome.primaryNavy),
                           ),
                           Text(tr('${tr('Tổng SL: ')}${summary['totalQuantity'] ?? 0}'),
                             style: const TextStyle(
@@ -1809,7 +1596,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                 style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF059669)),
+                                    color: HrmPageChrome.primaryNavy),
                               ),
                             ],
                           ),
@@ -1840,92 +1627,37 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Employee + Date row
-          if (isMobile) ...[
-            DropdownButtonFormField<String>(
-              initialValue: selEmployeeId,
+          EmployeePickerFormField(
+            candidates: _pickerEmployees(),
+            selectedId: selEmployeeId,
+            labelText: 'Nhân viên *',
+            pickerTitle: 'Chọn nhân viên',
+            presentation: isMobile
+                ? EmployeePickerPresentation.bottomSheet
+                : EmployeePickerPresentation.fullScreen,
+            onChanged: (picked) =>
+                setDlgState(() => selEmployeeId = picked?.id),
+          ),
+          const SizedBox(height: 12),
+          InkWell(
+            onTap: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: workDate,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030),
+              );
+              if (picked != null) setDlgState(() => workDate = picked);
+            },
+            child: InputDecorator(
               decoration: InputDecoration(
-                  labelText: tr('Nhân viên *'),
+                  labelText: tr('Ngày *'),
                   border: OutlineInputBorder(),
                   isDense: true),
-              items: _employees.map((e) {
-                final name =
-                    '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
-                return DropdownMenuItem(
-                    value: e['id']?.toString(),
-                    child: Text(tr('$name (${e['employeeCode'] ?? ''})')));
-              }).toList(),
-              onChanged: (v) => setDlgState(() => selEmployeeId = v),
+              child: Text(tr(DateFormat('dd/MM/yyyy').format(workDate)),
+                  style: const TextStyle(fontSize: 14)),
             ),
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: workDate,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2030),
-                );
-                if (picked != null) setDlgState(() => workDate = picked);
-              },
-              child: InputDecorator(
-                decoration: InputDecoration(
-                    labelText: tr('Ngày *'),
-                    border: OutlineInputBorder(),
-                    isDense: true),
-                child: Text(tr(DateFormat('dd/MM/yyyy').format(workDate)),
-                    style: const TextStyle(fontSize: 14)),
-              ),
-            ),
-          ] else
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: selEmployeeId,
-                    decoration: InputDecoration(
-                        labelText: tr('Nhân viên *'),
-                        border: OutlineInputBorder(),
-                        isDense: true),
-                    items: _employees.map((e) {
-                      final name =
-                          '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'
-                              .trim();
-                      return DropdownMenuItem(
-                          value: e['id']?.toString(),
-                          child: Text(tr('$name (${e['employeeCode'] ?? ''})')));
-                    }).toList(),
-                    onChanged: (v) => setDlgState(() => selEmployeeId = v),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: InkWell(
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: workDate,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
-                      if (picked != null) {
-                        setDlgState(() => workDate = picked);
-                      }
-                    },
-                    child: InputDecorator(
-                      decoration: InputDecoration(
-                          labelText: tr('Ngày *'),
-                          border: OutlineInputBorder(),
-                          isDense: true),
-                      child: Text(tr(DateFormat('dd/MM/yyyy').format(workDate)),
-                          style: const TextStyle(fontSize: 14)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          ),
           const SizedBox(height: 16),
           // Header
           Row(
@@ -1961,25 +1693,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     Row(
                       children: [
                         Expanded(
-                          child: DropdownButtonFormField<String>(
-                            initialValue: line.productItemId,
-                            decoration: InputDecoration(
-                                hintText: tr('Chọn sản phẩm'),
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 10)),
-                            isExpanded: true,
-                            items: _items.map((item) {
-                              final gn = item['productGroupName'] ??
-                                  item['groupName'] ??
-                                  '';
-                              return DropdownMenuItem(
-                                  value: item['id']?.toString(),
-                                  child: Text(tr('${item['name']} ($gn)'),
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontSize: 13)));
-                            }).toList(),
+                          child: _CatalogPickerField(
+                            items: _items,
+                            selectedId: line.productItemId,
+                            hint: 'Chọn sản phẩm',
                             onChanged: (v) =>
                                 setDlgState(() => line.productItemId = v),
                           ),
@@ -2037,24 +1754,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 children: [
                   Expanded(
                     flex: 4,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: line.productItemId,
-                      decoration: InputDecoration(
-                          hintText: tr('Chọn SP'),
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 10)),
-                      isExpanded: true,
-                      items: _items.map((item) {
-                        final gn =
-                            item['productGroupName'] ?? item['groupName'] ?? '';
-                        return DropdownMenuItem(
-                            value: item['id']?.toString(),
-                            child: Text(tr('${item['name']} ($gn)'),
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 13)));
-                      }).toList(),
+                    child: _CatalogPickerField(
+                      items: _items,
+                      selectedId: line.productItemId,
+                      hint: 'Chọn SP',
                       onChanged: (v) =>
                           setDlgState(() => line.productItemId = v),
                     ),
@@ -2169,7 +1872,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
                   ),
-                  backgroundColor: const Color(0xFF059669),
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   foregroundColor: Colors.white,
                   actions: [
                     TextButton(
@@ -2232,31 +1935,22 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          DropdownButtonFormField<String>(
-            initialValue: selEmployeeId,
-            decoration: InputDecoration(
-                labelText: tr('Nhân viên *'), border: OutlineInputBorder()),
-            items: _employees.map((e) {
-              final name =
-                  '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
-              return DropdownMenuItem(
-                  value: e['id']?.toString(),
-                  child: Text(tr('$name (${e['employeeCode'] ?? ''})')));
-            }).toList(),
-            onChanged: (v) => setDlgState(() => selEmployeeId = v),
+          EmployeePickerFormField(
+            candidates: _pickerEmployees(),
+            selectedId: selEmployeeId,
+            labelText: 'Nhân viên *',
+            pickerTitle: 'Chọn nhân viên',
+            presentation: isMobile
+                ? EmployeePickerPresentation.bottomSheet
+                : EmployeePickerPresentation.fullScreen,
+            onChanged: (picked) =>
+                setDlgState(() => selEmployeeId = picked?.id),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: selItemId,
-            decoration: InputDecoration(
-                labelText: tr('Sản phẩm *'), border: OutlineInputBorder()),
-            items: _items.map((item) {
-              final groupName =
-                  item['productGroupName'] ?? item['groupName'] ?? '';
-              return DropdownMenuItem(
-                  value: item['id']?.toString(),
-                  child: Text(tr('${item['name']} ($groupName)')));
-            }).toList(),
+          _CatalogPickerField(
+            items: _items,
+            selectedId: selItemId,
+            label: 'Sản phẩm *',
             onChanged: (v) => setDlgState(() => selItemId = v),
           ),
           const SizedBox(height: 12),
@@ -2331,7 +2025,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
                   ),
-                  backgroundColor: const Color(0xFF059669),
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   foregroundColor: Colors.white,
                   actions: [
                     TextButton(
@@ -2505,8 +2199,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     label: Text(tr('Tải file mẫu'),
                         style: TextStyle(fontSize: 13)),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF059669),
-                      side: const BorderSide(color: Color(0xFF059669)),
+                      foregroundColor: HrmPageChrome.primaryNavy,
+                      side: const BorderSide(color: HrmPageChrome.primaryNavy),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -2548,95 +2242,18 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     if (result == null || result.files.single.bytes == null) {
                       return;
                     }
+                    setDlgState(() => isParsed = false);
                     try {
-                      final excel =
-                          xl.Excel.decodeBytes(result.files.single.bytes!);
-                      final sheet = excel.tables.values.first;
-                      final rows = <Map<String, dynamic>>[];
-                      bool detectedDateCol = false;
-
-                      // Detect if column A is a date column by checking header
-                      if (sheet.maxRows > 0) {
-                        final header = sheet.row(0);
-                        final headerA = header.isNotEmpty
-                            ? header[0]
-                                    ?.value
-                                    ?.toString()
-                                    .trim()
-                                    .toLowerCase() ??
-                                ''
-                            : '';
-                        detectedDateCol = headerA.contains('ngày') ||
-                            headerA.contains('date') ||
-                            headerA.contains('ngay');
-                      }
-
-                      for (int i = 1; i < sheet.maxRows; i++) {
-                        final row = sheet.row(i);
-                        if (row.isEmpty) continue;
-
-                        if (detectedDateCol) {
-                          // Format: Date | EmpCode | ProdCode | Qty | Note
-                          final dateStr = row.isNotEmpty
-                              ? row[0]?.value?.toString().trim() ?? ''
-                              : '';
-                          final empCode = row.length > 1
-                              ? row[1]?.value?.toString().trim() ?? ''
-                              : '';
-                          final prodCode = row.length > 2
-                              ? row[2]?.value?.toString().trim() ?? ''
-                              : '';
-                          final qty = row.length > 3
-                              ? double.tryParse(
-                                      row[3]?.value?.toString() ?? '') ??
-                                  0.0
-                              : 0.0;
-                          final note = row.length > 4
-                              ? row[4]?.value?.toString().trim() ?? ''
-                              : '';
-                          if (empCode.isNotEmpty &&
-                              prodCode.isNotEmpty &&
-                              qty > 0) {
-                            rows.add({
-                              'workDate': dateStr,
-                              'employeeCode': empCode,
-                              'productCode': prodCode,
-                              'quantity': qty,
-                              'note': note,
-                            });
-                          }
-                        } else {
-                          // Legacy format: EmpCode | ProdCode | Qty | Note
-                          final empCode = row.isNotEmpty
-                              ? row[0]?.value?.toString().trim() ?? ''
-                              : '';
-                          final prodCode = row.length > 1
-                              ? row[1]?.value?.toString().trim() ?? ''
-                              : '';
-                          final qty = row.length > 2
-                              ? double.tryParse(
-                                      row[2]?.value?.toString() ?? '') ??
-                                  0.0
-                              : 0.0;
-                          final note = row.length > 3
-                              ? row[3]?.value?.toString().trim() ?? ''
-                              : '';
-                          if (empCode.isNotEmpty &&
-                              prodCode.isNotEmpty &&
-                              qty > 0) {
-                            rows.add({
-                              'employeeCode': empCode,
-                              'productCode': prodCode,
-                              'quantity': qty,
-                              'note': note,
-                            });
-                          }
-                        }
-                      }
+                      final parsed = await compute(
+                        _parseProductionExcelIsolate,
+                        result.files.single.bytes!.toList(),
+                      );
                       setDlgState(() {
-                        previewRows = rows;
+                        previewRows = List<Map<String, dynamic>>.from(
+                            (parsed['rows'] as List).map(
+                                (e) => Map<String, dynamic>.from(e as Map)));
                         isParsed = true;
-                        hasDateColumn = detectedDateCol;
+                        hasDateColumn = parsed['hasDateColumn'] == true;
                       });
                     } catch (e) {
                       appNotification.showError(
@@ -2663,13 +2280,13 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF059669).withValues(alpha: 0.1),
+                          color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(tr('Có cột Ngày'),
                             style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF059669),
+                                color: HrmPageChrome.primaryNavy,
                                 fontWeight: FontWeight.w500)),
                       ),
                     ],
@@ -2750,7 +2367,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   leading: IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: () => Navigator.pop(ctx)),
-                  backgroundColor: const Color(0xFF059669),
+                  backgroundColor: HrmPageChrome.primaryNavy,
                   foregroundColor: Colors.white,
                   actions: [
                     TextButton(
@@ -2773,7 +2390,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                Icon(Icons.table_chart, color: Color(0xFF059669), size: 24),
+                Icon(Icons.table_chart, color: HrmPageChrome.primaryNavy, size: 24),
                 SizedBox(width: 8),
                 Text(tr('Import từ Excel')),
               ],
@@ -2997,11 +2614,11 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 Row(
                   children: [
                     const Icon(Icons.check_circle,
-                        color: Color(0xFF059669), size: 16),
+                        color: HrmPageChrome.primaryNavy, size: 16),
                     const SizedBox(width: 4),
                     Text(tr('Đã kết nối (${sheetNames.length} sheets)'),
                         style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF059669))),
+                            fontSize: 12, color: HrmPageChrome.primaryNavy)),
                     const Spacer(),
                     TextButton(
                       onPressed: () {
@@ -3063,7 +2680,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                     Text(tr('Tự nhận ngày từ tên tab'),
                                         style: TextStyle(
                                             fontSize: 10,
-                                            color: Color(0xFF059669))),
+                                            color: HrmPageChrome.primaryNavy)),
                                 ],
                               ),
                             ),
@@ -3232,4 +2849,175 @@ class _BatchLine {
   String? productItemId;
   final TextEditingController qtyCtl = TextEditingController();
   final TextEditingController noteCtl = TextEditingController();
+}
+
+/// Ô chọn sản phẩm có tìm kiếm — không dựng dropdown hàng trăm item (đơ máy).
+class _CatalogPickerField extends StatelessWidget {
+  const _CatalogPickerField({
+    required this.items,
+    required this.onChanged,
+    this.selectedId,
+    this.label,
+    this.hint = 'Chọn sản phẩm',
+  });
+
+  final List<Map<String, dynamic>> items;
+  final String? selectedId;
+  final String? label;
+  final String hint;
+  final ValueChanged<String?> onChanged;
+
+  String _labelOf(Map<String, dynamic> item) {
+    final name = item['name']?.toString() ?? '';
+    final gn =
+        (item['productGroupName'] ?? item['groupName'] ?? '').toString();
+    return gn.isEmpty ? name : '$name ($gn)';
+  }
+
+  Future<void> _open(BuildContext context) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        var query = '';
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            final q = query.trim().toLowerCase();
+            final filtered = q.isEmpty
+                ? items
+                : items.where((i) {
+                    final name = (i['name']?.toString() ?? '').toLowerCase();
+                    final code = (i['code']?.toString() ?? '').toLowerCase();
+                    final gn = (i['productGroupName'] ?? i['groupName'] ?? '')
+                        .toString()
+                        .toLowerCase();
+                    return name.contains(q) ||
+                        code.contains(q) ||
+                        gn.contains(q);
+                  }).toList();
+            return SizedBox(
+              height: MediaQuery.sizeOf(ctx).height * 0.7,
+              child: Column(
+                children: [
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE4E4E7),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(tr('Chọn sản phẩm'),
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w700)),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: TextField(
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: tr('Tìm tên, mã, nhóm...'),
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        isDense: true,
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onChanged: (v) => setSheet(() => query = v),
+                    ),
+                  ),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? Center(child: Text(tr('Không tìm thấy sản phẩm')))
+                        : ListView.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1, indent: 16),
+                            itemBuilder: (_, i) {
+                              final item = filtered[i];
+                              final id = item['id']?.toString();
+                              final sel = id == selectedId;
+                              return ListTile(
+                                selected: sel,
+                                title: Text(tr(_labelOf(item)),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis),
+                                subtitle: (item['code']?.toString() ?? '')
+                                        .isEmpty
+                                    ? null
+                                    : Text(tr(item['code'].toString())),
+                                trailing: sel
+                                    ? const Icon(Icons.check_circle,
+                                        color: HrmPageChrome.primaryNavy)
+                                    : null,
+                                onTap: () => Navigator.pop(ctx, id),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    if (picked != null) onChanged(picked);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Map<String, dynamic>? sel;
+    if (selectedId != null) {
+      for (final i in items) {
+        if (i['id']?.toString() == selectedId) {
+          sel = i;
+          break;
+        }
+      }
+    }
+    return InkWell(
+      onTap: () => _open(context),
+      borderRadius: BorderRadius.circular(8),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label == null ? null : tr(label!),
+          hintText: tr(hint),
+          border: const OutlineInputBorder(),
+          isDense: true,
+          suffixIcon: const Icon(Icons.arrow_drop_down),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        ),
+        child: Text(
+          tr(sel == null ? hint : _labelOf(sel)),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            color: sel == null ? const Color(0xFF9CA3AF) : const Color(0xFF111827),
+          ),
+        ),
+      ),
+    );
+  }
 }

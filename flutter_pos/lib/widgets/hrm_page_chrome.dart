@@ -375,6 +375,30 @@ class HrmFilterBar extends StatelessWidget {
     );
   }
 
+  /// Mobile: 2 cột gọn, không xếp 4 dropdown dọc.
+  static List<Widget> mobileGrid(
+    List<Widget> fields, {
+    double gap = 8,
+  }) {
+    final rows = <Widget>[];
+    for (var i = 0; i < fields.length; i += 2) {
+      if (i > 0) rows.add(SizedBox(height: gap));
+      if (i + 1 < fields.length) {
+        rows.add(Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: fields[i]),
+            SizedBox(width: gap),
+            Expanded(child: fields[i + 1]),
+          ],
+        ));
+      } else {
+        rows.add(fields[i]);
+      }
+    }
+    return rows;
+  }
+
   /// Mobile: xếp filter full-width (tránh cắt chữ trong 2 cột hẹp).
   static List<Widget> mobileStack(
     List<Widget> fields, {

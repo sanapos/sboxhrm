@@ -376,6 +376,40 @@ class ApiService {
     return false;
   }
 
+  Future<String> getAccessDeviceKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('sbox_access_device_key') ?? '';
+  }
+
+  Future<Map<String, dynamic>> getStoreAccessDevices() async {
+    final key = await getAccessDeviceKey();
+    try {
+      final uri = Uri.parse('$baseUrl/api/store/access-devices').replace(
+        queryParameters: key.isEmpty ? null : {'deviceKey': key},
+      );
+      final response = await _retryOnUnauthorized(() => http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 12)));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> releaseStoreAccessDevice(String id) async {
+    try {
+      final response = await _retryOnUnauthorized(() => http
+          .delete(
+            Uri.parse('$baseUrl/api/store/access-devices/$id'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 12)));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   bool _sessionExpiredTriggered = false;
   DateTime? _lastSessionExpiredAt;
 
@@ -11257,6 +11291,34 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> copyBiometrics({
+    required String sourceDeviceId,
+    required String targetDeviceId,
+    List<String>? sourceUserIds,
+    bool includeFingerprints = true,
+    bool includeFaces = true,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'sourceDeviceId': sourceDeviceId,
+        'targetDeviceId': targetDeviceId,
+        'includeFingerprints': includeFingerprints,
+        'includeFaces': includeFaces,
+      };
+      if (sourceUserIds != null && sourceUserIds.isNotEmpty) {
+        body['sourceUserIds'] = sourceUserIds;
+      }
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/biometrics/copy'),
+        headers: _headers,
+        body: json.encode(body),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   // ==================== GEOFENCES ====================
   Future<Map<String, dynamic>> getGeofences() async {
     try {
@@ -14296,6 +14358,24 @@ class ApiService {
             Uri.parse('$baseUrl/api/pos/products/$id/sale-quick-notes'),
             headers: _headers,
             body: jsonEncode({'note': note}),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> removePosProductSaleQuickNote(
+    String id,
+    String note,
+  ) async {
+    try {
+      final response = await http
+          .patch(
+            Uri.parse('$baseUrl/api/pos/products/$id/sale-quick-notes'),
+            headers: _headers,
+            body: jsonEncode({'note': note, 'remove': true}),
           )
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
@@ -18847,6 +18927,104 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> posTingeeStatus() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/tingee/status'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> posTingeeLinkBank({
+    required String bankBin,
+    required String accountNumber,
+    required String accountName,
+    String? identity,
+    String? mobile,
+    String accountType = 'personal-account',
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/tingee/link-bank'),
+            headers: _headers,
+            body: jsonEncode({
+              'bankBin': bankBin,
+              'accountNumber': accountNumber,
+              'accountName': accountName,
+              if (identity != null) 'identity': identity,
+              if (mobile != null) 'mobile': mobile,
+              'accountType': accountType,
+              'isNotifyAccountNumber': true,
+            }),
+          )
+          .timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> posTingeeConfirmVa({
+    required String bankBin,
+    required String confirmId,
+    String? otpNumber,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/tingee/confirm-va'),
+            headers: _headers,
+            body: jsonEncode({
+              'bankBin': bankBin,
+              'confirmId': confirmId,
+              if (otpNumber != null) 'otpNumber': otpNumber,
+            }),
+          )
+          .timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> posTingeeBankLinkSession() async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/payment-gateway/tingee/bank-link-session'),
+            headers: _headers,
+            body: jsonEncode({}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> posTingeeApplyVa(String vaAccountNumber) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/tingee/apply-va'),
+            headers: _headers,
+            body: jsonEncode({'vaAccountNumber': vaAccountNumber}),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosNotificationCredits() async {
     try {
       final response = await http
@@ -20022,6 +20200,8 @@ class ApiService {
   Future<Map<String, dynamic>> getPosResourceReservations({
     String? resourceId,
     DateTime? day,
+    DateTime? from,
+    DateTime? to,
     bool includeClosed = false,
   }) async {
     try {
@@ -20029,7 +20209,11 @@ class ApiService {
       if (resourceId != null && resourceId.isNotEmpty) {
         q['resourceId'] = resourceId;
       }
-      if (day != null) q['day'] = day.toUtc().toIso8601String();
+      if (from != null) q['from'] = from.toUtc().toIso8601String();
+      if (to != null) q['to'] = to.toUtc().toIso8601String();
+      if (day != null && from == null && to == null) {
+        q['day'] = day.toUtc().toIso8601String();
+      }
       if (includeClosed) q['includeClosed'] = 'true';
       final uri = Uri.parse('$baseUrl/api/pos/resource-reservations')
           .replace(queryParameters: q.isEmpty ? null : q);

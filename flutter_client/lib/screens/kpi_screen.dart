@@ -18,6 +18,7 @@ import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class KpiScreen extends StatefulWidget {
@@ -65,7 +66,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   // --- Mobile UI ---
   bool _showKpiFilters = false;
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = false;
   // --- Export ---
   final GlobalKey _dashboardKey = GlobalKey();
   final GlobalKey _targetsKey = GlobalKey();
@@ -85,6 +86,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       if (!_tabCtrl.indexIsChanging) {
         final i = _tabCtrl.index;
         if (i >= 1 && _selPeriodId != null) _loadPeriodData();
+        if (mounted) setState(() {});
       }
     });
     _loadData();
@@ -237,11 +239,55 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   //  BUILD
   // ------------------------------------------------
 
+  List<Widget> _buildKpiTopActions() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final tab = _tabCtrl.index;
+    return [
+      HrmTopBarAction(
+        icon: Icons.refresh_rounded,
+        label: 'Tải lại',
+        onPressed: _loading ? null : () => _loadData(),
+      ),
+      if (tab == 1) ...[
+        if (perm.canCreate('KPI'))
+          HrmTopBarAction(
+            icon: Icons.person_add_rounded,
+            label: 'Giao chỉ tiêu',
+            onPressed: _isPeriodOpen
+                ? _showAddTargetDialog
+                : () => _requireOpenPeriod(),
+          ),
+        HrmTopBarAction(
+          icon: Icons.edit_note_outlined,
+          label: 'Cập nhật doanh số',
+          onPressed: _isPeriodOpen
+              ? _showBatchUpdateDialog
+              : () => _requireOpenPeriod(),
+        ),
+        HrmTopBarAction(
+          icon: Icons.upload_file_outlined,
+          label: 'Nhập Excel',
+          onPressed: _isPeriodOpen
+              ? _importExcelActuals
+              : () => _requireOpenPeriod(),
+        ),
+      ],
+      if (tab == 2 && _isPeriodLocked)
+        HrmTopBarAction(
+          icon: Icons.calculate_outlined,
+          label: 'Tính lương KPI',
+          onPressed: () => _calculateSalary(_selPeriodId),
+        ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isMobile = Responsive.isMobile(context);
-    return Scaffold(
+    return RegisterPageTopActions(
+      actions: _buildKpiTopActions(),
+      child: Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
@@ -261,59 +307,55 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               indicatorColor: _accent,
               indicatorWeight: 2,
               indicatorSize: TabBarIndicatorSize.label,
-              labelPadding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16),
+              padding: isMobile ? EdgeInsets.zero : null,
+              labelPadding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16),
               labelStyle:
                   TextStyle(fontWeight: FontWeight.w600, fontSize: isMobile ? 12 : 13),
               unselectedLabelStyle:
                   TextStyle(fontWeight: FontWeight.w500, fontSize: isMobile ? 12 : 13),
               tabs: [
                 Tab(
-                    icon: Icon(Icons.dashboard_rounded, size: 18),
+                    icon: isMobile
+                        ? null
+                        : const Icon(Icons.dashboard_rounded, size: 18),
                     text: tr('Tổng quan')),
                 Tab(
-                    icon: Icon(Icons.track_changes_rounded, size: 18),
+                    icon: isMobile
+                        ? null
+                        : const Icon(Icons.track_changes_rounded, size: 18),
                     text: tr('Chỉ tiêu')),
                 Tab(
-                    icon: Icon(Icons.account_balance_wallet_rounded, size: 18),
+                    icon: isMobile
+                        ? null
+                        : const Icon(Icons.account_balance_wallet_rounded,
+                            size: 18),
                     text: tr('Lương KPI')),
                 Tab(
-                    icon: Icon(Icons.settings_rounded, size: 18),
-                    text: tr('Cài đặt')),
+                    icon: isMobile
+                        ? null
+                        : const Icon(Icons.settings_rounded, size: 18),
+                    text: tr('Thiết lập')),
               ],
             ),
           ),
           Expanded(
             child: _loading
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(
-                          width: 48,
-                          height: 48,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 3,
-                              valueColor: AlwaysStoppedAnimation(_accent)),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(tr('Đang tải dữ liệu...'),
-                            style: TextStyle(
-                                color: HrmPageChrome.textMuted, fontSize: 14)),
-                      ],
-                    ),
-                  )
-                : TabBarView(
-                    controller: _tabCtrl,
-                    children: [
-                      _buildDashboardTab(theme),
-                      _buildTargetsTab(theme),
-                      _buildSalaryTab(theme),
-                      _buildSettingsTab(theme),
-                    ],
-                  ),
+                ? const Center(child: CircularProgressIndicator())
+                : _selPeriodId == null && _periods.isEmpty
+                    ? _emptyState('Chưa có chu kỳ KPI', Icons.calendar_today)
+                    : TabBarView(
+                        controller: _tabCtrl,
+                        children: [
+                          _buildDashboardTab(theme),
+                          _buildTargetsTab(theme),
+                          _buildSalaryTab(theme),
+                          _buildSettingsTab(theme),
+                        ],
+                      ),
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -356,13 +398,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             const SizedBox(width: 6),
             _buildStatusBadge(statusLabel, periodStatus, compact: true),
           ],
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            tooltip: tr('Tải lại dữ liệu'),
-            onPressed: _loading ? null : () => _loadData(),
-            icon: const Icon(Icons.refresh_rounded,
-                size: 20, color: HrmPageChrome.textMuted),
-          ),
+          if (!isMobile)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              tooltip: tr('Tải lại dữ liệu'),
+              onPressed: _loading ? null : () => _loadData(),
+              icon: const Icon(Icons.refresh_rounded,
+                  size: 20, color: HrmPageChrome.textMuted),
+            ),
         ],
       ),
     );
@@ -415,78 +458,109 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         hint = '';
     }
 
+    final steps = Row(
+      children: [
+        _workflowStepChip(0, 'Giao KPI', status, compact: isMobile),
+        _workflowConnector(status >= 1, compact: isMobile),
+        _workflowStepChip(1, 'Khóa', status, compact: isMobile),
+        _workflowConnector(status >= 2, compact: isMobile),
+        _workflowStepChip(2, 'Tính lương', status, compact: isMobile),
+        _workflowConnector(status >= 3, compact: isMobile),
+        _workflowStepChip(3, 'Duyệt', status, compact: isMobile),
+      ],
+    );
+
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(isMobile ? 12 : 16, 8, isMobile ? 12 : 16, 10),
+      padding: EdgeInsets.fromLTRB(
+          isMobile ? 8 : 16, isMobile ? 4 : 8, isMobile ? 6 : 16, isMobile ? 4 : 10),
       decoration: BoxDecoration(
         color: _accent.withValues(alpha: 0.04),
         border: Border(
           bottom: BorderSide(color: _accent.withValues(alpha: 0.12)),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+      child: isMobile
+          ? Row(
               children: [
-                _workflowStepChip(0, 'Giao KPI', status),
-                _workflowConnector(status >= 1),
-                _workflowStepChip(1, 'Khóa', status),
-                _workflowConnector(status >= 2),
-                _workflowStepChip(2, 'Tính lương', status),
-                _workflowConnector(status >= 3),
-                _workflowStepChip(3, 'Duyệt', status),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: steps,
+                  ),
+                ),
+                if (actionLabel != null && action != null)
+                  TextButton(
+                    onPressed: action,
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      foregroundColor: _accent,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      tr(actionLabel!),
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: steps,
+                ),
+                if (hint.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    tr(hint),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: HrmPageChrome.textMuted,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+                if (actionLabel != null && action != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: FilledButton.icon(
+                      onPressed: action,
+                      icon: Icon(
+                        status == 0
+                            ? Icons.lock_outline
+                            : status == 1
+                                ? Icons.calculate_outlined
+                                : Icons.verified_outlined,
+                        size: 18,
+                      ),
+                      label: Text(tr(actionLabel!)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _accent,
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
-          ),
-          if (hint.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              tr(hint),
-              style: const TextStyle(
-                fontSize: 12,
-                color: HrmPageChrome.textMuted,
-                height: 1.35,
-              ),
-            ),
-          ],
-          if (actionLabel != null && action != null) ...[
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.icon(
-                onPressed: action,
-                icon: Icon(
-                  status == 0
-                      ? Icons.lock_outline
-                      : status == 1
-                          ? Icons.calculate_outlined
-                          : Icons.verified_outlined,
-                  size: 18,
-                ),
-                label: Text(tr(actionLabel!)),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _accent,
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 8),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
-  Widget _workflowStepChip(int step, String label, int currentStatus) {
+  Widget _workflowStepChip(int step, String label, int currentStatus,
+      {bool compact = false}) {
     final done = currentStatus > step;
     final active = currentStatus == step;
     final color = done || active ? _accent : HrmPageChrome.textMuted;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: EdgeInsets.symmetric(
+          horizontal: compact ? 7 : 10, vertical: compact ? 3 : 5),
       decoration: BoxDecoration(
         color: active
             ? _accent.withValues(alpha: 0.12)
@@ -502,15 +576,17 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (done)
-            const Icon(Icons.check_circle, size: 14, color: HrmPageChrome.chip)
+            const Icon(Icons.check_circle, size: 12, color: HrmPageChrome.chip)
           else
             Text(tr('${step + 1}'),
                 style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w700, color: color)),
-          const SizedBox(width: 5),
+                    fontSize: compact ? 10 : 11,
+                    fontWeight: FontWeight.w700,
+                    color: color)),
+          SizedBox(width: compact ? 3 : 5),
           Text(tr(label),
               style: TextStyle(
-                  fontSize: 11,
+                  fontSize: compact ? 10 : 11,
                   fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                   color: color)),
         ],
@@ -518,11 +594,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _workflowConnector(bool active) {
+  Widget _workflowConnector(bool active, {bool compact = false}) {
     return Container(
-      width: 16,
+      width: compact ? 10 : 16,
       height: 2,
-      margin: const EdgeInsets.symmetric(horizontal: 2),
+      margin: EdgeInsets.symmetric(horizontal: compact ? 1 : 2),
       color: active ? HrmPageChrome.chip : const Color(0xFFE4E4E7),
     );
   }
@@ -1170,14 +1246,15 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final filteredTargets = _filteredTargets;
     final canExport =
         Provider.of<PermissionProvider>(context, listen: false).canExport('KPI');
+    final isMobile = Responsive.isMobile(context);
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(isMobile ? 8 : 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildFilterSection(
             theme,
-            footerActions: canExport
+            footerActions: canExport && !isMobile
                 ? [
                     _buildExportButtons(
                       onPng: () => _exportPng(_dashboardKey, 'TongQuan_KPI'),
@@ -1185,8 +1262,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   ]
                 : null,
           ),
-          const SizedBox(height: 12),
-          _sectionLabel('Tóm tắt', subtitle: 'Số liệu chu kỳ đang chọn'),
+          SizedBox(height: isMobile ? 8 : 12),
+          if (!isMobile)
+            _sectionLabel('Tóm tắt', subtitle: 'Số liệu chu kỳ đang chọn'),
           RepaintBoundary(
             key: _dashboardKey,
             child: Container(
@@ -1211,6 +1289,19 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         : filteredTargets.fold<double>(
                             0, (sum, t) => sum + _previewSalaryTotal(t));
                     final isNarrow = constraints.maxWidth < 600;
+                    final mini = [
+                      ('NV', '${filteredTargets.length}'),
+                      (
+                        'Đạt',
+                        '${filteredTargets.where((t) => (t['completionRate'] ?? 0) >= 100).length}'
+                      ),
+                      (
+                        'Chưa đạt',
+                        '${filteredTargets.where((t) => (t['completionRate'] ?? 0) < 100 && t['actualValue'] != null).length}'
+                      ),
+                      ('TB', '${avgPct.toStringAsFixed(0)}%'),
+                      ('Lương', _cur.format(totalBonus)),
+                    ];
                     final cards = [
                       _statCard('Nhân viên', '${filteredTargets.length}',
                           Icons.people_outline),
@@ -1228,14 +1319,19 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           Icons.payments_outlined),
                     ];
                     if (isNarrow) {
-                      return Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: cards
-                            .map((c) => SizedBox(
-                                width: (constraints.maxWidth - 10) / 2,
-                                child: c))
-                            .toList(),
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            for (int i = 0; i < mini.length; i++) ...[
+                              if (i > 0) const SizedBox(width: 6),
+                              SizedBox(
+                                width: i == mini.length - 1 ? 160 : 92,
+                                child: _miniStat(mini[i].$1, mini[i].$2),
+                              ),
+                            ],
+                          ],
+                        ),
                       );
                     }
                     return Row(children: [
@@ -1245,7 +1341,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       ],
                     ]);
                   }),
-                  const SizedBox(height: 16),
+                  SizedBox(height: Responsive.isMobile(context) ? 8 : 16),
                   LayoutBuilder(builder: (context, constraints) {
                     if (constraints.maxWidth >= 900) {
                       return Row(
@@ -1261,7 +1357,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     return Column(
                       children: [
                         _buildProgressOverview(theme),
-                        const SizedBox(height: 16),
+                        SizedBox(height: Responsive.isMobile(context) ? 8 : 16),
                         _buildTopPerformers(theme),
                       ],
                     );
@@ -1303,14 +1399,18 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       _accent,
       child: _filteredTargets.isEmpty
           ? Padding(
-              padding: EdgeInsets.all(30),
+              padding: EdgeInsets.all(Responsive.isMobile(context) ? 12 : 30),
               child: Center(child: Text(tr('Chưa có chỉ tiêu nào'))))
           : LayoutBuilder(builder: (context, progConstraints) {
               final isNarrow = progConstraints.maxWidth < 500;
               return Column(children: [
                 // Day progress legend
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                  padding: EdgeInsets.fromLTRB(
+                      Responsive.isMobile(context) ? 8 : 16,
+                      Responsive.isMobile(context) ? 6 : 10,
+                      Responsive.isMobile(context) ? 8 : 16,
+                      4),
                   child: Wrap(spacing: 12, runSpacing: 4, children: [
                     Row(mainAxisSize: MainAxisSize.min, children: [
                       Container(
@@ -2727,68 +2827,69 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     final hPad = isMobile ? 12.0 : 16.0;
     return [
-      Padding(
-        padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sectionLabel('Thao tác chỉ tiêu',
-                subtitle: _isPeriodOpen
-                    ? 'Chu kỳ đang mở — có thể giao và cập nhật doanh số'
-                    : 'Chu kỳ đã khóa — chỉ xem, không sửa'),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.icon(
-                  onPressed: perm.canCreate('KPI')
-                      ? (_isPeriodOpen
-                          ? _showAddTargetDialog
-                          : () => _requireOpenPeriod())
-                      : null,
-                  icon: const Icon(Icons.person_add_rounded, size: 18),
-                  label: Text(tr('Giao chỉ tiêu')),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _accent,
-                    visualDensity: VisualDensity.compact,
+      if (!isMobile)
+        Padding(
+          padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sectionLabel('Thao tác chỉ tiêu',
+                  subtitle: _isPeriodOpen
+                      ? 'Chu kỳ đang mở — có thể giao và cập nhật doanh số'
+                      : 'Chu kỳ đã khóa — chỉ xem, không sửa'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: perm.canCreate('KPI')
+                        ? (_isPeriodOpen
+                            ? _showAddTargetDialog
+                            : () => _requireOpenPeriod())
+                        : null,
+                    icon: const Icon(Icons.person_add_rounded, size: 18),
+                    label: Text(tr('Giao chỉ tiêu')),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _accent,
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _isPeriodOpen
-                      ? _showBatchUpdateDialog
-                      : () => _requireOpenPeriod(),
-                  icon: const Icon(Icons.edit_note_outlined, size: 18),
-                  label: Text(tr('Cập nhật doanh số')),
-                  style: btnStyle,
-                ),
-                OutlinedButton.icon(
-                  onPressed: _isPeriodOpen
-                      ? _importExcelActuals
-                      : () => _requireOpenPeriod(),
-                  icon: const Icon(Icons.upload_file_outlined, size: 18),
-                  label: Text(tr('Nhập Excel')),
-                  style: btnStyle,
-                ),
-                OutlinedButton.icon(
-                  onPressed: _isPeriodOpen
-                      ? _writeTargetsToGSheet
-                      : () => _requireOpenPeriod(),
-                  icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                  label: Text(tr('Ghi Google Sheet')),
-                  style: btnStyle,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _buildExportButtons(
-              onExcel: _isExporting ? null : _exportTargetsExcel,
-              onPng: _isExporting
-                  ? null
-                  : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
-            ),
-          ],
+                  OutlinedButton.icon(
+                    onPressed: _isPeriodOpen
+                        ? _showBatchUpdateDialog
+                        : () => _requireOpenPeriod(),
+                    icon: const Icon(Icons.edit_note_outlined, size: 18),
+                    label: Text(tr('Cập nhật doanh số')),
+                    style: btnStyle,
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _isPeriodOpen
+                        ? _importExcelActuals
+                        : () => _requireOpenPeriod(),
+                    icon: const Icon(Icons.upload_file_outlined, size: 18),
+                    label: Text(tr('Nhập Excel')),
+                    style: btnStyle,
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _isPeriodOpen
+                        ? _writeTargetsToGSheet
+                        : () => _requireOpenPeriod(),
+                    icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                    label: Text(tr('Ghi Google Sheet')),
+                    style: btnStyle,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _buildExportButtons(
+                onExcel: _isExporting ? null : _exportTargetsExcel,
+                onPng: _isExporting
+                    ? null
+                    : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
+              ),
+            ],
+          ),
         ),
-      ),
       Padding(
         padding: EdgeInsets.symmetric(horizontal: hPad),
         child: HrmCollapsibleOverview(
@@ -4253,17 +4354,18 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             children: [
               _salaryModeBadge(true),
               const Spacer(),
-              FilledButton.icon(
-                onPressed: _isPeriodLocked
-                    ? () => _calculateSalary(_selPeriodId)
-                    : () => _requireLockedPeriod(),
-                icon: const Icon(Icons.calculate_outlined, size: 18),
-                label: Text(tr('Tính lương KPI')),
-                style: FilledButton.styleFrom(
-                  backgroundColor: _accent,
-                  visualDensity: VisualDensity.compact,
+              if (!Responsive.isMobile(context))
+                FilledButton.icon(
+                  onPressed: _isPeriodLocked
+                      ? () => _calculateSalary(_selPeriodId)
+                      : () => _requireLockedPeriod(),
+                  icon: const Icon(Icons.calculate_outlined, size: 18),
+                  label: Text(tr('Tính lương KPI')),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _accent,
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -5023,42 +5125,47 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   Widget _card(String title, IconData icon, Color color,
       {required Widget child}) {
+    final isMobile = Responsive.isMobile(context);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(isMobile ? 10 : 16),
         border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 12,
+              blurRadius: isMobile ? 4 : 12,
               offset: const Offset(0, 2)),
         ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 10 : 16, vertical: isMobile ? 8 : 16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
                 colors: [color.withValues(alpha: 0.06), Colors.white]),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius: BorderRadius.vertical(
+                top: Radius.circular(isMobile ? 10 : 16)),
           ),
           child: Row(children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: EdgeInsets.all(isMobile ? 4 : 6),
               decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8)),
-              child: Icon(icon, color: color, size: 18),
+              child: Icon(icon, color: color, size: isMobile ? 14 : 18),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Text(tr(title),
                 style: TextStyle(
-                    fontWeight: FontWeight.w700, color: color, fontSize: 15)),
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                    fontSize: isMobile ? 13 : 15)),
           ]),
         ),
-        Divider(height: 24, color: Colors.grey.shade100),
+        if (!isMobile) Divider(height: 24, color: Colors.grey.shade100),
         child,
       ]),
     );

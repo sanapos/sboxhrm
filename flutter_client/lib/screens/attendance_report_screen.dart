@@ -55,6 +55,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   String _datePreset = 'this_month';
   String _empSearch = '';
   String? _selectedBranchId;
+  String? _selectedDepartmentId;
   String? _selectedEmployeeId;
   int _page = 1;
   static const _calEmpPageSize = 25;
@@ -93,17 +94,19 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
 
   List<Map<String, dynamic>> get _filteredEmployees {
     final q = _empSearch.trim().toLowerCase();
-    Set<String>? branchEmpIds;
-    if (_teamView && _selectedBranchId != null) {
-      branchEmpIds = _branchFilter.userIdsForBranch(_selectedBranchId);
-      if (branchEmpIds.isEmpty) return [];
-    }
     return _employees.where((e) {
+      if (_teamView &&
+          !_branchFilter.mapRowInScope(
+            e,
+            branchId: _selectedBranchId,
+            departmentId: _selectedDepartmentId,
+          )) {
+        return false;
+      }
       final id = e['id']?.toString() ?? '';
       if (_selectedEmployeeId != null && id != _selectedEmployeeId) {
         return false;
       }
-      if (branchEmpIds != null && !branchEmpIds.contains(id)) return false;
       if (q.isNotEmpty) {
         final name = (e['fullName'] ??
                 '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim())
@@ -147,7 +150,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     _load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_teamView) {
-        _branchFilter.loadBranches(_api).then((_) {
+        _branchFilter.loadOrgFilters(_api).then((_) {
           if (mounted) setState(() {});
         });
       }
@@ -1130,6 +1133,15 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                           });
                         }
                       },
+                      selectedDepartmentId: _selectedDepartmentId,
+                      onDepartmentChanged: (v) {
+                        if (mounted) {
+                          setState(() {
+                            _selectedDepartmentId = v;
+                            _page = 1;
+                          });
+                        }
+                      },
                       empSearch: _empSearch,
                       onEmpSearchChanged: (v) => setState(() {
                         _empSearch = v;
@@ -1144,6 +1156,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                           ? () => setState(() {
                                 _empSearch = '';
                                 _selectedBranchId = null;
+                                _selectedDepartmentId = null;
                                 _selectedEmployeeId = null;
                                 _page = 1;
                               })

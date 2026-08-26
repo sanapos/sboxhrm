@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
+import '../../config/sbox_app_variant.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../utils/permission_navigation.dart';
@@ -35,6 +37,9 @@ import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
 import '../settings_hub_screen.dart';
+import 'pos_app_settings_screen.dart';
+import 'pos_accounts_screen.dart';
+import 'pos_role_permissions_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Hub «Nhiều hơn» — module POS phụ kiểu KiotViet.
@@ -164,6 +169,30 @@ class PosMoreScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
+                Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  child: ListTile(
+                    leading: const Icon(Icons.settings_outlined,
+                        color: PosTheme.kiotBlue),
+                    title: Text(
+                      tr('Cài đặt'),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    subtitle: Text(
+                      tr('Phiên bản, ngôn ngữ, điều khoản, chính sách'),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const PosAppSettingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
                 _section(
                   context,
                   perm,
@@ -213,6 +242,18 @@ class PosMoreScreen extends StatelessWidget {
                       'SettingsHub',
                       const PosStoreSettingsHubScreen(),
                     ),
+                    _Item(
+                      'Tài khoản',
+                      Icons.manage_accounts_outlined,
+                      'UserManagement',
+                      const PosAccountsScreen(),
+                    ),
+                    _Item(
+                      'Phân quyền',
+                      Icons.security_outlined,
+                      'Role',
+                      const PosRolePermissionsScreen(),
+                    ),
                   ],
                 ),
                 if (PermissionNavigation.canAccessModule(
@@ -248,6 +289,48 @@ class PosMoreScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: 16),
+                Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  child: ListTile(
+                    leading: Icon(Icons.logout, color: Colors.red.shade600),
+                    title: Text(
+                      tr('Đăng xuất'),
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    subtitle: Text(tr('Thoát tài khoản cửa hàng')),
+                    onTap: () => showPosLogoutDialog(context),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FutureBuilder(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (context, snap) {
+                    final info = snap.data;
+                    final label = info == null
+                        ? '…'
+                        : 'v${info.version} (${info.buildNumber})';
+                    final name = SboxAppVariant.standalonePos
+                        ? 'SBOX POS'
+                        : 'SBOX HRM';
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+                      child: Text(
+                        '$name $label',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),

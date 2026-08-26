@@ -16,6 +16,7 @@ import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
+import 'account_data_scope_panel.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class RolePermissionsScreen extends StatefulWidget {
   const RolePermissionsScreen({super.key});
@@ -39,6 +40,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
   /// Lọc bảng theo một nhóm (null = tất cả nhóm).
   String? _filterGroupId;
+
+  /// 0 = ma trận chức danh, 1 = phạm vi CN/PB theo tài khoản.
+  int _section = 0;
 
   /// Back của Settings Hub khi drill-down danh sách quyền (mobile + embedded).
   VoidCallback? _savedHubBack;
@@ -1591,7 +1595,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       if (mounted) _syncModulesWithPackage();
     });
 
-    final saveAction = _selectedRolePermissions != null && _perm.canEdit('Role')
+    final saveAction = _section == 0 &&
+            _selectedRolePermissions != null &&
+            _perm.canEdit('Role')
         ? Padding(
             padding: const EdgeInsets.only(right: 16),
             child: FilledButton.icon(
@@ -1613,6 +1619,97 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           )
         : null;
 
+    final roleBody = Responsive.isMobile(context)
+        ? _buildMobileBody()
+        : Row(
+            children: [
+              // Left sidebar - Role list
+              Container(
+                width: 280,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(right: BorderSide(color: Color(0xFFE4E4E7))),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(
+                        border:
+                            Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: HrmPageChrome.primaryNavy
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.badge,
+                                color: HrmPageChrome.primaryNavy, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(tr('Chức danh'),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                    color: Color(0xFF18181B),
+                                  ),
+                                ),
+                                Text(tr('Chọn để phân quyền'),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF71717A),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_perm.canCreate('Role'))
+                            IconButton(
+                              onPressed: _showAddRoleDialog,
+                              icon: const Icon(Icons.add_circle,
+                                  color: HrmPageChrome.primaryNavy),
+                              tooltip: tr('Thêm chức danh'),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: _roles.length,
+                        itemBuilder: (context, index) {
+                          final role = _roles[index];
+                          final isSelected =
+                              role['roleName'] == _selectedRoleName;
+                          return _buildRoleItem(role, isSelected);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _selectedRolePermissions == null
+                    ? Center(
+                        child: Text(tr('Chọn một chức danh để xem và chỉnh sửa quyền'),
+                          style: TextStyle(color: Color(0xFF71717A)),
+                        ),
+                      )
+                    : _isLoadingPermissions
+                        ? const LoadingWidget()
+                        : _buildPermissionsTable(),
+              ),
+            ],
+          );
+
     final body = _isLoading
         ? const LoadingWidget()
         : Column(
@@ -1622,102 +1719,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                   context: context,
                   actions: saveAction != null ? [saveAction] : [],
                 ),
+              _buildSectionSwitcher(),
               Expanded(
-                child: Responsive.isMobile(context)
-                    ? _buildMobileBody()
-                    : Row(
-                  children: [
-                    // Left sidebar - Role list
-                    Container(
-                      width: 280,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        border:
-                            Border(right: BorderSide(color: Color(0xFFE4E4E7))),
-                      ),
-                      child: Column(
-                        children: [
-                          // Header
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                  bottom: BorderSide(color: Color(0xFFE4E4E7))),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: HrmPageChrome.primaryNavy
-                                        .withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.badge,
-                                      color: HrmPageChrome.primaryNavy, size: 20),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(tr('Chức danh'),
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                          color: Color(0xFF18181B),
-                                        ),
-                                      ),
-                                      Text(tr('Chọn để phân quyền'),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF71717A),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (_perm.canCreate('Role'))
-                                  IconButton(
-                                    onPressed: _showAddRoleDialog,
-                                    icon: const Icon(Icons.add_circle,
-                                        color: HrmPageChrome.primaryNavy),
-                                    tooltip: tr('Thêm chức danh'),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          // Role list
-                          Expanded(
-                            child: ListView.builder(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              itemCount: _roles.length,
-                              itemBuilder: (context, index) {
-                                final role = _roles[index];
-                                final isSelected =
-                                    role['roleName'] == _selectedRoleName;
-                                return _buildRoleItem(role, isSelected);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Right content - Permissions table
-                    Expanded(
-                      child: _selectedRolePermissions == null
-                          ? Center(
-                              child: Text(tr('Chọn một chức danh để xem và chỉnh sửa quyền'),
-                                style: TextStyle(color: Color(0xFF71717A)),
-                              ),
-                            )
-                          : _isLoadingPermissions
-                              ? const LoadingWidget()
-                              : _buildPermissionsTable(),
-                    ),
-                  ],
-                ),
+                child: _section == 1
+                    ? const AccountDataScopePanel()
+                    : roleBody,
               ),
             ],
           );
@@ -1729,10 +1735,63 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(
-        title: 'Phân quyền Chức danh',
+        title: 'Phân quyền',
         actions: saveAction != null ? [saveAction] : null,
       ),
       body: body,
+    );
+  }
+
+  Widget _buildSectionSwitcher() {
+    Widget chip(int index, IconData icon, String label) {
+      final selected = _section == index;
+      return Expanded(
+        child: Material(
+          color: selected
+              ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
+              : const Color(0xFFF4F4F5),
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => setState(() => _section = index),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon,
+                      size: 16,
+                      color: selected
+                          ? HrmPageChrome.primaryNavy
+                          : const Color(0xFF71717A)),
+                  const SizedBox(width: 6),
+                  Text(
+                    tr(label),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: selected
+                          ? HrmPageChrome.primaryNavy
+                          : const Color(0xFF3F3F46),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      child: Row(
+        children: [
+          chip(0, Icons.badge_outlined, 'Chức danh'),
+          const SizedBox(width: 8),
+          chip(1, Icons.account_tree_outlined, 'Phạm vi dữ liệu'),
+        ],
+      ),
     );
   }
 

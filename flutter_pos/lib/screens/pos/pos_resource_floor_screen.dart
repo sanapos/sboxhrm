@@ -1931,116 +1931,149 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Text(
-                tr(formatPosTableLabel(areaName: r.areaName, tableName: r.name)),
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(tr([
-                if (r.guestCount > 0) '${r.guestCount} khách',
-                if (r.elapsedLabel.isNotEmpty) r.elapsedLabel,
-                if (r.subtotal > 0) '${_moneyFmt.format(r.subtotal)}đ',
-                if (r.lineCount > 0) '${r.lineCount} món',
-                if (r.draftBillCount > 1) '${r.draftBillCount} hóa đơn',
-              ].join(' · '))),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.restaurant_menu),
-              title: Text(tr('Vào chọn món / dịch vụ')),
-              onTap: () => Navigator.pop(ctx, 'open'),
-            ),
-            ListTile(
-              leading: Icon(Icons.event_seat_outlined,
-                  color: Colors.red.shade700),
-              title: Text(tr('Trả về bàn trống')),
-              subtitle: Text(tr(_isWaitingTable(r)
-                  ? 'Đóng phiên — bàn chưa gọi món'
-                  : r.lineCount > 0
-                      ? 'Xóa ${r.lineCount} món trên đơn tạm và đóng phiên'
-                      : 'Đóng phiên — trả bàn về trống')),
-              onTap: () => Navigator.pop(ctx, 'free'),
-            ),
-            if (_isFnB)
-              ListTile(
-                leading: const Icon(Icons.soup_kitchen_outlined),
-                title: Text(
-                  tr(r.pendingKitchenCount > 0
-                      ? 'Báo chế biến (${r.pendingKitchenCount} món)'
-                      : 'Báo chế biến'),
+      builder: (ctx) {
+        final maxH = MediaQuery.sizeOf(ctx).height * 0.85;
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
+            child: Theme(
+              data: Theme.of(ctx).copyWith(
+                listTileTheme: const ListTileThemeData(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
                 ),
-                onTap: () => Navigator.pop(ctx, 'kitchen'),
               ),
-            ListTile(
-              leading: const Icon(Icons.swap_horiz),
-              title: Text(tr('Chuyển bàn')),
-              onTap: () => Navigator.pop(ctx, 'transfer'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.call_split),
-              title: Text(tr('Tách bàn')),
-              subtitle: Text(tr('Chọn món chuyển sang bàn trống')),
-              onTap: () => Navigator.pop(ctx, 'split'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.receipt_long_outlined),
-              title: Text(tr('Tách bill')),
-              subtitle: Text(tr('Khách trả một phần — bàn giữ món còn lại')),
-              onTap: () => Navigator.pop(ctx, 'splitBill'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.merge_type),
-              title: Text(tr('Gộp bàn vào đây')),
-              onTap: () => Navigator.pop(ctx, 'merge'),
-            ),
-            if (_isHourly) ...[
-              if (r.isPaused)
-                ListTile(
-                  leading: const Icon(Icons.play_arrow),
-                  title: Text(tr('Tiếp tục tính giờ')),
-                  onTap: () => Navigator.pop(ctx, 'resume'),
-                )
-              else
-                ListTile(
-                  leading: const Icon(Icons.pause),
-                  title: Text(tr('Tạm dừng tính giờ')),
-                  onTap: () => Navigator.pop(ctx, 'pause'),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    ListTile(
+                      title: Text(
+                        tr(formatPosTableLabel(
+                            areaName: r.areaName, tableName: r.name)),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      subtitle: Text(tr([
+                        if (r.guestCount > 0) '${r.guestCount} khách',
+                        if (r.elapsedLabel.isNotEmpty) r.elapsedLabel,
+                        if (r.subtotal > 0)
+                          '${_moneyFmt.format(r.subtotal)}đ',
+                        if (r.lineCount > 0) '${r.lineCount} món',
+                        if (r.draftBillCount > 1)
+                          '${r.draftBillCount} hóa đơn',
+                      ].join(' · '))),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.restaurant_menu),
+                      title: Text(tr('Vào chọn món / dịch vụ')),
+                      onTap: () => Navigator.pop(ctx, 'open'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.receipt_long_outlined),
+                      title: Text(tr('Tách hóa đơn')),
+                      subtitle: Text(
+                          tr('Khách trả một phần — bàn giữ món còn lại')),
+                      onTap: () => Navigator.pop(ctx, 'splitBill'),
+                    ),
+                    if (widget.allowProvisionalBill)
+                      ListTile(
+                        leading: Icon(
+                          r.isBillRequested
+                              ? Icons.request_quote
+                              : Icons.request_quote_outlined,
+                        ),
+                        title: Text(tr(
+                            r.isBillRequested ? 'Huỷ tạm tính' : 'Tạm tính')),
+                        onTap: () => Navigator.pop(ctx, 'bill'),
+                      ),
+                    ListTile(
+                      leading: const Icon(Icons.swap_horiz),
+                      title: Text(tr('Chuyển bàn')),
+                      onTap: () => Navigator.pop(ctx, 'transfer'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.call_split),
+                      title: Text(tr('Tách bàn')),
+                      subtitle:
+                          Text(tr('Chọn món chuyển sang bàn trống')),
+                      onTap: () => Navigator.pop(ctx, 'split'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.merge_type),
+                      title: Text(tr('Gộp bàn vào đây')),
+                      onTap: () => Navigator.pop(ctx, 'merge'),
+                    ),
+                    if (_isFnB)
+                      ListTile(
+                        leading: const Icon(Icons.soup_kitchen_outlined),
+                        title: Text(
+                          tr(r.pendingKitchenCount > 0
+                              ? 'Báo chế biến (${r.pendingKitchenCount} món)'
+                              : 'Báo chế biến'),
+                        ),
+                        onTap: () => Navigator.pop(ctx, 'kitchen'),
+                      ),
+                    ListTile(
+                      leading: const Icon(Icons.people_outline),
+                      title: Text(tr('Số khách')),
+                      onTap: () => Navigator.pop(ctx, 'guests'),
+                    ),
+                    if (_isHourly) ...[
+                      if (r.isPaused)
+                        ListTile(
+                          leading: const Icon(Icons.play_arrow),
+                          title: Text(tr('Tiếp tục tính giờ')),
+                          onTap: () => Navigator.pop(ctx, 'resume'),
+                        )
+                      else
+                        ListTile(
+                          leading: const Icon(Icons.pause),
+                          title: Text(tr('Tạm dừng tính giờ')),
+                          onTap: () => Navigator.pop(ctx, 'pause'),
+                        ),
+                    ],
+                    ListTile(
+                      leading: Icon(Icons.event_seat_outlined,
+                          color: Colors.red.shade700),
+                      title: Text(tr('Trả về bàn trống')),
+                      subtitle: Text(tr(_isWaitingTable(r)
+                          ? 'Đóng phiên — bàn chưa gọi món'
+                          : r.lineCount > 0
+                              ? 'Xóa ${r.lineCount} món trên đơn tạm và đóng phiên'
+                              : 'Đóng phiên — trả bàn về trống')),
+                      onTap: () => Navigator.pop(ctx, 'free'),
+                    ),
+                    if (widget.manageMode)
+                      ListTile(
+                        leading: const Icon(Icons.stop_circle_outlined,
+                            color: Colors.red),
+                        title: Text(tr('Đóng phiên (giữ đơn)')),
+                        onTap: () => Navigator.pop(ctx, 'close'),
+                      ),
+                    const SizedBox(height: 8),
+                  ],
                 ),
-            ],
-            ListTile(
-              leading: const Icon(Icons.people_outline),
-              title: Text(tr('Số khách')),
-              onTap: () => Navigator.pop(ctx, 'guests'),
+              ),
             ),
-            if (widget.allowProvisionalBill)
-              ListTile(
-                leading: Icon(
-                  r.isBillRequested
-                      ? Icons.request_quote
-                      : Icons.request_quote_outlined,
-                ),
-                title: Text(
-                    tr(r.isBillRequested ? 'Huỷ tạm tính' : 'Tạm tính')),
-                onTap: () => Navigator.pop(ctx, 'bill'),
-              ),
-            if (widget.manageMode)
-              ListTile(
-                leading:
-                    const Icon(Icons.stop_circle_outlined, color: Colors.red),
-                title: Text(tr('Đóng phiên (giữ đơn)')),
-                onTap: () => Navigator.pop(ctx, 'close'),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
     if (!mounted || action == null) return;
 

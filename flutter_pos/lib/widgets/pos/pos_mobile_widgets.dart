@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
+import '../../utils/media_query_safe_padding.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/responsive_helper.dart';
 import '../hrm_page_chrome.dart';
@@ -352,7 +353,91 @@ bool posNeedsTopSafeArea(BuildContext context) {
 /// Bọc nội dung mobile POS (giống màn Bán hàng: SafeArea top, full width).
 Widget posMobileSafeBody(BuildContext context, Widget child) {
   if (!posNeedsTopSafeArea(context)) return child;
-  return SafeArea(bottom: false, child: child);
+  return withFallbackTopInset(
+    context,
+    SafeArea(bottom: false, child: child),
+  );
+}
+
+/// Thanh thu/gọn bộ lọc — mặc định đóng để đọc danh sách.
+class PosFilterCollapse extends StatelessWidget {
+  const PosFilterCollapse({
+    super.key,
+    required this.expanded,
+    required this.onToggle,
+    required this.child,
+    this.title = 'Bộ lọc',
+    this.subtitle,
+  });
+
+  final bool expanded;
+  final VoidCallback onToggle;
+  final Widget child;
+  final String title;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = PosTheme.kiotBlue;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: accent.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.tune, size: 16, color: accent),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr(title),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: accent,
+                          ),
+                        ),
+                        if (!expanded &&
+                            subtitle != null &&
+                            subtitle!.trim().isNotEmpty)
+                          Text(
+                            tr(subtitle!),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: PosTheme.textSecondary,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    expanded ? Icons.expand_less : Icons.expand_more,
+                    size: 20,
+                    color: accent,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (expanded) ...[
+          const SizedBox(height: 8),
+          child,
+        ],
+      ],
+    );
+  }
 }
 
 /// Mở bottom sheet bộ lọc trên mobile (có Đặt lại / Áp dụng).
@@ -1113,8 +1198,11 @@ class PosMobileKiotHeader extends StatelessWidget {
     return Material(
       color: Colors.white,
       child: posNeedsTopSafeArea(context)
-          ? SafeArea(bottom: false, child: content)
-          : content,
+          ? withFallbackTopInset(
+              context,
+              SafeArea(bottom: false, child: content),
+            )
+          : withFallbackTopInset(context, content),
     );
   }
 

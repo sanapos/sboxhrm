@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import 'branch_filter_helper.dart';
+import 'department_filter_helper.dart';
 import 'vietnamese_font.dart';
 import 'excel_report_builder.dart';
 import 'excel_bytes_utils.dart';
@@ -240,11 +241,17 @@ class ReportDateRangeFilterBar extends StatelessWidget {
 /// Lazy branch/employee lists for report filters (avoids 1000-employee preload).
 class ReportBranchFilter {
   List<Map<String, dynamic>> branches = [];
+  List<Map<String, dynamic>> departments = [];
   List<Map<String, dynamic>> employees = [];
   bool branchesLoaded = false;
+  bool departmentsLoaded = false;
   bool employeesLoaded = false;
   bool employeesLoading = false;
   String? _employeesLoadedForBranch;
+
+  Future<void> loadOrgFilters(ApiService api) async {
+    await Future.wait([loadBranches(api), loadDepartments(api)]);
+  }
 
   Future<void> loadBranches(ApiService api) async {
     if (branchesLoaded) return;
@@ -256,6 +263,19 @@ class ReportBranchFilter {
       }
     } catch (_) {}
     branchesLoaded = true;
+  }
+
+  Future<void> loadDepartments(ApiService api) async {
+    if (departmentsLoaded) return;
+    try {
+      final res = await api.getDepartmentsForSelect();
+      final data = res['data'];
+      if (data is List) {
+        departments =
+            data.map((d) => Map<String, dynamic>.from(d as Map)).toList();
+      }
+    } catch (_) {}
+    departmentsLoaded = true;
   }
 
   /// Tải NV — khi [branchId] đổi sẽ tải lại theo chi nhánh (+ con) từ server.
@@ -308,6 +328,139 @@ class ReportBranchFilter {
     final ids = _branchIdsIncludingChildren(branchId);
     if (ids.isEmpty) return {};
     return BranchFilterHelper.employeeCodesInBranches(employees, ids);
+  }
+
+  Set<String> _departmentIdsIncludingChildren(String? departmentId) {
+    if (departmentId == null || departmentId.isEmpty) return {};
+    return DepartmentFilterHelper.expandDepartmentIds(
+      departmentId,
+      departments,
+      includeChildren: true,
+    );
+  }
+
+  Set<String> userIdsForDepartment(String? departmentId) {
+    if (departmentId == null) return {};
+    final ids = _departmentIdsIncludingChildren(departmentId);
+    if (ids.isEmpty) return {};
+    return DepartmentFilterHelper.employeeKeysForDepartments(
+      employees,
+      ids,
+      departments,
+    );
+  }
+
+  Set<String> codesForDepartment(String? departmentId) {
+    if (departmentId == null) return {};
+    final ids = _departmentIdsIncludingChildren(departmentId);
+    if (ids.isEmpty) return {};
+    return DepartmentFilterHelper.employeeCodesInDepartments(
+      employees,
+      ids,
+      departments,
+    );
+  }
+
+  /// null = không lọc chi nhánh/phòng ban. Tập rỗng = không khớp NV nào.
+  Set<String>? scopeUserIds({String? branchId, String? departmentId}) {
+    Set<String>? ids;
+    if (branchId != null && branchId.isNotEmpty) {
+      ids = userIdsForBranch(branchId);
+    }
+    if (departmentId != null && departmentId.isNotEmpty) {
+      final d = userIdsForDepartment(departmentId);
+      ids = ids == null ? d : ids.intersection(d);
+    }
+    return ids;
+  }
+
+  Set<String>? scopeCodes({String? branchId, String? departmentId}) {
+    Set<String>? codes;
+    if (branchId != null && branchId.isNotEmpty) {
+      codes = codesForBranch(branchId);
+    }
+    if (departmentId != null && departmentId.isNotEmpty) {
+      final d = codesForDepartment(departmentId);
+      codes = codes == null ? d : codes.intersection(d);
+    }
+    return codes;
+  }
+
+  /// NV trong phạm vi chi nhánh ∩ phòng ban. `null` = không lọc tổ chức.
+  List<Map<String, dynamic>>? scopedEmployees({
+    String? branchId,
+    String? departmentId,
+  }) {
+    final ids = scopeUserIds(branchId: branchId, departmentId: departmentId);
+    if (ids == null) return null;
+    if (ids.isEmpty) return const [];
+    return employees.where((e) {
+      final id = e['id']?.toString() ?? '';
+      final userId = e['applicationUserId']?.toString() ?? '';
+      return (id.isNotEmpty && ids.contains(id)) ||
+          (userId.isNotEmpty && ids.contains(userId));
+    }).toList();
+  }
+
+  /// Mã NV, PIN, id hồ sơ, user id — khớp log chấm công và dòng báo cáo.
+  Set<String>? scopeIdentityKeys({String? branchId, String? departmentId}) {
+    final scoped =
+        scopedEmployees(branchId: branchId, departmentId: departmentId);
+    if (scoped == null) return null;
+    final keys = <String>{};
+    for (final e in scoped) {
+      for (final field in const [
+        'employeeCode',
+        'pin',
+        'Pin',
+        'id',
+        'applicationUserId',
+      ]) {
+        final v = e[field]?.toString() ?? '';
+        if (v.isNotEmpty && v != 'null') keys.add(v);
+      }
+    }
+    return keys;
+  }
+
+  bool mapRowInScope(
+    Map<String, dynamic> row, {
+    String? branchId,
+    String? departmentId,
+  }) {
+    final keys =
+        scopeIdentityKeys(branchId: branchId, departmentId: departmentId);
+    if (keys == null) return true;
+    if (keys.isEmpty) return false;
+    for (final field in const [
+      'employeeUserId',
+      'EmployeeUserId',
+      'employeeId',
+      'EmployeeId',
+      'applicationUserId',
+      'id',
+      'employeeCode',
+      'EmployeeCode',
+      'pin',
+    ]) {
+      final v = row[field]?.toString() ?? '';
+      if (v.isNotEmpty && keys.contains(v)) return true;
+    }
+    return false;
+  }
+
+  List<Map<String, dynamic>> filterEmployeeRows(
+    List<Map<String, dynamic>> rows, {
+    String? branchId,
+    String? departmentId,
+  }) {
+    return rows
+        .where((e) => mapRowInScope(
+              e,
+              branchId: branchId,
+              departmentId: departmentId,
+            ))
+        .toList();
   }
 }
 

@@ -11,6 +11,7 @@ import 'pos_cancel_return_settings_screen.dart';
 import 'pos_customer_display_settings_screen.dart';
 import 'pos_qr_table_order_screen.dart';
 import 'pos_kds_screen.dart';
+import 'pos_loyalty_settings_screen.dart';
 import 'pos_resource_floor_screen.dart';
 import 'pos_sell_industry_settings_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -147,6 +148,20 @@ class _PosSellIndustrySettingsHubScreenState
           onTap: () => _open(
             context,
             const PosKdsScreen(),
+          ),
+        ),
+        _tile(
+          context,
+          icon: Icons.stars_outlined,
+          title: 'Tích điểm & đổi điểm',
+          subtitle: _settings == null
+              ? 'Tỷ lệ theo cửa hàng · bật/tắt · trần % đổi điểm'
+              : (!_settings!.loyaltyEnabled
+                  ? 'Đang tắt'
+                  : 'Mỗi ${_settings!.loyaltyEarnPerAmount.toStringAsFixed(0)}đ → 1 điểm · 1 điểm = ${_settings!.loyaltyRedeemValue.toStringAsFixed(0)}đ'),
+          onTap: () => _open(
+            context,
+            const PosLoyaltySettingsScreen(),
           ),
         ),
         _tile(

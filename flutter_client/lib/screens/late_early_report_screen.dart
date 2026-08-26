@@ -52,6 +52,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
   int _minMinutes = 1;
   String _empSearch = '';
   String? _selectedBranchId;
+  String? _selectedDepartmentId;
   int _viewTab = 0; // 0 chi tiết, 1 theo NV
   int _page = 1;
   static const _pageSize = 40;
@@ -80,7 +81,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
       if (_teamView) {
-        _branchFilter.loadBranches(_api).then((_) {
+        _branchFilter.loadOrgFilters(_api).then((_) {
           if (mounted) setState(() {});
         });
       }
@@ -298,13 +299,18 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           .toList();
     }
 
-    if (_teamView && _selectedBranchId != null) {
-      final codes = _branchFilter.codesForBranch(_selectedBranchId);
-      if (codes.isEmpty) return [];
-      list = list
-          .where((e) =>
-              codes.contains(e.employeeCode) || codes.contains(e.employeeId))
-          .toList();
+    if (_teamView) {
+      final keys = _branchFilter.scopeIdentityKeys(
+        branchId: _selectedBranchId,
+        departmentId: _selectedDepartmentId,
+      );
+      if (keys != null) {
+        if (keys.isEmpty) return [];
+        list = list
+            .where((e) =>
+                keys.contains(e.employeeCode) || keys.contains(e.employeeId))
+            .toList();
+      }
     }
 
     if (_teamView && _empSearch.trim().isNotEmpty) {
@@ -1225,6 +1231,15 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                               });
                             }
                           },
+                          selectedDepartmentId: _selectedDepartmentId,
+                          onDepartmentChanged: (v) {
+                            if (mounted) {
+                              setState(() {
+                                _selectedDepartmentId = v;
+                                _page = 1;
+                              });
+                            }
+                          },
                           empSearch: _empSearch,
                           onEmpSearchChanged: (v) => setState(() {
                             _empSearch = v;
@@ -1241,6 +1256,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                               ? () => setState(() {
                                     _empSearch = '';
                                     _selectedBranchId = null;
+                                    _selectedDepartmentId = null;
                                     _kindFilter = 'all';
                                     _penaltyFilter = 'all';
                                     _minMinutes = 1;

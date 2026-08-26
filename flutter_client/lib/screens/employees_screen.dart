@@ -20,6 +20,7 @@ import '../widgets/hrm_mini_stat_chip.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/employee_work_status.dart';
 import '../utils/branch_filter_helper.dart';
+import '../utils/department_filter_helper.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/app_button.dart';
@@ -418,7 +419,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   Future<void> _loadDepartments() async {
     final deptResponse =
-        await _apiService.getDepartments(pageSize: 100, isActive: true);
+        await _apiService.getDepartments(pageSize: 500, isActive: true);
     if (deptResponse['isSuccess'] != false) {
       final deptData = deptResponse['data'] is List
           ? deptResponse['data']
@@ -547,8 +548,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           (emp.phone?.toLowerCase().contains(_searchQuery.toLowerCase()) ??
               false);
 
-      final matchesDepartment =
-          _filterDepartment == 'Tất cả' || emp.department == _filterDepartment;
+      final matchesDepartment = DepartmentFilterHelper.employeeMatchesDepartmentFilter(
+        filterName: _filterDepartment,
+        departments: _departmentList,
+        departmentName: emp.department,
+        departmentId: emp.departmentId,
+      );
 
       final matchesStatus =
           _filterStatus == 'Tất cả' || emp.workStatusDisplay == _filterStatus;

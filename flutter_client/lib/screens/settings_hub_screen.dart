@@ -48,6 +48,7 @@ import 'pos/pos_resource_floor_screen.dart';
 import 'pos/pos_appointment_day_screen.dart';
 import 'pos/pos_customer_display_settings_screen.dart';
 import 'pos/pos_customers_screen.dart';
+import 'store_access_devices_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class SettingsHubScreen extends StatefulWidget {
@@ -165,7 +166,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   }
 
   List<SettingsHubItemDef> _permittedHubItems() {
-    return _filterItems(SettingsHubCatalog.allItems);
+    return _filterItems(SettingsHubCatalog.itemsForCurrentApp);
   }
 
   List<SettingsHubItemDef> _orderedHubItems() {
@@ -285,6 +286,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const SystemSettingsScreen();
       case 13:
         return const BranchManagementScreen();
+      case 30:
+        return const StoreAccessDevicesScreen();
       case 10:
         return const ProductSalarySettingsScreen();
       case 11:

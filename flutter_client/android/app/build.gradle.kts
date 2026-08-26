@@ -38,6 +38,20 @@ android {
         versionName = flutter.versionName
     }
 
+    // hrm = Play listing hiện tại (sbox.sana.vn). pos = listing SBOX POS mới.
+    flavorDimensions += "app"
+    productFlavors {
+        create("hrm") {
+            dimension = "app"
+            isDefault = true
+            applicationId = "sbox.sana.vn"
+        }
+        create("pos") {
+            dimension = "app"
+            applicationId = "sbox.sana.vn.pos"
+        }
+    }
+
     // Flavors android6/android12 (applicationIdSuffix) temporarily disabled so
     // release APK installs as production package sbox.sana.vn (A7 C20Lite / OTA).
     // Re-enable when dual-package sideload is intentional.

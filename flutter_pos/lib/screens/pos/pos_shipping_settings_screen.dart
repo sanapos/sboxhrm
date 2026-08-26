@@ -57,7 +57,11 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
     }
     if (list.isEmpty) {
       for (final c in const ['Ghn', 'Ghtk', 'ViettelPost', 'Ahamove']) {
-        list.add(_CarrierForm(code: c, displayName: _displayName(c)));
+        list.add(_CarrierForm(
+          code: c,
+          displayName: _displayName(c),
+          useSandbox: c == 'Ahamove',
+        ));
       }
     }
     setState(() {
@@ -190,9 +194,10 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
         f.tokenCtrl.clear();
         final notice = saved.notice;
         if (!silent && notice != null && notice.trim().isNotEmpty) {
-          final jwtOk = saved.apiTokenKind == 'Jwt';
+          final jwtOk = saved.apiTokenKind == 'Jwt' ||
+              notice.contains('Đã lấy token');
           _toast(
-            title: jwtOk ? 'Đã lưu · JWT OK' : 'Đã lưu · cần kiểm tra',
+            title: jwtOk ? 'Đã lưu · kết nối OK' : 'Đã lưu · cần kiểm tra',
             message: notice,
             success: jwtOk,
           );
@@ -229,14 +234,21 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
       _saving = true;
       _busyCode = f.code;
     });
+    final isAha = f.code == 'Ahamove';
+    final destAddr = isAha
+        ? '475A Điện Biên Phủ, Phường 25, Bình Thạnh, Thành phố Hồ Chí Minh'
+        : '01 Lê Duẩn, Hải Châu, Đà Nẵng';
+    final destProv = isAha ? 'Thành phố Hồ Chí Minh' : 'Thành phố Đà Nẵng';
+    final destDist = isAha ? 'Bình Thạnh' : 'Hải Châu';
+    final destWard = isAha ? 'Phường 25' : 'Phường Hải Châu';
     final res = await _api.quotePosShipping({
       'carrierCode': f.code,
       'toName': 'Khách test',
       'toPhone': '0900000000',
-      'toAddress': '01 Lê Duẩn, Hải Châu, Đà Nẵng',
-      'toProvince': 'Thành phố Đà Nẵng',
-      'toDistrict': 'Hải Châu',
-      'toWard': 'Phường Hải Châu',
+      'toAddress': destAddr,
+      'toProvince': destProv,
+      'toDistrict': destDist,
+      'toWard': destWard,
       'weightGrams': 500,
       'codAmount': 0,
       'insuranceValue': 100000,
@@ -427,9 +439,13 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
             ),
             _secretField(
               f.tokenCtrl,
-              label: f.hasToken
-                  ? 'API Token (để trống = giữ đã lưu)'
-                  : 'API Token',
+              label: f.code == 'Ahamove'
+                  ? (f.hasToken
+                      ? 'API Key AhaMove (để trống = giữ đã lưu)'
+                      : 'API Key AhaMove')
+                  : (f.hasToken
+                      ? 'API Token (để trống = giữ đã lưu)'
+                      : 'API Token'),
               enabled: canEdit && !busy,
               visibilityKey: 'tk_${f.code}',
             ),
@@ -469,6 +485,21 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
               ),
             if (f.code == 'Ghn')
               _field(f.shopIdCtrl, label: 'ShopId (GHN)', enabled: canEdit),
+            if (f.code == 'Ahamove') ...[
+              _field(f.shopIdCtrl,
+                  label: 'SĐT tài khoản AhaMove (84…)',
+                  enabled: canEdit),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  tr(
+                    'Key staging từ email AhaMove: bật Sandbox, dán API Key, SĐT 84…, điểm lấy hàng, rồi Lưu '
+                    '(hệ thống đổi key → token user). Portal test: business-stg.ahamove.com',
+                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade800),
+                ),
+              ),
+            ],
             if (f.code == 'Ghtk') ...[
               _field(f.shopIdCtrl,
                   label: 'Partner code (GHTK) — X-Client-Source (tuỳ chọn)',
@@ -546,7 +577,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                 _field(
                   f.extraJsonCtrl,
                   label:
-                      'Tọa độ: {"lat":16.06,"lng":108.15,"service_id":"SGN-BIKE"}',
+                      'Tuỳ chọn: {"lat":16.06,"lng":108.15} hoặc {"service_id":"SGN-BIKE"}',
                   maxLines: 2,
                   enabled: canEdit,
                 ),

@@ -109,7 +109,7 @@ class DepartmentTreeNode {
       id: json['id']?.toString() ?? '',
       name: json['name'] ?? '',
       code: json['code'],
-      parentId: json['parentId']?.toString(),
+      parentId: json['parentId']?.toString() ?? json['parentDepartmentId']?.toString(),
       level: json['level'],
       displayName: json['displayName'],
       employeeCount: json['employeeCount'] ?? json['directEmployeeCount'],
@@ -148,7 +148,7 @@ class DepartmentSelectDto {
       code: json['code'],
       level: json['level'],
       displayName: json['displayName'],
-      parentId: json['parentId']?.toString(),
+      parentId: json['parentId']?.toString() ?? json['parentDepartmentId']?.toString(),
     );
   }
 }

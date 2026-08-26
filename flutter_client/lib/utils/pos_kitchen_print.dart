@@ -368,10 +368,9 @@ Future<bool> _dispatchWarehouseBytes({
   if (!kIsWeb) {
     final ownedLocal =
         await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
-    final onSunmiHw = await PosPrinterTransport.isSunmiDevice();
     final onDevice = ownedLocal != null &&
         PosLocalPrintersStore.profileAllowsDirectLocal(ownedLocal);
-    final tryDirect = onDevice || (printer.isSunmi && onSunmiHw);
+    final tryDirect = onDevice;
 
     if (tryDirect) {
       final settings = (onDevice
@@ -1697,6 +1696,6 @@ Future<bool> _kitchenAssignedHasLocalPort(PosStorePrinter printer) async {
       PosLocalPrintersStore.profileAllowsDirectLocal(local)) {
     return true;
   }
-  return printer.isSunmi && await PosPrinterTransport.isSunmiDevice();
+  return false;
 }
 

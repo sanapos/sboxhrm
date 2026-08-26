@@ -355,6 +355,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   final Map<int, Widget> _mobileBottomScreenCache = {};
   /// Last visible bottom-nav stack index — used while Home stays Offstage under drawer/POS.
   int? _lastMobileBottomStackIdx;
+  /// Tăng khi mở lại module để StatefulWidget tải dữ liệu mới (trừ Home / POS bán).
+  final Map<int, int> _moduleVisitGen = {};
 
   /// Đã chuyển tài khoản POS vào thu ngân trong session MainLayout này.
   bool _didLandPosSell = false;
@@ -575,6 +577,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final idx = _navIndexForHomeShortcut(code);
     NavigationNotifier.navigateToModule.value = null;
 
+    if (code == 'Settings') {
+      _openAccountSettings();
+      if (openOvertime) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _openOvertimeScreen();
+        });
+      }
+      return;
+    }
+
     if (idx != null) {
       if (idx != _selectedIndex) {
         if (!_tryNavigateToIndex(idx)) return;
@@ -723,6 +736,25 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return true;
   }
 
+  bool _keepScreenAlive(int index) {
+    if (index == 0) return true;
+    if (index < 0 || index >= _navItems.length) return true;
+    return _navItems[index].moduleCode == 'PosSell';
+  }
+
+  void _bumpModuleVisit(int index) {
+    if (_keepScreenAlive(index)) return;
+    _moduleVisitGen[index] = (_moduleVisitGen[index] ?? 0) + 1;
+    _mobileBottomScreenCache.remove(index);
+  }
+
+  /// Tài khoản của mình (đổi tên, SĐT, mật khẩu) — không phụ thuộc index cứng / quyền SettingsHub.
+  void _openAccountSettings() {
+    final idx = _navItems.indexWhere((n) => n.moduleCode == 'Settings');
+    if (idx < 0) return;
+    _navigateToIndex(idx);
+  }
+
   void _navigateToModule(String moduleCode) {
     final idx = _navIndexForHomeShortcut(moduleCode);
     if (idx != null) _tryNavigateToIndex(idx);
@@ -737,6 +769,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         _navigationHistory.removeAt(0);
       }
       _selectedIndex = index;
+      _bumpModuleVisit(index);
     });
     unawaited(_persistLastNavIndex(index));
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -757,6 +790,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (_navigationHistory.isNotEmpty && mounted) {
       setState(() {
         _selectedIndex = _navigationHistory.removeLast();
+        _bumpModuleVisit(_selectedIndex);
       });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _reportCurrentScreen();
@@ -1926,10 +1960,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'SettingsHub',
     ),
     NavItem(
-      icon: Icons.settings_outlined,
-      activeIcon: Icons.settings,
-      label: 'Cài đặt',
-      subtitle: 'Giao diện',
+      icon: Icons.person_outline,
+      activeIcon: Icons.person,
+      label: 'Thông tin tài khoản',
+      subtitle: 'Tài khoản',
       screen: const SettingsScreen(),
       group: 'Cài đặt',
       showInSidebar: false,
@@ -2041,9 +2075,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   Widget _getScreenForIndex(int index) {
     if (index == 0) return _getHomeScreen();
-    return ModuleRouteGuard(
-      moduleCode: _navItems[index].moduleCode,
-      child: _navItems[index].screen,
+    final item = _navItems[index];
+    // Hồ sơ tài khoản của chính mình — mọi nhân viên được mở, không cần quyền Settings.
+    final child = item.moduleCode == 'Settings'
+        ? item.screen
+        : ModuleRouteGuard(
+            moduleCode: item.moduleCode,
+            child: item.screen,
+          );
+    return KeyedSubtree(
+      key: ValueKey('nav_${index}_${_moduleVisitGen[index] ?? 0}'),
+      child: child,
     );
   }
 
@@ -2484,6 +2526,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (isBottomNav) {
       cacheIndex(_selectedIndex);
       _lastMobileBottomStackIdx = bottomNavIndices.indexOf(_selectedIndex);
+    } else {
+      // Mở module drawer: bỏ cache tab dưới (trừ Home) để khi quay lại tải dữ liệu mới.
+      _mobileBottomScreenCache.removeWhere((k, _) => k != 0);
     }
 
     final homeStackIdx = bottomNavIndices.indexOf(0);
@@ -3422,15 +3467,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       onSelected: (value) {
         switch (value) {
           case 'profile':
-            _tryNavigateToIndex(NavigationNotifier.settings);
+            _openAccountSettings();
             break;
           case 'settings':
-            // Mở hub thiết lập (mẫu in, máy in, cửa hàng…) — không phải màn giao diện.
+            // Mở hub thiết lập (mẫu in, máy in, cửa hàng…) — không phải màn tài khoản.
             final hub = _navItems.indexWhere((n) => n.moduleCode == 'SettingsHub');
             if (hub >= 0) {
               _tryNavigateToIndex(hub);
-            } else {
-              _tryNavigateToIndex(NavigationNotifier.settings);
             }
             break;
           case 'logout':
@@ -4021,23 +4064,26 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final user = authProvider.user;
     final isMobile = MediaQuery.of(context).size.width < 768;
     final padding = isMobile ? 16.0 : 28.0;
 
     // Group items — chỉ rebuild khi quyền đã tải / đang tải thay đổi.
-    return Selector<PermissionProvider, ({bool loaded, bool loading})>(
-      selector: (_, p) => (loaded: p.isLoaded, loading: p.isLoading),
-      builder: (context, permState, _) {
-        final permProvider =
-            Provider.of<PermissionProvider>(context, listen: false);
-        return _buildHomeMenuBody(
-          context,
-          user: user,
-          isMobile: isMobile,
-          padding: padding,
-          permProvider: permProvider,
+    return Selector<AuthProvider, User?>(
+      selector: (_, a) => a.user,
+      builder: (context, user, _) {
+        return Selector<PermissionProvider, ({bool loaded, bool loading})>(
+          selector: (_, p) => (loaded: p.isLoaded, loading: p.isLoading),
+          builder: (context, permState, _) {
+            final permProvider =
+                Provider.of<PermissionProvider>(context, listen: false);
+            return _buildHomeMenuBody(
+              context,
+              user: user,
+              isMobile: isMobile,
+              padding: padding,
+              permProvider: permProvider,
+            );
+          },
         );
       },
     );

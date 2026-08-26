@@ -19,8 +19,10 @@ import '../widgets/app_button.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_collapsible_overview.dart';
 import '../utils/branch_filter_helper.dart';
+import '../utils/department_filter_helper.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/page_top_actions.dart';
+import '../widgets/copy_biometrics_dialog.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/safe_navigator.dart';
@@ -201,9 +203,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   List<Device> _devices = [];
   List<Employee> _employees = [];
   List<Map<String, dynamic>> _branches = [];
+  List<Map<String, dynamic>> _departments = [];
   bool _isLoading = true;
   bool _isExporting = false;
   String? _selectedDeviceId;
+  String? _selectedBranchId;
+  String? _selectedDepartmentId;
+  String? _selectedEmployeeId;
   String _searchQuery = '';
   int _currentPage = 1;
   int _pageSize = 50;
@@ -225,10 +231,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       final devicesData = await _apiService.getDevices(storeOnly: true);
       _devices = devicesData.map((e) => Device.fromJson(e)).toList();
 
-      // Load employees and branches in parallel
+      // Load employees, branches, departments in parallel
       final results = await Future.wait([
         _apiService.getEmployees(pageSize: 500),
         _apiService.getBranchesForSelect(),
+        _apiService.getDepartmentsForSelect(),
       ]);
       _employees =
           (results[0] as List).map((e) => Employee.fromJson(e)).toList();
@@ -236,6 +243,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       final brData = brResult['data'];
       _branches = brData is List
           ? brData.map((b) => Map<String, dynamic>.from(b as Map)).toList()
+          : [];
+      final deptResult = results[2] as Map<String, dynamic>;
+      final deptData = deptResult['data'];
+      _departments = deptData is List
+          ? deptData
+              .map((d) => Map<String, dynamic>.from(d as Map))
+              .toList()
           : [];
 
       // Load device users
@@ -382,8 +396,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   bool _isDeviceOnline(DateTime? lastOnline) {
     if (lastOnline == null) return false;
-    final diff = DateTime.now().toUtc().difference(lastOnline);
-    return diff.inMinutes <= 5;
+    return DateTime.now().toUtc().difference(lastOnline.toUtc()).inSeconds <
+        120;
   }
 
   Set<String> get _linkedEmployeeIds => _deviceUsers
@@ -746,13 +760,99 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     }
   }
 
+  Employee? _employeeOf(DeviceUser user) {
+    final id = user.employeeId;
+    if (id == null || id.isEmpty) return null;
+    for (final e in _employees) {
+      if (e.id == id) return e;
+    }
+    return null;
+  }
+
+  Set<String>? get _selectedBranchIds {
+    final id = _selectedBranchId;
+    if (id == null || id.isEmpty) return null;
+    return BranchFilterHelper.expandBranchIds(id, _branches);
+  }
+
+  Set<String>? get _selectedDepartmentIds {
+    final id = _selectedDepartmentId;
+    if (id == null || id.isEmpty) return null;
+    return DepartmentFilterHelper.expandDepartmentIds(id, _departments);
+  }
+
+  String get _selectedDepartmentName {
+    final id = _selectedDepartmentId;
+    if (id == null) return '';
+    for (final d in _departments) {
+      if (d['id']?.toString() == id) {
+        return d['name']?.toString() ?? '';
+      }
+    }
+    return '';
+  }
+
+  List<Employee> get _employeesForFilter {
+    var list = List<Employee>.from(_employees);
+    final branchIds = _selectedBranchIds;
+    if (branchIds != null) {
+      list = list
+          .where((e) => e.branchId != null && branchIds.contains(e.branchId))
+          .toList();
+    }
+    final deptIds = _selectedDepartmentIds;
+    if (deptIds != null) {
+      list = list
+          .where((e) =>
+              e.departmentId != null && deptIds.contains(e.departmentId))
+          .toList();
+    }
+    list.sort((a, b) => a.fullName.compareTo(b.fullName));
+    return list;
+  }
+
+  bool get _hasOrgFilter =>
+      _selectedBranchId != null ||
+      _selectedDepartmentId != null ||
+      _selectedEmployeeId != null;
+
   List<DeviceUser> get _filteredUsers {
     var list = _overviewFilteredUsers;
+    final branchIds = _selectedBranchIds;
+    if (branchIds != null) {
+      list = list.where((u) {
+        final emp = _employeeOf(u);
+        return emp?.branchId != null && branchIds.contains(emp!.branchId);
+      }).toList();
+    }
+    final deptIds = _selectedDepartmentIds;
+    if (deptIds != null) {
+      list = list.where((u) {
+        final emp = _employeeOf(u);
+        if (emp == null) return false;
+        if (emp.departmentId != null && deptIds.contains(emp.departmentId)) {
+          return true;
+        }
+        final filterName = _selectedDepartmentName;
+        if (filterName.isEmpty) return false;
+        return DepartmentFilterHelper.employeeMatchesDepartmentFilter(
+          filterName: filterName,
+          departments: _departments,
+          departmentName: emp.department,
+          departmentId: emp.departmentId,
+        );
+      }).toList();
+    }
+    if (_selectedEmployeeId != null) {
+      list = list.where((u) => u.employeeId == _selectedEmployeeId).toList();
+    }
     if (_searchQuery.isEmpty) return list;
     final query = _searchQuery.toLowerCase();
     return list.where((u) {
+      final empName = _employeeOf(u)?.fullName.toLowerCase() ?? '';
       return u.name.toLowerCase().contains(query) ||
           u.pin.toLowerCase().contains(query) ||
+          empName.contains(query) ||
           (u.cardNumber?.toLowerCase().contains(query) ?? false);
     }).toList();
   }
@@ -813,15 +913,41 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     }
   }
 
-  /// Trả về tên chi nhánh của một DeviceUser (thông qua employee liên kết)
-  String _getBranchNameForUser(DeviceUser user) {
-    if (user.employeeId == null) return '';
-    final emp = _employees.firstWhere(
-      (e) => e.id == user.employeeId,
-      orElse: () =>
-          Employee(id: '', employeeCode: '', firstName: '', lastName: ''),
-    );
-    return emp.branchName ?? '';
+  ({List<String> keys, Map<String, List<DeviceUser>> groups})
+      _groupUsersByDevice(List<DeviceUser> users) {
+    final groups = <String, List<DeviceUser>>{};
+    for (final u in users) {
+      final key = u.deviceId.isEmpty ? '__none__' : u.deviceId;
+      groups.putIfAbsent(key, () => []).add(u);
+    }
+    final deviceOrder = _devices.map((d) => d.id).toList();
+    final keys = [
+      ...deviceOrder.where((id) => groups.containsKey(id)),
+      ...groups.keys
+          .where((k) => !deviceOrder.contains(k) && k != '__none__'),
+      if (groups.containsKey('__none__')) '__none__',
+    ];
+    return (keys: keys, groups: groups);
+  }
+
+  String _deviceGroupLabel(String deviceId, List<DeviceUser> users) {
+    if (deviceId == '__none__') return 'Chưa gán máy';
+    for (final d in _devices) {
+      if (d.id == deviceId) return d.deviceName;
+    }
+    final fromUser = users.isNotEmpty ? (users.first.deviceName ?? '') : '';
+    return fromUser.isNotEmpty ? fromUser : 'Thiết bị';
+  }
+
+  void _resetListPage() {
+    _currentPage = 1;
+  }
+
+  void _syncEmployeeFilterAfterOrgChange() {
+    if (_selectedEmployeeId == null) return;
+    final stillValid =
+        _employeesForFilter.any((e) => e.id == _selectedEmployeeId);
+    if (!stillValid) _selectedEmployeeId = null;
   }
 
   void _showError(String message) {
@@ -864,6 +990,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         label: _l10n.importFromDevice,
         onPressed: _downloadUsersFromDevice,
       ),
+      if (_perm.canCreate('DeviceUser') || _perm.canEdit('DeviceUser'))
+        HrmTopBarAction(
+          icon: Icons.fingerprint,
+          label: 'Copy sinh trắc',
+          onPressed: _showCopyBiometricsDialog,
+        ),
       if (_perm.canCreate('DeviceUser') || _perm.canEdit('DeviceUser'))
         HrmTopBarAction(
           icon: Icons.upload,
@@ -1024,6 +1156,275 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     );
   }
 
+  Widget _filterFieldShell({required Widget child}) {
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _idFilterDropdown({
+    required String? value,
+    required IconData icon,
+    required String allLabel,
+    required List<DropdownMenuItem<String?>> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return _filterFieldShell(
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: value,
+          isExpanded: true,
+          isDense: true,
+          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+          style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).textTheme.bodyMedium?.color),
+          items: [
+            DropdownMenuItem<String?>(
+              value: null,
+              child: Row(
+                children: [
+                  Icon(icon, size: 14, color: Colors.grey[500]),
+                  const SizedBox(width: 6),
+                  Expanded(
+                      child: Text(tr(allLabel),
+                          overflow: TextOverflow.ellipsis)),
+                ],
+              ),
+            ),
+            ...items,
+          ],
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _branchFilterDropdown() {
+    final ids = _branches.map((b) => b['id']?.toString()).toSet();
+    final value = ids.contains(_selectedBranchId) ? _selectedBranchId : null;
+    return _idFilterDropdown(
+      value: value,
+      icon: Icons.account_tree_outlined,
+      allLabel: 'Tất cả chi nhánh',
+      items: _branches
+          .where((b) => (b['id']?.toString() ?? '').isNotEmpty)
+          .map((b) => DropdownMenuItem<String?>(
+                value: b['id']?.toString(),
+                child: Text(tr(b['name']?.toString() ?? ''),
+                    overflow: TextOverflow.ellipsis),
+              ))
+          .toList(),
+      onChanged: (v) => setState(() {
+        _selectedBranchId = v;
+        _resetListPage();
+        _syncEmployeeFilterAfterOrgChange();
+      }),
+    );
+  }
+
+  Widget _departmentFilterDropdown() {
+    final ids = _departments.map((d) => d['id']?.toString()).toSet();
+    final value =
+        ids.contains(_selectedDepartmentId) ? _selectedDepartmentId : null;
+    return _idFilterDropdown(
+      value: value,
+      icon: Icons.business_outlined,
+      allLabel: _l10n.allDepartments,
+      items: _departments
+          .where((d) => (d['id']?.toString() ?? '').isNotEmpty)
+          .map((d) => DropdownMenuItem<String?>(
+                value: d['id']?.toString(),
+                child: Text(tr(d['name']?.toString() ?? ''),
+                    overflow: TextOverflow.ellipsis),
+              ))
+          .toList(),
+      onChanged: (v) => setState(() {
+        _selectedDepartmentId = v;
+        _resetListPage();
+        _syncEmployeeFilterAfterOrgChange();
+      }),
+    );
+  }
+
+  Widget _employeeFilterDropdown() {
+    final emps = _employeesForFilter;
+    final value =
+        emps.any((e) => e.id == _selectedEmployeeId) ? _selectedEmployeeId : null;
+    return _idFilterDropdown(
+      value: value,
+      icon: Icons.person_outline,
+      allLabel: _l10n.allEmployees,
+      items: emps.map((e) {
+        final label = [
+          if (e.employeeCode.isNotEmpty) e.employeeCode,
+          if (e.fullName.isNotEmpty) e.fullName,
+        ].join(' · ');
+        return DropdownMenuItem<String?>(
+          value: e.id,
+          child: Text(tr(label), overflow: TextOverflow.ellipsis),
+        );
+      }).toList(),
+      onChanged: (v) => setState(() {
+        _selectedEmployeeId = v;
+        _resetListPage();
+      }),
+    );
+  }
+
+  Widget _deviceFilterDropdown() {
+    final value =
+        _devices.any((d) => d.id == _selectedDeviceId) ? _selectedDeviceId : null;
+    return _filterFieldShell(
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: value,
+          isExpanded: true,
+          isDense: true,
+          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+          style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).textTheme.bodyMedium?.color),
+          items: [
+            DropdownMenuItem<String?>(
+              value: null,
+              child: Row(
+                children: [
+                  Icon(Icons.devices, size: 14, color: Colors.grey[500]),
+                  const SizedBox(width: 6),
+                  Text(tr(_l10n.allDevices)),
+                ],
+              ),
+            ),
+            ..._devices.map((d) => DropdownMenuItem<String?>(
+                  value: d.id,
+                  child: Row(
+                    children: [
+                      Icon(Icons.circle,
+                          size: 8,
+                          color: _isDeviceOnline(d.lastOnline)
+                              ? HrmPageChrome.primaryNavy
+                              : const Color(0xFFA1A1AA)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                          child: Text(
+                              tr('${d.deviceName} (${d.serialNumber})'),
+                              overflow: TextOverflow.ellipsis)),
+                    ],
+                  ),
+                )),
+          ],
+          selectedItemBuilder: (context) => [
+            Row(
+              children: [
+                Icon(Icons.devices,
+                    size: 14, color: Theme.of(context).primaryColor),
+                const SizedBox(width: 6),
+                Expanded(
+                    child: Text(tr(_l10n.allDevices),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13))),
+              ],
+            ),
+            ..._devices.map((d) => Row(
+                  children: [
+                    Icon(Icons.circle,
+                        size: 8,
+                        color: _isDeviceOnline(d.lastOnline)
+                            ? HrmPageChrome.primaryNavy
+                            : const Color(0xFFA1A1AA)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                        child: Text(
+                            tr('${d.deviceName} (${d.serialNumber})'),
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13))),
+                  ],
+                )),
+          ],
+          onChanged: (v) async {
+            setState(() {
+              _selectedDeviceId = v;
+              _resetListPage();
+            });
+            await _loadDeviceUsers();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _searchFilterField() {
+    return Container(
+      height: 36,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: TextField(
+        style: const TextStyle(fontSize: 13),
+        decoration: InputDecoration(
+          hintText: tr(_l10n.search),
+          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
+          prefixIcon:
+              const Icon(Icons.search, size: 18, color: Color(0xFFA1A1AA)),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 16),
+                  onPressed: () => setState(() {
+                    _searchQuery = '';
+                    _resetListPage();
+                  }),
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        ),
+        onChanged: (value) => setState(() {
+          _searchQuery = value;
+          _resetListPage();
+        }),
+      ),
+    );
+  }
+
+  Widget _userCountChip({bool compact = false}) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: compact ? 10 : 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.fingerprint,
+              color: Theme.of(context).primaryColor, size: 16),
+          SizedBox(width: compact ? 4 : 6),
+          Text(
+            tr(compact
+                ? '${_filteredUsers.length}'
+                : '${_filteredUsers.length} user'),
+            style: TextStyle(
+              color: Theme.of(context).primaryColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFilters() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1042,304 +1443,63 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         builder: (context, constraints) {
           final isFilterMobile =
               constraints.maxWidth < Responsive.mobileBreakpoint;
+          final showBranch = _branches.isNotEmpty;
+          final showDept = _departments.isNotEmpty;
+          final showEmployee = _employees.isNotEmpty;
+
+          Widget pair(Widget a, Widget b) => Row(
+                children: [
+                  Expanded(child: a),
+                  const SizedBox(width: 8),
+                  Expanded(child: b),
+                ],
+              );
+
           if (isFilterMobile) {
             return Column(
               children: [
-                Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFAFAFA),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String?>(
-                      value: _selectedDeviceId,
-                      isExpanded: true,
-                      isDense: true,
-                      icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context).textTheme.bodyMedium?.color),
-                      items: [
-                        DropdownMenuItem<String?>(
-                          value: null,
-                          child: Row(
-                            children: [
-                              Icon(Icons.devices,
-                                  size: 14, color: Colors.grey[500]),
-                              const SizedBox(width: 6),
-                              Text(tr(_l10n.allDevices)),
-                            ],
-                          ),
-                        ),
-                        ..._devices.map((d) => DropdownMenuItem<String?>(
-                              value: d.id,
-                              child: Row(
-                                children: [
-                                  Icon(Icons.circle,
-                                      size: 8,
-                                      color: _isDeviceOnline(d.lastOnline)
-                                          ? HrmPageChrome.primaryNavy
-                                          : const Color(0xFFA1A1AA)),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                      child: Text(
-                                          tr('${d.deviceName} (${d.serialNumber})'),
-                                          overflow: TextOverflow.ellipsis)),
-                                ],
-                              ),
-                            )),
-                      ],
-                      selectedItemBuilder: (context) => [
-                        Row(
-                          children: [
-                            Icon(Icons.devices,
-                                size: 14,
-                                color: Theme.of(context).primaryColor),
-                            const SizedBox(width: 6),
-                            Expanded(
-                                child: Text(tr(_l10n.allDevices),
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 13))),
-                          ],
-                        ),
-                        ..._devices.map((d) => Row(
-                              children: [
-                                Icon(Icons.circle,
-                                    size: 8,
-                                    color: _isDeviceOnline(d.lastOnline)
-                                        ? HrmPageChrome.primaryNavy
-                                        : const Color(0xFFA1A1AA)),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                    child: Text(
-                                        tr('${d.deviceName} (${d.serialNumber})'),
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 13))),
-                              ],
-                            )),
-                      ],
-                      onChanged: (value) async {
-                        setState(() => _selectedDeviceId = value);
-                        await _loadDeviceUsers();
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
+                if (showBranch && showDept) ...[
+                  pair(_branchFilterDropdown(), _departmentFilterDropdown()),
+                  const SizedBox(height: 8),
+                ] else if (showBranch) ...[
+                  _branchFilterDropdown(),
+                  const SizedBox(height: 8),
+                ] else if (showDept) ...[
+                  _departmentFilterDropdown(),
+                  const SizedBox(height: 8),
+                ],
+                if (showEmployee) ...[
+                  pair(_employeeFilterDropdown(), _deviceFilterDropdown()),
+                  const SizedBox(height: 8),
+                ] else ...[
+                  _deviceFilterDropdown(),
+                  const SizedBox(height: 8),
+                ],
                 Row(
                   children: [
-                    Expanded(
-                      child: Container(
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFAFAFA),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                        ),
-                        child: TextField(
-                          style: const TextStyle(fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: tr(_l10n.search),
-                            hintStyle: const TextStyle(
-                                fontSize: 13, color: Color(0xFFA1A1AA)),
-                            prefixIcon: const Icon(Icons.search,
-                                size: 18, color: Color(0xFFA1A1AA)),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 16),
-                                    onPressed: () =>
-                                        setState(() => _searchQuery = ''),
-                                  )
-                                : null,
-                            border: InputBorder.none,
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 10),
-                          ),
-                          onChanged: (value) =>
-                              setState(() => _searchQuery = value),
-                        ),
-                      ),
-                    ),
+                    Expanded(child: _searchFilterField()),
                     const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .primaryColor
-                            .withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.fingerprint,
-                              color: Theme.of(context).primaryColor, size: 16),
-                          const SizedBox(width: 4),
-                          Text(
-                            tr('${_filteredUsers.length}'),
-                            style: TextStyle(
-                              color: Theme.of(context).primaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _userCountChip(compact: true),
                   ],
                 ),
               ],
             );
           }
-          return Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFAFAFA),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String?>(
-                      value: _selectedDeviceId,
-                      isExpanded: true,
-                      isDense: true,
-                      icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: Theme.of(context).textTheme.bodyMedium?.color),
-                      items: [
-                        DropdownMenuItem<String?>(
-                          value: null,
-                          child: Row(
-                            children: [
-                              Icon(Icons.devices,
-                                  size: 14, color: Colors.grey[500]),
-                              const SizedBox(width: 6),
-                              Text(tr(_l10n.allDevices)),
-                            ],
-                          ),
-                        ),
-                        ..._devices.map((d) => DropdownMenuItem<String?>(
-                              value: d.id,
-                              child: Row(
-                                children: [
-                                  Icon(Icons.circle,
-                                      size: 8,
-                                      color: _isDeviceOnline(d.lastOnline)
-                                          ? HrmPageChrome.primaryNavy
-                                          : const Color(0xFFA1A1AA)),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                      child: Text(
-                                          tr('${d.deviceName} (${d.serialNumber})'),
-                                          overflow: TextOverflow.ellipsis)),
-                                ],
-                              ),
-                            )),
-                      ],
-                      selectedItemBuilder: (context) => [
-                        Row(
-                          children: [
-                            Icon(Icons.devices,
-                                size: 14,
-                                color: Theme.of(context).primaryColor),
-                            const SizedBox(width: 6),
-                            Expanded(
-                                child: Text(tr(_l10n.allDevices),
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 13))),
-                          ],
-                        ),
-                        ..._devices.map((d) => Row(
-                              children: [
-                                Icon(Icons.circle,
-                                    size: 8,
-                                    color: _isDeviceOnline(d.lastOnline)
-                                        ? HrmPageChrome.primaryNavy
-                                        : const Color(0xFFA1A1AA)),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                    child: Text(
-                                        tr('${d.deviceName} (${d.serialNumber})'),
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(fontSize: 13))),
-                              ],
-                            )),
-                      ],
-                      onChanged: (value) async {
-                        setState(() => _selectedDeviceId = value);
-                        await _loadDeviceUsers();
-                      },
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
 
-              // Search
-              Expanded(
-                child: Container(
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFAFAFA),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
-                  ),
-                  child: TextField(
-                    style: const TextStyle(fontSize: 13),
-                    decoration: InputDecoration(
-                      hintText: tr(_l10n.search),
-                      hintStyle: const TextStyle(
-                          fontSize: 13, color: Color(0xFFA1A1AA)),
-                      prefixIcon: const Icon(Icons.search,
-                          size: 18, color: Color(0xFFA1A1AA)),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 16),
-                              onPressed: () =>
-                                  setState(() => _searchQuery = ''),
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    onChanged: (value) => setState(() => _searchQuery = value),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.fingerprint,
-                        color: Theme.of(context).primaryColor, size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      tr('${_filteredUsers.length} user'),
-                      style: TextStyle(
-                        color: Theme.of(context).primaryColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          return Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (showBranch)
+                SizedBox(width: 200, child: _branchFilterDropdown()),
+              if (showDept)
+                SizedBox(width: 200, child: _departmentFilterDropdown()),
+              if (showEmployee)
+                SizedBox(width: 220, child: _employeeFilterDropdown()),
+              SizedBox(width: 240, child: _deviceFilterDropdown()),
+              SizedBox(width: 220, child: _searchFilterField()),
+              _userCountChip(),
             ],
           );
         },
@@ -1486,11 +1646,11 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         onAction: _showAddUserDialog,
       );
     }
-    if (_searchQuery.isNotEmpty) {
+    if (_searchQuery.isNotEmpty || _hasOrgFilter) {
       return const EmptyState(
         icon: Icons.search_off,
         title: 'Không tìm thấy user',
-        description: 'Thử từ khóa khác hoặc bỏ lọc tổng quan',
+        description: 'Thử từ khóa khác hoặc bỏ bộ lọc',
       );
     }
     if (_hasActiveOverviewFilter) {
@@ -1538,32 +1698,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   List<Widget> _mobileUserListSlivers(List<DeviceUser> users) {
     const pad = EdgeInsets.symmetric(horizontal: 12, vertical: 8);
-    if (!BranchFilterHelper.showBranchFilter(_branches)) {
-      return HrmScrollSlivers.fromListViewBuilder(
-        itemCount: users.length,
-        padding: pad,
-        itemBuilder: (_, i) => _buildMobileUserCard(users[i]),
-      );
-    }
-    final Map<String, List<DeviceUser>> groupMap = {};
-    for (final u in users) {
-      final brName = _getBranchNameForUser(u);
-      final key = brName.isEmpty ? '__none__' : brName;
-      groupMap.putIfAbsent(key, () => []).add(u);
-    }
-    final List<String> branchOrder =
-        _branches.map((b) => b['name']?.toString() ?? '').toList();
-    final List<String> keys = [
-      ...branchOrder.where((n) => groupMap.containsKey(n)),
-      ...groupMap.keys
-          .where((k) => !branchOrder.contains(k) && k != '__none__'),
-      if (groupMap.containsKey('__none__')) '__none__',
-    ];
+    final grouped = _groupUsersByDevice(users);
     final children = <Widget>[];
-    for (final key in keys) {
-      children.add(_buildBranchGroupHeader(
-          key == '__none__' ? 'Chưa có chi nhánh' : key, groupMap[key]!.length));
-      for (final user in groupMap[key]!) {
+    for (final key in grouped.keys) {
+      final group = grouped.groups[key]!;
+      children.add(_buildDeviceGroupHeader(
+          _deviceGroupLabel(key, group), group.length));
+      for (final user in group) {
         children.add(_buildMobileUserCard(user));
       }
     }
@@ -1703,6 +1844,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
                                                 color: Color(0xFF71717A))))),
+                                DataColumn(
+                                    label: Expanded(
+                                        child: Text(tr('Khuôn mặt'),
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: Color(0xFF71717A))))),
                               ],
                               rows: _buildDesktopRows(displayedUsers),
                             ),
@@ -1723,43 +1872,17 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   }
 
   Widget _buildMobileUserList(List<DeviceUser> users) {
-    if (!BranchFilterHelper.showBranchFilter(_branches)) {
-      return _buildMobileUserListRaw(users);
-    }
-    // Group by branch
-    final Map<String, List<DeviceUser>> groupMap = {};
-    for (final u in users) {
-      final brName = _getBranchNameForUser(u);
-      final key = brName.isEmpty ? '__none__' : brName;
-      groupMap.putIfAbsent(key, () => []).add(u);
-    }
-    final List<String> branchOrder =
-        _branches.map((b) => b['name']?.toString() ?? '').toList();
-    final List<String> keys = [
-      ...branchOrder.where((n) => groupMap.containsKey(n)),
-      ...groupMap.keys
-          .where((k) => !branchOrder.contains(k) && k != '__none__'),
-      if (groupMap.containsKey('__none__')) '__none__',
-    ];
+    final grouped = _groupUsersByDevice(users);
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       children: [
-        for (final key in keys) ...[
-          _buildBranchGroupHeader(key == '__none__' ? 'Chưa có chi nhánh' : key,
-              groupMap[key]!.length),
-          for (final user in groupMap[key]!) _buildMobileUserCard(user),
+        for (final key in grouped.keys) ...[
+          _buildDeviceGroupHeader(
+              _deviceGroupLabel(key, grouped.groups[key]!),
+              grouped.groups[key]!.length),
+          for (final user in grouped.groups[key]!) _buildMobileUserCard(user),
         ],
       ],
-    );
-  }
-
-  Widget _buildMobileUserListRaw(List<DeviceUser> users) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      shrinkWrap: true,
-      physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: users.length,
-      itemBuilder: (_, index) => _buildMobileUserCard(users[index]),
     );
   }
 
@@ -1903,14 +2026,31 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         const SizedBox(width: 8),
                         Icon(Icons.fingerprint,
                             size: 12,
-                            color: user.fingerprintCount > 0
+                            color: user.fingerprintReady
+                                ? HrmPageChrome.chipMid
+                                : user.fingerprintSyncing
+                                    ? const Color(0xFFD97706)
+                                    : const Color(0xFFD4D4D8)),
+                        const SizedBox(width: 2),
+                        Text(tr(user.fingerprintStatusLabel),
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: user.fingerprintReady
+                                    ? HrmPageChrome.chipMid
+                                    : user.fingerprintSyncing
+                                        ? const Color(0xFFD97706)
+                                        : const Color(0xFFA1A1AA))),
+                        const SizedBox(width: 8),
+                        Icon(Icons.face,
+                            size: 12,
+                            color: user.faceCount > 0
                                 ? HrmPageChrome.chipMid
                                 : const Color(0xFFD4D4D8)),
                         const SizedBox(width: 2),
-                        Text(tr('${user.fingerprintCount} vân tay'),
+                        Text(tr('${user.faceCount} KM'),
                             style: TextStyle(
                                 fontSize: 10,
-                                color: user.fingerprintCount > 0
+                                color: user.faceCount > 0
                                     ? HrmPageChrome.chipMid
                                     : const Color(0xFFA1A1AA))),
                       ]),
@@ -1930,7 +2070,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     );
   }
 
-  Widget _buildBranchGroupHeader(String branchName, int count) {
+  Widget _buildDeviceGroupHeader(String deviceName, int count) {
     final primary = Theme.of(context).primaryColor;
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 4),
@@ -1945,10 +2085,10 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.account_tree_outlined, size: 15, color: primary),
+                Icon(Icons.router, size: 15, color: primary),
                 const SizedBox(width: 6),
                 Text(
-                  tr(branchName),
+                  tr(deviceName),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -1985,34 +2125,18 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   }
 
   List<DataRow> _buildDesktopRows(List<DeviceUser> users) {
-    const int colCount = 9;
-    if (!BranchFilterHelper.showBranchFilter(_branches)) return _buildUserDataRows(users);
-
-    final Map<String, List<DeviceUser>> groupMap = {};
-    for (final u in users) {
-      final brName = _getBranchNameForUser(u);
-      final key = brName.isEmpty ? '__none__' : brName;
-      groupMap.putIfAbsent(key, () => []).add(u);
-    }
-    final List<String> branchOrder =
-        _branches.map((b) => b['name']?.toString() ?? '').toList();
-    final List<String> keys = [
-      ...branchOrder.where((n) => groupMap.containsKey(n)),
-      ...groupMap.keys
-          .where((k) => !branchOrder.contains(k) && k != '__none__'),
-      if (groupMap.containsKey('__none__')) '__none__',
-    ];
-
+    const int colCount = 10;
+    final grouped = _groupUsersByDevice(users);
     final primary = Theme.of(context).primaryColor;
     final List<DataRow> rows = [];
-    for (final key in keys) {
-      final group = groupMap[key] ?? [];
-      final label = key == '__none__' ? 'Chưa có chi nhánh' : key;
+    for (final key in grouped.keys) {
+      final group = grouped.groups[key] ?? [];
+      final label = _deviceGroupLabel(key, group);
       rows.add(DataRow(
         color: WidgetStateProperty.all(primary.withValues(alpha: 0.07)),
         cells: [
           DataCell(Row(children: [
-            Icon(Icons.account_tree_outlined, size: 14, color: primary),
+            Icon(Icons.router, size: 14, color: primary),
             const SizedBox(width: 6),
             Text(tr(label),
                 style: TextStyle(
@@ -2077,9 +2201,21 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           DataCell(Center(child: Text(tr(user.password ?? '-')))),
           DataCell(Center(child: Text(tr(user.cardNumber ?? '-')))),
           DataCell(Center(
-              child: Text(tr('${user.fingerprintCount}'),
+              child: Text(tr(user.fingerprintReady
+                      ? '${user.copyableFingerprintCount}'
+                      : user.fingerprintSyncing
+                          ? '…'
+                          : '0'),
                   style: TextStyle(
-                      color: user.fingerprintCount > 0
+                      color: user.fingerprintReady
+                          ? HrmPageChrome.chipMid
+                          : user.fingerprintSyncing
+                              ? const Color(0xFFD97706)
+                              : Colors.grey)))),
+          DataCell(Center(
+              child: Text(tr('${user.faceCount}'),
+                  style: TextStyle(
+                      color: user.faceCount > 0
                           ? HrmPageChrome.chipMid
                           : Colors.grey)))),
         ],
@@ -2272,6 +2408,18 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           onTap: () {
             Navigator.pop(context);
             _showFaceDialog(user);
+          },
+        ),
+        ListTile(
+          leading: const CircleAvatar(
+            backgroundColor: Colors.indigo,
+            child: Icon(Icons.copy_all, color: Colors.white, size: 20),
+          ),
+          title: Text(tr('Copy sinh trắc sang máy khác')),
+          subtitle: Text(tr('Đẩy vân tay / khuôn mặt của NV này')),
+          onTap: () {
+            Navigator.pop(context);
+            _showCopyBiometricsDialog(preselectedUser: user);
           },
         ),
         ListTile(
@@ -3165,12 +3313,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               'Máy không hỗ trợ đăng ký vân tay từ xa. Hãy đăng ký trực tiếp trên máy.');
           return;
         }
-        final lastOnline = freshDevice['lastOnline'] != null
-            ? DateTime.tryParse(
-                freshDevice['lastOnline'].toString().endsWith('Z')
-                    ? freshDevice['lastOnline'].toString()
-                    : '${freshDevice['lastOnline']}Z')
-            : null;
+        final lastOnline = parseDeviceUtc(freshDevice['lastOnline']);
         if (lastOnline != null && !_isDeviceOnline(lastOnline)) {
           _showError(
               'Máy chấm công đang offline. Vui lòng kiểm tra kết nối mạng của thiết bị và thử lại.');
@@ -3220,13 +3363,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
     // Nếu đăng ký thành công, cập nhật UI ngay lập tức
     if (result == true) {
-      // Thêm ngón tay vào danh sách enrolled ngay (đã lưu DB qua EnrollFingerprintStrategy)
       setDialogState(() {
         if (!enrolledFingers.contains(fingerIndex)) {
           enrolledFingers.add(fingerIndex);
         }
-        debugPrint('Updated enrolled fingers: $enrolledFingers');
       });
+      await _loadDeviceUsers();
     }
   }
 
@@ -4092,6 +4234,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     case 'link':
                       _showLinkEmployeeDialog(user);
                       break;
+                    case 'copy_bio':
+                      _showCopyBiometricsDialog(preselectedUser: user);
+                      break;
                     case 'delete':
                       _confirmDeleteUser(user);
                       break;
@@ -4119,6 +4264,19 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           Text(tr(user.employeeId != null
                               ? 'Đổi liên kết NV'
                               : 'Liên kết NV')),
+                        ],
+                      ),
+                    ),
+                  if (_perm.canEdit('DeviceUser') ||
+                      _perm.canCreate('DeviceUser'))
+                    PopupMenuItem(
+                      value: 'copy_bio',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.copy_all,
+                              size: 20, color: Colors.indigo),
+                          const SizedBox(width: 12),
+                          Text(tr('Copy sinh trắc')),
                         ],
                       ),
                     ),
@@ -4178,6 +4336,37 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       return;
     }
     _showUserForm(null);
+  }
+
+  Future<void> _showCopyBiometricsDialog({DeviceUser? preselectedUser}) async {
+    if (_devices.length < 2) {
+      _showError('Cần ít nhất 2 máy chấm công để copy sinh trắc sang máy khác.');
+      return;
+    }
+    final result = await CopyBiometricsDialog.show(
+      context: context,
+      devices: _devices,
+      users: _deviceUsers,
+      apiService: _apiService,
+      initialSourceDeviceId: preselectedUser?.deviceId ?? _selectedDeviceId,
+      preselectedUserId: preselectedUser?.id,
+    );
+    if (!mounted || result == null) return;
+    if (result['isSuccess'] == true) {
+      final data = result['data'];
+      final title = data is Map
+          ? (data['title'] ?? data['Title'] ?? 'Đã copy xong').toString()
+          : 'Đã copy xong';
+      final msg = data is Map
+          ? (data['message'] ?? result['message'] ?? 'Máy đích online sẽ nhận trong vài giây.')
+          : (result['message'] ?? 'Máy đích online sẽ nhận trong vài giây.');
+      appNotification.showSuccess(
+        title: title,
+        message: msg.toString(),
+        duration: const Duration(seconds: 6),
+      );
+      await _loadDeviceUsers();
+    }
   }
 
   void _showEditUserDialog(DeviceUser user) {
@@ -5331,16 +5520,26 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
           }
 
           if (commandStatus == 'Success' || commandStatus == '2') {
-            // Backend đã nhận được template từ máy → đăng ký thành công
             setState(() {
               _scanCount = _requiredScans;
               _status = 'success';
-              _message = 'Đăng ký vân tay thành công!\n${widget.fingerName}';
+              _message =
+                  'Vân tay đã trên máy.\nĐang nhận file về server (thường 15–60 giây)…';
             });
-            await Future.delayed(const Duration(seconds: 2));
+            final ready = await _waitForFingerprintFile();
+            if (_isCancelled) return;
+            setState(() {
+              _message = ready
+                  ? 'File vân tay đã trên server.\nCó thể Copy sang máy khác.'
+                  : 'Vân tay đã trên máy. File đang lên server.\nMở Copy khi thấy “vân tay” (không còn chữ đang đồng bộ).';
+            });
+            await Future.delayed(Duration(seconds: ready ? 1 : 2));
             if (!_isCancelled) {
               widget.onComplete(
-                  true, 'Đã đăng ký vân tay ${widget.fingerName} thành công');
+                  true,
+                  ready
+                      ? 'Đã đăng ký ${widget.fingerName}. File đã trên server — Copy được ngay.'
+                      : 'Đã đăng ký ${widget.fingerName} trên máy. File lên server trong 15–60 giây — không mất dữ liệu, đợi hoặc bấm làm mới danh sách.');
             }
             return;
           }
@@ -5372,6 +5571,41 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
         _message = 'Hết thời gian chờ!\nVui lòng thử lại đăng ký vân tay.';
       });
     }
+  }
+
+  /// Máy ACK enroll xong vẫn chưa gửi file. Poll đến khi Copy được hoặc hết ~45s.
+  Future<bool> _waitForFingerprintFile() async {
+    final before = widget.user.copyableFingerprintCount;
+    for (var i = 0; i < 15 && !_isCancelled; i++) {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      if (_isCancelled) return false;
+      try {
+        final rows = await widget.apiService
+            .getDeviceUsers(deviceId: widget.user.deviceId);
+        DeviceUser? fresh;
+        for (final row in rows) {
+          if (row is Map) {
+            final u = DeviceUser.fromJson(Map<String, dynamic>.from(row));
+            if (u.id == widget.user.id) {
+              fresh = u;
+              break;
+            }
+          }
+        }
+        if (fresh != null && fresh.copyableFingerprintCount > before) {
+          return true;
+        }
+        if (mounted) {
+          setState(() {
+            _message =
+                'Vân tay đã trên máy.\nĐang nhận file về server… (${(i + 1) * 3}s)';
+          });
+        }
+      } catch (e) {
+        debugPrint('wait fingerprint file: $e');
+      }
+    }
+    return false;
   }
 
   void _cancel() {

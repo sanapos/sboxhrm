@@ -60,6 +60,8 @@ class _PosReportsScreenState extends State<PosReportsScreen>
   int _lotPage = 1;
   String? _lotFilter;
   String? _stockFilter;
+  bool _stockFilterOpen = false;
+  bool _salesFilterOpen = false;
   static const _stockPageSize = 30;
 
   @override
@@ -309,7 +311,13 @@ class _PosReportsScreenState extends State<PosReportsScreen>
         Padding(
           padding: const EdgeInsets.all(12),
           child: mobile
-              ? Column(
+              ? PosFilterCollapse(
+                  expanded: _salesFilterOpen,
+                  onToggle: () =>
+                      setState(() => _salesFilterOpen = !_salesFilterOpen),
+                  title: 'Kỳ báo cáo',
+                  subtitle: _salesTime.displayLabel,
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     PosKiotTimeFilter(
@@ -346,6 +354,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                       ),
                     ],
                   ],
+                ),
                 )
               : SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -462,6 +471,18 @@ class _PosReportsScreenState extends State<PosReportsScreen>
     );
   }
 
+  String get _stockFilterSubtitle {
+    final f = switch (_stockFilter) {
+      'BelowMin' => 'Dưới min',
+      'OutOfStock' => 'Hết hàng',
+      'AboveMax' => 'Trên max',
+      _ => 'Tất cả',
+    };
+    final s = _stockSummary;
+    if (s == null) return f;
+    return '$f · SKU ${s['totalSkus'] ?? 0} · Tồn ${s['totalQty'] ?? 0}';
+  }
+
   Widget _buildStockTab(bool canExport) {
     final totalPages = (_stockTotal / _stockPageSize).ceil().clamp(1, 9999);
     final mobile = posUseMobileList(context);
@@ -484,6 +505,15 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                       onSubmitted: (_) => _loadStock(),
                     ),
                     const SizedBox(height: 8),
+                    PosFilterCollapse(
+                      expanded: _stockFilterOpen,
+                      onToggle: () =>
+                          setState(() => _stockFilterOpen = !_stockFilterOpen),
+                      title: 'Bộ lọc & tổng quan',
+                      subtitle: _stockFilterSubtitle,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                     Wrap(
                       spacing: 8,
                       children: [
@@ -550,6 +580,22 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                         ],
                       ],
                     ),
+                    if (_stockSummary != null) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _chip('SKU', '${_stockSummary!['totalSkus'] ?? 0}'),
+                          _chip('Tồn', '${_stockSummary!['totalQty'] ?? 0}'),
+                          _chip('Giá trị', _moneyFmt.format(_num(_stockSummary!['inventoryValue']))),
+                          _chip('Hết hàng', '${_stockSummary!['outOfStock'] ?? 0}'),
+                        ],
+                      ),
+                    ],
+                        ],
+                      ),
+                    ),
                   ],
                 )
               : SingleChildScrollView(
@@ -599,7 +645,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                   ),
                 ),
         ),
-        if (_stockSummary != null)
+        if (_stockSummary != null && !mobile)
           Padding(
             padding: const EdgeInsets.all(12),
             child: Wrap(

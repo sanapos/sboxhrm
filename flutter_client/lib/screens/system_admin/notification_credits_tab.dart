@@ -7,6 +7,7 @@ import '../../services/api_service.dart';
 import '../../models/hrm.dart';
 import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
+import 'tingee_store_setup_card.dart';
 
 /// SuperAdmin — kho lượt Tingee, credentials platform, bán gói cho cửa hàng.
 class NotificationCreditsTab extends StatefulWidget {
@@ -363,6 +364,8 @@ class NotificationCreditsTabState extends State<NotificationCreditsTab> {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          TingeeStoreSetupCard(stores: _stores),
           const SizedBox(height: 16),
           Card(
             child: Padding(

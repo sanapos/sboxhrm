@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../models/department.dart';
+import '../utils/department_filter_helper.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
@@ -148,6 +149,36 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   void _showSuccess(String message) {
     if (!mounted) return;
     NotificationOverlayManager().showSuccess(title: 'Thành công', message: message);
+  }
+
+  Set<String> _idsIncludingChildren(String rootId, {DepartmentTreeNode? node}) {
+    if (node != null) {
+      return DepartmentFilterHelper.expandFromTreeNode(node);
+    }
+    return DepartmentFilterHelper.expandDepartmentIds(rootId, _departmentOptions);
+  }
+
+  List<dynamic> _employeesInDepartment(String deptId, {DepartmentTreeNode? node}) {
+    final ids = _idsIncludingChildren(deptId, node: node);
+    final names = <String>{};
+    for (final d in _departmentOptions) {
+      if (ids.contains(d.id) && d.name.isNotEmpty) names.add(d.name);
+    }
+    if (node != null && node.name.isNotEmpty) names.add(node.name);
+    return _employees.where((e) {
+      final id = e['departmentId']?.toString();
+      if (id != null && id.isNotEmpty && ids.contains(id)) return true;
+      final name = e['department']?.toString();
+      return name != null && name.isNotEmpty && names.contains(name);
+    }).toList();
+  }
+
+  String? _departmentNameById(String? id) {
+    if (id == null || id.isEmpty) return null;
+    for (final d in _departmentOptions) {
+      if (d.id == id) return d.name;
+    }
+    return null;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -991,10 +1022,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   }
 
   Widget _buildOrgCard(DepartmentTreeNode node, Color color, int depth) {
-    // Lấy danh sách nhân viên trong phòng ban
-    final deptEmployees = _employees.where((e) {
-      return e['departmentId']?.toString() == node.id;
-    }).toList();
+    final deptEmployees = _employeesInDepartment(node.id, node: node);
 
     return GestureDetector(
       onTap: () => _showDepartmentEmployees(node),
@@ -1240,11 +1268,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   // ═══════════════════════════════════════════════════════════════
 
   void _showDepartmentEmployees(DepartmentTreeNode node) {
-    // Filter employees by departmentId
-    final deptEmployees = _employees.where((e) {
-      final deptId = e['departmentId']?.toString();
-      return deptId == node.id;
-    }).toList();
+    final deptEmployees = _employeesInDepartment(node.id, node: node);
 
     // Sort by name
     deptEmployees.sort((a, b) {
@@ -1287,7 +1311,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            tr('${deptEmployees.length} employees'),
+                            tr(node.children.isNotEmpty
+                                ? '${deptEmployees.length} nhân viên (gồm phòng ban con)'
+                                : '${deptEmployees.length} nhân viên'),
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.blue[600],
@@ -1337,6 +1363,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           final position = emp['position'] as String?;
                           final empCode = emp['employeeCode'] ?? emp['enrollNumber'] ?? '';
                           final photo = emp['photo'] as String?;
+                          final empDeptName = _departmentNameById(
+                              emp['departmentId']?.toString());
 
                           return ListTile(
                             leading: CircleAvatar(
@@ -1382,6 +1410,25 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                             fontSize: 12,
                                             color: Colors.orange[700],
                                             fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                if (empDeptName != null &&
+                                    empDeptName.isNotEmpty &&
+                                    empDeptName != node.name)
+                                  Row(
+                                    children: [
+                                      Icon(Icons.account_tree_outlined,
+                                          size: 12, color: Colors.blue[600]),
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          tr(empDeptName),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.blue[700],
                                           ),
                                         ),
                                       ),
@@ -1525,10 +1572,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   // ═══════════════════════════════════════════════════════════════
 
   void _showDepartmentDetails(Department dept) {
-    // Find employees belonging to this department
-    final deptEmployees = _employees.where((e) {
-      return e['departmentId']?.toString() == dept.id;
-    }).toList();
+    final deptEmployees = _employeesInDepartment(dept.id);
 
     // Determine level color
     const levelColors = [

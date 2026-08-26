@@ -48,6 +48,7 @@ import '../utils/pos_device_identity.dart';
 import '../utils/pos_floor_realtime.dart';
 import '../utils/pos_browser_fullscreen.dart';
 import '../utils/pos_sell_store_settings.dart';
+import '../utils/pos_loyalty_rates.dart';
 import '../utils/pos_sell_tax.dart';
 import '../utils/pos_sell_unit_views.dart';
 import '../utils/pos_vietqr_helper.dart';
@@ -743,6 +744,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Máy tem USB/Agent đang kết nối — nút Tem chỉ hiệu lực khi true.
   bool _hasReadyLabelPrinter = false;
   PosStoreSellSettingsDto? _industrySettings;
+  PosLoyaltyRates get _loyaltyRates =>
+      PosLoyaltyRates.fromSettings(_industrySettings);
   bool _checkingOut = false;
   bool _quotingShipFee = false;
   /// Hãng đã bật từ Thiết lập → Đơn vị giao hàng (code + tên).
@@ -886,6 +889,33 @@ class _PosSellScreenState extends State<PosSellScreen>
       t,
     );
     unawaited(_api.appendPosProductSaleQuickNote(line.product.id, t));
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _forgetQuickNote(_SellCartLine line, String note) async {
+    final t = note.trim();
+    if (t.isEmpty) return;
+    bool same(String s) => s.toLowerCase() == t.toLowerCase();
+    final merged =
+        line.product.saleQuickNotes.where((s) => !same(s)).toList();
+    line.product = line.product.copyWith(saleQuickNotes: merged);
+    _learnedQuickNotes[line.product.id] =
+        (_learnedQuickNotes[line.product.id] ?? const [])
+            .where((s) => !same(s))
+            .toList();
+    for (final other in _tab.cart) {
+      if (other.product.id != line.product.id) continue;
+      other.product = other.product.copyWith(saleQuickNotes: merged);
+      other.selectedQuickNotes.removeWhere(same);
+      _applyLineNoteFromPicker(other);
+    }
+    _productGridKey.currentState?.applySaleQuickNotes(line.product.id, merged);
+    await PosProductQuickNoteMemory.forget(
+      _storeId?.trim() ?? '',
+      line.product.id,
+      t,
+    );
+    unawaited(_api.removePosProductSaleQuickNote(line.product.id, t));
     if (mounted) setState(() {});
   }
 
@@ -2168,14 +2198,11 @@ class _PosSellScreenState extends State<PosSellScreen>
       final va = (_paymentGatewaySettings?['tingeeVaAccountNumber'] ?? '')
           .toString()
           .trim();
-      if (va.isNotEmpty) {
-        for (final a in _bankAccounts) {
-          if (a.accountNumber.trim() == va) {
-            preferredForTingee = a.id;
-            break;
-          }
-        }
-      }
+      final tingeeAcc = PosVietQrHelper.resolveTingeeQrAccount(
+        _bankAccounts,
+        vaAccountNumber: va,
+      );
+      preferredForTingee = tingeeAcc?.id;
     }
 
     final resolvedAccountId = preferredAccountId ??
@@ -2216,13 +2243,13 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   String _tingeeExternalOrderId() {
-    final existing = (_tab.tingeeTransferExternalId ?? '').trim();
-    if (existing.isNotEmpty) return existing;
     final no = (_tab.draftOrderNo ?? '').trim();
     if (no.isNotEmpty) {
       _tab.tingeeTransferExternalId = no;
       return no;
     }
+    final existing = (_tab.tingeeTransferExternalId ?? '').trim();
+    if (existing.isNotEmpty) return existing;
     final gen = 'POS${_tab.id}-${DateTime.now().millisecondsSinceEpoch}';
     _tab.tingeeTransferExternalId = gen;
     return gen;
@@ -8696,28 +8723,26 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   void _recalcPointsDiscount({VoidCallback? onMutate}) {
-    const pointValue = 100.0;
-    final maxBase = (_total - _tab.voucherDiscount).clamp(0, double.infinity);
+    final rates = _loyaltyRates;
+    final maxBase = (_total - _tab.voucherDiscount).clamp(0.0, double.infinity);
     var points = double.tryParse(_tab._pointsCtrl.text.replaceAll(',', '')) ?? 0;
-    if (points <= 0 || _tab.customer == null) {
+    if (points <= 0 || _tab.customer == null || !rates.canRedeem) {
       _tab.pointsToRedeem = 0;
       _tab.pointsDiscount = 0;
       return;
     }
-    if (points > _tab.customer!.pointBalance) {
-      points = _tab.customer!.pointBalance;
-      _tab._pointsCtrl.text = points == points.roundToDouble()
-          ? points.toStringAsFixed(0)
-          : points.toString();
+    final capped = rates.capRedeem(
+      requestedPoints: points,
+      balance: _tab.customer!.pointBalance,
+      maxFromOrder: maxBase,
+    );
+    if (capped.points != points) {
+      _tab._pointsCtrl.text = capped.points == capped.points.roundToDouble()
+          ? capped.points.toStringAsFixed(0)
+          : capped.points.toString();
     }
-    var discount = points * pointValue;
-    if (discount > maxBase) {
-      points = (maxBase / pointValue).floorToDouble();
-      discount = points * pointValue;
-      _tab._pointsCtrl.text = points.toStringAsFixed(0);
-    }
-    _tab.pointsToRedeem = points;
-    _tab.pointsDiscount = discount;
+    _tab.pointsToRedeem = capped.points;
+    _tab.pointsDiscount = capped.discount;
     _notifyPaymentUi(onMutate);
   }
 
@@ -10967,7 +10992,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             child: ListTile(
               dense: true,
               leading: const Icon(Icons.call_split, size: 20),
-              title: Text(tr(_splitBillBusy ? 'Đang tách…' : 'Tách bill')),
+              title: Text(tr(_splitBillBusy ? 'Đang tách…' : 'Tách hóa đơn')),
               contentPadding: EdgeInsets.zero,
             ),
           ),
@@ -12416,6 +12441,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 setState(() => _applyLineNoteFromPicker(line));
               },
               onAddQuickNote: (note) => _learnQuickNote(line, note),
+              onDeleteQuickNote: (note) => _forgetQuickNote(line, note),
             ),
             if (line.product.allowToppings &&
                 line.product.toppingOptions.isNotEmpty) ...[
@@ -13279,7 +13305,9 @@ class _PosSellScreenState extends State<PosSellScreen>
               '-${_moneyFmt.format(_tab.voucherDiscount)}',
             ),
           ),
-        if (_tab.customer != null && _tab.customer!.pointBalance > 0) ...[
+        if (_tab.customer != null &&
+            _loyaltyRates.canRedeem &&
+            _tab.customer!.pointBalance > 0) ...[
           const SizedBox(height: 6),
           Row(
             children: [
@@ -13289,7 +13317,8 @@ class _PosSellScreenState extends State<PosSellScreen>
                   allowDecimal: false,
                   keypadTitle: 'Đổi điểm',
                   decoration: InputDecoration(
-                    hintText: tr('Đổi điểm (có ${_moneyFmt.format(_tab.customer!.pointBalance)})'),
+                    hintText: tr(
+                        'Đổi điểm (có ${_moneyFmt.format(_tab.customer!.pointBalance)} · 1đ = ${_moneyFmt.format(_loyaltyRates.redeemValue)}đ)'),
                     isDense: true,
                     prefixIcon: const Icon(Icons.stars_outlined, size: 18),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
@@ -13313,6 +13342,21 @@ class _PosSellScreenState extends State<PosSellScreen>
               '-${_moneyFmt.format(_tab.pointsDiscount)}',
             ),
           ),
+        if (_tab.customer != null && _loyaltyRates.canEarn) ...[
+          Builder(builder: (_) {
+            final after = (_total - _tab.voucherDiscount - _tab.pointsDiscount)
+                .clamp(0.0, double.infinity);
+            final pts = _loyaltyRates.earnPoints(after);
+            if (pts <= 0) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                tr('Sẽ tích ${pts.toStringAsFixed(0)} điểm (mỗi ${_moneyFmt.format(_loyaltyRates.earnPerAmount)}đ → 1 điểm)'),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF059669)),
+              ),
+            );
+          }),
+        ],
         const SizedBox(height: 6),
         if (_tab.reservationDepositApplied > 0)
           _summaryRow(
@@ -15815,6 +15859,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   extraController: line.noteCtrl,
                   onExtraChanged: () => setState(() => _applyLineNoteFromPicker(line)),
                   onAddQuickNote: (note) => _learnQuickNote(line, note),
+                  onDeleteQuickNote: (note) => _forgetQuickNote(line, note),
                 ),
                 const SizedBox(height: 12),
                 FilledButton(

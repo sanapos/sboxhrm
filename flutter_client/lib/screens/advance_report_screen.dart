@@ -30,6 +30,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   AdvanceRequestStatus? _statusFilter;
   String _empSearch = '';
   String? _selectedBranchId;
+  String? _selectedDepartmentId;
   int _viewTab = 0;
   int _page = 1;
   static const _pageSize = 50;
@@ -51,10 +52,17 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
 
   List<AdvanceRequest> get _filtered {
     var result = _requests;
-    if (_teamView && _selectedBranchId != null) {
-      final ids = _branchFilter.userIdsForBranch(_selectedBranchId);
-      if (ids.isEmpty) return [];
-      result = result.where((r) => ids.contains(r.employeeUserId)).toList();
+    if (_teamView) {
+      result = result.where((r) {
+        return _branchFilter.mapRowInScope(
+          {
+            'employeeUserId': r.employeeUserId,
+            'employeeCode': r.employeeCode,
+          },
+          branchId: _selectedBranchId,
+          departmentId: _selectedDepartmentId,
+        );
+      }).toList();
     }
     if (_teamView && _empSearch.isNotEmpty) {
       result = result
@@ -78,7 +86,9 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     _load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_teamView) {
-        _branchFilter.loadBranches(_api).then((_) {
+        _branchFilter.loadOrgFilters(_api).then((_) async {
+          await _branchFilter.ensureEmployees(_api,
+              branchId: _selectedBranchId);
           if (mounted) setState(() {});
         });
       }
@@ -352,6 +362,10 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                         await _branchFilter.ensureEmployees(_api, branchId: v);
                         if (mounted) setState(() => _selectedBranchId = v);
                       },
+                      selectedDepartmentId: _selectedDepartmentId,
+                      onDepartmentChanged: (v) {
+                        if (mounted) setState(() => _selectedDepartmentId = v);
+                      },
                       empSearch: _empSearch,
                       onEmpSearchChanged: (v) => setState(() => _empSearch = v),
                       empSuggestions: _empSuggestions,
@@ -363,6 +377,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                           ? () => setState(() {
                                 _empSearch = '';
                                 _selectedBranchId = null;
+                                _selectedDepartmentId = null;
                               })
                           : null,
                     ),
@@ -477,14 +492,19 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   }
 
   Widget _buildByEmployee() {
-    if (_byEmployee.isEmpty) {
+    final rows = _branchFilter.filterEmployeeRows(
+      _byEmployee,
+      branchId: _teamView ? _selectedBranchId : null,
+      departmentId: _teamView ? _selectedDepartmentId : null,
+    );
+    if (rows.isEmpty) {
       return const ReportEmptyState(
         title: 'Chưa có dữ liệu tổng hợp',
         subtitle: 'Thử đổi khoảng thời gian',
       );
     }
     return Column(
-      children: _byEmployee.map((e) {
+      children: rows.map((e) {
         final name = e['employeeName']?.toString() ??
             e['EmployeeName']?.toString() ??
             '—';

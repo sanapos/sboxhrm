@@ -19,12 +19,14 @@ import '../widgets/notification_overlay.dart';
 import '../utils/attendance_load_utils.dart';
 import '../utils/attendance_date_range_presets.dart';
 import '../utils/branch_filter_helper.dart';
+import '../utils/department_filter_helper.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/shift_records_calculator.dart';
 import '../utils/attendance_correction_privilege.dart';
 import '../utils/vietnamese_font.dart';
 import '../utils/salary_profile_load_utils.dart';
 import '../utils/paid_leave_schedule_utils.dart';
+import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// M\u00e0n h\u00ecnh t\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca \u2014 wrapper cho [AttendanceByShiftTab].
@@ -45,6 +47,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   List<Map<String, dynamic>> _shiftTemplates = [];
   List<Map<String, dynamic>> _shiftSalaryLevels = [];
   String? _selectedBranchId;
+  String? _selectedDepartmentId;
   final _branchFilter = ReportBranchFilter();
   List<Map<String, dynamic>> _salaryProfiles = [];
   List<dynamic> _holidays = [];
@@ -84,17 +87,31 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   }
 
   Future<void> _loadEmployeesAndBranches() async {
-    await _branchFilter.loadBranches(_apiService);
+    await _branchFilter.loadOrgFilters(_apiService);
     if (mounted) setState(() {});
   }
 
+  List<Map<String, dynamic>> get _orgEmployees =>
+      _branchFilter.scopedEmployees(
+        branchId: _selectedBranchId,
+        departmentId: _selectedDepartmentId,
+      ) ??
+      _branchFilter.employees;
+
   List<Attendance> get _filteredAttendances {
-    if (_selectedBranchId == null) return _attendances;
-    final branchCodes = _branchFilter.codesForBranch(_selectedBranchId);
-    if (branchCodes.isEmpty) return [];
-    return _attendances
-        .where((a) => branchCodes.contains(a.employeeId))
-        .toList();
+    final keys = _branchFilter.scopeIdentityKeys(
+      branchId: _selectedBranchId,
+      departmentId: _selectedDepartmentId,
+    );
+    if (keys == null) return _attendances;
+    if (keys.isEmpty) return const [];
+    return _attendances.where((a) {
+      final code = a.employeeId;
+      if (code != null && code.isNotEmpty && keys.contains(code)) return true;
+      final pin = a.pin;
+      if (pin != null && pin.isNotEmpty && keys.contains(pin)) return true;
+      return false;
+    }).toList();
   }
 
   void _onExternalRefresh() {
@@ -361,68 +378,27 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                 ),
               ),
             ),
-          if (BranchFilterHelper.showBranchFilter(_branchFilter.branches))
+          if (BranchFilterHelper.showBranchFilter(_branchFilter.branches) ||
+              DepartmentFilterHelper.showDepartmentFilter(
+                  _branchFilter.departments))
             Container(
               color: Colors.white,
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.account_tree_outlined,
-                        size: 16, color: Color(0xFF6B7280)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String?>(
-                          key: ValueKey('branch_$_selectedBranchId'),
-                          value: _selectedBranchId,
-                          isExpanded: true,
-                          isDense: true,
-                          style: const TextStyle(
-                              fontSize: 13, color: Color(0xFF111827)),
-                          icon: const Icon(Icons.keyboard_arrow_down,
-                              size: 18, color: Color(0xFF9CA3AF)),
-                          items: [
-                            DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
-                                    style: vietnameseTextStyle(
-                                        const TextStyle(fontSize: 13)))),
-                            ..._branchFilter.branches.map((b) => DropdownMenuItem<String?>(
-                                value: b['id']?.toString(),
-                                child: Text(tr(b['name']?.toString() ?? ''),
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 13)))),
-                          ],
-                          onChanged: (v) async {
-                            await _branchFilter.ensureEmployees(
-                              _apiService,
-                              branchId: v,
-                            );
-                            if (mounted) setState(() => _selectedBranchId = v);
-                          },
-                        ),
-                      ),
-                    ),
-                    if (_selectedBranchId != null)
-                      InkWell(
-                        onTap: () => setState(() => _selectedBranchId = null),
-                        borderRadius: BorderRadius.circular(12),
-                        child: const Padding(
-                          padding: EdgeInsets.all(4),
-                          child: Icon(Icons.close,
-                              size: 14, color: Color(0xFF9CA3AF)),
-                        ),
-                      ),
-                  ],
-                ),
+              child: ReportOrgFilterRow(
+                dense: true,
+                orgFilter: _branchFilter,
+                selectedBranchId: _selectedBranchId,
+                onBranchChanged: (v) async {
+                  await _branchFilter.ensureEmployees(
+                    _apiService,
+                    branchId: v,
+                  );
+                  if (mounted) setState(() => _selectedBranchId = v);
+                },
+                selectedDepartmentId: _selectedDepartmentId,
+                onDepartmentChanged: (v) {
+                  if (mounted) setState(() => _selectedDepartmentId = v);
+                },
               ),
             ),
       ];
@@ -482,7 +458,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     storeSalarySettings: _salarySettings,
                     holidays: _holidays,
                     approvedLeaves: _approvedLeaves,
-                    employeesList: _branchFilter.employees,
+                    employeesList: _orgEmployees,
                     dayEndHour: _dayEndHour,
                     dayEndMinute: _dayEndMinute,
                     minHoursForWorkDay: _minHoursForWorkDay,

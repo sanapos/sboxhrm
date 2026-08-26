@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../config/sbox_app_variant.dart';
 import 'pos/pos_theme.dart';
 import '../l10n/app_tr.dart';
 
 /// Nhận diện thương hiệu dùng chung HRM + POS.
 abstract final class SboxBrand {
-  static const productLine = 'SBOX HRM - SBOX POS';
-  static const slogan = 'Giải pháp quản lý toàn diện cho doanh nghiệp';
+  static String get productLine => SboxAppVariant.productLine;
+  static String get slogan => SboxAppVariant.slogan;
 }
 
 /// Logo vector SBOX — sắc nét, không phụ thuộc PNG nhỏ bị scale mờ.
@@ -21,8 +22,6 @@ class SboxHrmBrandMark extends StatelessWidget {
   final double logoSize;
   final bool showSlogan;
   final bool darkText;
-
-  static const String slogan = SboxBrand.slogan;
 
   @override
   Widget build(BuildContext context) {

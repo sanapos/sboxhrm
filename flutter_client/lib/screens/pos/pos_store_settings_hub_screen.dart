@@ -3,18 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/cash_transaction.dart';
 import '../../providers/permission_provider.dart';
-import '../../services/api_service.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
-import '../../widgets/pos/pos_bank_account_form_dialog.dart';
 import '../../widgets/pos/pos_sell_fee_defaults_fields.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-/// Thiết lập cửa hàng / VAT / VietQR — dùng trong Settings hub (HRM).
+/// Thiết lập cửa hàng / VAT / phụ phí — dùng trong Settings hub.
 class PosStoreSettingsHubScreen extends StatefulWidget {
   const PosStoreSettingsHubScreen({super.key});
 
@@ -24,7 +21,6 @@ class PosStoreSettingsHubScreen extends StatefulWidget {
 }
 
 class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
-  final _api = ApiService();
   final _nameCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -34,12 +30,9 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
 
   PosSellTaxMode _taxMode = PosSellTaxMode.includedInPrice;
   double _vatRate = 10;
-  String? _vietQrBankId;
-  bool _showVietQr = true;
   bool _enableSurcharge = false;
   bool _enableDeliveryFee = false;
   bool _surchargeIsPercent = false;
-  List<BankAccount> _accounts = [];
   bool _loading = true;
   bool _saving = false;
 
@@ -63,14 +56,6 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final s = await PosSellStoreSettings.load();
-    final banksRes = await _api.getPosBankAccounts();
-    var accounts = <BankAccount>[];
-    if (banksRes['isSuccess'] == true && banksRes['data'] is List) {
-      accounts = (banksRes['data'] as List)
-          .map((e) => BankAccount.fromJson(e as Map<String, dynamic>))
-          .where((a) => a.isActive)
-          .toList();
-    }
     if (!mounted) return;
     setState(() {
       _nameCtrl.text = s.storeName;
@@ -78,8 +63,6 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       _phoneCtrl.text = s.phone;
       _taxMode = s.taxMode;
       _vatRate = s.defaultVatRate;
-      _vietQrBankId = s.vietQrBankAccountId;
-      _showVietQr = s.showVietQrAtPayment;
       _enableSurcharge = s.enableSurcharge;
       _enableDeliveryFee = s.enableDeliveryFee;
       _surchargeIsPercent = s.surchargeIsPercent;
@@ -90,23 +73,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       _deliveryDefaultCtrl.text = s.deliveryFeeDefault > 0
           ? PosSellStoreSettings.formatAmount(s.deliveryFeeDefault)
           : '';
-      _accounts = accounts;
       _loading = false;
-    });
-  }
-
-  Future<void> _reloadAccounts() async {
-    final res = await _api.getPosBankAccounts();
-    if (res['isSuccess'] != true || res['data'] is! List || !mounted) return;
-    setState(() {
-      _accounts = (res['data'] as List)
-          .map((e) => BankAccount.fromJson(e as Map<String, dynamic>))
-          .where((a) => a.isActive)
-          .toList();
-      if (_vietQrBankId != null &&
-          !_accounts.any((a) => a.id == _vietQrBankId)) {
-        _vietQrBankId = null;
-      }
     });
   }
 
@@ -120,14 +87,15 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       return;
     }
     setState(() => _saving = true);
+    final existing = await PosSellStoreSettings.load();
     final next = PosSellStoreSettings(
       storeName: _nameCtrl.text.trim(),
       address: _addressCtrl.text.trim(),
       phone: _phoneCtrl.text.trim(),
       taxMode: _taxMode,
       defaultVatRate: _vatRate,
-      vietQrBankAccountId: _vietQrBankId,
-      showVietQrAtPayment: _showVietQr,
+      vietQrBankAccountId: existing.vietQrBankAccountId,
+      showVietQrAtPayment: existing.showVietQrAtPayment,
       enableSurcharge: _enableSurcharge,
       enableDeliveryFee: _enableDeliveryFee,
       surchargeLabel: _surchargeNameCtrl.text.trim(),
@@ -184,75 +152,12 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 16),
-          Text(tr('Tài khoản VietQR'),
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
           const SizedBox(height: 8),
-          if (_accounts.isEmpty)
-            Text(tr('Chưa có tài khoản ngân hàng. Thêm tài khoản để tạo mã QR.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            )
-          else
-            DropdownButtonFormField<String?>(
-              value: _vietQrBankId ??
-                  _accounts
-                      .where((a) => a.isDefault)
-                      .map((a) => a.id)
-                      .firstOrNull ??
-                  _accounts.first.id,
-              decoration: InputDecoration(
-                labelText: tr('Tài khoản nhận tiền'),
-                border: OutlineInputBorder(),
-              ),
-              items: _accounts
-                  .map(
-                    (a) => DropdownMenuItem(
-                      value: a.id,
-                      child: Text(
-                        tr('${a.bankShortName ?? a.bankName} · ${a.accountNumber}'
-                        '${a.isDefault ? ' (Mặc định)' : ''}'),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (v) => setState(() => _vietQrBankId = v),
-            ),
-          Row(
-            children: [
-              TextButton.icon(
-                onPressed: () async {
-                  final ok = await showPosBankAccountFormDialog(context);
-                  if (ok) await _reloadAccounts();
-                },
-                icon: const Icon(Icons.add, size: 18),
-                label: Text(tr('Thêm tài khoản')),
-              ),
-              if (_accounts.isNotEmpty)
-                TextButton(
-                  onPressed: () async {
-                    final current = _accounts.firstWhere(
-                      (a) => a.id == (_vietQrBankId ?? _accounts.first.id),
-                      orElse: () => _accounts.first,
-                    );
-                    final ok = await showPosBankAccountFormDialog(
-                      context,
-                      account: current,
-                    );
-                    if (ok) await _reloadAccounts();
-                  },
-                  child: Text(tr('Sửa')),
-                ),
-            ],
+          Text(
+            tr('Tài khoản ngân hàng và VietQR nằm ở Cổng thanh toán.'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Hiện mã VietQR khi thanh toán')),
-            value: _showVietQr,
-            onChanged: (v) => setState(() => _showVietQr = v),
-          ),
-          const Divider(height: 28),
+          const SizedBox(height: 16),
           Text(tr('Phụ phí khi thanh toán'),
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),

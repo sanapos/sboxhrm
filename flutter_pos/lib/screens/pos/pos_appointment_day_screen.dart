@@ -86,6 +86,8 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
 
   late DateTime _day;
+  late DateTime _month;
+  bool _showMonth = false;
   bool _loading = true;
   String? _error;
   List<PosResourceReservationDto> _items = [];
@@ -150,6 +152,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     super.initState();
     final now = widget.initialDay ?? DateTime.now();
     _day = DateTime(now.year, now.month, now.day);
+    _month = DateTime(_day.year, _day.month);
     if (widget.sellProfile != null) {
       _showGrid = widget.sellProfile == PosSellProfile.hotel ||
           widget.sellProfile == PosSellProfile.roomHourly;
@@ -193,9 +196,16 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       _error = null;
     });
     final dayUtc = DateTime.utc(_day.year, _day.month, _day.day);
+    final monthFrom = DateTime.utc(_month.year, _month.month, 1);
+    final monthLast = DateUtils.getDaysInMonth(_month.year, _month.month);
+    final monthTo = DateTime.utc(_month.year, _month.month, monthLast);
     try {
       final results = await Future.wait([
-        _api.getPosResourceReservations(day: dayUtc, includeClosed: true),
+        _showMonth
+            ? _api.getPosResourceReservations(
+                from: monthFrom, to: monthTo, includeClosed: true)
+            : _api.getPosResourceReservations(
+                day: dayUtc, includeClosed: true),
         _api.getPosServiceResources(),
       ]);
       if (!mounted) return;
@@ -240,9 +250,11 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       try {
         final extra = await Future.wait([
           _api.getPosReservationPipeline(
-            from: dayUtc,
-            to: DateTime.utc(_day.year, _day.month, _day.day)
-                .add(const Duration(days: 6)),
+            from: _showMonth ? monthFrom : dayUtc,
+            to: _showMonth
+                ? monthTo
+                : DateTime.utc(_day.year, _day.month, _day.day)
+                    .add(const Duration(days: 6)),
           ),
           _api.getPosReservationAvailability(
             from: DateTime.utc(weekStart.year, weekStart.month, weekStart.day),
@@ -374,8 +386,299 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       locale: appUiLocale(),
     );
     if (d == null) return;
-    setState(() => _day = DateTime(d.year, d.month, d.day));
+    setState(() {
+      _day = DateTime(d.year, d.month, d.day);
+      _month = DateTime(d.year, d.month);
+    });
     await _reload();
+  }
+
+  Future<void> _toggleMonthView() async {
+    setState(() {
+      _showMonth = !_showMonth;
+      if (_showMonth) {
+        _month = DateTime(_day.year, _day.month);
+      } else {
+        final last = DateUtils.getDaysInMonth(_month.year, _month.month);
+        final d = _day.day > last ? last : _day.day;
+        _day = DateTime(_month.year, _month.month, d);
+      }
+    });
+    await _reload();
+  }
+
+  Future<void> _shiftMonth(int delta) async {
+    setState(() {
+      _month = DateTime(_month.year, _month.month + delta);
+      final last = DateUtils.getDaysInMonth(_month.year, _month.month);
+      final d = _day.day > last ? last : _day.day;
+      _day = DateTime(_month.year, _month.month, d);
+    });
+    await _reload();
+  }
+
+  bool _bookingOverlapsDay(PosResourceReservationDto b, DateTime day) {
+    final start = b.reservedAt?.toLocal();
+    if (start == null) return false;
+    final end = (b.reservedUntil ?? b.reservedAt)?.toLocal() ?? start;
+    final d0 = DateTime(day.year, day.month, day.day);
+    final d1 = d0.add(const Duration(days: 1));
+    return start.isBefore(d1) && !end.isBefore(d0);
+  }
+
+  List<PosResourceReservationDto> _bookingsOnDay(DateTime day) {
+    final list = _visibleItems.where((b) => _bookingOverlapsDay(b, day)).toList();
+    list.sort((a, b) {
+      final ta = a.reservedAt ?? DateTime(1970);
+      final tb = b.reservedAt ?? DateTime(1970);
+      return ta.compareTo(tb);
+    });
+    return list;
+  }
+
+  Future<void> _openMonthDaySheet(DateTime day) async {
+    setState(() => _day = DateTime(day.year, day.month, day.day));
+    final list = _bookingsOnDay(_day);
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final maxH = MediaQuery.sizeOf(ctx).height * 0.75;
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ListTile(
+                  title: Text(
+                    tr(DateFormat('EEEE, dd/MM/yyyy', 'vi_VN').format(_day)),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  subtitle: Text(tr(list.isEmpty
+                      ? 'Chưa có lịch'
+                      : '${list.length} lịch hẹn')),
+                  trailing: TextButton.icon(
+                    onPressed: _resources.isEmpty
+                        ? null
+                        : () {
+                            Navigator.pop(ctx);
+                            unawaited(_bookAppointment());
+                          },
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(tr('Thêm')),
+                  ),
+                ),
+                const Divider(height: 1),
+                if (list.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      tr('Bấm Thêm để đặt lịch ngày này.'),
+                      style: TextStyle(color: PosTheme.textSecondary),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: list.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final b = list[i];
+                        final start = b.reservedAt?.toLocal();
+                        final time = start == null
+                            ? ''
+                            : DateFormat('HH:mm').format(start);
+                        final table = [
+                          if ((b.areaName ?? '').isNotEmpty) b.areaName,
+                          b.resourceName,
+                        ].join(' · ');
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor:
+                                reservationAccent(b).withOpacity(0.15),
+                            child: Icon(Icons.person_outline,
+                                color: reservationAccent(b), size: 20),
+                          ),
+                          title: Text(
+                            tr(b.customerName),
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          subtitle: Text(
+                            tr([
+                              if (time.isNotEmpty) time,
+                              table,
+                              reservationStatusLabel(b),
+                              if ((b.phone ?? '').isNotEmpty) b.phone,
+                            ].join(' · ')),
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            unawaited(_openBooking(b));
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMonthCalendar() {
+    final first = DateTime(_month.year, _month.month, 1);
+    final lead = (first.weekday + 6) % 7;
+    final daysInMonth = DateUtils.getDaysInMonth(_month.year, _month.month);
+    final today = DateTime.now();
+    const weekdays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    final cells = lead + daysInMonth;
+    final rows = (cells / 7).ceil();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+          child: Row(
+            children: weekdays
+                .map((w) => Expanded(
+                      child: Text(
+                        tr(w),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: PosTheme.textSecondary,
+                        ),
+                      ),
+                    ))
+                .toList(),
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.fromLTRB(6, 4, 6, 88),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              childAspectRatio: rows > 5 ? 0.72 : 0.78,
+            ),
+            itemCount: rows * 7,
+            itemBuilder: (_, i) {
+              final dayNum = i - lead + 1;
+              if (dayNum < 1 || dayNum > daysInMonth) {
+                return const SizedBox.shrink();
+              }
+              final day = DateTime(_month.year, _month.month, dayNum);
+              final bookings = _bookingsOnDay(day);
+              final active = bookings
+                  .where((b) => !b.isCancelled && !b.isNoShow)
+                  .toList();
+              final isToday = DateUtils.isSameDay(day, today);
+              final selected = DateUtils.isSameDay(day, _day);
+              final names = active
+                  .map((b) => b.customerName.trim())
+                  .where((n) => n.isNotEmpty)
+                  .toList();
+              final preview = names.isEmpty
+                  ? ''
+                  : names.length == 1
+                      ? names.first
+                      : '${names.first} +${names.length - 1}';
+              final n = active.length < 1
+                  ? 1
+                  : (active.length > 6 ? 6 : active.length);
+              var op = 0.08 + n * 0.06;
+              if (op > 0.45) op = 0.45;
+              final fill = active.isEmpty
+                  ? Colors.white
+                  : PosTheme.kiotBlue.withOpacity(op);
+              return Material(
+                color: fill,
+                borderRadius: BorderRadius.circular(8),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => unawaited(_openMonthDaySheet(day)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: selected
+                            ? PosTheme.kiotBlue
+                            : isToday
+                                ? PosTheme.kiotBlue.withOpacity(0.45)
+                                : const Color(0xFFE2E8F0),
+                        width: selected ? 1.6 : 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 3),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$dayNum',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: isToday
+                                ? PosTheme.kiotBlue
+                                : PosTheme.textPrimary,
+                          ),
+                        ),
+                        if (active.isNotEmpty)
+                          Text(
+                            tr('${active.length} lịch'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F766E),
+                            ),
+                          ),
+                        if (preview.isNotEmpty)
+                          Expanded(
+                            child: Text(
+                              tr(preview),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: PosTheme.textSecondary,
+                                height: 1.15,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _expireNoShows() async {
@@ -719,6 +1022,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       appBar: AppBar(
         title: Text(tr(_calendarTitle)),
         actions: [
+          IconButton(
+            tooltip: tr(_showMonth ? 'Lịch ngày' : 'Lịch tháng'),
+            onPressed: _loading ? null : () => unawaited(_toggleMonthView()),
+            icon: Icon(_showMonth
+                ? Icons.view_agenda_outlined
+                : Icons.calendar_month),
+          ),
           if (_useRoomGrid)
             IconButton(
               tooltip: tr(_showGrid ? 'Danh sách' : 'Lịch chỗ'),
@@ -758,7 +1068,8 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                   Row(
                     children: [
                       IconButton(
-                        onPressed: () => unawaited(_shiftDay(-1)),
+                        onPressed: () => unawaited(
+                            _showMonth ? _shiftMonth(-1) : _shiftDay(-1)),
                         icon: const Icon(Icons.chevron_left),
                       ),
                       Expanded(
@@ -768,8 +1079,11 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Text(
-                              tr(DateFormat('EEEE, dd/MM/yyyy', 'vi_VN')
-                                  .format(_day)),
+                              tr(_showMonth
+                                  ? DateFormat('MMMM yyyy', 'vi_VN')
+                                      .format(_month)
+                                  : DateFormat('EEEE, dd/MM/yyyy', 'vi_VN')
+                                      .format(_day)),
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
@@ -780,11 +1094,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                         ),
                       ),
                       IconButton(
-                        onPressed: () => unawaited(_shiftDay(1)),
+                        onPressed: () => unawaited(
+                            _showMonth ? _shiftMonth(1) : _shiftDay(1)),
                         icon: const Icon(Icons.chevron_right),
                       ),
                     ],
                   ),
+                  if (!_showMonth)
                   SizedBox(
                     height: 52,
                     child: ListView.builder(
@@ -856,7 +1172,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            tr('${_pipelineBooked ?? _bookedCount} đặt'),
+                            tr('${_showMonth ? _bookedCount : (_pipelineBooked ?? _bookedCount)} đặt'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 13),
                           ),
@@ -934,7 +1250,9 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
           Expanded(
             child: _error != null
                 ? Center(child: Text(tr(_error!)))
-                : _showGrid && _useRoomGrid
+                : _showMonth
+                    ? _buildMonthCalendar()
+                    : _showGrid && _useRoomGrid
                     ? _buildAvailabilityGrid()
                     : visible.isEmpty
                     ? Center(

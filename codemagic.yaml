@@ -422,24 +422,83 @@ workflows:
             exit 1
           fi
           echo "Building AAB version=$APP_VERSION_NAME build=$BUILD_NUMBER"
-          flutter build appbundle --release \
+          flutter build appbundle --release --flavor hrm \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --build-name="$APP_VERSION_NAME" \
             --build-number="$BUILD_NUMBER"
-          AAB="build/app/outputs/bundle/release/app-release.aab"
+          AAB="build/app/outputs/bundle/hrmRelease/app-hrm-release.aab"
           if [ ! -f "$AAB" ]; then
             echo "ERROR: AAB not found at $AAB"
             exit 1
           fi
-          OUT="build/app/outputs/bundle/release/SBOX-HRM-${PACKAGE_NAME}-release-v${BUILD_NUMBER}.aab"
+          OUT="build/app/outputs/bundle/hrmRelease/SBOX-HRM-${PACKAGE_NAME}-release-v${BUILD_NUMBER}.aab"
           cp "$AAB" "$OUT"
-          ls -lh build/app/outputs/bundle/release/*.aab
+          ls -lh build/app/outputs/bundle/hrmRelease/*.aab
 
     artifacts:
-      - build/app/outputs/bundle/release/*.aab
+      - build/app/outputs/bundle/hrmRelease/*.aab
 
     publishing:
       google_play:
         credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
         track: $GOOGLE_PLAY_TRACK
         submit_as_draft: false
+
+  android-pos-release:
+    name: Android POS AAB (sbox.sana.vn.pos)
+    max_build_duration: 60
+    instance_type: linux_x2
+    working_directory: flutter_client
+
+    environment:
+      flutter: stable
+      java: 17
+      groups:
+        - android_keystore
+      vars:
+        PACKAGE_NAME: "sbox.sana.vn.pos"
+        API_BASE_URL: "https://sbox.sana.vn"
+
+    scripts:
+      - name: Set up Android keystore
+        script: |
+          set -e
+          if [ -z "$CM_KEYSTORE" ]; then
+            echo "ERROR: Missing CM_KEYSTORE (group android_keystore)."
+            exit 1
+          fi
+          KEYSTORE_PATH="${CM_KEYSTORE_PATH:-android/app/sana-release.jks}"
+          mkdir -p "$(dirname "$KEYSTORE_PATH")"
+          echo "$CM_KEYSTORE" | base64 --decode > "$KEYSTORE_PATH"
+          echo "Keystore written to $KEYSTORE_PATH"
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Build POS release AAB
+        script: |
+          set -e
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | head -1 | tr -d ' ')
+          APP_VERSION_NAME=$(echo "$VERSION_LINE" | cut -d':' -f2 | cut -d'+' -f1)
+          BUILD_NUMBER=$(echo "$VERSION_LINE" | cut -d'+' -f2)
+          if [ -z "$APP_VERSION_NAME" ] || [ -z "$BUILD_NUMBER" ]; then
+            echo "ERROR: Invalid pubspec version line: $VERSION_LINE"
+            exit 1
+          fi
+          echo "Building POS AAB version=$APP_VERSION_NAME build=$BUILD_NUMBER"
+          flutter build appbundle --release --flavor pos \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=SBOX_POS_STANDALONE=true \
+            --build-name="$APP_VERSION_NAME" \
+            --build-number="$BUILD_NUMBER"
+          AAB="build/app/outputs/bundle/posRelease/app-pos-release.aab"
+          if [ ! -f "$AAB" ]; then
+            echo "ERROR: AAB not found at $AAB"
+            exit 1
+          fi
+          OUT="build/app/outputs/bundle/posRelease/SBOX-POS-${PACKAGE_NAME}-release-v${BUILD_NUMBER}.aab"
+          cp "$AAB" "$OUT"
+          ls -lh build/app/outputs/bundle/posRelease/*.aab
+
+    artifacts:
+      - build/app/outputs/bundle/posRelease/*.aab

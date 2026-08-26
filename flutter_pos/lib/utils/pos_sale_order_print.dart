@@ -512,7 +512,8 @@ Future<bool> printPosSaleOrder({
     ];
     if (thermalCandidates.isEmpty &&
         thermal.enabled &&
-        PosLocalPrintersStore.isOnDeviceDirectPort(thermal.connectionType)) {
+        PosLocalPrintersStore.isOnDeviceDirectPort(thermal.connectionType) &&
+        thermal.connectionType != PosThermalConnectionType.sunmi) {
       thermalCandidates.add(thermal);
     }
 

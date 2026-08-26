@@ -893,8 +893,21 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
       );
       
       if (result['success'] == true) {
-        _showSuccess('Đã kết nối thiết bị thành công!');
         await _loadData();
+        if (!mounted) return;
+        Device? added;
+        for (final d in _myDevices) {
+          if (d.serialNumber == serialNumber) {
+            added = d;
+            break;
+          }
+        }
+        if (added != null && added.isOnline) {
+          _showSuccess('Đã kết nối thiết bị thành công — đang Online');
+        } else {
+          _showSuccess(
+              'Đã thêm thiết bị. Máy hiện Offline — chưa gửi tín hiệu trong 2 phút.');
+        }
       } else {
         _showError(result['message'] ?? 'Không thể kết nối thiết bị');
       }

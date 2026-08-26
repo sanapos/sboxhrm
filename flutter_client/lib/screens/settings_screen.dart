@@ -66,7 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              tr(l.settingsTitle),
+              tr('Thông tin tài khoản'),
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -74,7 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              tr(l.settingsSubtitle),
+              tr('Sửa hồ sơ của bạn và đổi mật khẩu'),
               style: TextStyle(color: Colors.grey[400]),
             ),
             const SizedBox(height: 24),
@@ -530,38 +530,149 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final user = authProvider.user;
     final l = AppLocalizations.of(context);
 
+    final parts = (user?.fullName ?? '').trim().split(RegExp(r'\s+'));
+    final lastNameCtl = TextEditingController(
+        text: parts.isNotEmpty ? parts.first : '');
+    final firstNameCtl = TextEditingController(
+        text: parts.length > 1 ? parts.sublist(1).join(' ') : '');
+    final phoneCtl = TextEditingController();
+    var loadingProfile = true;
+    var saving = false;
+
     showDialog(
       context: context,
-      builder: (ctx) => ScrollableAlertDialog(
-        title: Text(tr('Thông tin tài khoản')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildInfoRow('Họ tên', user?.fullName ?? 'N/A'),
-            _buildInfoRow('Email', user?.email ?? 'N/A'),
-            _buildInfoRow('Vai trò', user?.role ?? 'N/A'),
-            const SizedBox(height: 12),
-            Text(tr('Bạn có thể đổi mật khẩu trong mục Đổi mật khẩu bên dưới.'),
-              style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) {
+          if (loadingProfile) {
+            loadingProfile = false;
+            ApiService().getOwnProfile().then((res) {
+              if (!ctx.mounted) return;
+              if (res['isSuccess'] == true && res['data'] is Map) {
+                final d = Map<String, dynamic>.from(res['data'] as Map);
+                lastNameCtl.text =
+                    (d['lastName'] ?? d['LastName'] ?? lastNameCtl.text)
+                        .toString();
+                firstNameCtl.text =
+                    (d['firstName'] ?? d['FirstName'] ?? firstNameCtl.text)
+                        .toString();
+                phoneCtl.text =
+                    (d['phoneNumber'] ?? d['PhoneNumber'] ?? '').toString();
+                setDlg(() {});
+              }
+            });
+          }
+          return ScrollableAlertDialog(
+            title: Text(tr('Thông tin tài khoản')),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: lastNameCtl,
+                    decoration: InputDecoration(
+                      labelText: tr('Họ'),
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: firstNameCtl,
+                    decoration: InputDecoration(
+                      labelText: tr('Tên'),
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: phoneCtl,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: tr('Số điện thoại'),
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildInfoRow('Email', user?.email ?? 'N/A'),
+                  _buildInfoRow('Vai trò', user?.role ?? 'N/A'),
+                ],
+              ),
             ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(tr(l.cancel)),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              _showChangePasswordDialog(context);
-            },
-            child: Text(tr('Đổi mật khẩu')),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(tr(l.cancel)),
+              ),
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () {
+                        Navigator.pop(ctx);
+                        _showChangePasswordDialog(context);
+                      },
+                child: Text(tr('Đổi mật khẩu')),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        final first = firstNameCtl.text.trim();
+                        final last = lastNameCtl.text.trim();
+                        if (first.isEmpty && last.isEmpty) {
+                          appNotification.showWarning(
+                            title: 'Thiếu thông tin',
+                            message: tr('Nhập họ hoặc tên'),
+                          );
+                          return;
+                        }
+                        setDlg(() => saving = true);
+                        final res = await ApiService().updateOwnProfile(
+                          firstName: first,
+                          lastName: last,
+                          phoneNumber: phoneCtl.text.trim(),
+                        );
+                        if (!ctx.mounted) return;
+                        setDlg(() => saving = false);
+                        if (res['isSuccess'] == true) {
+                          final full =
+                              '$last $first'.trim();
+                          authProvider.applyLocalProfile(fullName: full);
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          appNotification.showSuccess(
+                            title: 'Đã lưu',
+                            message: tr('Đã cập nhật thông tin tài khoản'),
+                          );
+                        } else {
+                          appNotification.showError(
+                            title: 'Lỗi',
+                            message: (res['message'] ?? 'Không lưu được')
+                                .toString(),
+                          );
+                        }
+                      },
+                child: saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(tr('Lưu')),
+              ),
+            ],
+          );
+        },
       ),
-    );
+    ).whenComplete(() {
+      lastNameCtl.dispose();
+      firstNameCtl.dispose();
+      phoneCtl.dispose();
+    });
   }
 
   void _showChangePasswordDialog(BuildContext context) {

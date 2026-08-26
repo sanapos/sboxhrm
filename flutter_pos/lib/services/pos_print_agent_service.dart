@@ -269,6 +269,21 @@ class PosPrintAgentService {
         }
       }
     }
+    // Sunmi chưa cài máy nội bộ: không đăng ký claim — hardware in ≠ đã cài.
+    if (printerIds.isNotEmpty) {
+      final claimable = <String>[];
+      for (final id in printerIds) {
+        final p = _printers
+            .where((x) => PosPrintRole.matchesPrinterId(x.id, id))
+            .firstOrNull;
+        if (p == null || !p.isSunmi) {
+          claimable.add(id);
+        } else if (await _canPrintPrinterLocally(id)) {
+          claimable.add(id);
+        }
+      }
+      printerIds = claimable;
+    }
     if (printerIds.isEmpty) {
       // Kh?ng t? g?n h?t m?y c?a h?ng ? user d? t?t chip th? gi? tr?ng
       // (tru?c d?y khi?n danh s?ch ?nh?y? l?i 6 m?y sau m?i heartbeat).
@@ -1402,6 +1417,17 @@ class PosPrintAgentService {
       } catch (_) {}
     }
     if (printer == null) return false;
+
+    // Chip Sunmi: chỉ Online / claim khi đã cài máy in nội bộ trên máy này.
+    // Hardware Sunmi chưa cài → nhả job cho Agent máy đã cài (A6 K80).
+    if (printer.isSunmi) {
+      final sunmiLocal =
+          await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
+      return sunmiLocal != null &&
+          PosLocalPrintersStore.profileAllowsDirectLocal(sunmiLocal) &&
+          sunmiLocal.connectionType == PosThermalConnectionType.sunmi &&
+          await PosPrinterTransport.isSunmiDevice();
+    }
 
     final local =
         await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);

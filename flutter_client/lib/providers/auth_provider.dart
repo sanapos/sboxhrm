@@ -10,6 +10,7 @@ import '../utils/store_role_helper.dart';
 import '../services/global_location_reporter.dart';
 import '../services/notification_preferences_cache.dart';
 import '../services/session_reset.dart';
+import '../config/sbox_app_variant.dart';
 import '../models/user.dart';
 
 class AuthProvider extends ChangeNotifier {
@@ -352,6 +353,41 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Module POS tối thiểu cho app thu ngân độc lập.
+  static const _posPackageDefaults = <String>[
+    'PosSell',
+    'PosProducts',
+    'PosSaleOrders',
+    'PosSalesReport',
+    'CashTransaction',
+    'PosCustomers',
+  ];
+
+  /// Gộp module POS vào gói — hub không bị «Trống» / chặn bán.
+  void ensurePosPackageDefaults() {
+    if (_user == null) return;
+    if (StoreRoleHelper.bypassesPackageFilter(_user!.role)) return;
+    final current = List<String>.from(_user!.allowedModules ?? const []);
+    final lower = {for (final m in current) m.toLowerCase()};
+    var changed = false;
+    for (final code in _posPackageDefaults) {
+      if (lower.add(code.toLowerCase())) {
+        current.add(code);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    _user = _user!.copyWith(allowedModules: current);
+    notifyListeners();
+  }
+
+  /// Cập nhật họ tên hiển thị sau khi sửa hồ sơ tài khoản (không cần đăng nhập lại).
+  void applyLocalProfile({String? fullName}) {
+    if (_user == null) return;
+    _user = _user!.copyWith(fullName: fullName);
+    notifyListeners();
+  }
+
   /// Lấy danh sách module được phép từ gói dịch vụ cửa hàng
   Future<void> _fetchAllowedModules({bool freshSession = false}) async {
     try {
@@ -365,13 +401,17 @@ class AuthProvider extends ChangeNotifier {
             '⚠️ AuthProvider: getMyModules failed — keeping existing allowedModules');
         if (freshSession) {
           _user = _user!.copyWith(allowedModules: const []);
+          if (SboxAppVariant.standalonePos) ensurePosPackageDefaults();
         }
         return;
       }
       _user = _user!.copyWith(allowedModules: modules);
-      debugPrint('✅ AuthProvider: Loaded ${modules.length} allowed modules');
+      if (SboxAppVariant.standalonePos) ensurePosPackageDefaults();
+      debugPrint(
+          '✅ AuthProvider: Loaded ${_user!.allowedModules?.length ?? 0} allowed modules');
     } catch (e) {
       debugPrint('⚠️ AuthProvider: Error fetching allowed modules: $e');
+      if (SboxAppVariant.standalonePos) ensurePosPackageDefaults();
     }
   }
 

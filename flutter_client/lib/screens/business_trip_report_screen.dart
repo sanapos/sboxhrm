@@ -32,6 +32,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
   int? _statusFilter;
   String _empSearch = '';
   String? _selectedBranchId;
+  String? _selectedDepartmentId;
   String? _selectedCategoryKey; // categoryId or 'uncategorized'
   int _viewTab = 0;
 
@@ -57,11 +58,13 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
 
   List<Map<String, dynamic>> get _filtered {
     var result = _cases;
-    if (_teamView && _selectedBranchId != null) {
-      final ids = _branchFilter.userIdsForBranch(_selectedBranchId);
-      if (ids.isEmpty) return [];
+    if (_teamView) {
       result = result
-          .where((c) => ids.contains(c['employeeUserId']?.toString()))
+          .where((c) => _branchFilter.mapRowInScope(
+                c,
+                branchId: _selectedBranchId,
+                departmentId: _selectedDepartmentId,
+              ))
           .toList();
     }
     if (_teamView && _empSearch.isNotEmpty) {
@@ -109,7 +112,9 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     _load();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_teamView) {
-        _branchFilter.loadBranches(_api).then((_) {
+        _branchFilter.loadOrgFilters(_api).then((_) async {
+          await _branchFilter.ensureEmployees(_api,
+              branchId: _selectedBranchId);
           if (mounted) setState(() {});
         });
       }
@@ -186,6 +191,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     final f = _filtered.where((c) => parseTripStatus(c['status']) != 9).toList();
     final useClientTotals = _statusFilter != null ||
         _selectedBranchId != null ||
+        _selectedDepartmentId != null ||
         _empSearch.isNotEmpty ||
         _selectedCategoryKey != null;
     final totalAdv = useClientTotals
@@ -442,6 +448,10 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                         await _branchFilter.ensureEmployees(_api, branchId: v);
                         if (mounted) setState(() => _selectedBranchId = v);
                       },
+                      selectedDepartmentId: _selectedDepartmentId,
+                      onDepartmentChanged: (v) {
+                        if (mounted) setState(() => _selectedDepartmentId = v);
+                      },
                       empSearch: _empSearch,
                       onEmpSearchChanged: (v) => setState(() => _empSearch = v),
                       empSuggestions: _empSuggestions,
@@ -450,6 +460,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                           ? () => setState(() {
                                 _empSearch = '';
                                 _selectedBranchId = null;
+                                _selectedDepartmentId = null;
                                 _statusFilter = null;
                                 _selectedCategoryKey = null;
                               })
@@ -710,14 +721,19 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
   }
 
   Widget _buildByEmployee() {
-    if (_byEmployee.isEmpty) {
+    final rows = _branchFilter.filterEmployeeRows(
+      _byEmployee,
+      branchId: _teamView ? _selectedBranchId : null,
+      departmentId: _teamView ? _selectedDepartmentId : null,
+    );
+    if (rows.isEmpty) {
       return const ReportEmptyState(
         title: 'Chưa có dữ liệu tổng hợp',
         subtitle: 'Thử đổi khoảng thời gian',
       );
     }
     return Column(
-      children: _byEmployee.map((e) {
+      children: rows.map((e) {
         final name = e['employeeName']?.toString() ??
             e['EmployeeName']?.toString() ??
             '—';

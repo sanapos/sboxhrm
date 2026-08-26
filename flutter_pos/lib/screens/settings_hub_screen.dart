@@ -30,6 +30,7 @@ import 'pos/pos_customer_display_settings_screen.dart';
 import 'pos/pos_customers_screen.dart';
 import 'pos/pos_accounts_screen.dart';
 import 'pos/pos_role_permissions_screen.dart';
+import 'store_access_devices_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 class SettingsHubScreen extends StatefulWidget {
@@ -277,6 +278,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const PosCustomerDisplaySettingsScreen(embeddedInSettings: true);
       case 24:
         return const PosCustomersScreen();
+      case 30:
+        return const StoreAccessDevicesScreen();
       default:
         final label = _labelForIndex(index) ?? 'Thiết lập';
         return HrmModuleUnavailableScreen(title: label);

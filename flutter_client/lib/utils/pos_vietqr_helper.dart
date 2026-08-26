@@ -6,6 +6,30 @@ import 'pos_sell_store_settings.dart';
 
 /// Tiện ích tạo VietQR cho màn bán hàng POS.
 class PosVietQrHelper {
+  /// QR Tingee: VA chữ (vd. `96499085BOX`) là TK thu hộ BIDV — quét VietQR thường
+  /// báo lỗi 025 «không có hóa đơn». Dùng STK số (settlement) để sinh QR.
+  static BankAccount? resolveTingeeQrAccount(
+    List<BankAccount> accounts, {
+    required String vaAccountNumber,
+  }) {
+    final va = vaAccountNumber.trim();
+    if (va.isEmpty || accounts.isEmpty) return null;
+    BankAccount? exact;
+    BankAccount? bidvDigits;
+    final vaIsDigits = RegExp(r'^[0-9]+$').hasMatch(va);
+    for (final a in accounts) {
+      final n = a.accountNumber.trim();
+      if (n == va) exact = a;
+      final digits = RegExp(r'^[0-9]{6,}$').hasMatch(n);
+      final blob =
+          '${a.bankCode} ${a.bankShortName ?? ''} ${a.bankName}'.toUpperCase();
+      final bidv = a.bankCode.trim() == '970418' || blob.contains('BIDV');
+      if (digits && bidv) bidvDigits ??= a;
+    }
+    if (vaIsDigits) return exact ?? bidvDigits;
+    return bidvDigits ?? exact;
+  }
+
   static BankAccount? resolveAccount(
     List<BankAccount> accounts, {
     String? preferredId,

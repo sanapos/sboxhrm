@@ -1,10 +1,23 @@
 /// Parse datetime string từ server (lưu UTC, không có timezone indicator) thành UTC DateTime
-DateTime? _parseUtc(dynamic value) {
+DateTime? parseDeviceUtc(dynamic value) {
   if (value == null) return null;
-  final raw = value.toString();
-  // Nếu không có timezone → server lưu UTC → thêm Z
-  final dateStr = (raw.contains('Z') || raw.contains('+')) ? raw : '${raw}Z';
-  return DateTime.tryParse(dateStr);
+  var raw = value.toString().trim();
+  if (raw.isEmpty) return null;
+  // .NET often emits 7 fractional digits; Dart parses up to 6.
+  raw = raw.replaceFirstMapped(
+      RegExp(r'\.(\d{7,})'),
+      (m) => '.${m.group(1)!.substring(0, 6)}');
+  if (!raw.contains('Z') && !raw.contains('+')) raw = '${raw}Z';
+  return DateTime.tryParse(raw)?.toUtc();
+}
+
+/// Cùng cửa sổ 2 phút với ADMS monitor / refresh-status.
+bool isLastOnlineFresh(dynamic lastOnline) {
+  final dt = lastOnline is DateTime
+      ? lastOnline.toUtc()
+      : parseDeviceUtc(lastOnline);
+  if (dt == null) return false;
+  return DateTime.now().toUtc().difference(dt).inSeconds < 120;
 }
 
 class Device {
@@ -68,13 +81,8 @@ class Device {
     this.capabilityNotes,
   });
 
-  // Check if device is online - always compute from lastOnline timestamp
-  bool get isOnline {
-    // Luôn tính từ lastOnline thay vì tin vào deviceStatus cached trong DB
-    if (lastOnline == null) return false;
-    return DateTime.now().toUtc().difference(lastOnline!.toUtc()).inSeconds <
-        90;
-  }
+  // Check if device is online — same 2-minute window as ADMS monitor / settings.
+  bool get isOnline => isLastOnlineFresh(lastOnline);
 
   /// Device has never connected to the server (lastOnline is null)
   bool get hasNeverConnected => lastOnline == null;
@@ -90,13 +98,13 @@ class Device {
       location: json['location'],
       description: json['description'],
       lastOnline:
-          json['lastOnline'] != null ? _parseUtc(json['lastOnline']) : null,
+          json['lastOnline'] != null ? parseDeviceUtc(json['lastOnline']) : null,
       userCount: json['userCount'],
       attendanceCount: json['attendanceCount'],
       createdAt:
-          json['createdAt'] != null ? _parseUtc(json['createdAt']) : null,
+          json['createdAt'] != null ? parseDeviceUtc(json['createdAt']) : null,
       updatedAt:
-          json['updatedAt'] != null ? _parseUtc(json['updatedAt']) : null,
+          json['updatedAt'] != null ? parseDeviceUtc(json['updatedAt']) : null,
       deviceStatus: json['deviceStatus'],
       isClaimed: json['isClaimed'],
       ownerId: json['ownerId'],

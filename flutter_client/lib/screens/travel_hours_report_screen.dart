@@ -97,6 +97,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
   String _statusFilter = 'all'; // all | complete | incomplete
   String _empSearch = '';
   String? _selectedBranchId;
+  String? _selectedDepartmentId;
   int _viewTab = 0; // 0 chi tiết, 1 theo NV
   int _page = 1;
   static const _pageSize = 40;
@@ -117,7 +118,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _load();
       if (_teamView) {
-        _branchFilter.loadBranches(_api).then((_) {
+        _branchFilter.loadOrgFilters(_api).then((_) {
           if (mounted) setState(() {});
         });
       }
@@ -253,27 +254,17 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
 
   List<_TravelTripRow> get _filtered {
     var result = _trips;
-    if (_teamView && _selectedBranchId != null) {
-      final ids = _branchFilter.userIdsForBranch(_selectedBranchId);
-      if (ids.isEmpty) return [];
-      result = result
-          .where((t) =>
-              ids.contains(t.employeeId) ||
-              ids.contains(t.employeeCode) ||
-              _branchFilter.employees.any((e) {
-                final eid = e['id']?.toString() ?? '';
-                final code = e['employeeCode']?.toString() ?? '';
-                final uid = e['applicationUserId']?.toString() ?? '';
-                if (t.employeeId != eid &&
-                    t.employeeId != code &&
-                    t.employeeId != uid) {
-                  return false;
-                }
-                return ids.contains(eid) ||
-                    ids.contains(uid) ||
-                    ids.contains(code);
-              }))
-          .toList();
+    if (_teamView) {
+      result = result.where((t) {
+        return _branchFilter.mapRowInScope(
+          {
+            'employeeId': t.employeeId,
+            'employeeCode': t.employeeCode,
+          },
+          branchId: _selectedBranchId,
+          departmentId: _selectedDepartmentId,
+        );
+      }).toList();
     }
     if (_empSearch.trim().isNotEmpty) {
       final q = _empSearch.trim().toLowerCase();
@@ -805,6 +796,15 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
                               });
                             }
                           },
+                          selectedDepartmentId: _selectedDepartmentId,
+                          onDepartmentChanged: (v) {
+                            if (mounted) {
+                              setState(() {
+                                _selectedDepartmentId = v;
+                                _page = 1;
+                              });
+                            }
+                          },
                           empSearch: _empSearch,
                           onEmpSearchChanged: (v) => setState(() {
                             _empSearch = v;
@@ -824,6 +824,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
                               ? () => setState(() {
                                     _empSearch = '';
                                     _selectedBranchId = null;
+                                    _selectedDepartmentId = null;
                                     _statusFilter = 'all';
                                     _page = 1;
                                   })

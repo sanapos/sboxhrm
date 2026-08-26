@@ -85,7 +85,7 @@ class _SplitBillSheetState extends State<_SplitBillSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              tr('Tách bill'),
+              tr('Tách hóa đơn'),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),

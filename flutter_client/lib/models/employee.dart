@@ -11,6 +11,7 @@ class Employee {
   final String? companyEmail;
   final String? phone;
   final String? department;
+  final String? departmentId;
   final String? position;
   final String? level;
   final String? avatarUrl;
@@ -80,6 +81,7 @@ class Employee {
     this.companyEmail,
     this.phone,
     this.department,
+    this.departmentId,
     this.position,
     this.level,
     this.avatarUrl,
@@ -159,6 +161,7 @@ class Employee {
         companyEmail: json['companyEmail'],
         phone: json['phoneNumber'] ?? json['phone'],
         department: (json['department'] ?? json['departmentName'])?.toString(),
+        departmentId: json['departmentId']?.toString(),
         position: json['position'],
         level: json['level'],
         avatarUrl: json['photoUrl'] ?? json['avatarUrl'],
@@ -216,6 +219,7 @@ class Employee {
         email: json['email'],
         phone: json['phone'],
         department: (json['department'] ?? json['departmentName'])?.toString(),
+        departmentId: json['departmentId']?.toString(),
         position: json['position'],
         avatarUrl: json['avatarUrl'],
         pin: json['enrollNumber'],
@@ -245,6 +249,7 @@ class Employee {
       'companyEmail': companyEmail,
       'phoneNumber': phone,
       'department': department,
+      'departmentId': departmentId,
       'position': position,
       'level': level,
       'photoUrl': avatarUrl,

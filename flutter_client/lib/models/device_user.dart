@@ -11,6 +11,8 @@ class DeviceUser {
   final String? employeeId;
   final String? employeeName;
   final int fingerprintCount;
+  final int copyableFingerprintCount;
+  final int faceCount;
 
   DeviceUser({
     required this.id,
@@ -25,6 +27,8 @@ class DeviceUser {
     this.employeeId,
     this.employeeName,
     this.fingerprintCount = 0,
+    this.copyableFingerprintCount = 0,
+    this.faceCount = 0,
   });
 
   factory DeviceUser.fromJson(Map<String, dynamic> json) {
@@ -41,6 +45,9 @@ class DeviceUser {
       employeeId: json['employee']?['id']?.toString(),
       employeeName: json['employee']?['fullName'],
       fingerprintCount: json['fingerprintCount'] ?? 0,
+      copyableFingerprintCount:
+          json['copyableFingerprintCount'] ?? json['CopyableFingerprintCount'] ?? 0,
+      faceCount: json['faceCount'] ?? 0,
     );
   }
 
@@ -75,6 +82,8 @@ class DeviceUser {
     String? employeeId,
     String? employeeName,
     int? fingerprintCount,
+    int? copyableFingerprintCount,
+    int? faceCount,
   }) {
     return DeviceUser(
       id: id ?? this.id,
@@ -89,6 +98,26 @@ class DeviceUser {
       employeeId: employeeId ?? this.employeeId,
       employeeName: employeeName ?? this.employeeName,
       fingerprintCount: fingerprintCount ?? this.fingerprintCount,
+      copyableFingerprintCount:
+          copyableFingerprintCount ?? this.copyableFingerprintCount,
+      faceCount: faceCount ?? this.faceCount,
     );
+  }
+
+  /// File vân tay đã trên server, Copy được.
+  bool get fingerprintReady => copyableFingerprintCount > 0;
+
+  /// Máy đã enroll nhưng file chưa lên server.
+  bool get fingerprintSyncing => fingerprintCount > copyableFingerprintCount;
+
+  String get fingerprintStatusLabel {
+    if (copyableFingerprintCount > 0) {
+      if (fingerprintSyncing) {
+        return '$copyableFingerprintCount vân tay (đang đồng bộ thêm)';
+      }
+      return '$copyableFingerprintCount vân tay';
+    }
+    if (fingerprintCount > 0) return 'Đang đồng bộ vân tay';
+    return '0 vân tay';
   }
 }

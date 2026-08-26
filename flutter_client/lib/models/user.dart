@@ -26,18 +26,24 @@ class User {
     this.allowedModules,
   });
 
-  /// Tạo bản sao với allowedModules mới
-  User copyWith({List<String>? allowedModules}) {
+  /// Tạo bản sao với các trường hồ sơ / gói module.
+  User copyWith({
+    List<String>? allowedModules,
+    String? fullName,
+    String? email,
+    String? department,
+    String? position,
+  }) {
     return User(
       id: id,
       employeeId: employeeId,
-      email: email,
-      fullName: fullName,
+      email: email ?? this.email,
+      fullName: fullName ?? this.fullName,
       role: role,
       storeId: storeId,
       avatarUrl: avatarUrl,
-      department: department,
-      position: position,
+      department: department ?? this.department,
+      position: position ?? this.position,
       createdAt: createdAt,
       allowedModules: allowedModules ?? this.allowedModules,
     );

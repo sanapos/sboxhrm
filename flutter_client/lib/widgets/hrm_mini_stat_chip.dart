@@ -294,17 +294,22 @@ class HrmStatSummaryCard extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 1),
-                Text(
-                  tr(value),
-                  style: TextStyle(
-                    color: HrmPageChrome.chipDark,
-                    fontSize: valueFontSize,
-                    fontWeight: FontWeight.bold,
-                    height: 1.05,
+                SizedBox(
+                  width: double.infinity,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      tr(value),
+                      style: TextStyle(
+                        color: HrmPageChrome.chipDark,
+                        fontSize: valueFontSize,
+                        fontWeight: FontWeight.bold,
+                        height: 1.05,
+                      ),
+                      maxLines: 1,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
                 ),
                 if (subtitle != null && subtitle!.isNotEmpty) ...[
                   Text(
