@@ -189,7 +189,7 @@ workflows:
         - appstore_credentials
       vars:
         APP_STORE_APP_ID: "6762365741"
-        APP_VERSION: "1.0.506"
+        APP_VERSION: "1.0.508"
 
     scripts:
       - name: Submit processed TestFlight build to App Store review
@@ -256,7 +256,7 @@ workflows:
             --private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY" \
             --version-string "$APP_VERSION" \
             --locale vi \
-            --whats-new "Cập nhật 1.0.506: khôi phục Thuế hộ kinh doanh trên báo cáo POS; cải thiện ổn định ứng dụng iPhone và iPad." \
+            --whats-new "Cập nhật 1.0.508: sửa thông tin tài khoản và đổi mật khẩu; KPI gọn hơn trên iPhone; màn hình tự tải lại sau khi lưu; cải thiện ổn định trên iPhone và iPad." \
             --cancel-previous-submissions \
             --release-type AFTER_APPROVAL
           echo "=== Submitted $APP_VERSION to App Store review ==="
