@@ -3,9 +3,10 @@
 #   $env:CODEMAGIC_API_TOKEN = "<token from Account settings — do NOT commit>"
 #   $env:CODEMAGIC_APP_ID = "<24-char app id from Codemagic app URL>"
 #   .\scripts\trigger-codemagic-ios.ps1
-# Optional: -Workflow ios-debug | -Branch main
+# Optional: -Workflow ios-pos-release | ios-debug | -Branch main
 
 param(
+    [ValidateSet('ios-release', 'ios-pos-release', 'ios-debug', 'ios-app-store-submit')]
     [string]$Workflow = "ios-release",
     [string]$Branch = "main",
     [string]$AppId = $env:CODEMAGIC_APP_ID,
