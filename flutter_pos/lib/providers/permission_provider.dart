@@ -120,6 +120,10 @@ class PermissionProvider extends ChangeNotifier {
       }
 
       _isLoaded = true;
+      if (StoreRoleHelper.isPosCashierRole(role) &&
+          _permissions['PosSell']?.canView != true) {
+        ensurePosSellDefaults();
+      }
       final viewableModules = _permissions.entries.where((e) => e.value.canView).map((e) => e.key).toList();
       debugPrint('✅ PermissionProvider: Loaded ${_permissions.length} modules, canView: $viewableModules');
     } catch (e) {
@@ -132,6 +136,9 @@ class PermissionProvider extends ChangeNotifier {
         _loadError = true;
       } else {
         _loadError = false;
+      }
+      if (StoreRoleHelper.isPosCashierRole(role)) {
+        ensurePosSellDefaults();
       }
     } finally {
       _isLoading = false;
@@ -441,8 +448,27 @@ class PermissionProvider extends ChangeNotifier {
   /// Thu ngân — thanh toán / hoàn tất hóa đơn.
   bool canPosPay() => canApprove('PosSell');
 
-  /// Mở hub thiết lập POS (không alias từ PosSell).
-  bool canViewPosSetup() => canView('SettingsHub');
+  /// Module thiết lập POS — tick trên ma trận, không alias từ PosSell.
+  static const List<String> posSetupModuleCodes = [
+    'SettingsHub',
+    'PosPrinters',
+    'PosStorePrinters',
+    'PosPrintTemplates',
+    'PosEInvoice',
+    'PosShipping',
+    'PosCustomerDisplay',
+  ];
+
+  /// Quyền xem đúng module (không suy từ PosSell / PosProducts).
+  bool canViewExact(String? moduleCode) {
+    if (moduleCode == null || moduleCode.isEmpty) return true;
+    if (_isSuperUser) return true;
+    if (!_isLoaded || _loadError) return false;
+    return _flag(moduleCode, 'canView');
+  }
+
+  /// Mở menu Thiết lập khi được tick bất kỳ phần thiết lập POS.
+  bool canViewPosSetup() => posSetupModuleCodes.any(canViewExact);
 
   /// Lưu cửa hàng / ngành hàng / cổng CK / thiết lập POS.
   bool canEditPosSetup() => canEdit('SettingsHub');

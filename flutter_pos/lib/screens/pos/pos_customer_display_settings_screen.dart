@@ -12,6 +12,7 @@ import '../../services/api_service.dart';
 import '../../services/customer_display_sync.dart';
 import '../../utils/customer_display_media.dart';
 import '../../utils/pos_sell_settings_helper.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -177,7 +178,7 @@ class _PosCustomerDisplaySettingsScreenState
     );
     NotificationOverlayManager().showSuccess(
       title: 'Đã thêm ảnh',
-      message: '${added.length} ảnh trình chiếu',
+      message: tr('${added.length} ảnh trình chiếu'),
     );
   }
 
@@ -295,7 +296,7 @@ class _PosCustomerDisplaySettingsScreenState
             ? Center(child: Text(tr(_error!)))
             : _buildBody();
 
-    if (widget.embeddedInSettings) {
+    if (HrmPageChrome.hideOuterChrome(context)) {
       return ColoredBox(color: PosTheme.background, child: body);
     }
 
@@ -305,6 +306,11 @@ class _PosCustomerDisplaySettingsScreenState
         title: Text(tr('Màn hình phụ')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: tr('Quay lại'),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         actions: [
           if (_saving || _uploading)
             const Padding(

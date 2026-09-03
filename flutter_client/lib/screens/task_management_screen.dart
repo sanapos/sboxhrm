@@ -41,8 +41,22 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 // ==========================================================================
 
 class TaskManagementScreen extends StatefulWidget {
+  /// MainLayout lắng nghe để hiện nút back khi đang xem chi tiết công việc.
+  static final ValueNotifier<int> chromeEpoch = ValueNotifier(0);
+
+  static VoidCallback? _internalBackCallback;
+
   /// Khi mở chi tiết trên mobile, nút back của [MainLayout] gọi callback này trước.
-  static VoidCallback? internalBackCallback;
+  static VoidCallback? get internalBackCallback => _internalBackCallback;
+  static set internalBackCallback(VoidCallback? value) {
+    final changed = (_internalBackCallback == null) != (value == null);
+    _internalBackCallback = value;
+    if (changed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        chromeEpoch.value++;
+      });
+    }
+  }
 
   final WorkTaskStatus? initialStatus;
   final bool initialOverdueOnly;

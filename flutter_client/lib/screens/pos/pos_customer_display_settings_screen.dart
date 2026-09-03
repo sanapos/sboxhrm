@@ -11,13 +11,20 @@ import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../utils/customer_display_media.dart';
 import '../../utils/pos_sell_settings_helper.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Thiết lập màn hình phụ: ảnh trình chiếu · video · tùy chọn.
 class PosCustomerDisplaySettingsScreen extends StatefulWidget {
-  const PosCustomerDisplaySettingsScreen({super.key});
+  const PosCustomerDisplaySettingsScreen({
+    super.key,
+    this.embeddedInSettings = false,
+  });
+
+  /// Khi mở trong Settings hub đã có AppBar — không vẽ AppBar thứ hai.
+  final bool embeddedInSettings;
 
   @override
   State<PosCustomerDisplaySettingsScreen> createState() =>
@@ -162,7 +169,7 @@ class _PosCustomerDisplaySettingsScreenState
     );
     NotificationOverlayManager().showSuccess(
       title: 'Đã thêm ảnh',
-      message: '${added.length} ảnh trình chiếu',
+      message: tr('${added.length} ảnh trình chiếu'),
     );
   }
 
@@ -280,12 +287,21 @@ class _PosCustomerDisplaySettingsScreenState
             ? Center(child: Text(tr(_error!)))
             : _buildBody();
 
+    if (HrmPageChrome.hideOuterChrome(context)) {
+      return ColoredBox(color: PosTheme.background, child: body);
+    }
+
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Màn hình phụ (khách)')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: tr('Quay lại'),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         actions: [
           if (_saving || _uploading)
             const Padding(

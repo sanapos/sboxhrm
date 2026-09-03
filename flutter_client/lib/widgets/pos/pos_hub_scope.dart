@@ -15,6 +15,12 @@ class PosHubScope extends InheritedWidget {
   /// Mở từ menu «Nhiều hơn» (cần nút quay lại, không hiện toolbar ngang).
   final bool pushedSubPage;
 
+  static Widget pushed({required Widget child}) => PosHubScope(
+        embeddedInHub: false,
+        pushedSubPage: true,
+        child: child,
+      );
+
   static bool of(BuildContext context) {
     return context
             .dependOnInheritedWidgetOfExactType<PosHubScope>()
