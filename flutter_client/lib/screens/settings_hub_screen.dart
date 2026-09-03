@@ -54,12 +54,34 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
 
+  /// MainLayout lắng nghe để hiện tiêu đề + nút back khi mở trang con.
+  static final ValueNotifier<int> chromeEpoch = ValueNotifier(0);
+
+  static VoidCallback? _internalBackCallback;
+  static String? _activeSubPageTitle;
+
   /// Static callback for main_layout to handle internal back navigation.
   /// When a sub-screen is active, this resets to the hub menu instead of leaving HRM setup.
-  static VoidCallback? internalBackCallback;
+  static VoidCallback? get internalBackCallback => _internalBackCallback;
+  static set internalBackCallback(VoidCallback? value) {
+    final changed = (_internalBackCallback == null) != (value == null);
+    _internalBackCallback = value;
+    if (changed) _bumpChrome();
+  }
 
   /// Title of the active sub-page (for main_layout AppBar / top bar).
-  static String? activeSubPageTitle;
+  static String? get activeSubPageTitle => _activeSubPageTitle;
+  static set activeSubPageTitle(String? value) {
+    if (_activeSubPageTitle == value) return;
+    _activeSubPageTitle = value;
+    _bumpChrome();
+  }
+
+  static void _bumpChrome() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      chromeEpoch.value++;
+    });
+  }
 
   /// True when a sub-settings page is open — main_layout already shows one back button.
   static bool get isEmbeddedSubPage => internalBackCallback != null;
@@ -327,7 +349,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       case 22:
         return const PosAppointmentDayScreen();
       case 23:
-        return const PosCustomerDisplaySettingsScreen();
+        return const PosCustomerDisplaySettingsScreen(embeddedInSettings: true);
       case 24:
         return const PosCustomersScreen();
       default:
@@ -337,15 +359,43 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Chỉ tự vẽ khi shell (MainLayout) không có thanh tiêu đề trên CÙNG route.
+    // Overlay từ «Nhiều hơn» / POS fullscreen không nhận HrmShellChrome.visible.
+    final ownChrome = !HrmShellChrome.isVisible(context);
     if (_selectedIndex != null) {
       _ensureSubPageCallback();
-      // Full-width module — không còn cột sidebar trái.
-      return _getScreen(_selectedIndex!);
+      final body = _getScreen(_selectedIndex!);
+      if (!ownChrome) return body;
+      return Scaffold(
+        backgroundColor: PosTheme.background,
+        appBar: AppBar(
+          title: Text(
+            tr(SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập'),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _closeSubPage,
+          ),
+        ),
+        body: body,
+      );
     }
     _syncHubChrome();
-    return ColoredBox(
+    final home = ColoredBox(
       color: PosTheme.background,
       child: _buildHubHome(),
+    );
+    if (!ownChrome) return home;
+    return Scaffold(
+      backgroundColor: PosTheme.background,
+      appBar: AppBar(
+        title: Text(tr('Thiết lập')),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+      ),
+      body: home,
     );
   }
 
@@ -476,8 +526,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       )) {
         return false;
       }
-      // Lọc theo quyền canView
-      if (item.moduleCode != null && !permProvider.canView(item.moduleCode!)) {
+      // Tick đúng module trên Phân quyền — không suy từ PosSell.
+      if (item.moduleCode != null &&
+          !permProvider.canViewExact(item.moduleCode!)) {
         return false;
       }
       return true;

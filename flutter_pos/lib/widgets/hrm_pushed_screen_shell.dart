@@ -1,6 +1,5 @@
 ﻿import 'package:flutter/material.dart';
 
-import '../utils/navigation_notifier.dart';
 import 'hrm_page_chrome.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
@@ -15,13 +14,13 @@ class HrmPushedScreenShell extends StatelessWidget {
     required this.child,
   });
 
-  /// Chỉ bọc back bar khi route được push ngoài [MainLayout].
+  /// Chỉ bọc back bar khi route được push và shell không vẽ tiêu đề trên route này.
   static Widget maybeWrap(
     BuildContext context, {
     String? title,
     required Widget child,
   }) {
-    if (NavigationNotifier.mainLayoutReady.value) return child;
+    if (HrmShellChrome.isVisible(context)) return child;
     if (!Navigator.canPop(context)) return child;
     return HrmPushedScreenShell(title: title, child: child);
   }

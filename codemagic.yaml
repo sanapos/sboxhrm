@@ -200,7 +200,7 @@ workflows:
         BUNDLE_ID: "com.sboxpos"
         API_BASE_URL: "https://sboxpos.com"
         APP_DISPLAY_NAME: "SBOX POS"
-        POS_APP_VERSION: "1.0.1"
+        POS_APP_VERSION: "1.0.2"
 
     scripts:
       - name: Disable Shorebird (plain Flutter IPA only)
@@ -341,7 +341,7 @@ workflows:
           set -e
           rm -f ~/.shorebird/bin/shorebird 2>/dev/null || true
           export PATH=$(echo "$PATH" | tr ':' '\n' | grep -v shorebird | tr '\n' ':')
-          APP_VERSION_NAME="${POS_APP_VERSION:-1.0.1}"
+          APP_VERSION_NAME="${POS_APP_VERSION:-1.0.2}"
           BUILD_NUMBER=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1))
           echo "POS IPA API_BASE_URL=$API_BASE_URL SBOX_POS_STANDALONE=true BUNDLE_ID=$BUNDLE_ID"
           echo "CFBundleShortVersionString=$APP_VERSION_NAME CFBundleVersion=$BUILD_NUMBER CFBundleDisplayName=$APP_DISPLAY_NAME"

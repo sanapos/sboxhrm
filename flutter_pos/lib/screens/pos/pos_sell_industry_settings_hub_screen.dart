@@ -5,6 +5,8 @@ import '../../models/pos_sell_industry.dart';
 import '../../providers/permission_provider.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../services/api_service.dart';
+import '../../widgets/hrm_page_chrome.dart';
+import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_cancel_return_history_screen.dart';
 import 'pos_cancel_return_settings_screen.dart';
@@ -53,7 +55,11 @@ class _PosSellIndustrySettingsHubScreenState
   }
 
   void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen)).then((_) {
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+          builder: (_) => PosHubScope.pushed(child: screen),
+        ))
+        .then((_) {
       if (mounted) _load();
     });
   }
@@ -197,7 +203,7 @@ class _PosSellIndustrySettingsHubScreenState
       ],
     );
 
-    if (widget.embeddedInSettings) {
+    if (HrmPageChrome.hideOuterChrome(context)) {
       return ColoredBox(
         color: PosTheme.background,
         child: Column(
@@ -229,6 +235,11 @@ class _PosSellIndustrySettingsHubScreenState
         title: Text(tr('Ngành hàng & bán hàng')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: tr('Quay lại'),
+          onPressed: () => Navigator.maybePop(context),
+        ),
       ),
       body: body,
     );

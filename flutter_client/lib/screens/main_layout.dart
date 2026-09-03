@@ -392,6 +392,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavigationNotifier.navigateToModule.addListener(_onModuleNavigationRequested);
     NavigationNotifier.goBackNotifier.addListener(_onGoBackRequested);
     ScreenRefreshNotifier.notifications.addListener(_loadNotificationCount);
+    SettingsHubScreen.chromeEpoch.addListener(_onEmbeddedChromeChanged);
+    TaskManagementScreen.chromeEpoch.addListener(_onEmbeddedChromeChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _reportCurrentScreen();
@@ -406,10 +408,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (_selectedIndex < 0 || _selectedIndex >= _navItems.length) return;
     final item = _navItems[_selectedIndex];
     var label = item.label;
-    if (_selectedIndex == NavigationNotifier.settingsHub) {
-      final sub = SettingsHubScreen.activeSubPageTitle;
-      if (sub != null && sub.isNotEmpty) label = sub;
-    }
+    final sub = SettingsHubScreen.activeSubPageTitle;
+    if (sub != null && sub.isNotEmpty) label = sub;
     NavigationNotifier.reportScreen(label, moduleCode: item.moduleCode);
   }
 
@@ -466,7 +466,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (idx < 0 || idx >= _navItems.length) return;
       if (idx == _selectedIndex) return;
       // Khôi phục module sau khi OS kill app (tắt màn hình / thiếu RAM).
-      setState(() => _selectedIndex = idx);
+      // Seed Home vào lịch sử để AppBar luôn có nút thoát.
+      setState(() {
+        if (idx != 0 && _navigationHistory.isEmpty) {
+          _navigationHistory.add(0);
+        }
+        _selectedIndex = idx;
+      });
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _reportCurrentScreen();
       });
@@ -792,22 +798,30 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         _selectedIndex = _navigationHistory.removeLast();
         _bumpModuleVisit(_selectedIndex);
       });
+      unawaited(_persistLastNavIndex(_selectedIndex));
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _reportCurrentScreen();
       });
+      return;
+    }
+    if (_selectedIndex != 0) {
+      _tryNavigateToIndex(0);
     }
   }
 
   bool get _canGoBack =>
       _navigationHistory.isNotEmpty ||
       SettingsHubScreen.internalBackCallback != null ||
-      TaskManagementScreen.internalBackCallback != null;
+      TaskManagementScreen.internalBackCallback != null ||
+      _selectedIndex != 0;
+
+  void _onEmbeddedChromeChanged() {
+    if (mounted) setState(() {});
+  }
 
   String _settingsHubTitle(AppLocalizations l) {
-    if (_selectedIndex == NavigationNotifier.settingsHub) {
-      final sub = SettingsHubScreen.activeSubPageTitle;
-      if (sub != null && sub.isNotEmpty) return sub;
-    }
+    final sub = SettingsHubScreen.activeSubPageTitle;
+    if (sub != null && sub.isNotEmpty) return sub;
     return _navItems[_selectedIndex].localizedLabel(l);
   }
 
@@ -835,6 +849,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavigationNotifier.navigateToModule.removeListener(_onModuleNavigationRequested);
     NavigationNotifier.goBackNotifier.removeListener(_onGoBackRequested);
     ScreenRefreshNotifier.notifications.removeListener(_loadNotificationCount);
+    SettingsHubScreen.chromeEpoch.removeListener(_onEmbeddedChromeChanged);
+    TaskManagementScreen.chromeEpoch.removeListener(_onEmbeddedChromeChanged);
     _notifCountDebounce?.cancel();
     _unreadNotificationsCount.dispose();
     super.dispose();
@@ -972,9 +988,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   /// Toast góc trên + panel tiến trình đồng bộ máy góc dưới phải.
-  Widget _wrapAppShell(Widget child) {
-    return NotificationOverlay(
-      child: DeviceSyncProgressOverlay(child: child),
+  Widget _wrapAppShell(Widget child, {bool shellChromeVisible = true}) {
+    if (NavigationNotifier.mobileDrawerModuleActive.value !=
+        shellChromeVisible) {
+      NavigationNotifier.mobileDrawerModuleActive.value = shellChromeVisible;
+    }
+    return HrmShellChrome(
+      visible: shellChromeVisible,
+      child: NotificationOverlay(
+        child: DeviceSyncProgressOverlay(child: child),
+      ),
     );
   }
 
@@ -1962,7 +1985,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavItem(
       icon: Icons.person_outline,
       activeIcon: Icons.person,
-      label: 'Thông tin tài khoản',
+      label: 'Cài đặt',
       subtitle: 'Tài khoản',
       screen: const SettingsScreen(),
       group: 'Cài đặt',
@@ -2120,6 +2143,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           Scaffold(
             body: _buildPersistentMainContent(),
           ),
+          shellChromeVisible: false,
         ),
       );
     }
@@ -2171,6 +2195,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         },
         child: _wrapAppShell(
           Scaffold(body: _buildPersistentMainContent()),
+          shellChromeVisible: false,
         ),
       );
     }
@@ -2346,8 +2371,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     final bottomNavIndex = _bottomNavSlotIndexForModule(moduleCode);
     final isBottomNav = bottomNavIndex >= 0;
-    NavigationNotifier.mobileDrawerModuleActive.value =
-        !posHubFullscreen && !isBottomNav;
     final safeBottomIndex = isBottomNav ? bottomNavIndex : -1;
 
     // POS fullscreen: không dựng MainLayout (Home + drawer + bottom nav) — OOM V2s 3GB.
@@ -2364,6 +2387,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             initialTab: PosHubModules.tabIndexForModule(moduleCode),
             restoreLastTab: false,
           ),
+          shellChromeVisible: false,
         ),
       );
     }

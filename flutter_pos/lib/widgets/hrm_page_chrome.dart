@@ -4,8 +4,29 @@ import '../screens/settings_hub_screen.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/responsive_helper.dart';
 import 'hrm/hrm_settings_mobile_kit.dart';
+import 'pos/pos_hub_scope.dart';
 import 'pos/pos_theme.dart';
 import '../l10n/app_tr.dart';
+
+/// MainLayout publishes this on the same route as its title/back bar.
+/// [Navigator.push] overlays are not descendants — they must draw their own chrome.
+class HrmShellChrome extends InheritedWidget {
+  const HrmShellChrome({
+    super.key,
+    required this.visible,
+    required super.child,
+  });
+
+  final bool visible;
+
+  static bool isVisible(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<HrmShellChrome>()?.visible ??
+      false;
+
+  @override
+  bool updateShouldNotify(HrmShellChrome oldWidget) =>
+      visible != oldWidget.visible;
+}
 
 /// Shared layout tokens and helpers for HRM settings sub-pages.
 class HrmPageChrome {
@@ -47,23 +68,60 @@ class HrmPageChrome {
   /// Hub sub-page is open — [main_layout] already shows back + title.
   static bool get isEmbedded => SettingsHubScreen.isEmbeddedSubPage;
 
+  /// True when this widget is the inner body of [SettingsHubScreen].
+  /// Overlay [Navigator.push] (Máy in cloud…) không có ancestor hub.
+  static bool isHubBody(BuildContext context) =>
+      context.findAncestorWidgetOfExactType<SettingsHubScreen>() != null;
+
+  /// Ẩn AppBar in-page vì hub / MainLayout đã có chrome.
+  static bool hideOuterChrome(BuildContext context) => isHubBody(context);
+
+  /// Hiện AppBar in-page khi không có thanh tiêu đề trên CÙNG route.
+  static bool showInPageAppBar(BuildContext context) {
+    final hubBody = isHubBody(context);
+    if (PosHubScope.pushedSubPageOf(context) && !hubBody) return true;
+    if (HrmShellChrome.isVisible(context)) return false;
+    if (hubBody) return false;
+    if (PosHubScope.of(context)) return false;
+    return true;
+  }
+
   /// Mobile drawer module: AppBar ngoài đã hiển thị tiêu đề trang.
   static bool get usesMainLayoutAppBar =>
       NavigationNotifier.mobileDrawerModuleActive.value;
 
-  /// AppBar for standalone entry only; returns null when embedded in hub.
+  static bool shellHasVisibleChrome(BuildContext context) =>
+      HrmShellChrome.isVisible(context);
+
+  /// Route được push đè lên shell — phải tự vẽ tiêu đề + back.
+  static bool isPushedOverShell(BuildContext context) =>
+      Navigator.of(context).canPop() && !isHubBody(context);
+
+  /// Ẩn tiêu đề in-page vì AppBar MainLayout / hub đã hiện.
+  static bool hideInPageTitle(BuildContext context) =>
+      !showInPageAppBar(context);
+
+  /// AppBar for standalone / overlay; null when this widget is hub body.
   static PreferredSizeWidget? appBar({
     required String title,
     List<Widget>? actions,
     PreferredSizeWidget? bottom,
+    BuildContext? context,
   }) {
-    if (isEmbedded) return null;
+    if (context != null && !showInPageAppBar(context)) return null;
+    final canPop = context != null && Navigator.of(context).canPop();
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
       scrolledUnderElevation: 0,
       automaticallyImplyLeading: false,
-      leading: null,
+      leading: canPop
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back, color: textDark),
+              onPressed: () => Navigator.maybePop(context),
+              tooltip: tr('Quay lại'),
+            )
+          : null,
       title: Text(
         tr(title),
         style: const TextStyle(
@@ -84,7 +142,8 @@ class HrmPageChrome {
     required List<Widget> actions,
     BuildContext? context,
   }) {
-    if (!isEmbedded || actions.isEmpty) return const SizedBox.shrink();
+    final inHub = context != null ? isHubBody(context) : isEmbedded;
+    if (!inHub || actions.isEmpty) return const SizedBox.shrink();
     if (context != null && Responsive.isMobile(context)) {
       return const SizedBox.shrink();
     }
@@ -185,7 +244,10 @@ class HrmPageHero extends StatelessWidget {
       builder: (context, _) {
         final isMobile = MediaQuery.sizeOf(context).width < 768;
         final hideDuplicateTitle = isMobile &&
-            (HrmPageChrome.usesMainLayoutAppBar || HrmPageChrome.isEmbedded);
+            HrmPageChrome.hideInPageTitle(context);
+        final showEscape = isMobile &&
+            hideDuplicateTitle &&
+            HrmPageChrome.isPushedOverShell(context);
         final accent = (gradientColors != null && gradientColors!.isNotEmpty)
             ? gradientColors!.first
             : HrmPageChrome.primaryNavy;
@@ -219,6 +281,13 @@ class HrmPageHero extends StatelessWidget {
             children: [
               Row(
                 children: [
+                  if (showEscape)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.arrow_back, size: 22),
+                      tooltip: tr('Quay lại'),
+                      onPressed: () => Navigator.maybePop(context),
+                    ),
                   if (icon != null && !hideDuplicateTitle) ...[
                     Container(
                       padding: const EdgeInsets.all(10),

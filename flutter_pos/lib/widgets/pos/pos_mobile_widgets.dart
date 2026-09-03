@@ -346,7 +346,7 @@ bool posNeedsTopSafeArea(BuildContext context) {
   if (!posUseMobileList(context)) return false;
   if (PosHubScope.pushedSubPageOf(context)) return true;
   if (PosHubScope.of(context)) return false;
-  if (HrmPageChrome.usesMainLayoutAppBar) return false;
+  if (HrmShellChrome.isVisible(context)) return false;
   return true;
 }
 
@@ -590,9 +590,9 @@ class PosMobileListHeader extends StatelessWidget {
     return ListenableBuilder(
       listenable: NavigationNotifier.mobileDrawerModuleActive,
       builder: (context, _) {
-        final usesMainAppBar = HrmPageChrome.usesMainLayoutAppBar;
         final pushed = PosHubScope.pushedSubPageOf(context);
-        final hideTitle = mobile && usesMainAppBar && !pushed;
+        final hideTitle = mobile && HrmPageChrome.hideInPageTitle(context);
+        final showBack = pushed || HrmPageChrome.isPushedOverShell(context);
 
         Widget actionButtons() => Row(
               mainAxisSize: MainAxisSize.min,
@@ -628,13 +628,13 @@ class PosMobileListHeader extends StatelessWidget {
                     if (!hideTitle)
                       Row(
                         children: [
-                          if (pushed)
+                          if (showBack)
                             IconButton(
                               visualDensity: VisualDensity.compact,
                               icon: const Icon(Icons.arrow_back),
                               onPressed: () => Navigator.maybePop(context),
                             ),
-                          if (!pushed) ...[
+                          if (!showBack) ...[
                             Icon(icon,
                                 color: PosTheme.kiotBlue, size: 22),
                             const SizedBox(width: 8),
@@ -1101,6 +1101,8 @@ class PosMobileKiotHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final inHub = PosHubScope.of(context);
     final pushed = PosHubScope.pushedSubPageOf(context);
+    final showBack =
+        (pushed || HrmPageChrome.isPushedOverShell(context)) && !inHub;
     final compactHeader = inHub;
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1110,7 +1112,7 @@ class PosMobileKiotHeader extends StatelessWidget {
               inHub ? 4 : (pushed ? 0 : 12), 4, 4, 0),
           child: Row(
             children: [
-              if (pushed)
+              if (showBack)
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.arrow_back),

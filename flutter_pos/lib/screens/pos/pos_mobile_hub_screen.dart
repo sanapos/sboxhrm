@@ -131,7 +131,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => PosHubScope(
-            embeddedInHub: true,
+            embeddedInHub: false,
             pushedSubPage: true,
             child: PosQrOnlineOrdersScreen(highlightOrderId: highlight),
           ),
