@@ -1,6 +1,8 @@
 /// Hồ sơ ngành + khu vực/bàn/phòng + phiên + gói buổi.
 library;
 
+import 'dart:convert';
+
 enum PosSellProfile {
   retail,
   salon,
@@ -396,6 +398,39 @@ class PosStoreSellSettingsDto {
   /// SP dịch vụ tính giờ mặc định khi mở bàn.
   final String? defaultHourlyProductId;
   final String? extraJson;
+  /// ExtraJson.allowEditSaleTime — thu ngân chọn ngày/giờ trên màn thanh toán.
+  bool get allowEditSaleTime {
+    final raw = extraJson;
+    if (raw == null || raw.trim().isEmpty) return false;
+    try {
+      final root = jsonDecode(raw);
+      if (root is! Map) return false;
+      if (root['allowEditSaleTime'] == true ||
+          root['AllowEditSaleTime'] == true) {
+        return true;
+      }
+      final sell = root['sell'] ?? root['Sell'];
+      if (sell is Map) {
+        return sell['allowEditSaleTime'] == true ||
+            sell['AllowEditSaleTime'] == true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  static String mergeAllowEditSaleTime(String? existing, bool value) {
+    Map<String, dynamic> root = {};
+    if (existing != null && existing.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(existing);
+        if (decoded is Map) root = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    root['allowEditSaleTime'] = value;
+    root.remove('AllowEditSaleTime');
+    return jsonEncode(root);
+  }
+
   /// Tích / đổi điểm — mỗi cửa hàng tự cấu hình.
   final bool loyaltyEnabled;
   /// Số tiền (đ) để được 1 điểm. 0 = không tích.

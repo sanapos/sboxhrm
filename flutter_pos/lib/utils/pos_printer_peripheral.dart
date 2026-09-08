@@ -88,4 +88,22 @@ abstract final class PosPrinterPeripheral {
       }
     }
   }
+
+  /// Mở két thủ công từ menu bán hàng — không phụ thuộc tiền mặt / cash-only.
+  static Future<bool> kickDrawerManual() async {
+    if (kIsWeb) return false;
+    try {
+      await SunmiDrawer.openDrawer();
+      return true;
+    } catch (e) {
+      debugPrint('SunmiDrawer.openDrawer: $e');
+      try {
+        await SunmiPrinter.printEscPos(openDrawerEscPos());
+        return true;
+      } catch (e2) {
+        debugPrint('Sunmi ESC p drawer fallback: $e2');
+        return false;
+      }
+    }
+  }
 }

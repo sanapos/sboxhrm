@@ -748,10 +748,9 @@ public partial class PosSalesController
             return Conflict(AppResponse<SaleOrderDto>.Create(false, conflictMapped, [lockErr]));
         }
 
-        var allowNegComplete = await dbContext.PosStoreSellSettings.AsNoTracking()
-            .Where(s => s.StoreId == storeId && s.Deleted == null)
-            .Select(s => s.AllowNegativeStock)
-            .FirstOrDefaultAsync();
+        var sellSettingsComplete = await dbContext.PosStoreSellSettings.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null);
+        var allowNegComplete = sellSettingsComplete?.AllowNegativeStock == true;
         // Draft cũ chỉ có UnitName — resolve UnitId để quy đổi tồn đúng.
         await PosSaleStockHelper.EnsureLineUnitIdsAsync(dbContext, order.Lines);
         var lineInputs = order.Lines
@@ -819,11 +818,13 @@ public partial class PosSalesController
             }
 
             order.Status = PosSaleOrderStatus.Completed;
-            order.SaleDate = DateTime.UtcNow;
+            var saleAt = PosSellExtraJsonHelper.ResolveSaleAt(
+                sellSettingsComplete?.ExtraJson, dto?.SaleDate, DateTime.UtcNow, complete: true);
+            order.SaleDate = saleAt;
             order.SoldBy ??= CurrentUserEmail;
             order.PaidAmount = order.PaidAmount > 0 ? order.PaidAmount : 0;
             if (PosSaleStockHelper.NeedsOfficialOrderNo(order.OrderNo))
-                order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, order.SaleDate);
+                order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, saleAt);
             order.InvoiceSlot = null;
             PosDraftLockHelper.Release(order);
 
@@ -1169,6 +1170,8 @@ public partial class PosSalesController
         }
 
         var now = DateTime.UtcNow;
+        var saleAt = PosSellExtraJsonHelper.ResolveSaleAt(
+            sellSettings?.ExtraJson, dto.SaleDate, now, complete);
         PosSaleOrder order;
         if (existing == null)
         {
@@ -1176,7 +1179,7 @@ public partial class PosSalesController
             int? slot = null;
             if (complete)
             {
-                orderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, now);
+                orderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, saleAt);
             }
             else
             {
@@ -1215,7 +1218,7 @@ public partial class PosSalesController
         {
             // Mã HDxxxx chỉ gán lúc thanh toán (Draft dùng TMP{slot}).
             if (PosSaleStockHelper.NeedsOfficialOrderNo(order.OrderNo))
-                order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, now);
+                order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(dbContext, storeId, saleAt);
             order.InvoiceSlot = null;
             PosDraftLockHelper.Release(order);
         }
@@ -1253,7 +1256,7 @@ public partial class PosSalesController
             ? (string.IsNullOrWhiteSpace(dto.DeliveryStatus) ? "Chờ giao" : dto.DeliveryStatus.Trim())
             : null;
         order.DeliveryDate = dto.DeliveryDate;
-        order.SaleDate = complete ? now : order.SaleDate;
+        order.SaleDate = complete ? saleAt : order.SaleDate;
         await ResolveSoldByAsync(storeId, order, dto.SoldByEmployeeId, dto.SoldBy);
         order.SalesChannel = dto.SalesChannel?.Trim() ?? "Bán trực tiếp";
         if (qrGuest.HasValue)
@@ -1279,7 +1282,7 @@ public partial class PosSalesController
         }
         else
         {
-            var saleDay = (complete ? now : (order.SaleDate ?? now)).Date;
+            var saleDay = (complete ? saleAt : (order.SaleDate ?? now)).Date;
             var candidates = await dbContext.PosPriceLists.AsNoTracking()
                 .Where(x => x.StoreId == storeId && x.Deleted == null && x.IsActive)
                 .OrderByDescending(x => x.IsDefault).ThenBy(x => x.SortOrder)

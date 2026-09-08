@@ -390,6 +390,20 @@ class _PosSellIndustrySettingsScreenState
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            title: Text(tr('Cho phép sửa thời gian bán hàng')),
+            subtitle: Text(tr(
+                'Bật: thu ngân chọn ngày/giờ trên màn thanh toán. '
+                'Tắt: đơn luôn ghi thời điểm thực tế.')),
+            value: s.allowEditSaleTime,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave((cur) => cur.copyWith(
+                      extraJson: PosStoreSellSettingsDto.mergeAllowEditSaleTime(
+                          cur.extraJson, v),
+                    )),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
             title: Text(tr('Khóa đơn tạm đa máy')),
             subtitle: Text(tr(
                 'Bật: máy đang mở đơn tạm giữ khóa — máy khác phải «Nhận bàn» mới sửa. '

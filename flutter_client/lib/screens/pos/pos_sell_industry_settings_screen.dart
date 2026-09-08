@@ -291,6 +291,11 @@ class _PosSellIndustrySettingsScreenState
         title: Text(tr(_title)),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: tr('Quay lại'),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         actions: [
           if (_saving)
             const Padding(
@@ -387,6 +392,20 @@ class _PosSellIndustrySettingsScreenState
                 ? null
                 : (v) => _patchAndSave(
                     (cur) => cur.copyWith(enableCashierShift: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Cho phép sửa thời gian bán hàng')),
+            subtitle: Text(tr(
+                'Bật: thu ngân chọn ngày/giờ trên màn thanh toán. '
+                'Tắt: đơn luôn ghi thời điểm thực tế.')),
+            value: s.allowEditSaleTime,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave((cur) => cur.copyWith(
+                      extraJson: PosStoreSellSettingsDto.mergeAllowEditSaleTime(
+                          cur.extraJson, v),
+                    )),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

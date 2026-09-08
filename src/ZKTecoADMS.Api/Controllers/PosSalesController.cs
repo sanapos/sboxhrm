@@ -145,7 +145,8 @@ public partial class PosSalesController(
         bool? IssueEInvoice = null,
         EInvoiceBuyerDto? EInvoiceBuyer = null,
         decimal SurchargeAmount = 0,
-        decimal DeliveryFee = 0);
+        decimal DeliveryFee = 0,
+        DateTime? SaleDate = null);
 
     public record EInvoiceBuyerDto(
         string? Name = null,
@@ -193,7 +194,8 @@ public partial class PosSalesController(
         bool? IssueEInvoice = null,
         EInvoiceBuyerDto? EInvoiceBuyer = null,
         decimal SurchargeAmount = 0,
-        decimal DeliveryFee = 0);
+        decimal DeliveryFee = 0,
+        DateTime? SaleDate = null);
 
     public record SaleOrderDto(
         Guid Id,
@@ -1134,7 +1136,8 @@ public partial class PosSalesController(
         string? DeviceId = null,
         string? DeviceName = null,
         bool? IssueEInvoice = null,
-        EInvoiceBuyerDto? EInvoiceBuyer = null);
+        EInvoiceBuyerDto? EInvoiceBuyer = null,
+        DateTime? SaleDate = null);
 
     /// <summary>Danh sách nhân viên có thể chọn làm người bán trên màn hình thu ngân.</summary>
     [HttpGet("sellers")]
