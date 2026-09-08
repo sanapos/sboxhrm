@@ -46,6 +46,10 @@ android {
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
         multiDexEnabled true
+        // T1 (A6) Intel chọn x86 nếu fat APK khai báo x86 nhưng thiếu libflutter.so → không cài được.
+        ndk {
+            abiFilters 'armeabi-v7a', 'arm64-v8a'
+        }
     }
 
     buildTypes {

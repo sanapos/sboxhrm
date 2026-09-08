@@ -70,7 +70,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   }
 
   /// Khớp PosPackageDefaults.SellModules (backend).
-  /// PosKds đã là module riêng trong gói (Màn hình bếp).
+  /// PosKds là chức năng riêng — Super Admin tick nhóm «POS / Bếp (KDS)».
   /// PosStorePrinters (Máy in cloud) không nằm preset — Super Admin tick từng gói.
   static const List<String> _posSellPreset = [
     'PosProducts',
@@ -98,7 +98,6 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     'PosWarranty',
     'PosCustomerDisplay',
     'PosEInvoice',
-    'PosKds',
     'PosQrOrder',
     'PosCashierShift',
     'PosPrinters',
@@ -137,7 +136,6 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     'PosWarranty',
     'PosCustomerDisplay',
     'PosEInvoice',
-    'PosKds',
     'PosQrOrder',
     'PosCashierShift',
     'PosPrinters',
@@ -873,6 +871,12 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                           selectedModules,
                           label: 'POS đầy đủ',
                           codes: _posFullPreset,
+                        ),
+                        _posPresetChip(
+                          setDialogState,
+                          selectedModules,
+                          label: 'KDS (bếp)',
+                          codes: const ['PosKds'],
                         ),
                       ],
                     ),

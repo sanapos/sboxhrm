@@ -10,6 +10,7 @@ public class DeviceCommandConfiguration : IEntityTypeConfiguration<DeviceCommand
     {
         builder.HasKey(e => e.Id);
         builder.HasIndex(e => e.CommandId);
+        builder.Property(e => e.Command).HasColumnType("text");
         
         builder.HasOne(e => e.Device)
             .WithMany(d => d.DeviceCommands)

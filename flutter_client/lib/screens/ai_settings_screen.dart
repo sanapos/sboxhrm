@@ -173,7 +173,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
-      appBar: HrmPageChrome.appBar(title: 'Thiết lập AI'),
+      appBar: HrmPageChrome.appBar(context: context, title: 'Thiết lập AI'),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _buildProviderTab(

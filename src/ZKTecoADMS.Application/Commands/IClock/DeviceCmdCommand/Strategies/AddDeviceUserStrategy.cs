@@ -13,9 +13,9 @@ public class AddEmployeeStrategy(IRepository<DeviceUser> employeeRepository) : I
     public async Task ExecuteAsync(Device device, Guid objectRefId, ClockCommandResponse response, CancellationToken cancellationToken)
     {
         var employee = await employeeRepository.GetByIdAsync(objectRefId, cancellationToken: cancellationToken);
-        if (employee != null)
+        if (employee != null && response.IsSuccess)
         {
-            employee.IsActive = response.IsSuccess;
+            employee.IsActive = true;
             await employeeRepository.UpdateAsync(employee, cancellationToken);
         }
     }

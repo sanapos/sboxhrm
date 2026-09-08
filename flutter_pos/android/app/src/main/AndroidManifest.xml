@@ -82,6 +82,22 @@
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
         <!-- Sunmi HCService ↔ DSKernel (màn phụ 7″ T1) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.ota.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/ota_file_paths" />
+        </provider>
+        <receiver
+            android:name=".PosApkInstallReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="vn.sana.sbox.sbox_pos.INSTALL_RESULT" />
+            </intent-filter>
+        </receiver>
         <receiver
             android:name="sunmi.ds.MsgReceiver"
             android:exported="true">

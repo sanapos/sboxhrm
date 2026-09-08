@@ -419,6 +419,8 @@ class PosProduct {
   final bool isFavorite;
   final int sortOrder;
   final bool isActive;
+  /// Báo hết / tạm khóa trong ngày KD — qua ngày tự mở bán lại.
+  final bool isDailySoldOut;
   final int variantCount;
   final List<PosProductVariant>? variants;
   final double? avgDailySales;
@@ -493,6 +495,7 @@ class PosProduct {
     this.isFavorite = false,
     this.sortOrder = 0,
     this.isActive = true,
+    this.isDailySoldOut = false,
     this.variantCount = 0,
     this.variants,
     this.avgDailySales,
@@ -615,6 +618,8 @@ class PosProduct {
       isFavorite: json['isFavorite'] == true || json['IsFavorite'] == true,
       sortOrder: (json['sortOrder'] ?? json['SortOrder'] as num?)?.toInt() ?? 0,
       isActive: json['isActive'] != false && json['IsActive'] != false,
+      isDailySoldOut:
+          json['isDailySoldOut'] == true || json['IsDailySoldOut'] == true,
       variantCount: (json['variantCount'] ?? json['VariantCount'] as num?)?.toInt() ?? 0,
       variants: json['variants'] != null || json['Variants'] != null
           ? ((json['variants'] ?? json['Variants']) as List)
@@ -826,6 +831,7 @@ class PosProduct {
     bool? isDirectSale,
     bool? isFavorite,
     int? sortOrder,
+    bool? isDailySoldOut,
     List<PosProductVariant>? variants,
     List<PosProductUnit>? units,
     List<PosComboLine>? comboLines,
@@ -867,6 +873,7 @@ class PosProduct {
       isDirectSale: isDirectSale ?? this.isDirectSale,
       isFavorite: isFavorite ?? this.isFavorite,
       sortOrder: sortOrder ?? this.sortOrder,
+      isDailySoldOut: isDailySoldOut ?? this.isDailySoldOut,
       requiresSerial: this.requiresSerial,
       allowDecimalQty: this.allowDecimalQty,
       trackExpiry: this.trackExpiry,
@@ -920,6 +927,7 @@ class PosProduct {
         'baseUnitName': baseUnitName,
         'isDirectSale': isDirectSale,
         'isFavorite': isFavorite,
+        'isDailySoldOut': isDailySoldOut,
         'requiresSerial': requiresSerial,
         'allowDecimalQty': allowDecimalQty,
         'variantCount': variantCount,

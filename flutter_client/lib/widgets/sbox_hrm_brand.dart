@@ -154,6 +154,46 @@ class SboxBrandLockup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final muted = sloganColor ?? titleColor.withValues(alpha: 0.62);
+    final isPos = SboxAppVariant.posBranding;
+    final color = isPos ? const Color(SboxAppVariant.posGreen) : titleColor;
+    if (isPos) {
+      final mark = Image.asset(
+        SboxAppVariant.logoAsset,
+        height: logoSize * 1.15,
+        fit: BoxFit.contain,
+        filterQuality: FilterQuality.high,
+        errorBuilder: (_, __, ___) => Icon(
+          Icons.point_of_sale_rounded,
+          color: color,
+          size: logoSize,
+        ),
+      );
+      if (!showSlogan) return mark;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: alignment == MainAxisAlignment.center
+            ? CrossAxisAlignment.center
+            : CrossAxisAlignment.start,
+        children: [
+          mark,
+          const SizedBox(height: 6),
+          Text(
+            tr(SboxBrand.slogan),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: alignment == MainAxisAlignment.center
+                ? TextAlign.center
+                : TextAlign.start,
+            style: TextStyle(
+              fontSize: sloganSize,
+              fontWeight: FontWeight.w500,
+              color: muted,
+              height: 1.25,
+            ),
+          ),
+        ],
+      );
+    }
     final text = Column(
       crossAxisAlignment: alignment == MainAxisAlignment.center
           ? CrossAxisAlignment.center

@@ -37,11 +37,12 @@ public static class PosPackageDefaults
         "PosWarranty",
         "PosCustomerDisplay",
         "PosEInvoice",
-        "PosKds",
         "PosQrOrder",
         "PosCashierShift",
         "PosPrinters",
+        "PosStorePrinters",
         "PosShipping",
+        "SettingsHub",
     ];
 
     /// <summary>Bán hàng + báo cáo doanh thu.</summary>
@@ -60,11 +61,12 @@ public static class PosPackageDefaults
         "PosWarranty",
         "PosCustomerDisplay",
         "PosEInvoice",
-        "PosKds",
         "PosQrOrder",
         "PosCashierShift",
         "PosPrinters",
+        "PosStorePrinters",
         "PosShipping",
+        "SettingsHub",
     ];
 
     /// <summary>Bán hàng + kho (nhập / trả NCC / kiểm / xuất).</summary>
@@ -87,11 +89,12 @@ public static class PosPackageDefaults
         "PosWarranty",
         "PosCustomerDisplay",
         "PosEInvoice",
-        "PosKds",
         "PosQrOrder",
         "PosCashierShift",
         "PosPrinters",
+        "PosStorePrinters",
         "PosShipping",
+        "SettingsHub",
     ];
 
     /// <summary>Toàn bộ module POS trong catalog.</summary>
@@ -107,11 +110,12 @@ public static class PosPackageDefaults
         "PosWarranty",
         "PosCustomerDisplay",
         "PosEInvoice",
-        "PosKds",
         "PosQrOrder",
         "PosCashierShift",
         "PosPrinters",
+        "PosStorePrinters",
         "PosShipping",
+        "SettingsHub",
     ];
 
     /// <summary>GET paths mapped to PosProducts but allowed when package only has PosSell.</summary>

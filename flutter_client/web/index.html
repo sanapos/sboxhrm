@@ -4,51 +4,55 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content">
   <meta http-equiv="X-UA-Compatible" content="IE=Edge">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <meta http-equiv="Permissions-Policy" content="window-management=(self)">
 
-  <!-- Primary SEO -->
-  <title>SBOX HRM – Phần mềm quản lý nhân sự, chấm công &amp; bảng lương</title>
-  <meta name="description" content="SBOX HRM – Phần mềm quản lý nhân sự cho doanh nghiệp Việt Nam: chấm công khuôn mặt, ZKTeco, ca làm, bảng lương tự động, báo cáo realtime. Dùng thử miễn phí trên web và Android.">
-  <meta name="keywords" content="SBOX HRM, phần mềm nhân sự, quản lý nhân sự, chấm công khuôn mặt, chấm công ZKTeco, bảng lương, quản lý ca, HRM Việt Nam, phần mềm chấm công">
-  <meta name="author" content="SBOX HRM">
-  <meta name="robots" content="noindex, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+  <!-- Primary SEO — tĩnh cho crawler (Zalo/Facebook không chạy JS) -->
+  <title id="seo-title">SBOX POS – Phần mềm bán hàng &amp; quản lý cửa hàng</title>
+  <meta id="seo-description" name="description" content="Đăng nhập SBOX POS — bán hàng tại quầy, sơ đồ bàn, in hóa đơn/phiếu bếp, quản lý kho và báo cáo doanh thu trên web, máy POS Android và tablet.">
+  <meta name="author" content="SBOX POS">
+  <meta property="og:type" content="website">
+  <meta id="seo-og-site" property="og:site_name" content="SBOX POS">
+  <meta property="og:locale" content="vi_VN">
+  <meta id="seo-og-url" property="og:url" content="https://sboxpos.com/">
+  <meta id="seo-og-title" property="og:title" content="SBOX POS – Phần mềm bán hàng &amp; quản lý cửa hàng">
+  <meta id="seo-og-description" property="og:description" content="Bán hàng nhanh, quản lý cửa hàng chuẩn. POS đa ngành trên web, máy POS Android và tablet.">
+  <meta id="seo-og-image" property="og:image" content="https://sboxpos.com/images/landing/pos/sbox-pos-og.jpg?v=3">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta id="seo-og-image-alt" property="og:image:alt" content="SBOX POS – phần mềm bán hàng">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta id="seo-tw-title" name="twitter:title" content="SBOX POS – Phần mềm bán hàng &amp; quản lý cửa hàng">
+  <meta id="seo-tw-description" name="twitter:description" content="Bán hàng nhanh, quản lý cửa hàng chuẩn.">
+  <meta id="seo-tw-image" name="twitter:image" content="https://sboxpos.com/images/landing/pos/sbox-pos-og.jpg?v=3">
+  <script src="/site-seo.js"></script>
+  <script>
+    (function () {
+      var site = SboxSiteSeo.detectSite();
+      document.documentElement.setAttribute('data-site', site);
+      var cfg = SboxSiteSeo.appSeo(site);
+      SboxSiteSeo.writeHeadTags(cfg, {
+        robots: 'noindex, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1',
+        manifest: site === 'pos' ? 'manifest-pos.json' : 'manifest.json',
+        appleTitle: true
+      });
+    })();
+  </script>
   <meta name="googlebot" content="noindex, follow">
-  <link rel="canonical" href="https://sboxhrm.com/">
 
   <!-- Google Search Console verification (set GOOGLE_SITE_VERIFICATION in config.js / Docker) -->
   <meta name="google-site-verification" content="__GOOGLE_SITE_VERIFICATION__">
 
-  <!-- Open Graph (Facebook, Zalo, LinkedIn) -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://sboxhrm.com/">
-  <meta property="og:site_name" content="SBOX HRM">
-  <meta property="og:title" content="SBOX HRM – Quản lý nhân sự thông minh">
-  <meta property="og:description" content="Chấm công khuôn mặt, quản lý ca, bảng lương tự động – giải pháp HRM toàn diện cho doanh nghiệp Việt Nam.">
-  <meta property="og:image" content="https://sboxhrm.com/images/landing/mobile/mobile-01-dashboard.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:locale" content="vi_VN">
-
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="SBOX HRM – Phần mềm quản lý nhân sự">
-  <meta name="twitter:description" content="Chấm công, lương, ca làm việc – một nền tảng HRM duy nhất.">
-  <meta name="twitter:image" content="https://sboxhrm.com/images/landing/mobile/mobile-01-dashboard.png">
-
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <!-- PWA & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="SBOX HRM">
-  <meta name="theme-color" content="#0C56D0">
-  <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="manifest" href="manifest.json">
 
   <!-- Runtime config -->
   <meta name="api-base-url" content="__API_BASE_URL__">
@@ -139,7 +143,23 @@
       font-display: swap;
     }
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #1E3A5F; font-family: 'BeVietnamPro', 'Be Vietnam Pro', 'Noto Sans', 'Segoe UI', Arial, sans-serif; }
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+    body {
+      position: fixed;
+      inset: 0;
+      background: #1E3A5F;
+      font-family: 'BeVietnamPro', 'Be Vietnam Pro', 'Noto Sans', 'Segoe UI', Arial, sans-serif;
+    }
+    flutter-view, flt-glass-pane {
+      position: fixed !important;
+      inset: 0;
+      overflow: hidden;
+    }
 
     /* Splash loading */
     #splash {
@@ -206,7 +226,60 @@
     <div id="splash-sub">Hệ thống quản lý nhân sự</div>
     <div class="splash-bar-wrap"><div class="splash-bar-fill"></div></div>
   </div>
+  <script>
+    (function () {
+      var site = (document.documentElement.getAttribute('data-site') || '');
+      if (site !== 'pos') {
+        try {
+          var q = new URLSearchParams(location.search).get('site');
+          if (q === 'pos') site = 'pos';
+        } catch (e) {}
+        var h = (location.hostname || '').toLowerCase();
+        if (h === 'sboxpos.com' || h === 'www.sboxpos.com' || h.indexOf('sboxpos.') === 0) site = 'pos';
+      }
+      if (site !== 'pos') return;
+      var main = document.getElementById('seo-prerender');
+      if (!main) return;
+      main.innerHTML = ''
+        + '<h1>SBOX POS – Phần mềm bán hàng & quản lý cửa hàng</h1>'
+        + '<p><strong>SBOX POS</strong> là phần mềm POS đa ngành: bán tại quầy, sơ đồ bàn, in hóa đơn nhiệt và phiếu bếp, quản lý kho, báo cáo doanh thu trên web, máy POS Android và tablet.</p>'
+        + '<h2>Tính năng nổi bật</h2>'
+        + '<ul>'
+        + '<li>Bán hàng nhanh tại quầy và sơ đồ bàn F&amp;B</li>'
+        + '<li>In hóa đơn nhiệt, phiếu bếp qua LAN/USB/Print Agent</li>'
+        + '<li>Quản lý kho, tồn hàng realtime theo cửa hàng</li>'
+        + '<li>Báo cáo doanh thu theo ca, thu ngân, mặt hàng</li>'
+        + '<li>Chạy trên web, máy POS Sunmi/Android và tablet</li>'
+        + '</ul>'
+        + '<h2>Dùng thử miễn phí</h2>'
+        + '<p>Truy cập <a href="https://sboxpos.com/">sboxpos.com</a> hoặc <a href="/register">đăng ký cửa hàng</a>.</p>'
+        + '<p><a href="/privacy-policy.html">Chính sách quyền riêng tư</a></p>';
+      var t = document.getElementById('splash-title');
+      var s = document.getElementById('splash-sub');
+      var l = document.getElementById('splash-logo');
+      var splash = document.getElementById('splash');
+      if (t) t.textContent = 'SBOX POS';
+      if (s) s.textContent = 'Phần mềm POS bán hàng';
+      if (l) {
+        l.src = 'images/landing/sbox-pos-logo.png';
+        l.alt = 'SBOX POS';
+      }
+      if (splash) splash.style.background = '#1B5E20';
+    })();
+  </script>
 
+  <script>
+    // Khóa scroll trang khi OSK mở — tránh Flutter canvas bị đẩy lên che dữ liệu.
+    (function () {
+      function pin() {
+        if (window.scrollX || window.scrollY) window.scrollTo(0, 0);
+      }
+      window.addEventListener('scroll', pin, { passive: true });
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('scroll', pin, { passive: true });
+      }
+    })();
+  </script>
   <script src="config.js"></script>
   <script>
     // Lưu deep link trước Flutter bootstrap (hash có thể bị xóa sau khi app load).

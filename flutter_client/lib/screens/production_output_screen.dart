@@ -789,8 +789,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   candidates: _pickerEmployees(sheetEmployees),
                   selectedId: employeeId,
                   allowClear: true,
-                  labelText: 'Nhân viên',
-                  hintText: 'Tất cả nhân viên',
+                  labelText: tr('Nhân viên'),
+                  hintText: tr('Tất cả nhân viên'),
                   pickerTitle: 'Lọc nhân viên',
                   presentation: EmployeePickerPresentation.bottomSheet,
                   onChanged: (picked) =>
@@ -1630,7 +1630,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           EmployeePickerFormField(
             candidates: _pickerEmployees(),
             selectedId: selEmployeeId,
-            labelText: 'Nhân viên *',
+            labelText: tr('Nhân viên *'),
             pickerTitle: 'Chọn nhân viên',
             presentation: isMobile
                 ? EmployeePickerPresentation.bottomSheet
@@ -1938,7 +1938,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           EmployeePickerFormField(
             candidates: _pickerEmployees(),
             selectedId: selEmployeeId,
-            labelText: 'Nhân viên *',
+            labelText: tr('Nhân viên *'),
             pickerTitle: 'Chọn nhân viên',
             presentation: isMobile
                 ? EmployeePickerPresentation.bottomSheet

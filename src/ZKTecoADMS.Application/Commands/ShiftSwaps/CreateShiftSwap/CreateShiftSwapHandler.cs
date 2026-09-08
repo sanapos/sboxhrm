@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.DTOs.ShiftSwaps;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -8,6 +9,8 @@ namespace ZKTecoADMS.Application.Commands.ShiftSwaps.CreateShiftSwap;
 public class CreateShiftSwapHandler(
     IRepository<ShiftSwapRequest> shiftSwapRepository,
     IRepository<ShiftTemplate> shiftTemplateRepository,
+    IRepository<WorkSchedule> workScheduleRepository,
+    IRepository<Employee> employeeRepository,
     UserManager<ApplicationUser> userManager,
     ISystemNotificationService notificationService
 ) : ICommandHandler<CreateShiftSwapCommand, AppResponse<ShiftSwapRequestDto>>
@@ -40,13 +43,39 @@ public class CreateShiftSwapHandler(
                 return AppResponse<ShiftSwapRequestDto>.Error("Ca làm việc muốn đổi không tồn tại");
             }
 
-            // Check for existing pending swap request
+            var requesterEmployee = await ShiftSwapScheduleHelper.FindEmployeeByUserAsync(
+                employeeRepository, request.StoreId, request.RequesterUserId, cancellationToken);
+            var targetEmployee = await ShiftSwapScheduleHelper.FindEmployeeByUserAsync(
+                employeeRepository, request.StoreId, request.TargetUserId, cancellationToken);
+            if (requesterEmployee == null)
+                return AppResponse<ShiftSwapRequestDto>.Error("Không tìm thấy hồ sơ nhân viên của bạn để đổi ca");
+            if (targetEmployee == null)
+                return AppResponse<ShiftSwapRequestDto>.Error("Không tìm thấy hồ sơ nhân viên muốn đổi ca");
+
+            var requesterSchedule = await ShiftSwapScheduleHelper.FindAssignedShiftAsync(
+                workScheduleRepository, request.StoreId, requesterEmployee.Id,
+                request.RequesterDate, request.RequesterShiftId, cancellationToken);
+            if (requesterSchedule == null)
+                return AppResponse<ShiftSwapRequestDto>.Error(
+                    $"Bạn chưa được xếp ca {FormatShiftName(requesterShift)} ngày {request.RequesterDate:dd/MM/yyyy}");
+
+            var targetSchedule = await ShiftSwapScheduleHelper.FindAssignedShiftAsync(
+                workScheduleRepository, request.StoreId, targetEmployee.Id,
+                request.TargetDate, request.TargetShiftId, cancellationToken);
+            if (targetSchedule == null)
+                return AppResponse<ShiftSwapRequestDto>.Error(
+                    $"Đồng nghiệp chưa được xếp ca {FormatShiftName(targetShift)} ngày {request.TargetDate:dd/MM/yyyy}");
+
+            var reqDay = request.RequesterDate.Date;
+            var tgtDay = request.TargetDate.Date;
+            var reqDayEnd = reqDay.AddDays(1);
+            var tgtDayEnd = tgtDay.AddDays(1);
             var existingRequest = await shiftSwapRepository.GetSingleAsync(
                 filter: r => r.StoreId == request.StoreId
                     && r.RequesterUserId == request.RequesterUserId
                     && r.TargetUserId == request.TargetUserId
-                    && r.RequesterDate.Date == request.RequesterDate.Date
-                    && r.TargetDate.Date == request.TargetDate.Date
+                    && r.RequesterDate >= reqDay && r.RequesterDate < reqDayEnd
+                    && r.TargetDate >= tgtDay && r.TargetDate < tgtDayEnd
                     && (r.Status == ShiftSwapStatus.Pending || r.Status == ShiftSwapStatus.TargetAccepted),
                 cancellationToken: cancellationToken);
 

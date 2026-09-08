@@ -12,7 +12,6 @@ import android.os.Bundle
 import android.view.Display
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import androidx.activity.enableEdgeToEdge
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.android.FlutterView
 import io.flutter.embedding.engine.FlutterEngine
@@ -29,9 +28,15 @@ class CustomerDisplayActivity : FlutterFragmentActivity() {
     override fun shouldDestroyEngineWithHost(): Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        applyPlayEdgeToEdge()
         super.onCreate(savedInstanceState)
+        applyPlayEdgeToEdge()
         CustomerDisplayController.registerHost(this)
+    }
+
+    override fun onPostResume() {
+        super.onPostResume()
+        applyPlayEdgeToEdge()
     }
 
     override fun onDestroy() {

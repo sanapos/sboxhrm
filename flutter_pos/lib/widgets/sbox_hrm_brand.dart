@@ -5,8 +5,9 @@ import '../l10n/app_tr.dart';
 
 /// Nhận diện thương hiệu dùng chung HRM + POS.
 abstract final class SboxBrand {
-  static const productLine = 'SBOX HRM - SBOX POS';
-  static const slogan = 'Giải pháp quản lý toàn diện cho doanh nghiệp';
+  static const productLine = 'SBOX POS';
+  static const slogan =
+      'Giải pháp toàn diện giúp cửa hàng vận hành hiệu quả, tối ưu doanh thu';
 }
 
 /// Logo vector SBOX — sắc nét, không phụ thuộc PNG nhỏ bị scale mờ.
@@ -162,7 +163,7 @@ class SboxBrandLockup extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          tr(SboxBrand.productLine),
+          tr(SboxBrand.slogan),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
@@ -176,7 +177,7 @@ class SboxBrandLockup extends StatelessWidget {
         if (showSlogan) ...[
           const SizedBox(height: 2),
           Text(
-            tr(SboxBrand.slogan),
+            tr('Bán hàng nhanh · Quản lý cửa hàng chuẩn'),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -194,12 +195,11 @@ class SboxBrandLockup extends StatelessWidget {
       mainAxisSize: expandText ? MainAxisSize.max : MainAxisSize.min,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(logoSize * 0.22),
+          borderRadius: BorderRadius.circular(8),
           child: Image.asset(
-            'assets/logo.png',
-            width: logoSize,
-            height: logoSize,
-            fit: BoxFit.cover,
+            'assets/sbox_pos_logo.png',
+            height: logoSize * 1.15,
+            fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => Icon(
               Icons.point_of_sale_rounded,
               color: titleColor,

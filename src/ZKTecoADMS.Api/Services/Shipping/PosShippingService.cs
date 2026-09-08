@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using ZKTecoADMS.Api.Controllers;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Domain.Entities;
@@ -17,6 +18,41 @@ internal static class ViettelPostWebhookHelper
         503 or 201 or 107 or -15 => QrOnlineOrderStatuses.Cancelled,
         >= 100 => QrOnlineOrderStatuses.Shipping,
         _ => null,
+    };
+}
+
+internal static class AhamoveWebhookHelper
+{
+    public static string Normalize(string? status)
+    {
+        var s = (status ?? "").Trim().ToUpperInvariant().Replace('_', ' ');
+        if (s is "IN PROCESS" or "INPROCESS") return "IN PROCESS";
+        return s;
+    }
+
+    public static string? MapOnlineStatus(string? status) => Normalize(status) switch
+    {
+        "COMPLETED" => QrOnlineOrderStatuses.Delivered,
+        "CANCELLED" or "FAILED" or "RETURNED" => QrOnlineOrderStatuses.Cancelled,
+        "IDLE" or "ASSIGNING" or "ACCEPTED" or "CONFIRMING" or "IN PROCESS"
+            or "PICKING" or "BOARDING" => QrOnlineOrderStatuses.Shipping,
+        _ => string.IsNullOrWhiteSpace(status) ? null : QrOnlineOrderStatuses.Shipping,
+    };
+
+    public static string DisplayName(string? status) => Normalize(status) switch
+    {
+        "IDLE" => "Chờ xử lý",
+        "ASSIGNING" => "Đang tìm tài xế",
+        "ACCEPTED" => "Tài xế đã nhận",
+        "CONFIRMING" => "Đang xác nhận",
+        "IN PROCESS" => "Đang giao",
+        "PICKING" => "Đang lấy hàng",
+        "BOARDING" => "Tài xế đang đến",
+        "COMPLETED" => "Đã giao",
+        "CANCELLED" => "Đã hủy",
+        "FAILED" => "Giao thất bại",
+        "RETURNED" => "Hoàn hàng",
+        _ => string.IsNullOrWhiteSpace(status) ? "AhaMove" : status.Trim(),
     };
 }
 
@@ -174,6 +210,33 @@ public class PosShippingService(
         return loginErr ?? "Không lấy được JWT Viettel Post — kiểm tra Username/Mật khẩu.";
     }
 
+    async Task<string?> TryRefreshAhamoveTokenAsync(PosShippingCarrierSetting row, CancellationToken ct)
+    {
+        if (Resolve(ShippingCarrierCodes.Ahamove) is not AhamoveShippingClient client)
+            return null;
+        var (ok, err) = await client.EnsureUserTokenAsync(row, ct);
+        if (!ok)
+            return err ?? "Không lấy được token AhaMove — kiểm tra API Key, SĐT và Sandbox.";
+        await db.SaveChangesAsync(ct);
+        var env = row.UseSandbox ? "staging" : "production";
+        return $"Đã lấy token user AhaMove ({env}) — có thể báo giá / tạo đơn.";
+    }
+
+    async Task<PosShippingCarrierSetting?> LoadEnabledCarrierAsync(
+        Guid storeId, string code, CancellationToken ct)
+    {
+        var settings = await db.PosShippingCarrierSettings
+            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.CarrierCode == code
+                                      && x.Deleted == null && x.Enabled, ct);
+        if (settings == null) return null;
+        if (Resolve(code) is AhamoveShippingClient aha)
+        {
+            var (ok, _) = await aha.EnsureUserTokenAsync(settings, ct);
+            if (ok) await db.SaveChangesAsync(ct);
+        }
+        return settings;
+    }
+
     public async Task<ShippingCarrierSettingDto> UpsertAsync(
         Guid storeId, ShippingCarrierSettingUpsertRequest req, string? userEmail, CancellationToken ct)
     {
@@ -222,6 +285,8 @@ public class PosShippingService(
         string? notice = null;
         if (string.Equals(code, ShippingCarrierCodes.ViettelPost, StringComparison.OrdinalIgnoreCase))
             notice = await TryRefreshViettelJwtAsync(row, ct);
+        else if (string.Equals(code, ShippingCarrierCodes.Ahamove, StringComparison.OrdinalIgnoreCase))
+            notice = await TryRefreshAhamoveTokenAsync(row, ct);
         return ToDto(row, notice);
     }
 
@@ -232,15 +297,16 @@ public class PosShippingService(
         Guid storeId, ShippingQuoteRequest request, CancellationToken ct)
     {
         var code = ShippingCarrierCodes.Normalize(request.CarrierCode);
-        var settings = await db.PosShippingCarrierSettings.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.CarrierCode == code
-                                      && x.Deleted == null && x.Enabled, ct);
+        var settings = await LoadEnabledCarrierAsync(storeId, code, ct);
         if (settings == null)
             return new(false, code, 0, Message: $"Chưa bật / cấu hình {ShippingCarrierCodes.DisplayName(code)}");
         var client = Resolve(code);
         if (client == null)
             return new(false, code, 0, Message: "Adapter chưa đăng ký");
-        return await client.QuoteAsync(settings, request with { CarrierCode = code }, ct);
+        var result = await client.QuoteAsync(settings, request with { CarrierCode = code }, ct);
+        if (string.Equals(code, ShippingCarrierCodes.Ahamove, StringComparison.OrdinalIgnoreCase))
+            await db.SaveChangesAsync(ct);
+        return result;
     }
 
     public async Task<ShippingPackageEstimate> EstimatePackageForOrderAsync(
@@ -344,9 +410,7 @@ public class PosShippingService(
         Guid storeId, ShippingCreateRequest request, string? userEmail, CancellationToken ct)
     {
         var code = ShippingCarrierCodes.Normalize(request.CarrierCode);
-        var settings = await db.PosShippingCarrierSettings.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.CarrierCode == code
-                                      && x.Deleted == null && x.Enabled, ct);
+        var settings = await LoadEnabledCarrierAsync(storeId, code, ct);
         if (settings == null)
             return new(false, code, Message: $"Chưa bật / cấu hình {ShippingCarrierCodes.DisplayName(code)}");
 
@@ -407,6 +471,8 @@ public class PosShippingService(
             ToWard = request.ToWard ?? recv.Ward,
         };
         var result = await client.CreateAsync(settings, order, createReq, ct);
+        if (string.Equals(code, ShippingCarrierCodes.Ahamove, StringComparison.OrdinalIgnoreCase))
+            await db.SaveChangesAsync(ct);
         if (!result.Success) return result;
 
         var tracking = result.TrackingCode;
@@ -589,6 +655,12 @@ public class PosShippingService(
 
     ViettelPostShippingClient? ViettelClient() =>
         Resolve(ShippingCarrierCodes.ViettelPost) as ViettelPostShippingClient;
+
+    AhamoveShippingClient? AhamoveClient() =>
+        Resolve(ShippingCarrierCodes.Ahamove) as AhamoveShippingClient;
+
+    static string? FirstNonEmpty(params string?[] values) =>
+        values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
     async Task<(PosShippingCarrierSetting? Settings, string? Error)> GetEnabledSettingsAsync(
         Guid storeId, string carrierCode, CancellationToken ct)
@@ -858,12 +930,15 @@ public class PosShippingService(
         var order = await FindDeliveryOrderAsync(storeId, orderId, ct);
         if (order == null)
             return new(false, "", Message: "Không tìm thấy đơn giao hàng");
-        if (string.IsNullOrWhiteSpace(order.DeliveryTrackingCode))
+        if (string.IsNullOrWhiteSpace(order.DeliveryTrackingCode)
+            && string.IsNullOrWhiteSpace(order.DeliveryCarrierOrderId))
             return new(false, order.DeliveryCarrierCode ?? "", Message: "Đơn chưa có mã vận đơn");
 
         var code = ShippingCarrierCodes.Normalize(order.DeliveryCarrierCode ?? "");
+        if (string.Equals(code, ShippingCarrierCodes.Ahamove, StringComparison.OrdinalIgnoreCase))
+            return await CancelAhamoveAsync(storeId, order, note, userEmail, ct);
         if (!string.Equals(code, ShippingCarrierCodes.ViettelPost, StringComparison.OrdinalIgnoreCase))
-            return new(false, code, Message: "Chỉ hỗ trợ hủy vận đơn Viettel Post qua API");
+            return new(false, code, Message: "Hãng này chưa hỗ trợ hủy vận đơn qua API");
 
         var (settings, err) = await GetEnabledSettingsAsync(storeId, code, ct);
         if (settings == null)
@@ -886,18 +961,45 @@ public class PosShippingService(
         return result;
     }
 
+    async Task<ShippingCancelResult> CancelAhamoveAsync(
+        Guid storeId, PosSaleOrder order, string? note, string? userEmail, CancellationToken ct)
+    {
+        var settings = await LoadEnabledCarrierAsync(storeId, ShippingCarrierCodes.Ahamove, ct);
+        if (settings == null)
+            return new(false, ShippingCarrierCodes.Ahamove, Message: "Chưa bật / cấu hình AhaMove");
+        var client = AhamoveClient();
+        if (client == null)
+            return new(false, ShippingCarrierCodes.Ahamove, Message: "Adapter chưa đăng ký");
+
+        var ahaId = FirstNonEmpty(order.DeliveryCarrierOrderId, order.DeliveryTrackingCode)!;
+        var result = await client.CancelOrderAsync(settings, ahaId, note, ct);
+        await db.SaveChangesAsync(ct);
+        if (!result.Success) return result;
+
+        var cancelStatus = QrOnlineOrderStatuses.Label(QrOnlineOrderStatuses.Cancelled);
+        await db.PosSaleOrders.Where(o => o.Id == order.Id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.DeliveryStatus, cancelStatus)
+                .SetProperty(o => o.UpdatedAt, DateTime.UtcNow)
+                .SetProperty(o => o.UpdatedBy, userEmail), ct);
+        return result;
+    }
+
     public async Task<ShippingTrackingResult> SyncTrackingAsync(
         Guid storeId, Guid orderId, string? userEmail, CancellationToken ct)
     {
         var order = await FindDeliveryOrderAsync(storeId, orderId, ct);
         if (order == null)
             return new(false, "", Message: "Không tìm thấy đơn giao hàng");
-        if (string.IsNullOrWhiteSpace(order.DeliveryTrackingCode))
+        if (string.IsNullOrWhiteSpace(order.DeliveryTrackingCode)
+            && string.IsNullOrWhiteSpace(order.DeliveryCarrierOrderId))
             return new(false, order.DeliveryCarrierCode ?? "", Message: "Đơn chưa có mã vận đơn");
 
         var code = ShippingCarrierCodes.Normalize(order.DeliveryCarrierCode ?? "");
+        if (string.Equals(code, ShippingCarrierCodes.Ahamove, StringComparison.OrdinalIgnoreCase))
+            return await SyncAhamoveTrackingAsync(storeId, order, userEmail, ct);
         if (!string.Equals(code, ShippingCarrierCodes.ViettelPost, StringComparison.OrdinalIgnoreCase))
-            return new(false, code, Message: "Chỉ hỗ trợ đồng bộ hành trình Viettel Post");
+            return new(false, code, Message: "Hãng này chưa hỗ trợ đồng bộ hành trình qua API");
 
         var (settings, err) = await GetEnabledSettingsAsync(storeId, code, ct);
         if (settings == null)
@@ -913,5 +1015,81 @@ public class PosShippingService(
         await ApplyViettelPostStatusToOrderAsync(
             order.Id, order, tracking.StatusCode, tracking.StatusName, ct);
         return tracking;
+    }
+
+    async Task<ShippingTrackingResult> SyncAhamoveTrackingAsync(
+        Guid storeId, PosSaleOrder order, string? userEmail, CancellationToken ct)
+    {
+        var settings = await LoadEnabledCarrierAsync(storeId, ShippingCarrierCodes.Ahamove, ct);
+        if (settings == null)
+            return new(false, ShippingCarrierCodes.Ahamove, Message: "Chưa bật / cấu hình AhaMove");
+        var client = AhamoveClient();
+        if (client == null)
+            return new(false, ShippingCarrierCodes.Ahamove, Message: "Adapter chưa đăng ký");
+
+        var ahaId = FirstNonEmpty(order.DeliveryCarrierOrderId, order.DeliveryTrackingCode)!;
+        var tracking = await client.GetTrackingAsync(settings, ahaId, ct);
+        await db.SaveChangesAsync(ct);
+        if (!tracking.Success) return tracking;
+
+        await ApplyAhamoveStatusToOrderAsync(order.Id, order, tracking, userEmail, ct);
+        return tracking;
+    }
+
+    async Task ApplyAhamoveStatusToOrderAsync(
+        Guid orderId, PosSaleOrder orderSnapshot, ShippingTrackingResult tracking,
+        string? userEmail, CancellationToken ct)
+    {
+        var isOnline = string.Equals(orderSnapshot.SalesChannel, QrOnlineOrderStatuses.Channel,
+            StringComparison.OrdinalIgnoreCase);
+        var mapped = tracking.MappedOnlineStatus ?? AhamoveWebhookHelper.MapOnlineStatus(tracking.StatusName);
+        var prev = isOnline ? QrOnlineOrderStatuses.Normalize(orderSnapshot.DeliveryStatus) : null;
+
+        string newStatus;
+        if (isOnline && mapped != null)
+        {
+            if (QrOnlineOrderStatuses.IsTerminal(prev) && mapped != prev)
+                return;
+            newStatus = mapped;
+        }
+        else if (!string.IsNullOrWhiteSpace(tracking.StatusName))
+            newStatus = tracking.StatusName.Trim();
+        else if (mapped != null)
+            newStatus = QrOnlineOrderStatuses.Label(mapped);
+        else
+            newStatus = orderSnapshot.DeliveryStatus ?? QrOnlineOrderStatuses.Shipping;
+
+        string? labelUrl = null;
+        if (!string.IsNullOrWhiteSpace(tracking.RawJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(tracking.RawJson);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("shared_link", out var sl) && sl.ValueKind == JsonValueKind.String)
+                    labelUrl = sl.GetString();
+                else if (root.TryGetProperty("order", out var ord) &&
+                         ord.TryGetProperty("shared_link", out var sl2) && sl2.ValueKind == JsonValueKind.String)
+                    labelUrl = sl2.GetString();
+            }
+            catch { /* ignore */ }
+        }
+
+        var now = DateTime.UtcNow;
+        var delivered = mapped == QrOnlineOrderStatuses.Delivered
+            || string.Equals(newStatus, "Đã giao", StringComparison.Ordinal);
+        await db.PosSaleOrders.Where(o => o.Id == orderId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.DeliveryStatus, newStatus)
+                .SetProperty(o => o.UpdatedAt, now)
+                .SetProperty(o => o.UpdatedBy, userEmail)
+                .SetProperty(o => o.DeliveryCarrierCode,
+                    o => string.IsNullOrWhiteSpace(o.DeliveryCarrierCode)
+                        ? ShippingCarrierCodes.Ahamove
+                        : o.DeliveryCarrierCode)
+                .SetProperty(o => o.DeliveryLabelUrl,
+                    o => string.IsNullOrWhiteSpace(labelUrl) ? o.DeliveryLabelUrl : labelUrl)
+                .SetProperty(o => o.DeliveryDate,
+                    o => delivered ? now : o.DeliveryDate), ct);
     }
 }

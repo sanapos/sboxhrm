@@ -67,6 +67,18 @@ public class PosStoreSellSettings : AuditableEntity<Guid>
     public Guid? DefaultHourlyProductId { get; set; }
     public virtual PosProduct? DefaultHourlyProduct { get; set; }
 
+    /// <summary>Bật tích / đổi điểm khách hàng POS. Tắt = không cộng điểm, không chấp nhận đổi.</summary>
+    public bool LoyaltyEnabled { get; set; } = true;
+
+    /// <summary>Số tiền (đ) để được 1 điểm. 0 = không tích. Mặc định 10.000.</summary>
+    public decimal LoyaltyEarnPerAmount { get; set; } = 10_000m;
+
+    /// <summary>1 điểm đổi được bao nhiêu đồng giảm giá. 0 = không đổi. Mặc định 100.</summary>
+    public decimal LoyaltyRedeemValue { get; set; } = 100m;
+
+    /// <summary>Tối đa % giá trị đơn (sau voucher) được trả bằng điểm. 1–100, mặc định 100.</summary>
+    public decimal LoyaltyMaxRedeemPercent { get; set; } = 100m;
+
     /// <summary>JSON flags mở rộng (tùy ngành).</summary>
     [MaxLength(4000)]
     public string? ExtraJson { get; set; }

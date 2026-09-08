@@ -1,7 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+
+/// Dialog quy trình đổi ca — gọi từ menu Thao tác, không chiếm chỗ trên trang.
+void showShiftSwapFlowHelpDialog(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => ScrollableAlertDialog(
+      title: Text(tr('Hướng dẫn đổi ca')),
+      content: SingleChildScrollView(
+        child: Text(
+          tr('1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi.\n\n'
+              '2. Đồng nghiệp vào tab「Cần phản hồi」để Đồng ý hoặc Từ chối.\n\n'
+              '3. Quản lý vào tab「Chờ QL duyệt」(hoặc mục Duyệt lịch → Đổi ca) để phê duyệt.\n\n'
+              '4. Khi đã duyệt, lịch làm việc của hai người được hoán đổi tự động.\n\n'
+              'Lưu ý: Chỉ đổi được ca đã được xếp/duyệt trên lịch làm việc.'),
+        ),
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
+      ],
+    ),
+  );
+}
 
 /// Chú thích quy trình đổi ca — hiển thị trên các màn liên quan.
 class ShiftSwapFlowHelpBanner extends StatelessWidget {

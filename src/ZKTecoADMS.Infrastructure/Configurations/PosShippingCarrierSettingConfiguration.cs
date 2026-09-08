@@ -15,7 +15,7 @@ public class PosShippingCarrierSettingConfiguration : IEntityTypeConfiguration<P
         builder.Property(x => x.ApiToken).HasMaxLength(2000);
         builder.Property(x => x.ShopId).HasMaxLength(100);
         builder.Property(x => x.Username).HasMaxLength(100);
-        builder.Property(x => x.Password).HasMaxLength(200);
+        builder.Property(x => x.Password).HasMaxLength(2000);
         builder.Property(x => x.ApiBaseUrl).HasMaxLength(300);
         builder.Property(x => x.PickupName).HasMaxLength(120);
         builder.Property(x => x.PickupPhone).HasMaxLength(30);

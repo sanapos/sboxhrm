@@ -15,6 +15,7 @@ import '../services/app_permission_service.dart';
 import '../services/pos_app_update_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/sbox_hrm_brand.dart';
+import '../widgets/sbox_pos_hero_panel.dart';
 import '../widgets/pos/pos_form_keyboard.dart';
 import '../widgets/pos_app_update_dialog.dart';
 import '../widgets/store_agent_support_card.dart';
@@ -332,7 +333,7 @@ class _LoginScreenState extends State<LoginScreen>
           if (!mounted) return;
           NotificationOverlayManager().showError(
             title: 'Admin',
-            message: 'Dùng app SBOX HRM để vào cổng quản trị.',
+            message: tr('Dùng app SBOX HRM để vào cổng quản trị.'),
           );
         }
         // else: stay — Consumer flips to hub
@@ -365,18 +366,16 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ====== DESKTOP: Split layout (left hero 7/12 + right form 5/12) ======
+  // ====== DESKTOP: Split layout (left hero 2/3 + right form 1/3) ======
   Widget _buildDesktopLayout(Size size) {
     return Row(
       children: [
-        // ===== LEFT PANEL: Hero (7/12) =====
         Expanded(
-          flex: 7,
+          flex: 2,
           child: _buildHeroPanel(),
         ),
-        // ===== RIGHT PANEL: Form (5/12) =====
         Expanded(
-          flex: 5,
+          flex: 1,
           child: _buildFormPanel(isDesktop: true),
         ),
       ],
@@ -390,171 +389,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ===== Hero Panel (Left side) - ảnh nền + gradient overlay =====
   Widget _buildHeroPanel() {
-    const imageUrl =
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuD6gKf5JQatbloDEXQAJyi7OUPnQiNzZORiDKYsBmYfd5RGNvPEOgNyL1K1NW3zrx3NMlwn7vfdnRQpjFl4njRzguVyN7-OTnFC3uKzO2NZxboaxRf0he8vwScXzAANWuVj-B3bWWox3NkiwL3EkbqgZsCF4UvY0S92s_ryURmITms5q7pfRNqenj848647ByfIGa-yEIcjh6nJXtHIPjZSgoX4keaiY1mtAA6DV5k-naedu6M8dnZQTEshrBgVY6JQ7G3-wOdyCsoG';
-
-    return Container(
-      color: const Color(0xFFDAE2FF),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Background image - AI face recognition photo
-          Image.network(
-            imageUrl,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-            opacity: const AlwaysStoppedAnimation(0.9),
-            errorBuilder: (context, error, stackTrace) {
-              // Fallback: gradient + icon if image fails to load
-              return Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFFDAE2FF),
-                      const Color(0xFF0C56D0).withOpacity(0.3),
-                    ],
-                  ),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.face_retouching_natural,
-                    size: 180,
-                    color: const Color(0xFF0C56D0).withOpacity(0.2),
-                  ),
-                ),
-              );
-            },
-          ),
-          // Gradient overlay: from-primary/60 via-primary/20 to-transparent (top-right direction)
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomLeft,
-                  end: Alignment.topRight,
-                  colors: [
-                    const Color(0xFF0C56D0).withOpacity(0.60),
-                    const Color(0xFF0C56D0).withOpacity(0.20),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
-                ),
-              ),
-            ),
-          ),
-          // Content overlay at bottom - justify-end p-20
-          Positioned(
-            left: 56,
-            right: 56,
-            bottom: 56,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Badge - rounded-full bg-white/20 backdrop-blur
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    tr(SboxBrand.productLine),
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // Title - font-headline text-5xl font-extrabold
-                Text(tr('Bán hàng POS\nthời gian thực'),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 38,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
-                    letterSpacing: -1,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Description - text-white/80 text-lg
-                Text(tr(SboxBrand.slogan),
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 15,
-                    height: 1.55,
-                  ),
-                ),
-                const SizedBox(height: 40),
-                // Glass stat card - glass-card with backdrop blur effect
-                Container(
-                  padding: const EdgeInsets.all(22),
-                  constraints: const BoxConstraints(maxWidth: 280),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.7),
-                    borderRadius: BorderRadius.circular(16),
-                    border:
-                        Border.all(color: Colors.white.withOpacity(0.2)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.15),
-                        blurRadius: 40,
-                        offset: const Offset(0, 12),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0C56D0).withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.trending_up_rounded,
-                            color: Color(0xFF0C56D0), size: 20),
-                      ),
-                      const SizedBox(width: 16),
-                      Flexible(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(tr('TỐC ĐỘ BÁN HÀNG'),
-                              style: TextStyle(
-                                  color: Color(0xFF586064),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 1.2),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            SizedBox(height: 2),
-                            Text(tr('TĂNG 100%'),
-                              style: TextStyle(
-                                  color: Color(0xFF0C56D0),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return const SboxPosHeroPanel();
   }
 
   // ===== Form Panel (Right side / Mobile) =====
@@ -637,15 +472,16 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                   SizedBox(height: isCompactMobile ? 4 : 8),
-                  // Logo
-                  FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: _buildLogo(isDesktop: isDesktop)),
-                  SizedBox(height: isCompactMobile ? 16 : 36),
-                  // Welcome text
                   Align(
-                    alignment:
-                        isDesktop ? Alignment.centerLeft : Alignment.center,
+                    alignment: Alignment.center,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: _buildLogo(isDesktop: isDesktop),
+                    ),
+                  ),
+                  SizedBox(height: isCompactMobile ? 12 : 24),
+                  Align(
+                    alignment: Alignment.center,
                     child: Text(tr('Chào mừng trở lại'),
                       style: TextStyle(
                         fontSize: isCompactMobile ? 22 : 26,
@@ -658,8 +494,7 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   const SizedBox(height: 8),
                   Align(
-                    alignment:
-                        isDesktop ? Alignment.centerLeft : Alignment.center,
+                    alignment: Alignment.center,
                     child: Text(tr('Nhập thông tin để vào SBOX POS.'),
                       style: TextStyle(
                           color: Color(0xFF586064), fontSize: 14, height: 1.5),
@@ -728,7 +563,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ),
                               ),
                               style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF0C56D0),
+                                foregroundColor: const Color(0xFF2E7D32),
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -788,7 +623,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   checkColor: Colors.white,
                                   fillColor: WidgetStateProperty.resolveWith(
                                     (s) => s.contains(WidgetState.selected)
-                                        ? const Color(0xFF3B82F6)
+                                        ? const Color(0xFF2E7D32)
                                         : Colors.transparent,
                                   ),
                                   shape: RoundedRectangleBorder(
@@ -812,12 +647,12 @@ class _LoginScreenState extends State<LoginScreen>
                               gradient: const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [Color(0xFF0C56D0), Color(0xFF004ABA)],
+                                colors: [Color(0xFF2E7D32), Color(0xFF1B5E20)],
                               ),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF0C56D0)
+                                  color: const Color(0xFF2E7D32)
                                       .withOpacity(0.25),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
@@ -829,7 +664,7 @@ class _LoginScreenState extends State<LoginScreen>
                               onLongPress: _isLoading
                                   ? null
                                   : () =>
-                                      () {},
+                                      Navigator.of(context).pushNamed('/admin'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
@@ -882,13 +717,13 @@ class _LoginScreenState extends State<LoginScreen>
                             onPressed: () =>
                                 () {},
                             style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF0C56D0)),
+                                foregroundColor: const Color(0xFF2E7D32)),
                             child: Text(tr('Đăng ký ngay'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
                                   decoration: TextDecoration.underline,
-                                  decorationColor: Color(0xFF0C56D0),
+                                  decorationColor: Color(0xFF2E7D32),
                                 )),
                           ),
                         ],
@@ -929,8 +764,8 @@ class _LoginScreenState extends State<LoginScreen>
                       icon: const Icon(Icons.android, size: 18),
                       label: Text(tr('Tải APK SBOX POS (Android 6+)')),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0C56D0),
-                        side: const BorderSide(color: Color(0xFF0C56D0)),
+                        foregroundColor: const Color(0xFF2E7D32),
+                        side: const BorderSide(color: Color(0xFF2E7D32)),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
                       ),
@@ -977,8 +812,8 @@ class _LoginScreenState extends State<LoginScreen>
                       icon: const Icon(Icons.system_update_alt, size: 18),
                       label: Text(tr('Kiểm tra cập nhật')),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0C56D0),
-                        side: const BorderSide(color: Color(0xFF0C56D0)),
+                        foregroundColor: const Color(0xFF2E7D32),
+                        side: const BorderSide(color: Color(0xFF2E7D32)),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 12),
                       ),
@@ -1004,7 +839,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   /// Footer nằm trong panel đăng nhập (cuộn theo form), không cố định viewport.
   Widget _buildLoginFooter({required bool isDesktop}) {
-    const copyright = '@2026 SBOX HRM - SBOX POS';
+    const copyright = '@2026 SBOX POS';
     final copyrightStyle = TextStyle(
       color: Colors.grey.shade400,
       fontSize: 11,
@@ -1082,12 +917,9 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildLogo({bool isDesktop = false}) {
     return SboxBrandLockup(
       expandText: false,
-      showSlogan: true,
-      logoSize: 44,
-      titleSize: isDesktop ? 22 : 18,
-      sloganSize: 11,
-      alignment:
-          isDesktop ? MainAxisAlignment.start : MainAxisAlignment.center,
+      showSlogan: false,
+      logoSize: isDesktop ? 92 : 72,
+      alignment: MainAxisAlignment.center,
     );
   }
 
@@ -1333,7 +1165,7 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF0C56D0), width: 2),
+          borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

@@ -201,6 +201,12 @@ String? _inferEntityTypeFromTitle(String? title) {
   if (t.contains('đơn online') || t.contains('gọi lại khách')) {
     return 'PosQrOnlineOrder';
   }
+  if (t.contains('đơn qr') || t.contains('qr bàn') || t.contains('qr chờ xác nhận')) {
+    return 'PosQrTableOrder';
+  }
+  if (t.contains('đặt lịch') || t.contains('đặt bàn') || t.contains('lịch hẹn')) {
+    return 'PosResourceReservation';
+  }
   if (t.contains('bán hàng pos') || t.contains('hoá đơn pos')) {
     return 'PosSaleOrder';
   }
@@ -488,6 +494,12 @@ NotificationNavigationTarget? resolveNotificationNavigation(
       NavigationNotifier.pendingOpenQrOnlineOrders.value = true;
       NavigationNotifier.posHubTab.value = 2;
       return const NotificationNavigationTarget(moduleCode: 'PosSell');
+
+    case 'posqrtableorder':
+      return const NotificationNavigationTarget(moduleCode: 'PosSell');
+
+    case 'posresourcereservation':
+      return const NotificationNavigationTarget(moduleCode: 'PosBooking');
 
     case 'possaleorder':
       return const NotificationNavigationTarget(moduleCode: 'PosSaleOrders');

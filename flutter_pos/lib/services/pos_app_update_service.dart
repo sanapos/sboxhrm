@@ -3,11 +3,11 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 import 'api_config.dart';
 
@@ -147,24 +147,45 @@ class PosAppUpdateService {
     return null;
   }
 
-  /// Ưu tiên thư mục app (luôn ghi được); public Download chỉ khi có quyền.
+  /// Lưu trong thư mục app — PackageInstaller / FileProvider đọc được
+  /// trên Android 6 (A6) và Android 11 (V2s). Không dùng Download công khai
+  /// (V2s từ chối quyền đọc → OpenFilex báo lỗi).
   static Future<Directory> _apkSaveDir() async {
     try {
       final ext = await getExternalStorageDirectory();
       if (ext != null) {
-        final dir = Directory('${ext.path}/Download');
+        final dir = Directory('${ext.path}/ota');
         await dir.create(recursive: true);
         return dir;
       }
     } catch (_) {}
-    try {
-      final status = await Permission.storage.request();
-      if (status.isGranted) {
-        final publicDl = Directory('/storage/emulated/0/Download');
-        if (await publicDl.exists()) return publicDl;
-      }
-    } catch (_) {}
     return getTemporaryDirectory();
+  }
+
+  static const _installChannel = MethodChannel('com.sboxhrm/apk_install');
+
+  static Future<String?> _openInstaller(File file) async {
+    try {
+      final err = await _installChannel.invokeMethod<String?>(
+        'install',
+        {'path': file.path},
+      );
+      if (err == null || err.isEmpty) return null;
+      return err;
+    } catch (e) {
+      debugPrint('POS OTA native install: $e');
+    }
+    try {
+      final result = await OpenFilex.open(
+        file.path,
+        type: 'application/vnd.android.package-archive',
+      );
+      if (result.type == ResultType.done) return null;
+      if (result.message.isNotEmpty) return result.message;
+    } catch (e) {
+      debugPrint('POS OTA OpenFilex: $e');
+    }
+    return 'Không mở được trình cài đặt. Bật «Cài từ nguồn không xác định» cho SBOX POS.';
   }
 
   static Future<bool> _looksLikeApk(File file) async {
@@ -352,19 +373,9 @@ class PosAppUpdateService {
         return 'Lỗi tải APK: $lastError\nThử mở trình duyệt: $webDownloadUrl';
       }
 
-      // Android 6: đảm bảo file đọc được bởi PackageInstaller.
-      try {
-        await Process.run('chmod', ['0644', file.path]);
-      } catch (_) {}
-
-      final result = await OpenFilex.open(
-        file.path,
-        type: 'application/vnd.android.package-archive',
-      );
-      if (result.type != ResultType.done) {
-        return result.message.isNotEmpty
-            ? result.message
-            : 'Không mở được trình cài đặt. Bật «Cài từ nguồn không xác định» cho SBOX POS.';
+      final installErr = await _openInstaller(file);
+      if (installErr != null) {
+        return '$installErr\nHoặc tải trình duyệt: $webDownloadUrl';
       }
       return null;
     } catch (e) {

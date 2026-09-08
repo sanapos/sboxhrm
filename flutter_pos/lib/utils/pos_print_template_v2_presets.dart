@@ -108,14 +108,14 @@ abstract final class PosPrintTemplateV2Presets {
 
     // Hóa đơn / trả hàng — mẫu mặc định = HĐ K80 đang thiết lập cửa hàng demopos.
     final isReturn = documentType == PosPrintDocumentTypes.saleReturn;
-    final invTitle = k58 ? 32.0 : 40.0;
-    final invAddr = k58 ? 20.0 : 24.0;
-    final invHeading = k58 ? 26.0 : 32.0;
-    final invOrderNo = k58 ? 24.0 : 28.0;
-    final invBody = k58 ? 20.0 : 24.0;
-    final invTotLeft = k58 ? 22.0 : 26.0;
-    final invTotRight = k58 ? 26.0 : 32.0;
-    final invThanks = k58 ? 24.0 : 30.0;
+    final invTitle = k58 ? 28.0 : 40.0;
+    final invAddr = k58 ? 18.0 : 24.0;
+    final invHeading = k58 ? 24.0 : 32.0;
+    final invOrderNo = k58 ? 22.0 : 28.0;
+    final invBody = k58 ? 18.0 : 24.0;
+    final invTotLeft = k58 ? 20.0 : 26.0;
+    final invTotRight = k58 ? 24.0 : 32.0;
+    final invThanks = k58 ? 20.0 : 30.0;
     return PosPrintTemplateV2(
       paperSize: paperSize,
       printerProfile: printerProfile,
@@ -155,10 +155,8 @@ abstract final class PosPrintTemplateV2Presets {
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Ma_Don_Hang',
-          style: PosPrintTextStyle(
-              fontSize: invOrderNo,
-              bold: true,
-              align: PosPrintTextAlign.center),
+          label: 'Số HĐ',
+          style: PosPrintTextStyle(fontSize: invOrderNo),
         ),
         PosPrintBlock(
           type: PosPrintBlockType.field,
@@ -166,10 +164,9 @@ abstract final class PosPrintTemplateV2Presets {
           style: PosPrintTextStyle(fontSize: invBody),
         ),
         PosPrintBlock(
-          type: PosPrintBlockType.pair,
-          leftField: 'Ngay',
-          rightField: 'Gio',
-          fieldLabels: const {'Ngay': 'Ngày', 'Gio': 'Giờ'},
+          type: PosPrintBlockType.field,
+          field: 'Ngay',
+          label: 'Ngày',
           style: PosPrintTextStyle(fontSize: invBody),
         ),
         PosPrintBlock(
@@ -183,8 +180,10 @@ abstract final class PosPrintTemplateV2Presets {
           type: PosPrintBlockType.lineItems,
           showColumnHeader: true,
           fieldLabels: const {
-            'Don_Gia': 'Đ.Giá',
-            'Thanh_Tien': 'TT',
+            'Ten_Hang_Hoa': 'Tên hàng',
+            'So_Luong': 'SL',
+            'Don_Gia': 'Đ.giá',
+            'Thanh_Tien': 'T.T',
           },
           style: PosPrintTextStyle(fontSize: invBody),
           rightStyle: PosPrintTextStyle(fontSize: invBody, bold: true),
@@ -205,12 +204,12 @@ abstract final class PosPrintTemplateV2Presets {
           fieldLabels: isReturn
               ? const {'Tong_Cong': 'HOÀN TIỀN'}
               : const {
-                  'Tong_Tien_Hang': 'Tiền hàng',
+                  'Tong_Tien_Hang': 'Tổng tiền hàng',
                   'Chiet_Khau_Hoa_Don': 'Chiết khấu',
                   'Tien_Thue': 'Thuế',
                   'Phu_Thu': 'Phụ thu',
                   'Phi_Giao_Hang': 'Phí GH',
-                  'Tong_Cong': 'TỔNG',
+                  'Tong_Cong': 'TỔNG CỘNG',
                 },
           style: PosPrintTextStyle(fontSize: invTotLeft, bold: true),
           rightStyle: PosPrintTextStyle(
@@ -224,7 +223,7 @@ abstract final class PosPrintTemplateV2Presets {
         ),
         PosPrintBlock(
           type: PosPrintBlockType.text,
-          text: tr(isReturn ? 'Phiếu trả hàng' : 'Cảm ơn quý khách'),
+          text: tr(isReturn ? 'Phiếu trả hàng' : 'Cảm ơn quý khách!'),
           style: PosPrintTextStyle(
               fontSize: invThanks,
               bold: true,
@@ -393,6 +392,64 @@ abstract final class PosPrintTemplateV2Presets {
         PosPrintBlock(
           type: PosPrintBlockType.text,
           text: tr('Gọi lúc: {Ngay} {Gio}'),
+          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+        ),
+        const PosPrintBlock(type: PosPrintBlockType.divider),
+        PosPrintBlock(
+          type: PosPrintBlockType.lineItemsKitchen,
+          style: PosPrintTextStyle(fontSize: itemSize, bold: true),
+        ),
+      ],
+    );
+  }
+
+  /// Mẫu KDS «Làm xong» — khác phiếu báo chế biến.
+  static PosPrintTemplateV2 kdsReady({
+    required String paperSize,
+    required String printerProfile,
+  }) {
+    final k80 = paperSize == PosPrintPaperSizes.k80;
+    final titleSize = k80 ? 40.0 : 36.0;
+    final bodySize = k80 ? 26.0 : 22.0;
+    final itemSize = k80 ? bodySize + 2 : bodySize;
+    return PosPrintTemplateV2(
+      paperSize: paperSize,
+      printerProfile: printerProfile,
+      documentType: PosPrintDocumentTypes.kitchenSlip,
+      name: k80 ? 'Ra món K80' : 'Ra món K58',
+      blocks: [
+        PosPrintBlock(
+          type: PosPrintBlockType.field,
+          field: 'Tieu_De_In',
+          style: PosPrintTextStyle(
+            fontSize: titleSize,
+            bold: true,
+            align: PosPrintTextAlign.center,
+          ),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.field,
+          field: 'Ten_Ban',
+          style: PosPrintTextStyle(
+            fontSize: titleSize - 6,
+            bold: true,
+            align: PosPrintTextAlign.center,
+          ),
+        ),
+        const PosPrintBlock(type: PosPrintBlockType.divider),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr('Mã đơn hàng: {Ma_Don_Hang}'),
+          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr('Thời gian gọi: {Gio_Goi}'),
+          style: PosPrintTextStyle(fontSize: bodySize, bold: true),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr('Thời gian ra: {Gio_Ra}'),
           style: PosPrintTextStyle(fontSize: bodySize, bold: true),
         ),
         const PosPrintBlock(type: PosPrintBlockType.divider),

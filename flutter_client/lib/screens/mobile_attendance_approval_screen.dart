@@ -4,6 +4,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import '../models/mobile_attendance.dart';
 import '../services/api_service.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/punch_photo_preview.dart';
@@ -342,15 +343,9 @@ class _MobileAttendanceApprovalScreenState
             ],
     );
 
-    final tabBarRow = Container(
-      color: Colors.white,
-      child: _buildApprovalTabBar(),
-    );
-
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        tabBarRow,
         _buildInlineFilterPanel(),
         Expanded(child: tabBarView),
       ],
@@ -1299,8 +1294,17 @@ class _MobileAttendanceApprovalScreenState
           .firstWhere((n) => n.isNotEmpty, orElse: () => 'Chi nhánh');
       parts.add(name);
     }
-    if (parts.isEmpty) return 'Không lọc · chạm để mở bộ lọc';
+    if (parts.isEmpty) return '';
     return parts.join(' · ');
+  }
+
+  String _overviewSubtitle() {
+    const tabs = ['Chờ duyệt', 'Đã duyệt', 'Từ chối', 'Tổng hợp'];
+    final idx = _tabController.index.clamp(0, tabs.length - 1);
+    final tab = tabs[idx];
+    final extra = _filterSummaryLine();
+    if (extra.isEmpty) return tab;
+    return '$tab · $extra';
   }
 
   List<String> get _employeeNameSuggestions {
@@ -1338,99 +1342,49 @@ class _MobileAttendanceApprovalScreenState
 
   Widget _buildInlineFilterPanel() {
     final dateFmt = DateFormat('dd/MM/yyyy');
-    return Material(
-      color: Colors.white,
-      elevation: 0,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InkWell(
-            onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFE4E4E7)),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+      child: HrmCollapsibleOverview(
+        expanded: _filtersExpanded,
+        onToggle: () =>
+            setState(() => _filtersExpanded = !_filtersExpanded),
+        subtitle: _overviewSubtitle(),
+        trailing: _hasActiveFilters
+            ? TextButton(
+                onPressed: _clearAllFilters,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
+                child: Text(tr('Xóa lọc'),
+                    style: const TextStyle(fontSize: 12)),
+              )
+            : null,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFEEEEF0)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.tune_rounded,
-                    size: 18,
-                    color: _hasActiveFilters
-                        ? HrmPageChrome.primaryNavy
-                        : const Color(0xFF71717A),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          tr(_filtersExpanded ? 'Bộ lọc' : 'Bộ lọc (đã thu)'),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF18181B),
-                          ),
-                        ),
-                        if (!_filtersExpanded) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            tr(_filterSummaryLine()),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _hasActiveFilters
-                                  ? HrmPageChrome.primaryNavy
-                                  : const Color(0xFF71717A),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (_hasActiveFilters)
-                    TextButton(
-                      onPressed: _clearAllFilters,
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                      child: Text(tr('Xóa lọc'),
-                          style: const TextStyle(fontSize: 12)),
-                    ),
-                  TextButton.icon(
-                    onPressed: () =>
-                        setState(() => _filtersExpanded = !_filtersExpanded),
-                    icon: Icon(
-                      _filtersExpanded
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      size: 20,
-                    ),
-                    label: Text(
-                      tr(_filtersExpanded ? 'Thu lại' : 'Mở lọc'),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: HrmPageChrome.primaryNavy,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            ],
           ),
-          if (_filtersExpanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  RawAutocomplete<String>(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: _buildApprovalTabBar(),
+              ),
+              const SizedBox(height: 12),
+              RawAutocomplete<String>(
                     textEditingController: _empSearchCtrl,
                     focusNode: _empFocus,
                     optionsBuilder: (value) {
@@ -1672,11 +1626,9 @@ class _MobileAttendanceApprovalScreenState
                       }),
                     ),
                   ],
-                ],
-              ),
-            ),
-          const Divider(height: 1, color: Color(0xFFE4E4E7)),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

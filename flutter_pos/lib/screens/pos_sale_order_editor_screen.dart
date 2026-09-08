@@ -316,6 +316,14 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
     return p.contains('viettel');
   }
 
+  bool _isAhamovePartner(String partner) {
+    final p = partner.toLowerCase();
+    return p.contains('aha');
+  }
+
+  bool _canManageCarrierShipment(String partner) =>
+      _isViettelPartner(partner) || _isAhamovePartner(partner);
+
   Future<void> _openShipmentLabel() async {
     final order = _order;
     if (order == null) return;
@@ -362,8 +370,8 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
         (data['success'] == true || data['Success'] == true);
     if (ok) {
       NotificationOverlayManager().showSuccess(
-        title: 'Đã đồng bộ VTP',
-        message: (data['statusName'] ?? data['StatusName'] ?? order.orderNo)
+        title: 'Đã đồng bộ hành trình',
+        message: (data['statusName'] ?? data['StatusName'] ?? data['message'] ?? order.orderNo)
             .toString(),
       );
       await _loadOrder(order.id);
@@ -382,11 +390,11 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Hủy vận đơn Viettel Post?')),
+        title: Text(tr('Hủy vận đơn?')),
         content: Text(tr('Mã ${order.deliveryTrackingCode}')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Hủy VTP'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Hủy vận đơn'))),
         ],
       ),
     );
@@ -402,7 +410,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
         (data['success'] == true || data['Success'] == true);
     if (ok) {
       NotificationOverlayManager().showSuccess(
-        title: 'Đã yêu cầu hủy VTP',
+        title: 'Đã hủy vận đơn',
         message: order.deliveryTrackingCode ?? '',
       );
       await _loadOrder(order.id);
@@ -808,7 +816,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
                 ),
               ],
               if ((_order?.deliveryTrackingCode ?? '').isNotEmpty &&
-                  _isViettelPartner(_deliveryPartner)) ...[
+                  _canManageCarrierShipment(_deliveryPartner)) ...[
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
@@ -816,18 +824,25 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
                   children: [
                     OutlinedButton.icon(
                       onPressed: _shippingBusy ? null : _openShipmentLabel,
-                      icon: const Icon(Icons.print_outlined, size: 18),
-                      label: Text(tr('In vận đơn')),
+                      icon: Icon(
+                        _isAhamovePartner(_deliveryPartner)
+                            ? Icons.location_on_outlined
+                            : Icons.print_outlined,
+                        size: 18,
+                      ),
+                      label: Text(tr(_isAhamovePartner(_deliveryPartner)
+                          ? 'Theo dõi đơn'
+                          : 'In vận đơn')),
                     ),
                     OutlinedButton.icon(
                       onPressed: _shippingBusy ? null : _syncShipmentTracking,
                       icon: const Icon(Icons.sync, size: 18),
-                      label: Text(tr('Đồng bộ VTP')),
+                      label: Text(tr('Đồng bộ hành trình')),
                     ),
                     OutlinedButton.icon(
                       onPressed: _shippingBusy ? null : _cancelShipment,
                       icon: const Icon(Icons.cancel_outlined, size: 18),
-                      label: Text(tr('Hủy VTP')),
+                      label: Text(tr('Hủy vận đơn')),
                     ),
                   ],
                 ),

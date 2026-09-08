@@ -64,8 +64,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   AssetStatus? _statusFilter;
   AssetType? _typeFilter;
   String? _categoryFilter;
-  bool _showFilters = false;
+  int? _historyTypeFilter;
   bool _showOverviewPanel = true;
+  bool _showHistoryOverview = true;
 
   // Selection
   final Set<String> _selectedAssetIds = {};
@@ -224,7 +225,29 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     _loadAssets();
   }
 
-  bool get _hasActiveFilters => _statusFilter != null || _typeFilter != null || _categoryFilter != null;
+  bool get _hasActiveFilters =>
+      _statusFilter != null ||
+      _typeFilter != null ||
+      _categoryFilter != null ||
+      (_searchQuery != null && _searchQuery!.isNotEmpty);
+
+  String _assetFilterSubtitle() {
+    final parts = <String>[];
+    if (_searchQuery != null && _searchQuery!.isNotEmpty) {
+      parts.add(_searchQuery!);
+    }
+    if (_statusFilter != null) parts.add(getAssetStatusLabel(_statusFilter!));
+    if (_typeFilter != null) parts.add(getAssetTypeLabel(_typeFilter!));
+    if (_categoryFilter != null) {
+      final name = _categories
+          .where((c) => c.id == _categoryFilter)
+          .map((c) => c.name)
+          .firstWhere((n) => n.isNotEmpty, orElse: () => 'Danh mục');
+      parts.add(name);
+    }
+    if (parts.isEmpty) return 'Tìm kiếm, trạng thái, loại, danh mục';
+    return parts.join(' · ');
+  }
 
   // ==================== QR SCAN ====================
   void _showQrScanDialog() {
@@ -425,7 +448,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     if (tab == 0) _loadAssets();
     if (tab == 1) { _loadStockSummary(); _loadAssets(); }
     if (tab == 2) _loadInventories();
-    if (tab == 3) _loadStockTransactions();
+    if (tab == 3) _loadStockTransactions(typeFilter: _historyTypeFilter);
   }
 
   Widget _buildBody() {
@@ -532,7 +555,6 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   List<Widget> _productTabHeaderSections(bool isMobile) => [
         _buildOverviewSection(),
-        _buildToolbar(),
       ];
 
   Widget _buildOverviewSection() {
@@ -540,13 +562,31 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       expanded: _showOverviewPanel,
       onToggle: () =>
           setState(() => _showOverviewPanel = !_showOverviewPanel),
+      subtitle: _assetFilterSubtitle(),
+      trailing: _hasActiveFilters
+          ? TextButton(
+              onPressed: _clearFilters,
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(tr('Xóa lọc'),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFFEF4444))),
+            )
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildStatCards(),
-          if (_showFilters) ...[
-            const SizedBox(height: 10),
-            _buildFilterBar(),
+          const SizedBox(height: 8),
+          _buildSearchField(),
+          const SizedBox(height: 8),
+          _buildFilterBar(),
+          if (_selectedAssetIds.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _buildSelectedInfo(),
           ],
         ],
       ),
@@ -1134,43 +1174,46 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       color: const Color(0xFFF8FAFC),
       child: Column(
         children: [
-          // Filter bar
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: Colors.white,
-            child: Row(
-              children: [
-                const Icon(Icons.history, size: 20, color: HrmPageChrome.primaryNavy),
-                const SizedBox(width: 8),
-                Text(tr('Lịch sử giao dịch'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-                const Spacer(),
-                PopupMenuButton<int?>(
-                  onSelected: (type) {
-                    _loadStockTransactions(typeFilter: type);
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(value: null, child: Text(tr('Tất cả'))),
-                    PopupMenuItem(value: 0, child: Text(tr('Nhập kho'))),
-                    PopupMenuItem(value: 1, child: Text(tr('Xuất kho'))),
-                    PopupMenuItem(value: 2, child: Text(tr('Điều chỉnh'))),
-                  ],
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                      borderRadius: BorderRadius.circular(8),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: HrmCollapsibleOverview(
+              expanded: _showHistoryOverview,
+              onToggle: () => setState(
+                  () => _showHistoryOverview = !_showHistoryOverview),
+              subtitle: _historyTypeFilter == null
+                  ? 'Tất cả giao dịch'
+                  : _historyTypeFilter == 0
+                      ? 'Nhập kho'
+                      : _historyTypeFilter == 1
+                          ? 'Xuất kho'
+                          : 'Điều chỉnh',
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final e in <(int?, String)>[
+                    (null, 'Tất cả'),
+                    (0, 'Nhập kho'),
+                    (1, 'Xuất kho'),
+                    (2, 'Điều chỉnh'),
+                  ])
+                    FilterChip(
+                      selected: _historyTypeFilter == e.$1,
+                      label: Text(tr(e.$2),
+                          style: const TextStyle(fontSize: 12)),
+                      onSelected: (_) {
+                        setState(() => _historyTypeFilter = e.$1);
+                        _loadStockTransactions(typeFilter: e.$1);
+                      },
+                      selectedColor:
+                          HrmPageChrome.primaryNavy.withValues(alpha: 0.14),
+                      checkmarkColor: HrmPageChrome.primaryNavy,
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize:
+                          MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.filter_list, size: 16, color: Color(0xFF64748B)),
-                        SizedBox(width: 4),
-                        Text(tr('Lọc'), style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           // Transaction list
@@ -1321,174 +1364,129 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     );
   }
 
-  // ==================== TOOLBAR ====================
-  Widget _buildToolbar() {
-    final isMobile = Responsive.isMobile(context);
-    final searchField = SizedBox(
-      width: isMobile ? double.infinity : 300,
-      child: TextField(
-        controller: _searchController,
-        onSubmitted: _onSearch,
-        style: const TextStyle(fontSize: 14),
-        decoration: InputDecoration(
-          hintText: tr('Tìm kiếm tài sản...'),
-          hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
-          prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFFA1A1AA)),
-          suffixIcon: _searchQuery != null
-              ? IconButton(
-                  icon: const Icon(Icons.close, size: 18),
-                  onPressed: () { _searchController.clear(); _onSearch(''); },
-                )
-              : null,
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-      ),
-    );
-    final filterToggle = Material(
-      color: _showFilters || _hasActiveFilters
-          ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
-          : Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: () => setState(() {
-          _showFilters = !_showFilters;
-          if (_showFilters) _showOverviewPanel = true;
-        }),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
+  // ==================== SEARCH + FILTER ====================
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _searchController,
+      onSubmitted: _onSearch,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        hintText: tr('Tìm kiếm tài sản...'),
+        hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
+        prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFFA1A1AA)),
+        suffixIcon: _searchQuery != null
+            ? IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: () {
+                  _searchController.clear();
+                  _onSearch('');
+                },
+              )
+            : null,
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _hasActiveFilters ? HrmPageChrome.primaryNavy : const Color(0xFFE4E4E7)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.filter_list, size: 18, color: _hasActiveFilters ? HrmPageChrome.primaryNavy : const Color(0xFF71717A)),
-              const SizedBox(width: 6),
-              Text(tr('Bộ lọc'), style: TextStyle(
-                fontSize: 13,
-                color: _hasActiveFilters ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
-              )),
-              if (_hasActiveFilters) ...[
-                const SizedBox(width: 6),
-                Container(
-                  width: 8, height: 8,
-                  decoration: const BoxDecoration(color: HrmPageChrome.primaryNavy, shape: BoxShape.circle),
-                ),
-              ],
-            ],
-          ),
-        ),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide:
+                const BorderSide(color: HrmPageChrome.primaryNavy, width: 2)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       ),
-    );
-    final clearBtn = _hasActiveFilters
-        ? TextButton(
-            onPressed: _clearFilters,
-            child: Text(tr('Xóa lọc'), style: TextStyle(fontSize: 13, color: Color(0xFFEF4444))),
-          )
-        : const SizedBox.shrink();
-    final selectedInfo = _selectedAssetIds.isNotEmpty
-        ? Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(tr('${_selectedAssetIds.length} đã chọn'), style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500, fontSize: 13)),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: () => setState(() => _selectedAssetIds.clear()),
-                  child: const Icon(Icons.close, size: 16, color: HrmPageChrome.primaryNavy),
-                ),
-              ],
-            ),
-          )
-        : const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-      child: isMobile
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                searchField,
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [filterToggle, clearBtn, selectedInfo],
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                Flexible(child: searchField),
-                const SizedBox(width: 12),
-                filterToggle,
-                if (_hasActiveFilters) ...[
-                  const SizedBox(width: 8),
-                  clearBtn,
-                ],
-                const Spacer(),
-                if (_selectedAssetIds.isNotEmpty) ...[
-                  selectedInfo,
-                  const SizedBox(width: 8),
-                ],
-              ],
-            ),
     );
   }
 
-  // ==================== FILTER BAR ====================
-  Widget _buildFilterBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 8,
-        children: [
-          // Status filter
-          _buildFilterDropdown<AssetStatus>(
-            label: 'Trạng thái',
-            value: _statusFilter,
-            items: AssetStatus.values.map((s) => DropdownMenuItem(value: s, child: Text(tr(getAssetStatusLabel(s)), style: const TextStyle(fontSize: 13)))).toList(),
-            onChanged: (v) {
-              setState(() { _statusFilter = v; _currentPage = 1; });
-              _loadAssets();
-            },
-          ),
-          // Type filter
-          _buildFilterDropdown<AssetType>(
-            label: 'Loại tài sản',
-            value: _typeFilter,
-            items: AssetType.values.map((t) => DropdownMenuItem(value: t, child: Text(tr(getAssetTypeLabel(t)), style: const TextStyle(fontSize: 13)))).toList(),
-            onChanged: (v) {
-              setState(() { _typeFilter = v; _currentPage = 1; });
-              _loadAssets();
-            },
-          ),
-          // Category filter
-          _buildFilterDropdown<String>(
-            label: 'Danh mục',
-            value: _categoryFilter,
-            items: _categories.map((c) => DropdownMenuItem(value: c.id, child: Text(tr(c.name), style: const TextStyle(fontSize: 13)))).toList(),
-            onChanged: (v) {
-              setState(() { _categoryFilter = v; _currentPage = 1; });
-              _loadAssets();
-            },
-          ),
-        ],
+  Widget _buildSelectedInfo() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(tr('${_selectedAssetIds.length} đã chọn'),
+                style: const TextStyle(
+                    color: HrmPageChrome.primaryNavy,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13)),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () => setState(() => _selectedAssetIds.clear()),
+              child: const Icon(Icons.close,
+                  size: 16, color: HrmPageChrome.primaryNavy),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        _buildFilterDropdown<AssetStatus>(
+          label: 'Trạng thái',
+          value: _statusFilter,
+          items: AssetStatus.values
+              .map((s) => DropdownMenuItem(
+                  value: s,
+                  child: Text(tr(getAssetStatusLabel(s)),
+                      style: const TextStyle(fontSize: 13))))
+              .toList(),
+          onChanged: (v) {
+            setState(() {
+              _statusFilter = v;
+              _currentPage = 1;
+            });
+            _loadAssets();
+          },
+        ),
+        _buildFilterDropdown<AssetType>(
+          label: 'Loại tài sản',
+          value: _typeFilter,
+          items: AssetType.values
+              .map((t) => DropdownMenuItem(
+                  value: t,
+                  child: Text(tr(getAssetTypeLabel(t)),
+                      style: const TextStyle(fontSize: 13))))
+              .toList(),
+          onChanged: (v) {
+            setState(() {
+              _typeFilter = v;
+              _currentPage = 1;
+            });
+            _loadAssets();
+          },
+        ),
+        _buildFilterDropdown<String>(
+          label: 'Danh mục',
+          value: _categoryFilter,
+          items: _categories
+              .map((c) => DropdownMenuItem(
+                  value: c.id,
+                  child:
+                      Text(tr(c.name), style: const TextStyle(fontSize: 13))))
+              .toList(),
+          onChanged: (v) {
+            setState(() {
+              _categoryFilter = v;
+              _currentPage = 1;
+            });
+            _loadAssets();
+          },
+        ),
+      ],
     );
   }
 

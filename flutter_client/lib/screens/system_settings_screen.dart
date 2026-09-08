@@ -256,7 +256,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             '❌ Save settings failed: ${failed.map((r) => r['message']).join(', ')}');
         appNotification.showError(
           title: 'Lỗi',
-          message: 'Không thể lưu: ${failed.first['message'] ?? 'Lỗi không xác định'}',
+          message: "Không thể lưu: ${failed.first['message'] ?? 'Lỗi không xác định'}",
         );
       } else {
         appNotification.showSuccess(
@@ -319,6 +319,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(
+        context: context,
         title: 'Thiết lập hệ thống',
         actions: [
           Padding(

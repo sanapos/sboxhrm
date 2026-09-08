@@ -20,11 +20,14 @@ public class PostStrategyContext
             "ATTLOG" => new PostAttendancesStrategy(serviceProvider),
             "OPERLOG" => new OperLogStrategy(serviceProvider),
             "USERINFO" => new OperLogStrategy(serviceProvider), // Some devices use USERINFO table
-            "FINGERTMP" => new PostBiometricStrategy(serviceProvider), // Fingerprint templates
-            "BIODATA" => new PostBiometricStrategy(serviceProvider),   // Biometric data (face/fingerprint)
-            "OPTIONS" => new PostOptionsStrategy(serviceProvider),     // Device info from PUSH devices
-            "ERRORLOG" => new PostErrorLogStrategy(serviceProvider),   // ESP32 gateway health alerts
-            _ => new PostBiometricStrategy(serviceProvider)
+            "FINGERTMP" => new PostBiometricStrategy(serviceProvider, "FINGERTMP"),
+            "BIODATA" => new PostBiometricStrategy(serviceProvider, "BIODATA"),
+            "BIOPHOTO" => new PostBiometricStrategy(serviceProvider, "BIOPHOTO"),
+            "USERPIC" => new PostBiometricStrategy(serviceProvider, "USERPIC"),
+            "ATTPHOTO" => new PostBiometricStrategy(serviceProvider, "ATTPHOTO"),
+            "OPTIONS" => new PostOptionsStrategy(serviceProvider),
+            "ERRORLOG" => new PostErrorLogStrategy(serviceProvider),
+            _ => new PostBiometricStrategy(serviceProvider, table)
         };
         
         _logger.LogInformation("[PostStrategy] Table={Table}, Strategy={Strategy}", 

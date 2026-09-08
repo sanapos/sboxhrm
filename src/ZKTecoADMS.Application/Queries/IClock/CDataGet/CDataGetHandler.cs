@@ -42,7 +42,7 @@ public class CDataGetHandler(
                    "Delay=5\r\n" +
                    "TransTimes=00:00;14:05\r\n" +
                    "TransInterval=30\r\n" +
-                   "TransFlag=1111111100\r\n" +
+                   "TransFlag=AttLog\tOpLog\tEnrollUser\tChgUser\tEnrollFP\tChgFP\r\n" +
                    "Realtime=1\r\n" +
                    "TimeZone=+07:00\r\n" +
                    "Timeout=20\r\n" +
@@ -88,6 +88,8 @@ public class CDataGetHandler(
 
         // Kiểm tra xem có pending SyncFingerprints command không
         var hasSyncFingerprintsCommand = pendingList.Any(c => c.CommandType == DeviceCommandTypes.SyncFingerprints);
+        var hasSyncFacesCommand = pendingList.Any(c => c.CommandType == DeviceCommandTypes.SyncFaces);
+        var hasSyncBioCommand = hasSyncFingerprintsCommand || hasSyncFacesCommand;
 
         // Remote enroll UI on device is interrupted by OPERLOG/BIODATA Stamp=0 storms.
         var enrollInProgress = pendingList.Any(c =>
@@ -97,6 +99,8 @@ public class CDataGetHandler(
         {
             hasSyncUsersCommand = false;
             hasSyncFingerprintsCommand = false;
+            hasSyncFacesCommand = false;
+            hasSyncBioCommand = false;
             hasSyncAttendancesCommand = false;
             logger.LogInformation(
                 "[CDataGet] Device {SN} - enroll pending, suppressing stamp=0 so device can show enroll UI",
@@ -118,36 +122,41 @@ public class CDataGetHandler(
         
         // QUAN TRỌNG: OPERLOGStamp
         // - Nếu có lệnh SyncDeviceUsers, set OPERLOGStamp=0 để máy gửi lại toàn bộ user
-        var operLogStamp = hasSyncUsersCommand ? "0" : "9999";
+        var operLogStamp = (hasSyncUsersCommand || hasSyncBioCommand) ? "0" : "9999";
         
         // QUAN TRỌNG: BIODATAStamp
         // - Nếu có lệnh SyncFingerprints, set BIODATAStamp=0 để máy gửi lại toàn bộ biometric
         // - Nếu không, set BIODATAStamp=9999 để không sync biometric
-        var bioDataStamp = hasSyncFingerprintsCommand ? "0" : "9999";
+        var bioDataStamp = hasSyncBioCommand ? "0" : "9999";
+        var photoStamp = hasSyncBioCommand ? "0" : "9999";
         
-        if (hasSyncFingerprintsCommand)
+        if (hasSyncBioCommand)
         {
-            logger.LogInformation("[CDataGet] Device {SN} - SyncFingerprints command pending, setting BIODATAStamp=0 to request all biometric data", sn);
+            logger.LogInformation(
+                "[CDataGet] Device {SN} - bio sync pending, BIODATAStamp=0 PhotoStamp=0 (fp={Fp} face={Face})",
+                sn, hasSyncFingerprintsCommand, hasSyncFacesCommand);
         }
         
-        logger.LogInformation("[CDataGet] Device {SN} - hasSyncUsersCommand={HasSyncUsers}, hasSyncAttendancesCommand={HasSyncAtt}, hasSyncFingerprintsCommand={HasSyncFP}, ATTLOGStamp={AttStamp}, OPERLOGStamp={OpStamp}, BIODATAStamp={BioStamp}", 
-            sn, hasSyncUsersCommand, hasSyncAttendancesCommand, hasSyncFingerprintsCommand, ATTLOGStamp, operLogStamp, bioDataStamp);
+        logger.LogInformation("[CDataGet] Device {SN} - hasSyncUsersCommand={HasSyncUsers}, hasSyncAttendancesCommand={HasSyncAtt}, hasSyncFingerprintsCommand={HasSyncFP}, ATTLOGStamp={AttStamp}, OPERLOGStamp={OpStamp}, BIODATAStamp={BioStamp}, PhotoStamp={Photo}", 
+            sn, hasSyncUsersCommand, hasSyncAttendancesCommand, hasSyncFingerprintsCommand, ATTLOGStamp, operLogStamp, bioDataStamp, photoStamp);
 
         // Align with agap.top so SenseFace/ZAM polls /iclock/getrequest (AC_UNLOCK path).
         var response = PushDeviceConfigBuilder.BuildGetOptionResponse(
-            sn, ATTLOGStamp, operLogStamp, bioDataStamp);
+            sn, ATTLOGStamp, operLogStamp, bioDataStamp, photoStamp);
 
         // KHÔNG đánh dấu Success sớm cho SyncDeviceUsers/SyncAttendances — máy cần nhiều lần poll
         // với OPERLOGStamp=0 / ATTLOGStamp=0 cho đến khi POST dữ liệu (OperLogStrategy / PostAttendancesStrategy).
         
         // Auto-complete stale SyncFingerprints commands (Sent > 2 minutes ago)
         // V8 firmware devices don't POST biometric data via ADMS, so the command stays Sent forever
-        foreach (var cmd in pendingList.Where(c => c.CommandType == DeviceCommandTypes.SyncFingerprints
+        foreach (var cmd in pendingList.Where(c =>
+                     (c.CommandType == DeviceCommandTypes.SyncFingerprints
+                      || c.CommandType == DeviceCommandTypes.SyncFaces)
             && c.Status == CommandStatus.Sent && c.SentAt.HasValue
             && c.SentAt.Value < DateTime.Now.AddMinutes(-2)))
         {
-            await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, CommandStatus.Success);
-            logger.LogInformation("[CDataGet] Auto-completed stale SyncFingerprints command for device {SN} (sent at {SentAt})", sn, cmd.SentAt);
+            await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, CommandStatus.Failed);
+            logger.LogInformation("[CDataGet] Auto-failed stale SyncFingerprints/Faces for device {SN} (sent at {SentAt}) — ACK ≠ đã có file", sn, cmd.SentAt);
         }
 
         var (serverAttCount, localAttCount) = await GetAttendanceCountsAsync(device.Id, cancellationToken);
@@ -206,6 +215,12 @@ public class CDataGetHandler(
                 && c.CommandType != DeviceCommandTypes.SyncDeviceUsers
                 && c.CommandType != DeviceCommandTypes.SyncAttendances
                 && c.CommandType != DeviceCommandTypes.SyncFingerprints
+                && c.CommandType != DeviceCommandTypes.SyncFaces
+                && c.CommandType != DeviceCommandTypes.PushFingerprint
+                && c.CommandType != DeviceCommandTypes.PushFace
+                && c.CommandType != DeviceCommandTypes.PushUserPic
+                && c.CommandType != DeviceCommandTypes.AddDeviceUser
+                && c.CommandType != DeviceCommandTypes.UpdateDeviceUser
                 && c.CommandType != DeviceCommandTypes.OpenDoor
                 && c.CommandType != DeviceCommandTypes.CloseDoor
                 && c.CommandType != DeviceCommandTypes.EnrollFace)

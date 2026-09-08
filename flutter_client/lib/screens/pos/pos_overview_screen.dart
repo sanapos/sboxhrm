@@ -17,6 +17,7 @@ import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'pos_qr_menu_screen.dart';
 import 'pos_qr_online_orders_screen.dart';
+import 'pos_kds_screen.dart';
 
 /// Tổng quan POS mobile — layout đồng bộ với tab Nhiều hơn.
 class PosOverviewScreen extends StatefulWidget {
@@ -200,6 +201,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     // Module đầy đủ nằm ở tab «Nhiều hơn».
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     final canQr = PermissionNavigation.canNavigate(perm, 'PosQrOrder');
+    final canKds = PermissionNavigation.canNavigate(perm, 'PosKds');
     final items = <PosMobileHubGridItem>[
       PosMobileHubGridItem(
         label: 'Bán hàng',
@@ -216,6 +218,12 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
         icon: Icons.receipt_long_outlined,
         onTap: () => _goHubTab(3),
       ),
+      if (canKds)
+        PosMobileHubGridItem(
+          label: 'Màn hình bếp',
+          icon: Icons.kitchen_outlined,
+          onTap: () => _pushPosPage(const PosKdsScreen()),
+        ),
       if (canQr)
         PosMobileHubGridItem(
           label: 'Menu QR',

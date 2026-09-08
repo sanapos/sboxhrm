@@ -1086,7 +1086,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã thu cọc',
-        message: '${_moneyFmt.format(amount)}đ · ${picked.pay.methodLabel} · ${r.name}',
+        message: tr('${_moneyFmt.format(amount)}đ · ${picked.pay.methodLabel} · ${r.name}'),
       );
       await _reload();
     } else {
@@ -1443,7 +1443,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             labelText: tr('Cọc yêu cầu'),
                             border: OutlineInputBorder(),
                             isDense: true,
-                            suffixText: 'đ',
+                            suffixText: tr('đ'),
                           ),
                         ),
                       ),
@@ -1456,7 +1456,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             labelText: tr('Đã thu ngay'),
                             border: OutlineInputBorder(),
                             isDense: true,
-                            suffixText: 'đ',
+                            suffixText: tr('đ'),
                           ),
                         ),
                       ),

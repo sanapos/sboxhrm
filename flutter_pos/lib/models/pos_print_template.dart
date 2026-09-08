@@ -410,6 +410,15 @@ abstract final class PosPrintPaperSizes {
   /// Phiếu nhiệt cuộn (không gồm tem nhãn).
   static bool isThermal(String size) => size == k58 || size == k80;
 
+  /// Khổ máy in nhiệt từ cấu hình (K58 / K80 / 58mm…).
+  static String fromPrinterName(String raw) {
+    final p = raw.trim().toUpperCase();
+    if (p == k58 || p.contains('58')) return k58;
+    return k80;
+  }
+
+  static String fromWidthMm(int mm) => mm <= 58 ? k58 : k80;
+
   /// Map khổ V2 (có thể là id tem barcode) → enum API (chỉ 50×30 / 40×30).
   static String toApiPaperSize(String documentType, String v2PaperSize) {
     if (documentType == PosPrintDocumentTypes.kitchenLabel ||

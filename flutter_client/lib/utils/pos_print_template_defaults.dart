@@ -42,7 +42,8 @@ String _thermalHtml(String title, String paperSize) {
   </div>
   <div style="margin:6px 0;border-top:2px solid #000"></div>
   <div><b>Bàn:</b> {Ten_Ban}</div>
-  <div style="display:flex;justify-content:space-between"><span><b>Số HĐ:</b> {Ma_Don_Hang}</span><span><b>{Ngay}</b></span></div>
+  <div><b>Số HĐ:</b> {Ma_Don_Hang}</div>
+  <div><b>Ngày:</b> {Ngay}</div>
   <div>KH: {Khach_Hang}</div>
   <div style="margin:6px 0;border-top:2px solid #000"></div>
   <table style="width:100%;border-collapse:collapse;font-size:$fs">

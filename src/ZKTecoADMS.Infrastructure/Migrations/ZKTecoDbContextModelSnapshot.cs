@@ -3236,8 +3236,7 @@ namespace ZKTecoADMS.Infrastructure.Migrations
 
                     b.Property<string>("Command")
                         .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("text");
 
                     b.Property<long>("CommandId")
                         .HasColumnType("bigint");

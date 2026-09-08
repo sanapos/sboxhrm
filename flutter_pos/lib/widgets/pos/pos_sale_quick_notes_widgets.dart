@@ -94,6 +94,7 @@ class PosLineQuickNotesPicker extends StatelessWidget {
     required this.onExtraChanged,
     this.onAddQuickNote,
     this.onDeleteQuickNote,
+    this.autofocusExtra = false,
   });
 
   final List<String> quickNotes;
@@ -105,6 +106,7 @@ class PosLineQuickNotesPicker extends StatelessWidget {
   final Future<void> Function(String note)? onAddQuickNote;
   /// Xóa ghi chú khỏi món (catalog + máy này).
   final Future<void> Function(String note)? onDeleteQuickNote;
+  final bool autofocusExtra;
 
   Future<void> _addQuickNote(BuildContext context) async {
     var text = extraController.text.trim();
@@ -117,6 +119,7 @@ class PosLineQuickNotesPicker extends StatelessWidget {
           content: TextField(
             controller: ctrl,
             autofocus: true,
+            onTap: posShowSoftKeyboardOnFieldTap,
             maxLength: 80,
             decoration: InputDecoration(
               hintText: tr('VD: Ít đá, Không cay, Mang về…'),
@@ -249,6 +252,8 @@ class PosLineQuickNotesPicker extends StatelessWidget {
         PosImeAwareFocus(
           child: TextField(
           controller: extraController,
+          autofocus: autofocusExtra,
+          onTap: posShowSoftKeyboardOnFieldTap,
           maxLines: 2,
           decoration: InputDecoration(
             hintText: tr(quickNotes.isEmpty

@@ -1840,8 +1840,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   ),
 
                   const SizedBox(height: 8),
-                  Text(
-                    'Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển',
+                  Text(tr('Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển'),
                     style: TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                   const SizedBox(height: 6),
@@ -2553,8 +2552,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   ),
 
                   const SizedBox(height: 8),
-                  Text(
-                    'Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển',
+                  Text(tr('Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển'),
                     style: TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                   const SizedBox(height: 6),
@@ -3913,8 +3911,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
 
                   const SizedBox(height: 8),
-                  Text(
-                    'Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển',
+                  Text(tr('Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển'),
                     style: TextStyle(fontSize: 12, color: Colors.black54),
                   ),
                   const SizedBox(height: 6),

@@ -7,10 +7,11 @@ used as logic, and skips lib/l10n generated sources.
 """
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1] / "lib"
+ROOT = Path(os.environ.get("WRAP_ROOT", Path(__file__).resolve().parents[1] / "lib"))
 VN = re.compile(
     r"[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ"
     r"ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]"
@@ -98,8 +99,13 @@ IMPORT_LINE_PKG = "import 'package:zkteco_flutter_client/l10n/app_tr.dart';"
 
 
 def relative_import(dart_path: Path) -> str:
-    # Prefer package import for reliability
-    return "import 'package:zkteco_flutter_client/l10n/app_tr.dart';\n"
+    pkg = os.environ.get(
+        "WRAP_IMPORT",
+        "import 'package:zkteco_flutter_client/l10n/app_tr.dart';\n",
+    )
+    if not pkg.endswith("\n"):
+        pkg += "\n"
+    return pkg
 
 
 def should_skip(path: Path) -> bool:

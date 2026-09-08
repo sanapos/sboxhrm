@@ -66,7 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              tr('Thông tin tài khoản'),
+              tr(l.settingsTitle),
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -74,7 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              tr('Sửa hồ sơ của bạn và đổi mật khẩu'),
+              tr(l.settingsSubtitle),
               style: TextStyle(color: Colors.grey[400]),
             ),
             const SizedBox(height: 24),

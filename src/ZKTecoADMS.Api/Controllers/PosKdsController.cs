@@ -49,20 +49,13 @@ public class PosKdsController(
             .Select(r => r.PrinterId)
             .Distinct()
             .ToListAsync();
+        // Chỉ trạm có route bếp/tem — không fallback cả cửa hàng (hóa đơn, máy chưa chia sẻ Agent).
         var printers = await db.PosStorePrinters.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive
-                && (printerIds.Count == 0 || printerIds.Contains(p.Id)))
+                && printerIds.Contains(p.Id))
             .OrderBy(p => p.SortOrder).ThenBy(p => p.Name)
             .Select(p => new { p.Id, p.Name, p.IsDeviceLocal, p.SortOrder })
             .ToListAsync();
-        if (printers.Count == 0)
-        {
-            printers = await db.PosStorePrinters.AsNoTracking()
-                .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive)
-                .OrderBy(p => p.SortOrder).ThenBy(p => p.Name)
-                .Select(p => new { p.Id, p.Name, p.IsDeviceLocal, p.SortOrder })
-                .ToListAsync();
-        }
         // Cloud + deviceLocal cùng tên (USB/WiFi) — 1 chip trạm bếp.
         var stations = printers
             .GroupBy(p => (p.Name ?? "").Trim(), StringComparer.OrdinalIgnoreCase)

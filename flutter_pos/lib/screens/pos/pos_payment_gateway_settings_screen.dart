@@ -10,6 +10,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_payment_gateway_listener.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import '../../utils/pos_vietqr_helper.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_bank_account_form_dialog.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -363,11 +364,18 @@ class _PosPaymentGatewaySettingsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(tr('Cổng thanh toán')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
-      ),
+      appBar: HrmPageChrome.hideOuterChrome(context)
+          ? null
+          : AppBar(
+              title: Text(tr('Cổng thanh toán')),
+              backgroundColor: PosTheme.kiotBlue,
+              foregroundColor: Colors.white,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: tr('Quay lại'),
+                onPressed: () => Navigator.maybePop(context),
+              ),
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(

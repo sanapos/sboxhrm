@@ -6,8 +6,6 @@ import '../models/hrm.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
-import '../utils/navigation_notifier.dart';
-import '../utils/responsive_helper.dart';
 import 'hrm_page_chrome.dart';
 import 'shift_swap_ui.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -17,12 +15,10 @@ enum _SwapListMode { all, respond, approve }
 /// Panel đổi ca — dùng trong màn riêng hoặc tab Duyệt lịch làm việc.
 class ShiftSwapPanel extends StatefulWidget {
   final bool embedded;
-  final bool showCreateFab;
 
   const ShiftSwapPanel({
     super.key,
     this.embedded = false,
-    this.showCreateFab = true,
   });
 
   @override
@@ -82,7 +78,8 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
           _pendingApproval = parseShiftSwapList(swapPending['data']);
         }
         _shifts = shiftsRaw
-            .map((s) => Shift.fromJson(s as Map<String, dynamic>))
+            .whereType<Map>()
+            .map((s) => Shift.fromJson(Map<String, dynamic>.from(s)))
             .toList();
         if (colleaguesResp['isSuccess'] == true &&
             colleaguesResp['data'] is List) {
@@ -95,43 +92,25 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
     if (mounted) setState(() => _loading = false);
   }
 
+  Future<void> reload() => _load();
+
+  void showFlowHelp() => showShiftSwapFlowHelpDialog(context);
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-              widget.embedded ? 12 : 16, 8, widget.embedded ? 12 : 16, 4),
-          child: ListenableBuilder(
-            listenable: NavigationNotifier.mobileDrawerModuleActive,
-            builder: (context, _) {
-              final iconOnly = Responsive.isMobile(context) &&
-                  (NavigationNotifier.mobileDrawerModuleActive.value ||
-                      widget.embedded);
-              if (iconOnly) {
-                return Align(
-                  alignment: Alignment.centerRight,
-                  child: IconButton.filledTonal(
-                    tooltip: tr('Quy trình đổi ca'),
-                    icon: const Icon(Icons.info_outline, size: 20),
-                    onPressed: () => _showFlowDialog(context),
-                  ),
-                );
-              }
-              return ShiftSwapFlowHelpBanner(
-                compact: widget.embedded,
-                onTapDetail: () => _showFlowDialog(context),
-              );
-            },
-          ),
-        ),
         TabBar(
           controller: _tabs,
           labelColor: HrmPageChrome.primaryNavy,
           unselectedLabelColor: const Color(0xFF71717A),
           indicatorColor: HrmPageChrome.primaryNavy,
           isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          labelPadding: EdgeInsets.symmetric(
+            horizontal: widget.embedded ? 12 : 16,
+          ),
           tabs: [
             Tab(text: tr('Tất cả (${_all.length})')),
             Tab(text: tr('Cần phản hồi (${_forMe.length})')),
@@ -154,27 +133,6 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
     );
   }
 
-  void _showFlowDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => ScrollableAlertDialog(
-        title: Text(tr('Hướng dẫn đổi ca')),
-        content: SingleChildScrollView(
-          child: Text(
-            tr('1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi.\n\n'
-            '2. Đồng nghiệp vào tab「Cần phản hồi」để Đồng ý hoặc Từ chối.\n\n'
-            '3. Quản lý vào tab「Chờ QL duyệt」(hoặc mục Duyệt lịch → Đổi ca) để phê duyệt.\n\n'
-            '4. Khi đã duyệt, lịch làm việc của hai người được hoán đổi tự động.\n\n'
-            'Lưu ý: Chỉ đổi được ca đã được xếp/duyệt trên lịch làm việc.'),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
-        ],
-      ),
-    );
-  }
-
   Widget _list(List<Map<String, dynamic>> items, _SwapListMode mode) {
     if (items.isEmpty) {
       return Center(
@@ -192,7 +150,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
               style: TextStyle(color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
-            Text(tr('Bấm + Yêu cầu đổi ca để tạo mới'),
+            Text(tr('Mở menu góc phải → Yêu cầu đổi ca'),
               style: TextStyle(fontSize: 12, color: Colors.grey[500]),
             ),
           ],
@@ -381,12 +339,14 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    tr('Chọn ca bạn muốn nhường, đồng nghiệp và ca/ngày muốn nhận. '
-                    'Sau khi gửi, đồng nghiệp phải đồng ý rồi quản lý mới duyệt.'),
-                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                  ),
-                  const SizedBox(height: 12),
+                  if (_colleagues.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        tr('Không có đồng nghiệp để đổi ca. Kiểm tra nhân viên đang làm đã gắn tài khoản.'),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+                      ),
+                    ),
                   DropdownButtonFormField<String>(
                     value: requesterShiftId,
                     isExpanded: true,

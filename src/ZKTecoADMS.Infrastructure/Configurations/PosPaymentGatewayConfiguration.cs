@@ -15,6 +15,7 @@ public class PosPaymentGatewaySettingConfiguration : IEntityTypeConfiguration<Po
         builder.Property(x => x.TingeeSecretKey).HasMaxLength(300);
         builder.Property(x => x.TingeeVaAccountNumber).HasMaxLength(100);
         builder.Property(x => x.TingeeMerchantId).HasMaxLength(50);
+        builder.Property(x => x.TingeeShopId).HasMaxLength(50);
         builder.Property(x => x.TingeeWebhookSecret).HasMaxLength(300);
         builder.Property(x => x.ExtraJson).HasMaxLength(4000);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId)

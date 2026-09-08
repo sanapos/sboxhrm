@@ -6,6 +6,7 @@ import '../l10n/app_tr.dart';
 import '../utils/vietnamese_font.dart';
 
 import '../widgets/pos/pos_theme.dart';
+import '../utils/play_system_ui.dart';
 /// Hệ thống typography chuẩn cho tiếng Việt
 /// Sử dụng Be Vietnam Pro – font được thiết kế riêng cho tiếng Việt
 /// (Google Fonts + Lâm Bảo), dấu thanh đẹp, được dùng phổ biến trên
@@ -203,6 +204,7 @@ class ThemeProvider extends ChangeNotifier {
         centerTitle: false,
         titleTextStyle: textTheme.headlineLarge,
         iconTheme: const IconThemeData(color: Color(0xFF18181B)),
+        systemOverlayStyle: kPlayOverlayOnDarkBg,
       ),
       cardTheme: CardThemeData(
         color: Colors.white,
@@ -469,6 +471,7 @@ class ThemeProvider extends ChangeNotifier {
         centerTitle: false,
         titleTextStyle: textTheme.headlineLarge,
         iconTheme: const IconThemeData(color: darkText),
+        systemOverlayStyle: kPlayOverlayOnDarkBg,
       ),
       cardTheme: CardThemeData(
         color: darkCard,

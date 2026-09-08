@@ -28,6 +28,10 @@ public class PosPaymentGatewaySetting : AuditableEntity<Guid>
     [MaxLength(50)]
     public string? TingeeMerchantId { get; set; }
 
+    /// <summary>Shop ID Tingee (điểm bán thuộc merchant con).</summary>
+    [MaxLength(50)]
+    public string? TingeeShopId { get; set; }
+
     /// <summary>Secret verify webhook IPN (HMAC SHA512).</summary>
     [MaxLength(300)]
     public string? TingeeWebhookSecret { get; set; }

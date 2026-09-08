@@ -52,6 +52,7 @@ public sealed record PaymentGatewaySettingDto(
     bool HasTingeeSecretKey,
     string? TingeeVaAccountNumber,
     string? TingeeMerchantId,
+    string? TingeeShopId,
     bool HasTingeeWebhookSecret,
     bool PlatformTingeeConfigured);
 

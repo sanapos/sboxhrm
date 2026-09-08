@@ -398,12 +398,12 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                     DropdownButtonFormField<String>(
                       value: kind,
                       decoration: InputDecoration(labelText: tr('Loại mẫu')),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
-                            value: 'Packaged', child: Text('Có mã vạch')),
-                        DropdownMenuItem(value: 'Food', child: Text('Món ăn')),
+                            value: 'Packaged', child: Text(tr('Có mã vạch'))),
+                        DropdownMenuItem(value: 'Food', child: Text(tr('Món ăn'))),
                         DropdownMenuItem(
-                            value: 'Drink', child: Text('Đồ uống')),
+                            value: 'Drink', child: Text(tr('Đồ uống'))),
                       ],
                       onChanged: (v) => setLocal(() => kind = v ?? 'Food'),
                     ),
@@ -441,16 +441,16 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                     DropdownButtonFormField<String>(
                       value: productType,
                       decoration: InputDecoration(labelText: tr('Loại hàng *')),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
-                            value: 'Goods', child: Text('Hàng hóa')),
+                            value: 'Goods', child: Text(tr('Hàng hóa'))),
                         DropdownMenuItem(
-                            value: 'Service', child: Text('Dịch vụ')),
+                            value: 'Service', child: Text(tr('Dịch vụ'))),
                         DropdownMenuItem(
                             value: 'Combo', child: Text('Combo')),
                         DropdownMenuItem(
                             value: 'Material',
-                            child: Text('Nguyên vật liệu')),
+                            child: Text(tr('Nguyên vật liệu'))),
                         DropdownMenuItem(
                             value: 'Topping', child: Text('Topping')),
                       ],
@@ -925,10 +925,10 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
               DropdownButton<bool?>(
                 value: _activeFilter,
                 hint: Text(tr('Trạng thái')),
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('Tất cả')),
-                  DropdownMenuItem(value: true, child: Text('Đang dùng')),
-                  DropdownMenuItem(value: false, child: Text('Đã ẩn')),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                  DropdownMenuItem(value: true, child: Text(tr('Đang dùng'))),
+                  DropdownMenuItem(value: false, child: Text(tr('Đã ẩn'))),
                 ],
                 onChanged: (v) {
                   setState(() => _activeFilter = v);
@@ -1069,11 +1069,11 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                       ),
                     ),
                     if (!active)
-                      const Positioned(
+                      Positioned(
                         top: 8,
                         left: 8,
                         child: Chip(
-                          label: Text('Ẩn', style: TextStyle(fontSize: 11)),
+                          label: Text(tr('Ẩn'), style: TextStyle(fontSize: 11)),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),
@@ -1282,11 +1282,11 @@ class _SampleGroupsDialogState extends State<_SampleGroupsDialog> {
               DropdownButtonFormField<String?>(
                 value: kind,
                 decoration: InputDecoration(labelText: tr('Loại mẫu (tuỳ chọn)')),
-                items: const [
-                  DropdownMenuItem(value: null, child: Text('Mọi loại')),
-                  DropdownMenuItem(value: 'Packaged', child: Text('Có mã vạch')),
-                  DropdownMenuItem(value: 'Food', child: Text('Món ăn')),
-                  DropdownMenuItem(value: 'Drink', child: Text('Đồ uống')),
+                items: [
+                  DropdownMenuItem(value: null, child: Text(tr('Mọi loại'))),
+                  DropdownMenuItem(value: 'Packaged', child: Text(tr('Có mã vạch'))),
+                  DropdownMenuItem(value: 'Food', child: Text(tr('Món ăn'))),
+                  DropdownMenuItem(value: 'Drink', child: Text(tr('Đồ uống'))),
                 ],
                 onChanged: (v) => kind = v,
               ),

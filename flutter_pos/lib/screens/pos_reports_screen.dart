@@ -10,7 +10,9 @@ import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/pos_kiot_time_range.dart';
 import '../utils/pos_report_export.dart';
+import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_kiot_time_filter.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
@@ -247,22 +249,30 @@ class _PosReportsScreenState extends State<PosReportsScreen>
     final perm = Provider.of<PermissionProvider>(context);
     final canView = perm.canView('PosSalesReport') || perm.canView('PosProducts');
     if (!canView) {
-      return Scaffold(body: Center(child: Text(tr('Không có quyền xem báo cáo POS'))));
+      return Scaffold(
+        appBar: AppBar(title: Text(tr('Báo cáo POS'))),
+        body: Center(child: Text(tr('Không có quyền xem báo cáo POS'))),
+      );
     }
     final canExport = perm.canExport('PosSalesReport') || perm.canExport('PosProducts');
     final mobile = posUseMobileList(context);
+
+    final pushed = PosHubScope.pushedSubPageOf(context);
+    final showHeader = widget.lockTab ||
+        pushed ||
+        HrmPageChrome.isPushedOverShell(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (widget.lockTab)
+          if (showHeader)
             PosMobileKiotHeader(
               title: switch (widget.initialTab) {
                 1 => 'Tồn kho',
                 2 => 'Hàng sắp hết hạn',
-                _ => 'Doanh thu',
+                _ => widget.lockTab ? 'Doanh thu' : 'Báo cáo',
               },
             )
           else

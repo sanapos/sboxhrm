@@ -14,6 +14,9 @@ public class DeviceUserDto
     public Guid DeviceId { get; set; }
     public string? DeviceName { get; set; }
     public int FingerprintCount { get; set; }
+    /// <summary>Số vân tay có file template đủ để copy sang máy khác (không tính đánh dấu enroll ADMS).</summary>
+    public int CopyableFingerprintCount { get; set; }
+    public int FaceCount { get; set; }
 
     public EmployeeDto? Employee { get;set; }
 }

@@ -221,7 +221,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
 
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
-      appBar: HrmPageChrome.appBar(title: 'Thuế TNCN'),
+      appBar: HrmPageChrome.appBar(context: context, title: 'Thuế TNCN'),
       body: _isLoading
           ? const LoadingWidget()
           : SingleChildScrollView(

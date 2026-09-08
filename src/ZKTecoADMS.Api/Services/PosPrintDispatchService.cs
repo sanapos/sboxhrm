@@ -129,12 +129,22 @@ public class PosPrintDispatchService(
             return remapped;
         }
 
+        // Hóa đơn / tạm tính: không fallback máy mặc định (thường là máy bếp).
+        if (IsInvoiceFamily(documentType))
+            return [];
+
         var fallback = await db.PosStorePrinters.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && p.IsDefault)
             .FirstOrDefaultAsync(ct);
 
         return fallback != null ? [fallback] : [];
     }
+
+    static bool IsInvoiceFamily(PosPrintDocumentType dt) =>
+        dt is PosPrintDocumentType.SaleInvoice
+            or PosPrintDocumentType.SaleOrder
+            or PosPrintDocumentType.SaleReturn
+            or PosPrintDocumentType.Delivery;
 
     /// <summary>
     /// Máy device-local (sync từ A6) không nằm trong AssignedPrinterIds của Agent.
@@ -327,7 +337,9 @@ public class PosPrintDispatchService(
             throw new InvalidOperationException("Chưa cấu hình máy in cho loại chứng từ này");
 
         printer = await ResolveCloudAgentTwinAsync(printer, ct);
-        printer = await RedirectToLiveAgentTwinAsync(printer, ct);
+        // Hóa đơn / tạm tính: đúng máy đã cài. Máy offline → job treo, không đổi máy.
+        if (!IsInvoiceFamily(request.DocumentType))
+            printer = await RedirectToLiveAgentTwinAsync(printer, ct);
 
         var tracked = await db.PosStorePrinters.FirstAsync(p => p.Id == printer.Id, ct);
 

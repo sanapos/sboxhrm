@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import '../../models/pos_store_printer.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_product_printer_service.dart';
+import '../../utils/pos_device_product_printers.dart';
+import '../../utils/pos_kitchen_direct_connect.dart';
 import '../../utils/pos_local_printers_store.dart';
+import '../../utils/pos_print_device_scope.dart';
+import '../../utils/pos_print_orchestrator.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -91,7 +95,10 @@ Future<bool> copyProductAssignmentsFromLocal({
   required String targetPrinterName,
   required bool isLabel,
 }) async {
-  final res = await api.getPosPrinterProductSummary(includeLocal: true);
+  final res = await api.getPosPrinterProductSummary(
+    includeLocal: true,
+    ownerDeviceId: await PosPrintDeviceScope.myDeviceId(),
+  );
   if (res['isSuccess'] != true || res['data'] is! List) {
     NotificationOverlayManager().showError(
       title: 'Không tải máy in',
@@ -105,7 +112,8 @@ Future<bool> copyProductAssignmentsFromLocal({
       .where((p) => p.id.isNotEmpty && p.id != targetPrinterId)
       .where((p) => p.isLabel == isLabel)
       .toList();
-  final locals = all.where((p) => p.isDeviceLocal).toList();
+  final scoped = await _scopePrintersToThisDevice(all);
+  final locals = scoped.where((p) => p.isDeviceLocal).toList();
   final sources = [
     ...locals,
     ...all.where((p) => !p.isDeviceLocal),
@@ -208,6 +216,51 @@ Future<bool> copyProductAssignmentsFromLocal({
   return true;
 }
 
+Future<List<_PrinterSummary>> _scopePrintersToThisDevice(
+  List<_PrinterSummary> list,
+) async {
+  if (list.isEmpty) return list;
+  final me = (await PosPrintDeviceScope.myDeviceId()).trim();
+  final out = <_PrinterSummary>[];
+  for (final p in list) {
+    if (!p.isDeviceLocal) {
+      out.add(p);
+      continue;
+    }
+    final owner = (p.ownerDeviceId ?? '').trim();
+    if (me.isNotEmpty &&
+        owner.isNotEmpty &&
+        owner.toLowerCase() == me.toLowerCase()) {
+      out.add(p);
+      continue;
+    }
+    if (await PosPrintDeviceScope.isInstalledHere(p.id)) {
+      out.add(p);
+    }
+  }
+  return out;
+}
+
+Future<List<_PrinterSummary>> _overlayLocalAssignCounts(
+  List<_PrinterSummary> list,
+) async {
+  if (list.isEmpty) return list;
+  final out = <_PrinterSummary>[];
+  for (final p in list) {
+    if (!p.isDeviceLocal) {
+      out.add(p);
+      continue;
+    }
+    final n = (await PosDeviceProductPrinters.instance.productIdsForPrinter(
+      p.id,
+      label: p.isLabel,
+    ))
+        .length;
+    out.add(p.copyWith(productCount: n));
+  }
+  return out;
+}
+
 /// Danh sách máy in → chọn máy in → gán sản phẩm.
 class PosProductPrinterAssignmentScreen extends StatefulWidget {
   const PosProductPrinterAssignmentScreen({super.key, this.printers});
@@ -241,25 +294,33 @@ class _PosProductPrinterAssignmentScreenState
     try {
       // May cloud khong con tren Agent: go mon ve tu do + xoa may.
       await _autoCleanupAgentOrphans();
-      final res = await _api.getPosPrinterProductSummary();
+      final res = await _api.getPosPrinterProductSummary(
+        ownerDeviceId: await PosPrintDeviceScope.myDeviceId(),
+      );
       if (res['isSuccess'] == true && res['data'] is List) {
-        _printers = (res['data'] as List)
+        final parsed = (res['data'] as List)
             .whereType<Map>()
             .map((e) => _PrinterSummary.fromJson(Map<String, dynamic>.from(e)))
             .where((p) => p.id.isNotEmpty)
             .toList();
+        _printers = await _scopePrintersToThisDevice(parsed);
+        _printers = await _overlayLocalAssignCounts(_printers);
       } else if (widget.printers != null && widget.printers!.isNotEmpty) {
-        _printers = widget.printers!
-            .where((p) => p.isActive)
-            .map((p) => _PrinterSummary(
-                  id: p.id,
-                  name: p.name,
-                  productCount: 0,
-                  isDeviceLocal: p.isDeviceLocal,
-                  isLabel: p.isLabelPrinter,
-                  documentTypes: p.documentTypes,
-                ))
-            .toList();
+        _printers = await _scopePrintersToThisDevice(
+          widget.printers!
+              .where((p) => p.isActive)
+              .map((p) => _PrinterSummary(
+                    id: p.id,
+                    name: p.name,
+                    productCount: 0,
+                    isDeviceLocal: p.isDeviceLocal,
+                    ownerDeviceId: p.ownerDeviceId,
+                    isLabel: p.isLabelPrinter,
+                    documentTypes: p.documentTypes,
+                  ))
+              .toList(),
+        );
+        _printers = await _overlayLocalAssignCounts(_printers);
       } else if (mounted) {
         NotificationOverlayManager().showError(
           title: 'Không tải được danh sách',
@@ -270,17 +331,21 @@ class _PosProductPrinterAssignmentScreenState
     } catch (e) {
       debugPrint('PosProductPrinterAssignment load: $e');
       if (widget.printers != null && widget.printers!.isNotEmpty) {
-        _printers = widget.printers!
-            .where((p) => p.isActive)
-            .map((p) => _PrinterSummary(
-                  id: p.id,
-                  name: p.name,
-                  productCount: 0,
-                  isDeviceLocal: p.isDeviceLocal,
-                  isLabel: p.isLabelPrinter,
-                  documentTypes: p.documentTypes,
-                ))
-            .toList();
+        _printers = await _scopePrintersToThisDevice(
+          widget.printers!
+              .where((p) => p.isActive)
+              .map((p) => _PrinterSummary(
+                    id: p.id,
+                    name: p.name,
+                    productCount: 0,
+                    isDeviceLocal: p.isDeviceLocal,
+                    ownerDeviceId: p.ownerDeviceId,
+                    isLabel: p.isLabelPrinter,
+                    documentTypes: p.documentTypes,
+                  ))
+              .toList(),
+        );
+        _printers = await _overlayLocalAssignCounts(_printers);
       } else if (mounted) {
         NotificationOverlayManager().showError(
           title: 'Không tải được danh sách',
@@ -511,6 +576,42 @@ class _PosProductPrinterAssignmentScreenState
                   ),
                 ),
                 Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _loading
+                              ? null
+                              : () async {
+                                  final saved =
+                                      await PosKitchenDirectConnect.connectUsb(
+                                          context);
+                                  if (saved != null) _load();
+                                },
+                          icon: const Icon(Icons.usb, size: 18),
+                          label: Text(tr('USB nội bộ')),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _loading
+                              ? null
+                              : () async {
+                                  final saved =
+                                      await PosKitchenDirectConnect.connectLan(
+                                          context);
+                                  if (saved != null) _load();
+                                },
+                          icon: const Icon(Icons.wifi, size: 18),
+                          label: Text(tr('LAN / WiFi')),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
                   child: Wrap(
                     spacing: 8,
@@ -674,9 +775,66 @@ class _PosPrinterManageProductsScreenState
     super.dispose();
   }
 
+  bool _mineLocal = false;
+
+  Future<void> _resolveMineLocal() async {
+    await PosPrintOrchestrator.instance.refreshConfig();
+    final p =
+        PosPrintOrchestrator.instance.printerByIdExact(widget.printerId);
+    if (p != null) {
+      _mineLocal = await PosPrintDeviceScope.isOwnedDeviceLocal(p);
+      return;
+    }
+    _mineLocal = (await PosLocalPrintersStore.instance
+            .byStorePrinterId(widget.printerId)) !=
+        null;
+  }
+
+  Future<void> _loadAssignedLocal() async {
+    final ids = await PosDeviceProductPrinters.instance.productIdsForPrinter(
+      widget.printerId,
+      label: widget.isLabel,
+    );
+    final want = ids.map((e) => e.trim().toLowerCase()).toSet();
+    if (want.isEmpty) {
+      _assigned = [];
+      _total = 0;
+      _inactiveAssigned = 0;
+      return;
+    }
+    final res = await _api.getPosProductPrinterProducts(
+      search: _searchCtrl.text,
+      page: 1,
+      pageSize: 200,
+      forLabel: widget.isLabel,
+      ownerDeviceId: await PosPrintDeviceScope.myDeviceId(),
+      deviceLocalOnly: true,
+    );
+    var items = <_ProductItem>[];
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      final data = Map<String, dynamic>.from(res['data'] as Map);
+      final raw = data['items'] ?? data['Items'];
+      if (raw is List) {
+        items = raw
+            .whereType<Map>()
+            .map((e) => _ProductItem.fromJson(Map<String, dynamic>.from(e)))
+            .where((p) => want.contains(p.id.trim().toLowerCase()))
+            .toList();
+      }
+    }
+    _assigned = items;
+    _total = items.length;
+    _inactiveAssigned = 0;
+  }
+
   Future<void> _loadAssigned() async {
     setState(() => _loading = true);
     try {
+      await _resolveMineLocal();
+      if (_mineLocal) {
+        await _loadAssignedLocal();
+        return;
+      }
       final res = await _api.getPosPrinterProducts(
         widget.printerId,
         assignedOnly: true,
@@ -740,7 +898,7 @@ class _PosPrinterManageProductsScreenState
       if (mounted) {
         NotificationOverlayManager().showSuccess(
           title: 'Đã gỡ món ngừng bán',
-          message: '$n món',
+          message: tr('$n món'),
         );
       }
       await _loadAssigned();
@@ -798,6 +956,19 @@ class _PosPrinterManageProductsScreenState
 
     setState(() => _busy = true);
     try {
+      if (_mineLocal) {
+        await PosDeviceProductPrinters.instance.unassignProducts(
+          productIds: [p.id],
+          label: widget.isLabel,
+        );
+        await PosProductPrinterService.instance.invalidate();
+        NotificationOverlayManager().showSuccess(
+          title: 'Đã bỏ gán',
+          message: tr(p.name),
+        );
+        await _loadAssigned();
+        return;
+      }
       final res = await _api.unassignProductsFromPosPrinter(
         widget.printerId,
         productIds: [p.id],
@@ -1094,6 +1265,9 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
   _ConflictPrompt? _conflictPrompt;
   String? _actionBanner;
   bool _actionBannerError = false;
+  bool _mineLocal = false;
+  final _deviceLane = <String, String>{};
+  final _devicePrinterNames = <String, String>{};
 
   @override
   void initState() {
@@ -1107,12 +1281,28 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
     super.dispose();
   }
 
-  String _lanePrinterId(_ProductItem p) =>
-      (widget.isLabel ? p.labelPrinterId : p.defaultPrinterId)?.trim() ?? '';
+  String _lanePrinterId(_ProductItem p) {
+    if (_mineLocal) {
+      // Chỉ map máy này — không lấy DefaultPrinterId cửa hàng (máy POS khác).
+      return _deviceLane[p.id]?.trim() ?? '';
+    }
+    return (widget.isLabel ? p.labelPrinterId : p.defaultPrinterId)?.trim() ??
+        '';
+  }
 
-  String _lanePrinterName(_ProductItem p) =>
-      (widget.isLabel ? p.labelPrinterName : p.defaultPrinterName)?.trim() ??
-      (widget.isLabel ? 'máy tem khác' : 'máy khác');
+  String _lanePrinterName(_ProductItem p) {
+    if (_mineLocal) {
+      final id = _deviceLane[p.id]?.trim() ?? '';
+      if (id.isEmpty) return '';
+      if (id.toLowerCase() == widget.printerId.toLowerCase()) {
+        return widget.printerName;
+      }
+      return _devicePrinterNames[id.toLowerCase()] ?? 'máy nội bộ này';
+    }
+    return (widget.isLabel ? p.labelPrinterName : p.defaultPrinterName)
+            ?.trim() ??
+        (widget.isLabel ? 'máy tem khác' : 'máy khác');
+  }
 
   bool _isOnThis(_ProductItem p) {
     final id = _lanePrinterId(p);
@@ -1121,6 +1311,8 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
   }
 
   bool _isOther(_ProductItem p) {
+    // Máy nội bộ: không hiện gán máy LAN/Agent/máy POS khác.
+    if (_mineLocal) return false;
     final id = _lanePrinterId(p);
     return id.isNotEmpty &&
         id.toLowerCase() != widget.printerId.toLowerCase();
@@ -1178,6 +1370,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
     setState(() => _loading = true);
     String? err;
     try {
+      await _refreshMineLocal();
       final catRes = await _api.getPosProductPrinterCategories();
       if (catRes['isSuccess'] == true && catRes['data'] is List) {
         _categories = (catRes['data'] as List)
@@ -1215,6 +1408,9 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
       page: _page,
       pageSize: _pageSize,
       forLabel: widget.isLabel,
+      ownerDeviceId:
+          _mineLocal ? await PosPrintDeviceScope.myDeviceId() : null,
+      deviceLocalOnly: _mineLocal,
     );
     if (res['isSuccess'] == true && res['data'] is Map) {
       final data = Map<String, dynamic>.from(res['data'] as Map);
@@ -1235,6 +1431,38 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
       _productTotal = 0;
       _lastProductsError =
           res['message']?.toString() ?? 'Không tải được danh sách sản phẩm';
+    }
+    if (_mineLocal) {
+      final mine = await PosDeviceProductPrinters.instance.productIdsForPrinter(
+        widget.printerId,
+        label: widget.isLabel,
+      );
+      _deviceLane
+        ..clear()
+        ..addEntries(mine.map((id) => MapEntry(id, widget.printerId)));
+    }
+  }
+
+  Future<void> _refreshMineLocal() async {
+    await PosPrintOrchestrator.instance.refreshConfig();
+    final p =
+        PosPrintOrchestrator.instance.printerByIdExact(widget.printerId);
+    if (p != null) {
+      _mineLocal = await PosPrintDeviceScope.isOwnedDeviceLocal(p);
+    } else {
+      final local = await PosLocalPrintersStore.instance
+          .byStorePrinterId(widget.printerId);
+      _mineLocal = local != null;
+    }
+    if (_mineLocal) {
+      final locals = await PosLocalPrintersStore.instance.loadAll();
+      _devicePrinterNames
+        ..clear()
+        ..addEntries([
+          for (final x in locals)
+            if ((x.storePrinterId ?? '').trim().isNotEmpty)
+              MapEntry(x.storePrinterId!.trim().toLowerCase(), x.name),
+        ]);
     }
   }
 
@@ -1331,6 +1559,34 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
         'AssignProducts: printer=${widget.printerId} force=$forceReassign '
         'all=$_selectAll cats=${_selectedCategoryIds.length} ids=${ids.length}',
       );
+      if (_mineLocal) {
+        final localIds = [...ids];
+        if (localIds.isEmpty &&
+            !_selectAll &&
+            _selectedCategoryIds.isEmpty) {
+          _snack('Chọn sản phẩm rồi bấm Gán', error: true);
+          return;
+        }
+        if (_selectAll || _selectedCategoryIds.isNotEmpty) {
+          _snack(
+            'Máy nội bộ máy này: gán từng món (không gán Tất cả/nhóm lên server — tránh đè Agent).',
+            error: true,
+          );
+          return;
+        }
+        await PosDeviceProductPrinters.instance.assignProducts(
+          printerId: widget.printerId,
+          productIds: localIds,
+          label: widget.isLabel,
+        );
+        await PosProductPrinterService.instance.invalidate();
+        _snack(
+          'Đã gán ${localIds.length} món trên máy này. '
+          'In qua Agent vẫn theo gán máy Agent.',
+        );
+        if (mounted) Navigator.pop(context, true);
+        return;
+      }
       final res = await _api.assignProductsToPosPrinter(
         widget.printerId,
         allProducts: _selectAll,
@@ -1531,7 +1787,8 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                     child: Text(
                       tr(
                         '${purpose.titleVi}: chọn nhanh (hết trang / cả nhóm) rồi bấm Gán hoặc Chuyển. '
-                        '${purpose.bannerVi}',
+                        '${purpose.bannerVi}'
+                        '${_mineLocal ? ' Gán trên máy này chỉ khi in local. Qua Agent dùng gán máy Agent.' : ''}',
                       ),
                       style: TextStyle(
                         fontSize: 12,
@@ -1627,14 +1884,15 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                         onSelected: (_) => setState(
                             () => _filter = _ProductAssignFilter.unassigned),
                       ),
-                      ChoiceChip(
-                        label: Text(tr(widget.isLabel
-                            ? 'Tem máy khác ($otherOnPage)'
-                            : 'Bếp máy khác ($otherOnPage)')),
-                        selected: _filter == _ProductAssignFilter.other,
-                        onSelected: (_) => setState(
-                            () => _filter = _ProductAssignFilter.other),
-                      ),
+                      if (!_mineLocal)
+                        ChoiceChip(
+                          label: Text(tr(widget.isLabel
+                              ? 'Tem máy khác ($otherOnPage)'
+                              : 'Bếp máy khác ($otherOnPage)')),
+                          selected: _filter == _ProductAssignFilter.other,
+                          onSelected: (_) => setState(
+                              () => _filter = _ProductAssignFilter.other),
+                        ),
                       ChoiceChip(
                         label: Text(tr('Máy này')),
                         selected: _filter == _ProductAssignFilter.onThis,
@@ -2028,6 +2286,7 @@ class _PrinterSummary {
     required this.name,
     this.productCount = 0,
     this.isDeviceLocal = false,
+    this.ownerDeviceId,
     bool isLabel = false,
     this.documentTypes = const [],
     this.hasOnlineAgent = true,
@@ -2038,6 +2297,19 @@ class _PrinterSummary {
   final String name;
   final int productCount;
   final bool isDeviceLocal;
+  final String? ownerDeviceId;
+
+  _PrinterSummary copyWith({int? productCount}) => _PrinterSummary(
+        id: id,
+        name: name,
+        productCount: productCount ?? this.productCount,
+        isDeviceLocal: isDeviceLocal,
+        ownerDeviceId: ownerDeviceId,
+        isLabel: isLabelFlag,
+        documentTypes: documentTypes,
+        hasOnlineAgent: hasOnlineAgent,
+        listedByAgent: listedByAgent,
+      );
 
   /// Máy in trùng tên (cắm lại USB sinh bản ghi mới) khiến món gán vào máy
   /// không Agent nào nhận lệnh: phiếu nằm hàng đợi rồi hết hạn, không ra giấy.
@@ -2075,6 +2347,8 @@ class _PrinterSummary {
             0,
         isDeviceLocal:
             j['isDeviceLocal'] == true || j['IsDeviceLocal'] == true,
+        ownerDeviceId:
+            (j['ownerDeviceId'] ?? j['OwnerDeviceId'])?.toString(),
         isLabel: j['isLabel'] == true ||
             j['IsLabel'] == true ||
             (j['printerBrand'] ?? j['PrinterBrand'])
@@ -2091,7 +2365,7 @@ class _PrinterSummary {
             ? true
             : (j['hasOnlineAgent'] == true || j['HasOnlineAgent'] == true),
         listedByAgent: (j['listedByAgent'] ?? j['ListedByAgent']) == null
-            ? true
+            ? false
             : (j['listedByAgent'] == true || j['ListedByAgent'] == true),
       );
 }

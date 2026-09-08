@@ -52,7 +52,8 @@ public sealed class TingeePaymentWebhookProvider : IPaymentWebhookProvider
                         ?? GetString(root, "requestId", "RequestId"),
                     ExternalOrderId: orderIdEl.GetString(),
                     ClientId: GetString(root, "clientId", "ClientId"),
-                    VaAccountNumber: GetString(root, "vaAccountNumber", "VaAccountNumber"),
+                    VaAccountNumber: GetString(root, "vaAccountNumber", "VaAccountNumber")
+                        ?? GetString(root, "accountNumber", "AccountNumber"),
                     TransferContent: GetString(root, "description", "Description"),
                     Amount: GetDecimal(root, "paidAmount", "PaidAmount")
                         ?? GetDecimal(root, "amount", "Amount"),
@@ -75,7 +76,8 @@ public sealed class TingeePaymentWebhookProvider : IPaymentWebhookProvider
                 TransactionCode: txnCode,
                 ExternalOrderId: externalOrderId,
                 ClientId: GetString(root, "clientId", "ClientId"),
-                VaAccountNumber: GetString(root, "vaAccountNumber", "VaAccountNumber"),
+                VaAccountNumber: GetString(root, "vaAccountNumber", "VaAccountNumber")
+                    ?? GetString(root, "accountNumber", "AccountNumber"),
                 TransferContent: content,
                 Amount: amount,
                 TransactionAt: ParseTxnDate(GetString(root, "transactionDate", "TransactionDate")),

@@ -2,6 +2,7 @@ using Mapster;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Commands.Accounts.UpdateEmployeeAccount;
 using ZKTecoADMS.Application.Commands.Accounts.UpdateUserProfile;
@@ -16,9 +17,11 @@ using ZKTecoADMS.Application.Commands.Accounts;
 using ZKTecoADMS.Application.Commands.Accounts.BulkCreateEmployeeAccounts;
 using ZKTecoADMS.Application.DTOs.Employees;
 using ZKTecoADMS.Application.DTOs.Accounts;
+using ZKTecoADMS.Application.DTOs.Permissions;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
 using ZKTecoADMS.Infrastructure.Helpers;
 
@@ -314,6 +317,226 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
 
         return Ok(AppResponse<bool>.Success(true));
     }
+
+    private const string DataScopeModule = "DataScope";
+    private static readonly Guid DataScopePermissionId =
+        Guid.Parse("11111111-1111-1111-1111-111111111130");
+
+    /// <summary>
+    /// Phạm vi chi nhánh / phòng ban tài khoản được xem dữ liệu.
+    /// </summary>
+    [HttpGet("{userId}/data-scope")]
+    [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("Role", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<UserDataScopeDto>>> GetUserDataScope(Guid userId)
+    {
+        var storeId = RequiredStoreId;
+        var user = await dbContext.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.StoreId == storeId);
+        if (user == null)
+            return NotFound(AppResponse<UserDataScopeDto>.Error("Không tìm thấy tài khoản"));
+
+        var role = user.Role ?? "";
+        var isAdmin = role.Equals(nameof(Roles.Admin), StringComparison.OrdinalIgnoreCase)
+                      || role.Equals(nameof(Roles.Director), StringComparison.OrdinalIgnoreCase)
+                      || role.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+
+        var employeeId = await dbContext.Employees.AsNoTracking()
+            .Where(e => e.ApplicationUserId == userId && e.StoreId == storeId)
+            .Select(e => e.Id)
+            .FirstOrDefaultAsync();
+
+        var inheritedBranches = employeeId == Guid.Empty
+            ? new List<Guid>()
+            : await dbContext.Branches.AsNoTracking()
+                .Where(b => b.ManagerId == employeeId && b.StoreId == storeId && b.Deleted == null)
+                .Select(b => b.Id)
+                .ToListAsync();
+
+        var inheritedDepts = employeeId == Guid.Empty
+            ? new List<Guid>()
+            : await dbContext.Departments.AsNoTracking()
+                .Where(d => d.ManagerId == employeeId && d.StoreId == storeId && d.Deleted == null)
+                .Select(d => d.Id)
+                .ToListAsync();
+
+        var branchPerms = await dbContext.BranchPermissions.AsNoTracking()
+            .Where(bp => bp.UserId == userId &&
+                         (bp.StoreId == storeId || bp.StoreId == null) &&
+                         bp.IsActive && bp.CanView)
+            .Select(bp => new { bp.BranchId, bp.IncludeChildren })
+            .ToListAsync();
+
+        var dataScopePermId = await dbContext.Permissions.AsNoTracking()
+            .Where(p => p.Module == DataScopeModule)
+            .Select(p => (Guid?)p.Id)
+            .FirstOrDefaultAsync();
+
+        var allDepartments = false;
+        var includeChildDepartments = true;
+        var departmentIds = new List<Guid>();
+        if (dataScopePermId != null)
+        {
+            var deptPerms = await dbContext.DepartmentPermissions.AsNoTracking()
+                .Where(dp => dp.UserId == userId &&
+                             dp.PermissionId == dataScopePermId &&
+                             (dp.StoreId == storeId || dp.StoreId == null) &&
+                             dp.IsActive && dp.CanView)
+                .Select(dp => new { dp.DepartmentId, dp.IncludeChildren })
+                .ToListAsync();
+            allDepartments = deptPerms.Any(p => p.DepartmentId == null);
+            includeChildDepartments = deptPerms.Count == 0 || deptPerms.Any(p => p.IncludeChildren);
+            departmentIds = deptPerms.Where(p => p.DepartmentId.HasValue)
+                .Select(p => p.DepartmentId!.Value).Distinct().ToList();
+        }
+
+        var dto = new UserDataScopeDto
+        {
+            UserId = user.Id,
+            UserName = user.UserName,
+            FullName = user.FullName,
+            Role = role,
+            IsAdmin = isAdmin,
+            AllBranches = branchPerms.Any(p => p.BranchId == null),
+            IncludeChildBranches = !branchPerms.Any() || branchPerms.Any(p => p.IncludeChildren),
+            BranchIds = branchPerms.Where(p => p.BranchId.HasValue).Select(p => p.BranchId!.Value).Distinct().ToList(),
+            InheritedBranchIds = inheritedBranches,
+            AllDepartments = allDepartments,
+            IncludeChildDepartments = includeChildDepartments,
+            DepartmentIds = departmentIds,
+            InheritedDepartmentIds = inheritedDepts,
+        };
+
+        return Ok(AppResponse<UserDataScopeDto>.Success(dto));
+    }
+
+    /// <summary>
+    /// Gán chi nhánh / phòng ban tài khoản được xem dữ liệu (cộng với quyền trưởng CN/PB).
+    /// </summary>
+    [HttpPut("{userId}/data-scope")]
+    [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("Role", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<bool>>> UpdateUserDataScope(
+        Guid userId, [FromBody] UpdateUserDataScopeRequest request)
+    {
+        var storeId = RequiredStoreId;
+        var user = await dbContext.Users.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId && u.StoreId == storeId);
+        if (user == null)
+            return NotFound(AppResponse<bool>.Error("Không tìm thấy tài khoản"));
+
+        var granter = CurrentUserId.ToString();
+        var dataScopePermId = await EnsureDataScopePermissionIdAsync();
+
+        var oldBranches = await dbContext.BranchPermissions
+            .Where(bp => bp.UserId == userId && (bp.StoreId == storeId || bp.StoreId == null))
+            .ToListAsync();
+        dbContext.BranchPermissions.RemoveRange(oldBranches);
+
+        var oldDepts = await dbContext.DepartmentPermissions
+            .Where(dp => dp.UserId == userId &&
+                         dp.PermissionId == dataScopePermId &&
+                         (dp.StoreId == storeId || dp.StoreId == null))
+            .ToListAsync();
+        dbContext.DepartmentPermissions.RemoveRange(oldDepts);
+
+        if (request.AllBranches)
+        {
+            dbContext.BranchPermissions.Add(NewBranchPermission(
+                userId, null, storeId, request.IncludeChildBranches, granter));
+        }
+        else
+        {
+            var branchIds = request.BranchIds.Distinct().ToList();
+            var validBranchIds = await dbContext.Branches.AsNoTracking()
+                .Where(b => b.StoreId == storeId && b.Deleted == null && branchIds.Contains(b.Id))
+                .Select(b => b.Id)
+                .ToListAsync();
+            foreach (var id in validBranchIds)
+            {
+                dbContext.BranchPermissions.Add(NewBranchPermission(
+                    userId, id, storeId, request.IncludeChildBranches, granter));
+            }
+        }
+
+        if (request.AllDepartments)
+        {
+            dbContext.DepartmentPermissions.Add(NewDeptDataScope(
+                userId, null, dataScopePermId, storeId, request.IncludeChildDepartments, granter));
+        }
+        else
+        {
+            var deptIds = request.DepartmentIds.Distinct().ToList();
+            var validDeptIds = await dbContext.Departments.AsNoTracking()
+                .Where(d => d.StoreId == storeId && d.Deleted == null && deptIds.Contains(d.Id))
+                .Select(d => d.Id)
+                .ToListAsync();
+            foreach (var id in validDeptIds)
+            {
+                dbContext.DepartmentPermissions.Add(NewDeptDataScope(
+                    userId, id, dataScopePermId, storeId, request.IncludeChildDepartments, granter));
+            }
+        }
+
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    private async Task<Guid> EnsureDataScopePermissionIdAsync()
+    {
+        var existing = await dbContext.Permissions.AsNoTracking()
+            .Where(p => p.Module == DataScopeModule)
+            .Select(p => p.Id)
+            .FirstOrDefaultAsync();
+        if (existing != Guid.Empty) return existing;
+
+        dbContext.Permissions.Add(new Permission
+        {
+            Id = DataScopePermissionId,
+            Module = DataScopeModule,
+            ModuleDisplayName = "Phạm vi dữ liệu",
+            Description = "Chi nhánh / phòng ban tài khoản được xem dữ liệu",
+            DisplayOrder = 999,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "system",
+        });
+        await dbContext.SaveChangesAsync();
+        return DataScopePermissionId;
+    }
+
+    private static BranchPermission NewBranchPermission(
+        Guid userId, Guid? branchId, Guid storeId, bool includeChildren, string granter) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            BranchId = branchId,
+            StoreId = storeId,
+            IncludeChildren = includeChildren,
+            CanView = true,
+            IsActive = true,
+            GrantedBy = granter,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = granter,
+        };
+
+    private static DepartmentPermission NewDeptDataScope(
+        Guid userId, Guid? departmentId, Guid permissionId, Guid storeId,
+        bool includeChildren, string granter) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            DepartmentId = departmentId,
+            PermissionId = permissionId,
+            StoreId = storeId,
+            IncludeChildren = includeChildren,
+            CanView = true,
+            IsActive = true,
+            GrantedBy = granter,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = granter,
+        };
 }
 
 public class SetAccountStatusRequest

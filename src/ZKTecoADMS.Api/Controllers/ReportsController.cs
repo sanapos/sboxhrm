@@ -86,19 +86,10 @@ public class ReportsController(
                 resolvedDeptName = department;
         }
 
-        if (resolvedDeptId.HasValue)
+        if (resolvedDeptId.HasValue || !string.IsNullOrWhiteSpace(resolvedDeptName))
         {
-            var deptEntity = await dbContext.Set<Department>()
-                .AsNoTracking()
-                .FirstOrDefaultAsync(d => d.Id == resolvedDeptId.Value && d.StoreId == storeId);
-            var deptName = deptEntity?.Name;
-            query = query.Where(e =>
-                e.DepartmentId == resolvedDeptId.Value
-                || (deptName != null && e.Department == deptName));
-        }
-        else if (!string.IsNullOrWhiteSpace(resolvedDeptName))
-        {
-            query = query.Where(e => e.Department == resolvedDeptName);
+            query = await DepartmentQueryHelper.ApplyDepartmentFilterAsync(
+                query, dbContext, storeId, resolvedDeptId, resolvedDeptName);
         }
 
         if (!string.IsNullOrEmpty(employeeCode))

@@ -1352,8 +1352,6 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     return HrmResponsiveListLayout(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
       headerSections: [
-        _buildStatusTabs(),
-        const SizedBox(height: 6),
         _buildOverviewSection(),
         const SizedBox(height: 6),
       ],
@@ -1463,10 +1461,23 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
   }
 
   Widget _buildOverviewSection() {
+    String statusLabel = 'Tất cả';
+    switch (_statusFilter) {
+      case 0:
+        statusLabel = 'Chờ duyệt';
+        break;
+      case 1:
+        statusLabel = 'Đã duyệt';
+        break;
+      case 2:
+        statusLabel = 'Từ chối';
+        break;
+    }
     return HrmCollapsibleOverview(
       expanded: _showOverviewPanel,
       onToggle: () =>
           setState(() => _showOverviewPanel = !_showOverviewPanel),
+      subtitle: statusLabel,
       child: _buildFilters(),
     );
   }
@@ -1486,11 +1497,16 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           ),
         ],
       ),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _buildStatusTabs(),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
           if (BranchFilterHelper.showBranchFilter(_branches)) _buildBranchChip(),
           _buildDropdown<String>(
             value: _selectedDatePreset,
@@ -1552,6 +1568,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             style: vietnameseTextStyle(
               TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
+          ),
+            ],
           ),
         ],
       ),

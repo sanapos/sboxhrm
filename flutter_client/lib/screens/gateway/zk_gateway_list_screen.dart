@@ -175,6 +175,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(
+        context: context,
         title: tr('Gateway WiFi'),
         actions: [
           IconButton(

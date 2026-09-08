@@ -4,7 +4,8 @@ import '../utils/mobile_device_id.dart';
 import '../utils/platform_geolocation.dart';
 import 'api_service.dart';
 
-/// GPS định kỳ khi NV được bật chấm ngoài CT — quản lý thấy vị trí realtime trên bản đồ.
+/// GPS định kỳ cho cửa hàng có chức năng "Bản đồ nhân sự" — quản lý thấy vị trí
+/// realtime trên bản đồ. Server chỉ lưu trong thời gian ca làm việc đã duyệt.
 class GlobalLocationReporter {
   GlobalLocationReporter._();
   static final GlobalLocationReporter instance = GlobalLocationReporter._();
@@ -22,12 +23,13 @@ class GlobalLocationReporter {
     return s == 'true' || s == '1';
   }
 
-  /// Chỉ chạy khi thiết bị đã duyệt và được bật chấm ngoài CT.
+  /// Chạy khi cửa hàng bật chức năng "Bản đồ nhân sự" (trackLocation).
+  /// Server chỉ lưu vị trí trong thời gian ca làm việc đã duyệt — NV chưa cài ca
+  /// thì server tự bỏ qua, nên client có thể báo định kỳ an toàn.
   Future<void> startIfEligible({String? employeeId}) async {
-    if (kIsWeb) return;
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
-        final deviceId = await MobileDeviceId.resolve();
+        final deviceId = kIsWeb ? null : await MobileDeviceId.resolve();
         final resp = await _api.getMyDeviceStatus(
           employeeId: employeeId,
           currentDeviceId: deviceId,
@@ -40,11 +42,10 @@ class GlobalLocationReporter {
           return;
         }
         final data = resp['data'] as Map;
-        final approved = _parseBool(data['approved']);
-        final allowOutside = _parseBool(data['allowOutsideCheckIn']);
-        if (!approved || !allowOutside) {
+        final track = _parseBool(data['trackLocation']);
+        if (!track) {
           debugPrint(
-              '📍 GlobalLocationReporter: skip (chưa bật chấm ngoài CT hoặc chưa duyệt thiết bị)');
+              '📍 GlobalLocationReporter: skip (cửa hàng không bật Bản đồ nhân sự)');
           stop();
           return;
         }

@@ -27,6 +27,17 @@ class PermissionUiGroup {
 class PermissionRoleCatalog {
   PermissionRoleCatalog._();
 
+  /// Chức năng thiết lập POS — hiện đủ trên ma trận (Thu ngân, Thu chi…).
+  static const List<String> posSettingsModuleCodes = [
+    'SettingsHub',
+    'PosPrinters',
+    'PosStorePrinters',
+    'PosPrintTemplates',
+    'PosEInvoice',
+    'PosShipping',
+    'PosCustomerDisplay',
+  ];
+
   /// Module legacy / alias API — ẩn khỏi UI phân quyền.
   static const Set<String> legacyHiddenModules = {
     'Dashboard',
@@ -133,27 +144,20 @@ class PermissionRoleCatalog {
     PermissionUiGroup(
       id: 'pos',
       title: 'POS / Bán hàng',
-      description: 'Order, thu ngân, hàng hóa, kho, trả hàng, báo cáo',
+      description: 'Order, thu ngân, hàng hóa, kho, trả hàng',
       icon: Icons.point_of_sale_outlined,
       color: HrmPageChrome.chipMid,
       moduleCodes: [
         'PosSell',
         'PosProducts',
-        'PosPrintTemplates',
         'PosSaleOrders',
         'PosSaleReturns',
         'PosBooking',
         'PosCustomers',
         'PosWarranty',
-        'PosCustomerDisplay',
-        'PosEInvoice',
         'PosKds',
         'PosQrOrder',
         'PosCashierShift',
-        'PosPrinters',
-        'PosStorePrinters',
-        'PosShipping',
-        'SettingsHub',
         'PosPurchaseReceipts',
         'PosPurchaseReturns',
         'PosStockCounts',
@@ -162,6 +166,15 @@ class PermissionRoleCatalog {
         'PosSalesReport',
         'HkdBooks',
       ],
+    ),
+    PermissionUiGroup(
+      id: 'pos_settings',
+      title: 'Thiết lập POS',
+      description:
+          'Tick từng phần cho Thu ngân / Thu chi: máy in, mẫu in, cửa hàng, HĐĐT…',
+      icon: Icons.print_outlined,
+      color: Color(0xFF0F766E),
+      moduleCodes: posSettingsModuleCodes,
     ),
     PermissionUiGroup(
       id: 'pos_reports',
@@ -210,7 +223,6 @@ class PermissionRoleCatalog {
       icon: Icons.tune,
       color: Color(0xFF64748B),
       moduleCodes: [
-        'SettingsHub',
         'ShiftSetup',
         'Holiday',
         'Device',

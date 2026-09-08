@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -16,9 +17,11 @@ public partial class PosProductsController
 
     public record SellingStatusDto(bool IsDirectSale, bool? IsActive);
 
-    public record AppendSaleQuickNoteDto(string? Note);
+    public record DailySoldOutDto(bool SoldOut);
 
-    /// Thu ngân thêm ghi chú nhanh ngay trên màn bán — lưu vào món để lần sau gợi ý.
+    public record AppendSaleQuickNoteDto(string? Note, bool Remove = false);
+
+    /// Thu ngân thêm / xóa ghi chú nhanh ngay trên màn bán — lưu vào món để lần sau gợi ý.
     [HttpPatch("{id:guid}/sale-quick-notes")]
     [RequireAnyActionOnModule("PosSell", ModulePermissionAction.Create, ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> AppendSaleQuickNote(
@@ -37,7 +40,9 @@ public partial class PosProductsController
             return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa"));
 
         var list = PosSaleQuickNotesHelper.Parse(entity.SaleQuickNotesJson);
-        if (!list.Any(x => x.Equals(note, StringComparison.OrdinalIgnoreCase)))
+        if (dto.Remove)
+            list.RemoveAll(x => x.Equals(note, StringComparison.OrdinalIgnoreCase));
+        else if (!list.Any(x => x.Equals(note, StringComparison.OrdinalIgnoreCase)))
             list.Add(note);
         entity.SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(list);
         entity.UpdatedAt = DateTime.UtcNow;
@@ -124,5 +129,28 @@ public partial class PosProductsController
 
         var result = await MapProductAsync(entity.Id, storeId);
         return Ok(AppResponse<PosProductDto>.Success(result!));
+    }
+
+    /// <summary>Thu ngân báo hết / tạm khóa món trong ngày KD — qua ngày tự mở bán lại.</summary>
+    [HttpPatch("{id:guid}/daily-sold-out")]
+    [RequireAnyActionOnModule("PosSell", ModulePermissionAction.Create, ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> PatchDailySoldOut(
+        Guid id, [FromBody] DailySoldOutDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var entity = await dbContext.PosProducts
+            .AsTracking()
+            .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
+        if (entity == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa"));
+
+        var bizDate = await ResolveStoreBusinessDateAsync(storeId);
+        entity.DailySoldOutOn = dto.SoldOut ? bizDate.Date : null;
+        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedBy = CurrentUserEmail;
+        await dbContext.SaveChangesAsync();
+
+        var locked = PosDailySoldOutHelper.IsLockedToday(entity.DailySoldOutOn, bizDate);
+        return Ok(AppResponse<object>.Success(new { isDailySoldOut = locked }));
     }
 }

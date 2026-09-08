@@ -190,22 +190,22 @@ public static class PosPrintTemplateDefaults
         var k58 = size == PosPrintPaperSize.K58;
         var paper = k58 ? "K58" : "K80";
         var profile = k58 ? "sunmi_k58" : "sunmi_k80";
-        var title = k58 ? 32 : 40;
-        var addr = k58 ? 20 : 24;
-        var heading = k58 ? 26 : 32;
-        var orderNo = k58 ? 24 : 28;
-        var body = k58 ? 20 : 24;
-        var totL = k58 ? 22 : 26;
-        var totR = k58 ? 26 : 32;
-        var thanks = k58 ? 24 : 30;
+        var title = k58 ? 28 : 40;
+        var addr = k58 ? 18 : 24;
+        var heading = k58 ? 24 : 32;
+        var orderNo = k58 ? 22 : 28;
+        var body = k58 ? 18 : 24;
+        var totL = k58 ? 20 : 26;
+        var totR = k58 ? 24 : 32;
+        var thanks = k58 ? 20 : 30;
         var isReturn = docType == PosPrintDocumentType.SaleReturn;
         var name = isReturn
             ? (k58 ? "Trả K58" : "Trả K80")
             : (k58 ? "HĐ K58" : "HĐ K80");
         var totals = isReturn
             ? "{\"type\":\"totals\",\"fields\":[\"Tong_Cong\"],\"fieldLabels\":{\"Tong_Cong\":\"HOÀN TIỀN\"},\"style\":{\"fontSize\":" + totL + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + totR + ",\"bold\":true,\"align\":\"right\"}}"
-            : "{\"type\":\"totals\",\"fields\":[\"Tong_Tien_Hang\",\"Chiet_Khau_Hoa_Don\",\"Tien_Thue\",\"Phu_Thu\",\"Phi_Giao_Hang\",\"Tong_Cong\"],\"fieldLabels\":{\"Tong_Tien_Hang\":\"Tiền hàng\",\"Chiet_Khau_Hoa_Don\":\"Chiết khấu\",\"Tien_Thue\":\"Thuế\",\"Phu_Thu\":\"Phụ thu\",\"Phi_Giao_Hang\":\"Phí GH\",\"Tong_Cong\":\"TỔNG\"},\"style\":{\"fontSize\":" + totL + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + totR + ",\"bold\":true,\"align\":\"right\"}}";
-        var footer = isReturn ? "Phiếu trả hàng" : "Cảm ơn quý khách";
+            : "{\"type\":\"totals\",\"fields\":[\"Tong_Tien_Hang\",\"Chiet_Khau_Hoa_Don\",\"Tien_Thue\",\"Phu_Thu\",\"Phi_Giao_Hang\",\"Tong_Cong\"],\"fieldLabels\":{\"Tong_Tien_Hang\":\"Tổng tiền hàng\",\"Chiet_Khau_Hoa_Don\":\"Chiết khấu\",\"Tien_Thue\":\"Thuế\",\"Phu_Thu\":\"Phụ thu\",\"Phi_Giao_Hang\":\"Phí GH\",\"Tong_Cong\":\"TỔNG CỘNG\"},\"style\":{\"fontSize\":" + totL + ",\"bold\":true,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + totR + ",\"bold\":true,\"align\":\"right\"}}";
+        var footer = isReturn ? "Phiếu trả hàng" : "Cảm ơn quý khách!";
         return
             "<!--POS_TEMPLATE_V2-->\n" +
             "{\"version\":1,\"paperSize\":\"" + paper + "\",\"printerProfile\":\"" + profile +
@@ -216,12 +216,12 @@ public static class PosPrintTemplateDefaults
             "{\"type\":\"field\",\"field\":\"Dien_Thoai_Chi_Nhanh\",\"style\":{\"fontSize\":" + addr + ",\"bold\":false,\"align\":\"center\"}}," +
             "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
             "{\"type\":\"field\",\"field\":\"Tieu_De_In\",\"style\":{\"fontSize\":" + heading + ",\"bold\":true,\"align\":\"center\"}}," +
-            "{\"type\":\"field\",\"field\":\"Ma_Don_Hang\",\"style\":{\"fontSize\":" + orderNo + ",\"bold\":true,\"align\":\"center\"}}," +
+            "{\"type\":\"field\",\"field\":\"Ma_Don_Hang\",\"label\":\"Số HĐ\",\"style\":{\"fontSize\":" + orderNo + ",\"bold\":false,\"align\":\"left\"}}," +
             "{\"type\":\"field\",\"field\":\"Ten_Ban\",\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"}}," +
-            "{\"type\":\"pair\",\"leftField\":\"Ngay\",\"rightField\":\"Gio\",\"fieldLabels\":{\"Ngay\":\"Ngày\",\"Gio\":\"Giờ\"},\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"}}," +
+            "{\"type\":\"field\",\"field\":\"Ngay\",\"label\":\"Ngày\",\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"}}," +
             "{\"type\":\"field\",\"field\":\"Khach_Hang\",\"label\":\"Khách hàng\",\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"}}," +
             "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
-            "{\"type\":\"lineItems\",\"fieldLabels\":{\"Don_Gia\":\"Đ.Giá\",\"Thanh_Tien\":\"TT\"},\"showColumnHeader\":true,\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
+            "{\"type\":\"lineItems\",\"fieldLabels\":{\"Ten_Hang_Hoa\":\"Tên hàng\",\"So_Luong\":\"SL\",\"Don_Gia\":\"Đ.giá\",\"Thanh_Tien\":\"T.T\"},\"showColumnHeader\":true,\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"left\"},\"rightStyle\":{\"fontSize\":" + body + ",\"bold\":true,\"align\":\"left\"}}," +
             "{\"type\":\"divider\",\"style\":{\"fontSize\":24,\"bold\":false,\"align\":\"left\"},\"divider\":\"dash\"}," +
             totals + "," +
             "{\"type\":\"field\",\"field\":\"Tong_Cong_Bang_Chu\",\"style\":{\"fontSize\":" + body + ",\"bold\":false,\"align\":\"center\"}}," +
@@ -248,7 +248,8 @@ public static class PosPrintTemplateDefaults
             "</div>" +
             "<div style=\"margin:6px 0;border-top:2px solid #000\"></div>" +
             "<div><b>Bàn:</b> {Ten_Ban}</div>" +
-            "<div style=\"display:flex;justify-content:space-between\"><span><b>Số HĐ:</b> {Ma_Don_Hang}</span><span><b>{Ngay}</b></span></div>" +
+            "<div><b>Số HĐ:</b> {Ma_Don_Hang}</div>" +
+            "<div><b>Ngày:</b> {Ngay}</div>" +
             "<div>KH: {Khach_Hang}</div>" +
             "<div style=\"margin:6px 0;border-top:2px solid #000\"></div>" +
             "<table style=\"width:100%;border-collapse:collapse;font-size:" + fs + "\">" +

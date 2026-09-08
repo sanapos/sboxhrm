@@ -22,6 +22,11 @@ abstract final class MobileQuickActionsCatalog {
       icon: Icons.point_of_sale_outlined,
     ),
     MobileQuickActionDef(
+      moduleCode: 'PosKds',
+      label: 'Màn hình bếp',
+      icon: Icons.kitchen_outlined,
+    ),
+    MobileQuickActionDef(
       moduleCode: 'PosProducts',
       label: 'Hàng hóa',
       icon: Icons.inventory_2_outlined,

@@ -51,7 +51,7 @@ class _PosAppSettingsScreenState extends State<PosAppSettingsScreen> {
           RadioListTile<String>(
             value: 'vi',
             groupValue: theme.locale.languageCode,
-            title: const Text('Tiếng Việt'),
+            title: Text(tr('Tiếng Việt')),
             onChanged: (v) => Navigator.pop(ctx, v),
           ),
           RadioListTile<String>(
@@ -104,6 +104,11 @@ class _PosAppSettingsScreenState extends State<PosAppSettingsScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Cài đặt')),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: tr('Quay lại'),
+          onPressed: () => Navigator.maybePop(context),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),

@@ -72,12 +72,23 @@ class PosPrintConfigSession {
 
   Future<PosPrintTemplate?> kitchenTemplate({
     required bool isCancel,
+    String? paperSize,
     bool force = false,
   }) async {
+    final paper = (paperSize ?? '').trim().toUpperCase();
     if (!force &&
+        paper.isEmpty &&
         _kitchenTemplateAt != null &&
         DateTime.now().difference(_kitchenTemplateAt!) < _templateTtl) {
       return isCancel ? _kitchenVoidTemplate : _kitchenSlipTemplate;
+    }
+    if (paper.isNotEmpty) {
+      return resolvePosPrintTemplate(
+        documentType: isCancel
+            ? PosPrintDocumentTypes.kitchenVoid
+            : PosPrintDocumentTypes.kitchenSlip,
+        paperSize: paper,
+      );
     }
     _kitchenSlipTemplate = await resolvePosPrintTemplate(
       documentType: PosPrintDocumentTypes.kitchenSlip,

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -120,6 +121,8 @@ public partial class PosSellIndustryController
     public async Task<ActionResult<AppResponse<List<ReservationDto>>>> ListReservations(
         [FromQuery] Guid? resourceId = null,
         [FromQuery] DateTime? day = null,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
         [FromQuery] bool includeClosed = false)
     {
         if (!TryGetStoreId(out var storeId))
@@ -138,7 +141,24 @@ public partial class PosSellIndustryController
             q = q.Where(x => x.Deleted == null || x.Status != PosResourceReservationStatus.Booked);
         if (resourceId.HasValue)
             q = q.Where(x => x.ResourceId == resourceId.Value);
-        if (day.HasValue)
+        if (from.HasValue || to.HasValue)
+        {
+            var fromSrc = from ?? to ?? DateTime.UtcNow;
+            var toSrc = to ?? from ?? DateTime.UtcNow;
+            var fromD = VnCalendarDate(fromSrc.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(fromSrc, DateTimeKind.Utc)
+                : fromSrc.ToUniversalTime());
+            var toD = VnCalendarDate(toSrc.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(toSrc, DateTimeKind.Utc)
+                : toSrc.ToUniversalTime());
+            if (toD < fromD) (fromD, toD) = (toD, fromD);
+            if ((toD - fromD).TotalDays > 62) toD = fromD.AddDays(62);
+            var fromUtc = DateTime.SpecifyKind(fromD.AddHours(-7), DateTimeKind.Utc);
+            var toUtc = DateTime.SpecifyKind(toD.AddDays(1).AddHours(-7), DateTimeKind.Utc);
+            q = q.Where(x =>
+                x.ReservedAt < toUtc && (x.ReservedUntil ?? x.ReservedAt) >= fromUtc);
+        }
+        else if (day.HasValue)
         {
             var d = day.Value.Kind == DateTimeKind.Unspecified
                 ? DateTime.SpecifyKind(day.Value.Date, DateTimeKind.Utc)
@@ -550,6 +570,19 @@ public partial class PosSellIndustryController
         await db.SaveChangesAsync();
 
         NotifyFloorChanged(storeId, "reservationCreate", resourceId: resource.Id);
+        await PosNotificationHelper.NotifyReservationCreatedAsync(
+            notifications,
+            db,
+            storeId,
+            entity.Id,
+            resource.Name,
+            entity.CustomerName,
+            entity.Phone,
+            entity.ReservedAt,
+            entity.GuestCount,
+            hasPreOrder: preJson != null,
+            fromUserId: CurrentUserId,
+            HttpContext.RequestAborted);
 
         return Ok(AppResponse<object>.Success(new
         {

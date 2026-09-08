@@ -189,7 +189,7 @@ class SettingsHubCatalog {
       label: 'Mẫu in',
       desc: 'Hóa đơn K58/K80, tem 50×30… — thiết kế mẫu in',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
+      groupTitle: 'Thiết lập POS',
       moduleCode: 'PosPrintTemplates',
     ),
     SettingsHubItemDef(
@@ -198,7 +198,7 @@ class SettingsHubCatalog {
       label: 'Ngành hàng & bán hàng',
       desc: 'Hồ sơ ngành, hủy/trả hàng',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
+      groupTitle: 'Thiết lập POS',
       moduleCode: 'SettingsHub',
     ),
     SettingsHubItemDef(
@@ -207,7 +207,7 @@ class SettingsHubCatalog {
       label: 'Thiết lập cửa hàng',
       desc: 'Tên, địa chỉ, VAT, phụ thu, phí giao hàng',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
+      groupTitle: 'Thiết lập POS',
       moduleCode: 'SettingsHub',
     ),
     SettingsHubItemDef(
@@ -216,8 +216,8 @@ class SettingsHubCatalog {
       label: 'Cổng thanh toán',
       desc: 'Bật/tắt VietQR, Tingee · tài khoản NH · token',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
-      moduleCode: 'PosSell',
+      groupTitle: 'Thiết lập POS',
+      moduleCode: 'SettingsHub',
     ),
     SettingsHubItemDef(
       index: 27,
@@ -225,7 +225,7 @@ class SettingsHubCatalog {
       label: 'Đơn vị giao hàng',
       desc: 'GHN, GHTK, Viettel Post, AhaMove — token, tạo vận đơn',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
+      groupTitle: 'Thiết lập POS',
       moduleCode: 'PosShipping',
     ),
     SettingsHubItemDef(
@@ -234,7 +234,7 @@ class SettingsHubCatalog {
       label: 'Hóa đơn điện tử',
       desc: 'Viettel SInvoice, Easy Invoice',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
+      groupTitle: 'Thiết lập POS',
       moduleCode: 'PosEInvoice',
     ),
     SettingsHubItemDef(
@@ -243,7 +243,7 @@ class SettingsHubCatalog {
       label: 'Máy in (thiết bị)',
       desc: 'In hoá đơn, Bluetooth/LAN/USB, tem ly',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
+      groupTitle: 'Thiết lập POS',
       moduleCode: 'PosPrinters',
     ),
     SettingsHubItemDef(
@@ -252,7 +252,7 @@ class SettingsHubCatalog {
       label: 'Máy in cloud',
       desc: 'Cloud / Print Agent — bật theo gói dịch vụ',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
+      groupTitle: 'Thiết lập POS',
       moduleCode: 'PosStorePrinters',
     ),
     SettingsHubItemDef(
@@ -261,7 +261,7 @@ class SettingsHubCatalog {
       label: 'Quản lý bàn / phòng',
       desc: 'Sơ đồ mặt bằng, tạo/sửa bàn ghế',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
+      groupTitle: 'Thiết lập POS',
       moduleCode: 'SettingsHub',
     ),
     SettingsHubItemDef(
@@ -270,7 +270,7 @@ class SettingsHubCatalog {
       label: 'Màn hình phụ',
       desc: 'Customer display, media khi bán',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
+      groupTitle: 'Thiết lập POS',
       moduleCode: 'PosCustomerDisplay',
     ),
     SettingsHubItemDef(
@@ -279,7 +279,7 @@ class SettingsHubCatalog {
       label: 'Khách hàng POS',
       desc: 'CRM khách, điểm, công nợ',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'POS / Bán hàng',
+      groupTitle: 'Thiết lập POS',
       moduleCode: 'PosCustomers',
     ),
     SettingsHubItemDef(
@@ -310,7 +310,7 @@ class SettingsHubCatalog {
     if (!SboxAppVariant.standalonePos) return allItems;
     return allItems
         .where((i) =>
-            i.groupTitle == 'POS / Bán hàng' ||
+            i.groupTitle == 'Thiết lập POS' ||
             i.groupTitle == 'Quản trị hệ thống' ||
             i.moduleCode == 'AIGemini')
         .toList();

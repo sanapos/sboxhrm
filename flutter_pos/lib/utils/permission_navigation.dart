@@ -25,13 +25,18 @@ class PermissionNavigation {
   };
 
   /// Gói có module A → coi như mở menu B (khớp middleware package).
+  /// PosKds hiện trên hub / menu khi gói có Bán hàng (tick riêng vẫn dùng cho gói KDS-only).
   static const Map<String, List<String>> _packageAliases = {
     'PosSaleReturns': ['PosSell'],
     'PosEInvoice': ['PosSell'],
-    'PosKds': ['PosSell'],
     'PosQrOrder': ['PosSell'],
+    'PosKds': ['PosSell'],
     'PosCashierShift': ['PosSell'],
     'PosShipping': ['PosSell'],
+    'PosPrinters': ['PosSell'],
+    'PosStorePrinters': ['PosSell'],
+    'PosPrintTemplates': ['PosSell'],
+    'SettingsHub': ['PosSell'],
     'HkdBooks': ['PosSalesReport', 'PosSell'],
   };
 
@@ -40,6 +45,7 @@ class PermissionNavigation {
     if (PermissionModules.selfServiceModules.contains(moduleCode)) {
       return true;
     }
+    if (moduleCode == 'SettingsHub' && perm.canViewPosSetup()) return true;
     if (perm.canViewNav(moduleCode)) return true;
     for (final alt in _viewAliases[moduleCode] ?? const []) {
       if (perm.canViewNav(alt)) return true;
@@ -57,6 +63,10 @@ class PermissionNavigation {
     if (bypassPackageFilter) return true;
     if (moduleCode == null || moduleCode.isEmpty) return true;
     if (PermissionModules.selfServiceModules.contains(moduleCode)) {
+      return true;
+    }
+    if (moduleCode == 'PosKds' &&
+        (perm.canViewNav('PosKds') || perm.canViewNav('PosSell'))) {
       return true;
     }
     if (allowedModules == null || allowedModules.isEmpty) {
@@ -219,7 +229,7 @@ class PermissionNavigation {
       case 'Settings':
         return 'Cài đặt';
       case 'SettingsHub':
-        return 'Thiết lập Sbox';
+        return 'Thiết lập POS';
       default:
         return moduleCode;
     }

@@ -132,7 +132,7 @@ class _PosSellIndustrySettingsHubScreenState
                 manageMode: true,
                 sellProfile: _settings?.sellProfile,
                 allowProvisionalBill:
-                    _settings?.allowProvisionalBill != false,
+                    _settings?.allowProvisionalBill == true,
               ),
             ),
           ),
@@ -140,22 +140,26 @@ class _PosSellIndustrySettingsHubScreenState
           context,
           icon: Icons.qr_code_2,
           title: 'QR order tại bàn',
-          subtitle: 'Tắt mặc định · in QR dán bàn, khách gọi món, phiếu in bếp qua Agent',
+          subtitle: _settings?.enableQrTableOrder == true
+              ? 'Đang bật · in QR dán bàn, khách gọi món, phiếu in bếp qua Agent'
+              : 'Đang tắt · bật tại đây rồi in QR dán bàn',
           onTap: () => _open(
             context,
             const PosQrTableOrderScreen(),
           ),
         ),
-        _tile(
-          context,
-          icon: Icons.kitchen_outlined,
-          title: 'Màn hình bếp (KDS)',
-          subtitle: 'Ticket theo bàn · đang làm / sẵn sàng / XONG · lọc trạm in',
-          onTap: () => _open(
+        if (_settings?.sellProfile.usesKitchenNotify == true ||
+            _settings?.enableQrTableOrder == true)
+          _tile(
             context,
-            const PosKdsScreen(),
+            icon: Icons.kitchen_outlined,
+            title: 'Màn hình bếp (KDS)',
+            subtitle: 'Ticket theo bàn · đang làm / sẵn sàng / XONG · lọc trạm in',
+            onTap: () => _open(
+              context,
+              const PosKdsScreen(),
+            ),
           ),
-        ),
         _tile(
           context,
           icon: Icons.stars_outlined,

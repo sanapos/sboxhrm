@@ -14,6 +14,7 @@ import 'l10n/app_tr.dart';
 import 'providers/auth_provider.dart';
 import 'providers/permission_provider.dart';
 import 'screens/login_screen.dart';
+import 'screens/admin_login_screen.dart';
 import 'screens/pos/pos_customer_display_screen.dart';
 import 'screens/pos/pos_mobile_hub_screen.dart';
 import 'models/hrm.dart';
@@ -29,12 +30,15 @@ import 'utils/pos_print_agent_settings.dart';
 import 'utils/pos_print_orchestrator.dart';
 import 'utils/pos_qr_order_voice.dart';
 import 'utils/pos_payment_gateway_listener.dart';
+import 'utils/play_system_ui.dart';
 import 'utils/media_query_safe_padding.dart';
+import 'utils/system_ui_inset_mode.dart';
 import 'utils/low_ram_tuning.dart';
 import 'utils/ssl_trust.dart';
 import 'utils/vietnamese_font.dart';
 import 'widgets/app_boot_screen.dart';
 import 'widgets/notification_overlay.dart';
+import 'widgets/pos/pos_form_keyboard.dart';
 import 'widgets/pos_app_update_dialog.dart';
 import 'widgets/pos/pos_theme.dart';
 
@@ -52,8 +56,7 @@ Future<void> main() async {
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: SingleChildScrollView(
-            child: Text(
-              'Lỗi giao diện:\n${details.exceptionAsString()}',
+            child: Text(tr('Lỗi giao diện:\n${details.exceptionAsString()}'),
               style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13),
             ),
           ),
@@ -127,7 +130,7 @@ class SboxPosApp extends StatelessWidget {
             context.read<PermissionProvider>(),
           );
           return MaterialApp(
-        title: 'SBOX HRM - SBOX POS',
+        title: 'SBOX POS',
         debugShowCheckedModeBanner: false,
         locale: AppLocale.locale,
         supportedLocales: const [
@@ -152,24 +155,56 @@ class SboxPosApp extends StatelessWidget {
           appBarTheme: const AppBarTheme(
             backgroundColor: PosTheme.kiotBlue,
             foregroundColor: Colors.white,
+            systemOverlayStyle: kPlayOverlayOnDarkBg,
           ),
         )),
         routes: {
           '/customer-display': (_) => const PosCustomerDisplayScreen(),
+          '/admin': (_) => const AdminLoginScreen(),
         },
         builder: (context, child) {
-          var mq = mediaQueryWithSystemPadding(MediaQuery.of(context));
-          final maxIme = mq.size.height / 3;
-          Widget body = child ?? const SizedBox.shrink();
-          // A6: IME Sunmi thường >½ màn — clamp inset để UI giữ ~⅔ phía trên.
-          if (mq.viewInsets.bottom > maxIme) {
-            mq = mq.copyWith(
-              viewInsets: mq.viewInsets.copyWith(bottom: maxIme),
-            );
-          }
-          return MediaQuery(
-            data: mq,
-            child: NotificationOverlay(child: body),
+          return ValueListenableBuilder<bool>(
+            valueListenable: SystemUiInsetMode.immersive,
+            builder: (context, immersive, _) {
+              var mq = mediaQueryWithSystemPadding(
+                MediaQuery.of(context),
+                rawView: MediaQueryData.fromView(View.of(context)),
+                immersive: immersive,
+              );
+              final maxIme = mq.size.height / 3;
+              Widget body = child ?? const SizedBox.shrink();
+              // A6: IME Sunmi thường >½ màn — clamp inset để UI giữ ~⅔ phía trên.
+              if (mq.viewInsets.bottom > maxIme) {
+                mq = mq.copyWith(
+                  viewInsets: mq.viewInsets.copyWith(bottom: maxIme),
+                );
+              }
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
+              });
+              SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
+              return AnnotatedRegion<SystemUiOverlayStyle>(
+                value: kPlayOverlayOnDarkBg,
+                child: ColoredBox(
+                  color: const Color(0xFF000000),
+                  child: MediaQuery(
+                    data: mq,
+                    child: Builder(
+                      builder: (ctx) => padAwaySystemBars(
+                        ctx,
+                        ColoredBox(
+                          color: const Color(0xFF000000),
+                          child: PosTouchImeHost(
+                            child: NotificationOverlay(child: body),
+                          ),
+                        ),
+                        immersive: immersive,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           );
         },
         home: Consumer<AuthProvider>(

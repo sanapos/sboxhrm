@@ -3,7 +3,7 @@ description: ZKTeco ADMS Flutter Client - He thong quan ly cham cong
 
 publish_to: 'none'
 
-version: 1.0.593+14593
+version: 1.0.600+14600
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -126,6 +126,12 @@ flutter:
   
   assets:
     - assets/logo.png
+    - assets/sbox_pos_logo.png
+    - assets/sbox_pos_hero_panel.png
+    - assets/sbox_pos_screen.png
+    - assets/sbox_pos_family.png
+    - assets/sbox_pos_poster.png
+    - assets/sbox_pos_login_hero.png
     - assets/mobilefacenet.tflite
     - assets/w600k_mbf.onnx
     - assets/fonts/BeVietnamPro-Regular.ttf

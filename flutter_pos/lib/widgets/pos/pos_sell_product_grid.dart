@@ -12,6 +12,7 @@ import '../../utils/pos_category_tree.dart';
 import '../../utils/pos_combo_stock.dart';
 import '../../utils/pos_price_list_resolver.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
+import '../../utils/pos_owner_password_gate.dart';
 import '../../utils/pos_qty_rules.dart';
 import '../../utils/pos_sell_stock_patch.dart';
 import '../../utils/pos_sell_unit_views.dart';
@@ -90,6 +91,34 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   Map<String, double> _lastPriceOverrides = const {};
   Timer? _searchDebounce;
   Timer? _imagePrefetchDebounce;
+  bool _lockMode = false;
+  final Set<String> _soldOutBusyIds = {};
+  DateTime _soldOutDayStamp = _vnCalendarDate();
+
+  static DateTime _vnCalendarDate() {
+    final vn = DateTime.now().toUtc().add(const Duration(hours: 7));
+    return DateTime(vn.year, vn.month, vn.day);
+  }
+
+  void _autoResetSoldOutIfNewDay() {
+    final today = _vnCalendarDate();
+    if (today == _soldOutDayStamp) return;
+    _soldOutDayStamp = today;
+    if (!_allProducts.any((p) => p.isDailySoldOut)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _allProducts = [
+          for (final p in _allProducts)
+            p.isDailySoldOut ? p.copyWith(isDailySoldOut: false) : p,
+        ];
+        _products = [
+          for (final p in _products)
+            p.isDailySoldOut ? p.copyWith(isDailySoldOut: false) : p,
+        ];
+      });
+    });
+  }
 
   /// Chỉ dữ liệu nhúng — không gọi API khi vẽ lưới (A7/V2s).
   List<PosProductUnitView> _viewsForDisplay(PosProduct p) {
@@ -587,7 +616,14 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     final code = await scanBarcodeWithCamera(context);
     if (code == null || !mounted) return;
     final pick = await lookupOrPickPosProduct(context, widget.api, code);
-    if (pick != null && mounted) widget.onPick(pick);
+    if (pick == null || !mounted) return;
+    if (pick.product.isDailySoldOut) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text(tr('${pick.product.name}: đã hết / tạm khóa'))),
+      );
+      return;
+    }
+    widget.onPick(pick);
   }
 
   /// Quét liên tục trên màn chọn hàng — mỗi mã hợp lệ cộng 1 SP vào bản nháp/giỏ.
@@ -598,6 +634,14 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         if (!mounted) return;
         final pick = await lookupOrPickPosProduct(context, widget.api, code);
         if (pick != null && mounted) {
+          if (pick.product.isDailySoldOut) {
+            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+              SnackBar(
+                content: Text(tr('${pick.product.name}: đã hết / tạm khóa')),
+              ),
+            );
+            return;
+          }
           widget.onPick(pick);
         }
       },
@@ -627,20 +671,33 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     unawaited(_loadProducts(forceNetwork: true));
   }
 
-  List<PosProduct> get _pageItems => _products;
+  List<PosProduct> _withSoldOutLast(List<PosProduct> source) {
+    if (source.length < 2 || !source.any((p) => p.isDailySoldOut)) {
+      return source;
+    }
+    return [
+      ...source.where((p) => !p.isDailySoldOut),
+      ...source.where((p) => p.isDailySoldOut),
+    ];
+  }
+
+  List<PosProduct> get _pageItems => _withSoldOutLast(_products);
 
   double _qtyInCart(String productId) =>
       widget.cartQtyByProductId[productId] ?? 0;
 
   List<PosProduct> get _sortedSellListProducts {
     // SP đã chọn nổi lên đầu theo thứ tự đặt (món chọn trước xếp trước).
-    if (widget.cartQtyByProductId.isEmpty) return _products;
+    // Món tạm khóa luôn xuống cuối menu.
+    if (widget.cartQtyByProductId.isEmpty) {
+      return _withSoldOutLast(_products);
+    }
     final order = <String, int>{};
     var i = 0;
     for (final e in widget.cartQtyByProductId.entries) {
       if (e.value > 0) order[e.key] = i++;
     }
-    if (order.isEmpty) return _products;
+    if (order.isEmpty) return _withSoldOutLast(_products);
     final list = List<PosProduct>.from(_products);
     list.sort((a, b) {
       final ia = order[a.id];
@@ -652,7 +709,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       if (cs != 0) return cs;
       return a.name.compareTo(b.name);
     });
-    return list;
+    return _withSoldOutLast(list);
   }
 
   Future<void> _promptSellListQty(PosProduct p) async {
@@ -693,7 +750,110 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     return 0.70;
   }
 
+  Future<void> _setLockMode(bool enabled) async {
+    if (enabled == _lockMode) return;
+    if (enabled) {
+      final ok = await confirmPosOwnerPassword(
+        context,
+        title: 'Bật chế độ khóa món',
+        message:
+            'Nhập mật khẩu tài khoản chủ cửa hàng hoặc quản lý để khóa / mở bán món.',
+      );
+      if (!ok || !mounted) return;
+    }
+    setState(() => _lockMode = enabled);
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(tr(enabled
+            ? 'Chế độ khóa món: chạm món để báo hết hoặc bán lại. Ngày mai tự mở.'
+            : 'Đã tắt chế độ khóa món')),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _onProductTap(PosProduct p, {PosProductUnitView? view}) async {
+    if (_lockMode) {
+      await _toggleDailySoldOut(p);
+      return;
+    }
+    if (p.isDailySoldOut) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(tr(
+              '${p.name}: đã hết / tạm khóa. Bật chế độ khóa món để bán lại.')),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    await _pickProduct(p, view: view);
+  }
+
+  Future<void> _toggleDailySoldOut(PosProduct p) async {
+    if (!_lockMode) return;
+    if (_soldOutBusyIds.contains(p.id)) return;
+    _soldOutBusyIds.add(p.id);
+    final next = !p.isDailySoldOut;
+    try {
+      final res = await widget.api.patchPosProductDailySoldOut(
+        p.id,
+        soldOut: next,
+      );
+      if (!mounted) return;
+      if (res['isSuccess'] != true) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(
+            content: Text(tr(
+                res['message']?.toString() ?? 'Không đổi được trạng thái món')),
+          ),
+        );
+        return;
+      }
+      var locked = next;
+      final data = res['data'];
+      if (data is Map) {
+        locked = data['isDailySoldOut'] == true ||
+            data['IsDailySoldOut'] == true;
+      }
+      _applyDailySoldOut(p.id, locked);
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(tr(locked
+              ? '${p.name}: đã hết / tạm khóa'
+              : '${p.name}: đã mở bán lại')),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } finally {
+      _soldOutBusyIds.remove(p.id);
+    }
+  }
+
+  void _applyDailySoldOut(String id, bool locked) {
+    PosProduct patch(PosProduct x) => x.copyWith(isDailySoldOut: locked);
+    setState(() {
+      _allProducts = [
+        for (final x in _allProducts) x.id == id ? patch(x) : x,
+      ];
+      _products = [for (final x in _products) x.id == id ? patch(x) : x];
+    });
+    final storeId = widget.storeId?.trim() ?? '';
+    if (storeId.isNotEmpty) {
+      PosSellCatalogCache.instance.patchMemoryProducts(storeId, {id}, patch);
+    }
+  }
+
   Future<void> _pickProduct(PosProduct p, {PosProductUnitView? view}) async {
+    if (p.isDailySoldOut) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(tr('${p.name}: đã hết / tạm khóa')),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     final views = await _viewsFor(p);
     if (!mounted || views.isEmpty) return;
     if (!widget.allowNegativeStock && isPosSellOutOfStock(p, views)) {
@@ -779,7 +939,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             child: _unitButton(
               label: fallback,
               isDefault: true,
-              onTap: () => _pickProduct(p),
+              onTap: () => _onProductTap(p),
             ),
           ),
         ],
@@ -799,7 +959,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             child: _unitButton(
               label: views[i].label,
               isDefault: i == 0,
-              onTap: () => _pickProduct(p, view: views[i]),
+              onTap: () => _onProductTap(p, view: views[i]),
             ),
           ),
         ],
@@ -866,9 +1026,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: outOfStock
-                  ? const Color(0xFFFECACA)
-                  : const Color(0xFFE8E8E8),
+              color: p.isDailySoldOut
+                  ? const Color(0xFFF59E0B)
+                  : outOfStock
+                      ? const Color(0xFFFECACA)
+                      : const Color(0xFFE8E8E8),
             ),
           ),
           clipBehavior: Clip.hardEdge,
@@ -878,7 +1040,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               Expanded(
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => _pickProduct(p),
+                  onTap: () => _onProductTap(p),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -927,6 +1089,15 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                                 ),
                               ),
                             ),
+                            if (p.isDailySoldOut)
+                              const Positioned.fill(
+                                child: ColoredBox(
+                                  color: Color(0xAAF8FAFC),
+                                  child: Center(
+                                    child: _DailySoldOutBadge(),
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -937,11 +1108,13 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             height: 1.3,
-                            color: PosTheme.textPrimary,
+                            color: p.isDailySoldOut
+                                ? const Color(0xFF94A3B8)
+                                : PosTheme.textPrimary,
                           ),
                         ),
                       ),
@@ -1071,11 +1244,13 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           name: name,
           code: code,
           priceText: _moneyFmt.format(price),
-          stockText: outOfStock
-              ? 'Hết hàng'
-              : lowStock
-                  ? 'Sắp hết: ${_qtyFmt.format(qty)} $unit'
-                  : '${_qtyFmt.format(qty)} $unit',
+          stockText: p.isDailySoldOut
+              ? 'Đã hết / tạm khóa'
+              : outOfStock
+                  ? 'Hết hàng'
+                  : lowStock
+                      ? 'Sắp hết: ${_qtyFmt.format(qty)} $unit'
+                      : '${_qtyFmt.format(qty)} $unit',
           orderReservedText: null,
           image: PosProductImage(
             productId: p.id,
@@ -1088,18 +1263,18 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               ? null
               : () {
                   if (views.length == 1) {
-                    _pickProduct(p, view: views.first);
+                    unawaited(_onProductTap(p, view: views.first));
                   } else {
-                    _pickProduct(p);
+                    unawaited(_onProductTap(p));
                   }
                 },
           onIncrement: !isSelected || views == null
               ? null
               : () {
                   if (views.length == 1) {
-                    _pickProduct(p, view: views.first);
+                    unawaited(_onProductTap(p, view: views.first));
                   } else {
-                    _pickProduct(p);
+                    unawaited(_onProductTap(p));
                   }
                 },
           onDecrement: !isSelected || widget.onDecrement == null
@@ -1215,12 +1390,31 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         : PosHScrollChipRow(
             height: 48,
             padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
-            trailing: IconButton(
-              tooltip: tr('Sắp xếp menu'),
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.swap_vert,
-                  size: 22, color: PosTheme.textSecondary),
-              onPressed: _openCatalogSort,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: tr(_lockMode
+                      ? 'Tắt chế độ khóa món'
+                      : 'Chế độ khóa món — cần mật khẩu chủ cửa hàng'),
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    _lockMode ? Icons.lock : Icons.lock_open_outlined,
+                    size: 22,
+                    color: _lockMode
+                        ? const Color(0xFFD97706)
+                        : PosTheme.textSecondary,
+                  ),
+                  onPressed: () => unawaited(_setLockMode(!_lockMode)),
+                ),
+                IconButton(
+                  tooltip: tr('Sắp xếp menu'),
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.swap_vert,
+                      size: 22, color: PosTheme.textSecondary),
+                  onPressed: _openCatalogSort,
+                ),
+              ],
             ),
             children: [
               _horizontalCategoryChip('Tất cả', null),
@@ -1271,6 +1465,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   @override
   Widget build(BuildContext context) {
+    _autoResetSoldOutIfNewDay();
     if (widget.sellListLayout) {
       return Material(
         color: Colors.white,
@@ -1279,6 +1474,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           children: [
             _buildSearchBar(),
             _horizontalCategoryStrip(),
+            if (_lockMode) const _LockModeBanner(),
             const Divider(height: 1, color: PosTheme.border),
             Expanded(child: _buildSellList()),
           ],
@@ -1296,6 +1492,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
               children: [
                 const SizedBox(height: 6),
                 _horizontalCategoryStrip(),
+                if (_lockMode) const _LockModeBanner(),
                 const Divider(height: 1, color: PosTheme.border),
                 Expanded(child: _buildGrid(constraints.maxWidth)),
               ],
@@ -1337,6 +1534,21 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                               ),
                             ),
                             IconButton(
+                              tooltip: tr(_lockMode
+                                  ? 'Tắt chế độ khóa món'
+                                  : 'Chế độ khóa món — cần mật khẩu chủ cửa hàng'),
+                              icon: Icon(
+                                _lockMode
+                                    ? Icons.lock
+                                    : Icons.lock_open_outlined,
+                                color: _lockMode
+                                    ? const Color(0xFFD97706)
+                                    : null,
+                              ),
+                              onPressed: () =>
+                                  unawaited(_setLockMode(!_lockMode)),
+                            ),
+                            IconButton(
                               tooltip: tr('Sắp xếp menu'),
                               icon: const Icon(Icons.swap_vert),
                               onPressed: _openCatalogSort,
@@ -1352,6 +1564,52 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           ),
         );
       },
+    );
+  }
+}
+
+class _DailySoldOutBadge extends StatelessWidget {
+  const _DailySoldOutBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD97706),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        tr('HẾT MÓN'),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+}
+
+class _LockModeBanner extends StatelessWidget {
+  const _LockModeBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFFEF3C7),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      child: Text(
+        tr('Chế độ khóa món — chạm để báo hết / bán lại. Ngày mai tự mở bán.'),
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          color: Color(0xFF92400E),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

@@ -76,6 +76,12 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Hiển thị trên màn hình bán hàng POS.</summary>
     public bool IsDirectSale { get; set; } = true;
 
+    /// <summary>
+    /// Ngày kinh doanh VN khi thu ngân báo hết / tạm khóa món.
+    /// Khớp ngày KD hôm nay = đang khóa; ngày khác / null = bán lại (tự mở khi qua ngày).
+    /// </summary>
+    public DateTime? DailySoldOutOn { get; set; }
+
     /// <summary>Ghi chú nhanh khi bán — JSON array chuỗi.</summary>
     [MaxLength(4000)]
     public string? SaleQuickNotesJson { get; set; }

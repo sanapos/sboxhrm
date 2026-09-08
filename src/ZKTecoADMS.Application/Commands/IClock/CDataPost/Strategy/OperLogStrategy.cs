@@ -27,26 +27,68 @@ public class OperLogStrategy(IServiceProvider serviceProvider) : IPostStrategy
             return ClockResponses.Ok;
         }
 
+        var (userBody, fpBody) = SplitUserAndFingerprintLines(body);
+        if (!string.IsNullOrWhiteSpace(fpBody))
+        {
+            _logger.LogWarning(
+                "[OperLog] Device {SN} OPERLOG contains fingerprint lines ({Len} chars) — saving TMP",
+                device.SerialNumber, fpBody.Length);
+            var bio = new PostBiometricStrategy(serviceProvider, "FINGERTMP");
+            await bio.ProcessDataAsync(device, fpBody);
+        }
+
+        if (string.IsNullOrWhiteSpace(userBody))
+            return ClockResponses.Ok;
+
         var bulkSyncInProgress = await IsUserBulkSyncInProgressAsync(device.Id);
-        var users = await _deviceUserOperationService.ProcessUsersFromDeviceAsync(device, body);
+        var users = await _deviceUserOperationService.ProcessUsersFromDeviceAsync(device, userBody);
 
         if (users.Count == 0)
         {
             _logger.LogWarning(
                 "No valid USER lines in OPERLOG from device {DeviceId} (body length {Len})",
-                device.Id, body.Length);
-            if (bulkSyncInProgress)
-            {
+                device.Id, userBody.Length);
+            if (bulkSyncInProgress || !string.IsNullOrWhiteSpace(fpBody))
                 return ClockResponses.Ok;
-            }
             return ClockResponses.Fail;
         }
 
         await _deviceUserService.CreateDeviceUsersAsync(device.Id, users);
         _logger.LogInformation("Successfully saved/updated {Count} users from device {DeviceId}", users.Count, device.Id);
 
-        // Không đánh dấu Success sau mỗi batch — chờ body rỗng hoặc auto-complete stale ở CDataGet
         return ClockResponses.Ok;
+    }
+
+    /// <summary>
+    /// PUSH SDK: fingerprint templates arrive as OPERLOG lines
+    /// <c>FP PIN=… FID=… Size=… Valid=… TMP=…</c> — not table=FINGERTMP.
+    /// </summary>
+    internal static (string UserBody, string FingerprintBody) SplitUserAndFingerprintLines(string body)
+    {
+        var user = new System.Text.StringBuilder();
+        var fp = new System.Text.StringBuilder();
+        foreach (var raw in body.Split(['\n', '\r'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0) continue;
+            if (IsFingerprintOperLogLine(line))
+                fp.Append(line).Append('\n');
+            else
+                user.Append(line).Append('\n');
+        }
+
+        return (user.ToString(), fp.ToString());
+    }
+
+    private static bool IsFingerprintOperLogLine(string line)
+    {
+        if (line.StartsWith("FP ", StringComparison.OrdinalIgnoreCase)
+            || line.StartsWith("FP\t", StringComparison.OrdinalIgnoreCase)
+            || line.StartsWith("FINGERTMP", StringComparison.OrdinalIgnoreCase))
+            return true;
+        return line.Contains("FID=", StringComparison.OrdinalIgnoreCase)
+            && line.Contains("TMP=", StringComparison.OrdinalIgnoreCase)
+            && !line.StartsWith("USER", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<bool> IsUserBulkSyncInProgressAsync(Guid deviceId)

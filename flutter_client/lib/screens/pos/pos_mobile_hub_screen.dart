@@ -374,6 +374,8 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       body: SafeArea(
+        // padAwaySystemBars đã chừa status bar — SafeArea top chồng tạo khe xám.
+        top: false,
         // Fullscreen bán hàng / rail ẩn tab đáy — không để nút Thanh toán
         // chui xuống thanh điều hướng Android (edge-to-edge).
         bottom: sellFullscreen || useVerticalRail,

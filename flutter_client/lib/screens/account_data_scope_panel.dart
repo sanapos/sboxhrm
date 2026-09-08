@@ -89,7 +89,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loadingList = false);
-      appNotification.showError(title: 'Lỗi', message: 'Không tải được danh sách: $e');
+      appNotification.showError(title: 'Lỗi', message: tr('Không tải được danh sách: $e'));
     }
   }
 
@@ -214,7 +214,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
       if (res['isSuccess'] == true) {
         appNotification.showSuccess(
             title: 'Thành công',
-            message: 'Đã lưu phạm vi dữ liệu tài khoản');
+            message: tr('Đã lưu phạm vi dữ liệu tài khoản'));
       } else {
         appNotification.showError(
             title: 'Lỗi',

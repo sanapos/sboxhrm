@@ -397,7 +397,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                 decoration: InputDecoration(
                   labelText: tr('Giá bán QR'),
                   hintText: tr('Trống = dùng giá cửa hàng'),
-                  suffixText: 'đ',
+                  suffixText: tr('đ'),
                   border: const OutlineInputBorder(),
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 14),
@@ -510,8 +510,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                  child: Text(
-                    '${_money.format(sell)}đ',
+                  child: Text(tr('${_money.format(sell)}đ'),
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
@@ -542,7 +541,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                   children: [
                     Tooltip(
                       message: tr('QR bàn'),
-                      child: const Text('Bàn',
+                      child: Text(tr('Bàn'),
                           style: TextStyle(fontSize: 10)),
                     ),
                     Tooltip(

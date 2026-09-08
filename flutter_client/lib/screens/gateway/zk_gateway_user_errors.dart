@@ -1,5 +1,6 @@
 import '../../models/zk_gateway.dart';
 import '../../services/zk_gateway_client.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Thông báo lỗi gateway kèm hướng dẫn xử lý cho người dùng cửa hàng.
 class ZkGatewayUserError {
@@ -14,13 +15,12 @@ class ZkGatewayUserError {
     String fallbackTitle = 'Không kết nối được gateway',
   }) {
     if (error is ZkGatewayAuthException) {
-      return const ZkGatewayUserError(
+      return ZkGatewayUserError(
         title: 'Gateway đang khóa',
-        message:
-            'Cần mật khẩu quản trị.\n\n'
+        message: tr('Cần mật khẩu quản trị.\n\n'
             '• Nhập mật khẩu đã đặt khi khóa cấu hình.\n'
             '• Quên mật khẩu: nối điện thoại vào sóng SBOX-Gateway-XXXX '
-            '(mật khẩu sbox12345), mở lại app và chọn Đặt lại mật khẩu.',
+            '(mật khẩu sbox12345), mở lại app và chọn Đặt lại mật khẩu.'),
       );
     }
 
@@ -34,10 +34,9 @@ class ZkGatewayUserError {
         lower.contains('time out')) {
       return ZkGatewayUserError(
         title: fallbackTitle,
-        message:
-            'Gateway không trả lời kịp.\n\n'
+        message: tr('Gateway không trả lời kịp.\n\n'
             '$connectionChecklist\n\n'
-            'Chi tiết: $raw',
+            'Chi tiết: $raw'),
       );
     }
 
@@ -52,10 +51,9 @@ class ZkGatewayUserError {
         lower.contains('os error')) {
       return ZkGatewayUserError(
         title: fallbackTitle,
-        message:
-            'Điện thoại không tới được địa chỉ gateway.\n\n'
+        message: tr('Điện thoại không tới được địa chỉ gateway.\n\n'
             '$connectionChecklist\n\n'
-            'Chi tiết: $raw',
+            'Chi tiết: $raw'),
       );
     }
 
@@ -63,10 +61,9 @@ class ZkGatewayUserError {
         lower.contains('product')) {
       return ZkGatewayUserError(
         title: 'Sai thiết bị',
-        message:
-            'Địa chỉ này không phải gateway SBOX.\n\n'
+        message: tr('Địa chỉ này không phải gateway SBOX.\n\n'
             '• Quay lại danh sách và bấm Dò tìm lại.\n'
-            '• Kiểm tra IP trên nhãn / trang web sboxadms.local.',
+            '• Kiểm tra IP trên nhãn / trang web sboxadms.local.'),
       );
     }
 

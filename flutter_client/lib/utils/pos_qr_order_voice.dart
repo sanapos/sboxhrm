@@ -9,6 +9,7 @@ import '../models/hrm.dart';
 import '../services/signalr_service.dart';
 import '../utils/navigation_notifier.dart';
 import '../widgets/notification_overlay.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PosTtsVoiceOption {
   const PosTtsVoiceOption({
@@ -311,8 +312,7 @@ class PosQrOrderVoiceAlert {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Giọng đọc',
+                  Text(tr('Giọng đọc'),
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
@@ -320,13 +320,11 @@ class PosQrOrderVoiceAlert {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'A7: nên chọn giọng «Máy» (local). Giọng Mạng dễ mất tiếng.',
+                  Text(tr('A7: nên chọn giọng «Máy» (local). Giọng Mạng dễ mất tiếng.'),
                     style: TextStyle(color: Colors.white54, fontSize: 13),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    'Tốc độ: ${(_rate * 100).round()}%',
+                  Text(tr('Tốc độ: ${(_rate * 100).round()}%'),
                     style: const TextStyle(
                         color: Colors.white70, fontWeight: FontWeight.w700),
                   ),
@@ -348,14 +346,12 @@ class PosQrOrderVoiceAlert {
                       if (ctx.mounted) setLocal(() {});
                       unawaited(preview());
                     },
-                    child: const Text(
-                      'Dùng giọng mặc định (ổn định)',
+                    child: Text(tr('Dùng giọng mặc định (ổn định)'),
                       style: TextStyle(color: Color(0xFFFF8A3D)),
                     ),
                   ),
                   if (voices.isEmpty)
-                    const Text(
-                      'Máy chưa có giọng tiếng Việt. Cài Google Text-to-Speech + gói tiếng Việt offline.',
+                    Text(tr('Máy chưa có giọng tiếng Việt. Cài Google Text-to-Speech + gói tiếng Việt offline.'),
                       style: TextStyle(color: Colors.white54),
                     )
                   else
@@ -396,8 +392,7 @@ class PosQrOrderVoiceAlert {
                     onPressed: () => unawaited(preview()),
                     icon: const Icon(Icons.record_voice_over,
                         color: Color(0xFFFF8A3D)),
-                    label: const Text(
-                      'Nghe thử',
+                    label: Text(tr('Nghe thử'),
                       style: TextStyle(color: Color(0xFFFF8A3D)),
                     ),
                   ),

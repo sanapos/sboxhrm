@@ -160,11 +160,9 @@ class PosThermalPrinterSettings {
     }
   }
 
-  /// Phiếu bếp: 2–3 dòng đủ qua lưỡi cắt, không dư đuôi dài.
+  /// Phiếu bếp: tôn trọng feed đã chỉnh. 0 = không đẩy thêm.
   int get kitchenFeedBeforeCut {
-    final n = feedBeforeCut.clamp(0, 40);
-    if (n == 0) return 2;
-    return n.clamp(2, 3);
+    return feedBeforeCut.clamp(0, 40);
   }
 
   /// Số dòng đẩy giấy trước khi cắt.
@@ -183,7 +181,7 @@ class PosThermalPrinterSettings {
       case PosThermalPrinterBrand.generic:
         return n < usbFloor ? usbFloor : n;
       case PosThermalPrinterBrand.sunmi:
-        return n < 4 ? 4 : n;
+        return n;
       case PosThermalPrinterBrand.epson:
         return n < 3 ? 3 : n;
     }

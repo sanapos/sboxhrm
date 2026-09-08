@@ -102,7 +102,7 @@ class PermissionModuleLabels {
     'BusinessTripReport': 'Báo cáo công tác phí',
     'AssetReport': 'Báo cáo tài sản',
     // Thiết lập HRM
-    'SettingsHub': 'Thiết lập Sbox',
+    'SettingsHub': 'Trung tâm thiết lập (ngành hàng, cửa hàng, sơ đồ bàn)',
     'ShiftSetup': 'Thiết lập ca',
     'Holiday': 'Ngày lễ',
     'Device': 'Máy chấm công',

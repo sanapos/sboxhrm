@@ -11034,10 +11034,11 @@ class ApiService {
   }
 
   // ==================== SHIFT SWAPS ====================
-  Future<Map<String, dynamic>> getShiftSwaps() async {
+  Future<Map<String, dynamic>> getShiftSwaps({int pageSize = 100}) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/api/shiftswaps'),
-          headers: _headers);
+      final uri = Uri.parse('$baseUrl/api/shiftswaps')
+          .replace(queryParameters: {'pageNumber': '1', 'pageSize': pageSize.toString()});
+      final response = await http.get(uri, headers: _headers);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -14470,6 +14471,24 @@ class ApiService {
             body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> patchPosProductDailySoldOut(
+    String id, {
+    required bool soldOut,
+  }) async {
+    try {
+      final response = await http
+          .patch(
+            Uri.parse('$baseUrl/api/pos/products/$id/daily-sold-out'),
+            headers: _headers,
+            body: jsonEncode({'soldOut': soldOut}),
+          )
+          .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18308,12 +18327,17 @@ class ApiService {
     bool forLabel = false,
     int page = 1,
     int pageSize = 50,
+    String? ownerDeviceId,
+    bool deviceLocalOnly = false,
   }) async {
     final q = <String, String>{
       'page': '$page',
       'pageSize': '$pageSize',
       'unassignedOnly': '$unassignedOnly',
       'forLabel': '$forLabel',
+      if (deviceLocalOnly) 'deviceLocalOnly': 'true',
+      if ((ownerDeviceId ?? '').trim().isNotEmpty)
+        'ownerDeviceId': ownerDeviceId!.trim(),
     };
     if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
     if (categoryId != null && categoryId.isNotEmpty) q['categoryId'] = categoryId;
@@ -18364,10 +18388,16 @@ class ApiService {
 
   Future<Map<String, dynamic>> getPosPrinterProductSummary({
     bool includeLocal = false,
+    String? ownerDeviceId,
   }) async {
+    final q = <String, String>{
+      if (includeLocal) 'includeLocal': 'true',
+      if ((ownerDeviceId ?? '').trim().isNotEmpty)
+        'ownerDeviceId': ownerDeviceId!.trim(),
+    };
     return _getProductPrinterApi(
       '/printers/summary',
-      query: includeLocal ? const {'includeLocal': 'true'} : null,
+      query: q.isEmpty ? null : q,
     );
   }
 

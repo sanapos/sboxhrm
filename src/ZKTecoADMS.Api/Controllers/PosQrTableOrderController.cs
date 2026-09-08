@@ -231,6 +231,9 @@ public class PosQrTableOrderController(
                 return BadRequest(AppResponse<object>.Fail($"{p.Name} cần thu ngân nhập seri"));
             if (p.ProductType == PosProductType.Service && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode))
                 return BadRequest(AppResponse<object>.Fail($"{p.Name} là dịch vụ tính giờ — gọi thu ngân"));
+            if (PosDailySoldOutHelper.IsLockedToday(
+                    p.DailySoldOutOn, PosDailySoldOutHelper.BusinessDate(settings.ReportDayStartHour)))
+                return BadRequest(AppResponse<object>.Fail($"{p.Name} đã hết / tạm khóa hôm nay"));
 
             PosProductVariant? variant = null;
             var hasVariants = variantCountByProduct.GetValueOrDefault(p.Id) > 0;
@@ -513,6 +516,19 @@ public class PosQrTableOrderController(
             orderId: order.Id, resourceId: resource!.Id, sessionId: session.Id,
             tableName: tableName,
             message: needsConfirm ? "needsConfirm" : null);
+
+        var itemPreview = string.Join(", ",
+            added.Take(3).Select(a => $"{a.Qty:0}×{a.Line.ProductName}"));
+        await PosNotificationHelper.NotifyQrTableOrderAsync(
+            notificationService,
+            db,
+            storeId,
+            order.Id,
+            order.OrderNo,
+            tableName,
+            itemPreview,
+            needsConfirm,
+            HttpContext.RequestAborted);
 
         var payload = new
         {
@@ -1939,11 +1955,13 @@ public class PosQrTableOrderController(
                 var exposeUnits = pVars.Count == 0 && pUnits.Count > 0
                     ? (pUnits.Count > 1 ? pUnits : pUnits.Where(u => !u.IsBaseUnit).ToList())
                     : [];
-                var soldOut = !settings.AllowNegativeStock
+                var soldOut = PosDailySoldOutHelper.IsLockedToday(
+                        p.DailySoldOutOn, PosDailySoldOutHelper.BusinessDate(settings.ReportDayStartHour))
+                    || (!settings.AllowNegativeStock
                     && p.ProductType == PosProductType.Goods
                     && pVars.Count == 0
                     && exposeUnits.Count == 0
-                    && (p.OnHandQty - p.ReservedQty) <= 0;
+                    && (p.OnHandQty - p.ReservedQty) <= 0);
                 var storePrice = p.BasePrice;
                 var displayPrice = PosQrMenuService.ResolveProductPrice(p, menuItem);
                 return new

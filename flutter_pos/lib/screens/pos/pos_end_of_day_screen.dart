@@ -320,9 +320,9 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final hideAppBar = HrmPageChrome.usesMainLayoutAppBar &&
-        !PosHubScope.pushedSubPageOf(context);
-    final pushed = PosHubScope.pushedSubPageOf(context);
+    final hideAppBar = HrmPageChrome.hideInPageTitle(context);
+    final showBack = PosHubScope.pushedSubPageOf(context) ||
+        HrmPageChrome.isPushedOverShell(context);
     return withFallbackTopInset(
       context,
       Scaffold(
@@ -332,7 +332,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
           : AppBar(
               backgroundColor: _kiotBlue,
               foregroundColor: Colors.white,
-              automaticallyImplyLeading: pushed,
+              automaticallyImplyLeading: showBack,
               title: Text(tr('Tổng kết cuối ngày')),
               actions: [
                 IconButton(

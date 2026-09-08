@@ -22,8 +22,10 @@ import '../../utils/pos_thermal_printer_settings.dart';
 import '../../utils/pos_store_printer_mapper.dart';
 import '../../utils/pos_usb_printer.dart';
 import '../../utils/pos_usb_labels.dart';
+import '../../utils/media_query_safe_padding.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_lan_printer_scan_sheet.dart';
 import 'pos_local_printers_screen.dart';
@@ -633,6 +635,18 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               r.printerId != printerId,
         );
       }
+      if (selected &&
+          (docType == PosLocalPrinterRoles.kitchenSlip ||
+              docType == PosLocalPrinterRoles.kitchenVoid ||
+              docType == PosLocalPrinterRoles.kitchenLabel) &&
+          _printers.where((p) => p.isActive).length > 1) {
+        // Máy bếp không giữ Hóa đơn — tránh A7/web in HĐ/tạm tính ra bếp.
+        _routes.removeWhere(
+          (r) =>
+              r.printerId == printerId &&
+              r.documentType == PosLocalPrinterRoles.saleInvoice,
+        );
+      }
       _toggleRoute(docType, printerId, selected);
     });
     await _saveRoutes(silent: true);
@@ -800,9 +814,17 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
       ];
 
+  bool get _hideCloudChrome {
+    // Overlay từ «Máy in (thiết bị)» / Thiết lập in — luôn có tiêu đề + back.
+    if (PosHubScope.pushedSubPageOf(context)) return false;
+    if (ModalRoute.of(context)?.canPop ?? false) return false;
+    if (Navigator.of(context).canPop()) return false;
+    if (!widget.embeddedInSettings) return false;
+    return !HrmPageChrome.showInPageAppBar(context);
+  }
+
   PreferredSizeWidget? _cloudPrinterAppBar({required bool denyAccess}) {
-    final hideOuter = widget.embeddedInSettings || HrmPageChrome.isEmbedded;
-    if (hideOuter) return null;
+    if (_hideCloudChrome) return null;
     return AppBar(
       title: Text(
         tr('Máy in cloud'),
@@ -811,6 +833,11 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       ),
       backgroundColor: PosTheme.kiotBlue,
       foregroundColor: Colors.white,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        tooltip: tr('Quay lại'),
+        onPressed: () => Navigator.maybePop(context),
+      ),
       actions: denyAccess ? null : _cloudPrinterActions(),
     );
   }
@@ -831,33 +858,52 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     );
   }
 
+  Widget _chromeWrap(Widget scaffold) {
+    final mq = MediaQuery.of(context);
+    final view = View.of(context);
+    final sysTop = view.viewPadding.top / view.devicePixelRatio;
+    var top = mq.padding.top;
+    if (mq.viewPadding.top > top) top = mq.viewPadding.top;
+    if (sysTop > top) top = sysTop;
+    if (top < 0.5) top = 36;
+    return MediaQuery(
+      data: mediaQueryWithSystemPadding(mq).copyWith(
+        padding: mediaQueryWithSystemPadding(mq).padding.copyWith(top: top),
+      ),
+      child: scaffold,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
-    final hideOuter = widget.embeddedInSettings || HrmPageChrome.isEmbedded;
+    final hideOuter = _hideCloudChrome;
     if (!PermissionNavigation.canAccessModule(
       'PosStorePrinters',
       allowedModules: auth.user?.allowedModules,
       perm: perm,
       role: auth.user?.role,
     )) {
-      return Scaffold(
-        backgroundColor: PosTheme.background,
-        appBar: _cloudPrinterAppBar(denyAccess: true),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              tr('Gói dịch vụ chưa bao gồm Máy in cloud. Super Admin có thể bật module này trong Gói dịch vụ.'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: PosTheme.textSecondary, height: 1.4),
+      return _chromeWrap(
+        Scaffold(
+          backgroundColor: PosTheme.background,
+          appBar: _cloudPrinterAppBar(denyAccess: true),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                tr('Gói dịch vụ chưa bao gồm Máy in cloud. Super Admin có thể bật module này trong Gói dịch vụ.'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: PosTheme.textSecondary, height: 1.4),
+              ),
             ),
           ),
         ),
       );
     }
-    return Scaffold(
+    return _chromeWrap(
+      Scaffold(
       backgroundColor: PosTheme.background,
       appBar: _cloudPrinterAppBar(denyAccess: false),
       body: _loading
@@ -903,6 +949,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               label: Text(tr('Thêm máy in')),
             )
           : null,
+    ),
     );
   }
 

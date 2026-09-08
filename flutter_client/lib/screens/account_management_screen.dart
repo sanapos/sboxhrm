@@ -15,6 +15,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/employee_search_picker.dart';
+import '../utils/permission_role_options.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 class AccountManagementScreen extends StatefulWidget {
   const AccountManagementScreen({super.key});
@@ -31,6 +32,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
   final ApiService _apiService = ApiService();
   List<Map<String, dynamic>> _accounts = [];
   List<Map<String, dynamic>> _employees = [];
+  List<PermissionRoleOption> _permissionRoles = PermissionRoleOptions.fallback;
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedRole = 'all';
@@ -71,11 +73,16 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       final results = await Future.wait([
         _apiService.getAccounts(),
         _apiService.getEmployeesForSelect(pageSize: 10000),
+        _apiService.getRoles(),
       ]);
       if (!mounted) return;
+      final parsed = PermissionRoleOptions.parse(
+        results[2] is List ? results[2] as List : const [],
+      );
       setState(() {
         _accounts = List<Map<String, dynamic>>.from(results[0]);
         _employees = List<Map<String, dynamic>>.from(results[1]);
+        if (parsed.isNotEmpty) _permissionRoles = parsed;
       });
     } catch (e) {
       debugPrint('Error loading data: $e');
@@ -90,11 +97,16 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       final results = await Future.wait([
         _apiService.getAccounts(),
         _apiService.getEmployeesForSelect(pageSize: 10000),
+        _apiService.getRoles(),
       ]);
       if (!mounted) return;
+      final parsed = PermissionRoleOptions.parse(
+        results[2] is List ? results[2] as List : const [],
+      );
       setState(() {
         _accounts = List<Map<String, dynamic>>.from(results[0]);
         _employees = List<Map<String, dynamic>>.from(results[1]);
+        if (parsed.isNotEmpty) _permissionRoles = parsed;
       });
     } catch (e) {
       debugPrint('Error loading accounts: $e');
@@ -198,6 +210,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(
+        context: context,
         title: 'Quản lý Tài khoản',
       ),
       body: _isLoading
@@ -431,30 +444,10 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                 DropdownMenuItem(
                                     value: 'all',
                                     child: Text(tr('Tất cả vai trò'))),
-                                DropdownMenuItem(
-                                    value: 'Admin',
-                                    child: Text(tr('Quản trị viên'))),
-                                DropdownMenuItem(
-                                    value: 'Director', child: Text(tr('Giám đốc'))),
-                                DropdownMenuItem(
-                                    value: 'Manager', child: Text(tr('Quản lý'))),
-                                DropdownMenuItem(
-                                    value: 'DepartmentHead',
-                                    child: Text(tr('Trưởng phòng'))),
-                                DropdownMenuItem(
-                                    value: 'Accountant',
-                                    child: Text(tr('Kế toán'))),
-                                DropdownMenuItem(
-                                    value: 'Cashier',
-                                    child: Text(tr('Thu ngân'))),
-                                DropdownMenuItem(
-                                    value: 'Waiter',
-                                    child: Text(tr('Order'))),
-                                DropdownMenuItem(
-                                    value: 'Employee',
-                                    child: Text(tr('Nhân viên'))),
-                                DropdownMenuItem(
-                                    value: 'User', child: Text(tr('Người dùng'))),
+                                for (final r in _permissionRoles)
+                                  DropdownMenuItem(
+                                      value: r.name,
+                                      child: Text(tr(r.displayName))),
                               ],
                               onChanged: (value) => setState(
                                   () => _selectedRole = value ?? 'all'),
@@ -606,6 +599,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                 child: SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: DataTable(
+                                    showCheckboxColumn: false,
                                     headingRowColor: WidgetStateProperty.all(
                                         const Color(0xFFF4F4F5)),
                                     dataRowMinHeight: 52,
@@ -682,6 +676,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     final roleInfo = _getRoleDisplayInfo(role);
 
     return DataRow(
+      onSelectChanged: (_) {
+        if (_perm.canEdit('UserManagement') ||
+            _perm.canCreate('UserManagement')) {
+          _showAccountDialog(account: account);
+        }
+      },
       cells: [
         DataCell(Text(tr('${index + 1}'),
             style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
@@ -734,7 +734,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         DataCell(Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_perm.canEdit('UserManagement'))
+            if (_perm.canEdit('UserManagement') ||
+                _perm.canCreate('UserManagement'))
               IconButton(
                 onPressed: () => _showChangePasswordDialog(account),
                 icon: const Icon(Icons.lock_reset, size: 18),
@@ -743,7 +744,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
-            if (_perm.canEdit('UserManagement'))
+            if (_perm.canEdit('UserManagement') ||
+                _perm.canCreate('UserManagement'))
               IconButton(
                 onPressed: () => _showAccountDialog(account: account),
                 icon: const Icon(Icons.edit_outlined, size: 18),
@@ -874,28 +876,49 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
   }
 
   Map<String, dynamic> _getRoleDisplayInfo(String role) {
-    switch (role) {
-      case 'Admin':
-        return {'label': 'Quản trị viên', 'color': HrmPageChrome.chipDark};
-      case 'Director':
-        return {'label': 'Giám đốc', 'color': HrmPageChrome.chipMid};
-      case 'Manager':
-        return {'label': 'Quản lý', 'color': HrmPageChrome.primaryNavy};
-      case 'DepartmentHead':
-        return {'label': 'Trưởng phòng', 'color': HrmPageChrome.chipMid};
-      case 'Accountant':
-        return {'label': 'Kế toán', 'color': HrmPageChrome.primaryNavy};
-      case 'Cashier':
-        return {'label': 'Thu ngân', 'color': HrmPageChrome.chip};
-      case 'Waiter':
-        return {'label': 'Order', 'color': HrmPageChrome.chipMid};
-      case 'Employee':
-        return {'label': 'Nhân viên', 'color': HrmPageChrome.primaryNavy};
-      case 'User':
-      default:
-        return {'label': 'Người dùng', 'color': const Color(0xFF71717A)};
+    final color = switch (role) {
+      'Admin' => HrmPageChrome.chipDark,
+      'Director' || 'DepartmentHead' || 'Waiter' => HrmPageChrome.chipMid,
+      'Manager' || 'Accountant' || 'Employee' => HrmPageChrome.primaryNavy,
+      'Cashier' => HrmPageChrome.chip,
+      _ => const Color(0xFF71717A),
+    };
+    var label = PermissionRoleOptions.displayNameOf(role);
+    for (final r in _permissionRoles) {
+      if (r.name.toLowerCase() == role.toLowerCase()) {
+        label = r.displayName;
+        break;
+      }
     }
+    return {'label': label, 'color': color};
   }
+
+  List<Map<String, dynamic>> _extractPosAreaMaps(dynamic data) {
+    final out = <Map<String, dynamic>>[];
+    if (data is List) {
+      for (final e in data.whereType<Map>()) {
+        out.add(Map<String, dynamic>.from(e));
+      }
+    } else if (data is Map) {
+      final inner = data['items'] ?? data['areas'] ?? data['data'];
+      if (inner is List) {
+        for (final e in inner.whereType<Map>()) {
+          out.add(Map<String, dynamic>.from(e));
+        }
+      }
+    }
+    return out;
+  }
+
+  String _posAreaId(Map<String, dynamic> area) =>
+      area['id']?.toString() ?? area['Id']?.toString() ?? '';
+
+  String _posAreaLabel(Map<String, dynamic> area) =>
+      area['name']?.toString() ??
+      area['Name']?.toString() ??
+      area['code']?.toString() ??
+      area['Code']?.toString() ??
+      '';
 
   Widget _buildAccountSearchField() {
     return TextField(
@@ -999,11 +1022,32 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     );
   }
 
-  void _showAccountDetailSheet(Map<String, dynamic> account) {
+  Future<void> _showAccountDetailSheet(Map<String, dynamic> account) async {
     final isActive = account['isActive'] as bool? ?? true;
     final roles = account['roles'] as List<dynamic>? ?? [];
     final role = roles.isNotEmpty ? roles.first.toString() : 'Employee';
     final lastLogin = DateTime.tryParse(account['lastLoginAt'] ?? '');
+    final posAreas = <Map<String, dynamic>>[];
+    final selectedAreaIds = <String>{};
+    try {
+      final areaRes = await _apiService.getPosServiceAreas();
+      posAreas.addAll(_extractPosAreaMaps(areaRes['data']));
+      final uid = account['id']?.toString() ?? '';
+      if (uid.isNotEmpty) {
+        final assignRes = await _apiService.getPosUserServiceAreas(uid);
+        if (assignRes['isSuccess'] == true && assignRes['data'] is Map) {
+          final data = Map<String, dynamic>.from(assignRes['data'] as Map);
+          final ids = data['areaIds'];
+          if (ids is List) {
+            for (final id in ids) {
+              final s = id?.toString() ?? '';
+              if (s.isNotEmpty) selectedAreaIds.add(s);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    if (!mounted) return;
     final fullName = (account['fullName'] ??
             '${account['lastName'] ?? ''} ${account['firstName'] ?? ''}')
         .toString()
@@ -1023,10 +1067,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.55,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheet) => DraggableScrollableSheet(
+        initialChildSize: 0.62,
         minChildSize: 0.3,
-        maxChildSize: 0.85,
+        maxChildSize: 0.9,
         expand: false,
         builder: (context, scrollController) => SingleChildScrollView(
           controller: scrollController,
@@ -1136,12 +1181,78 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               _buildDetailRow(Icons.login, 'Đăng nhập cuối',
                   lastLogin != null ? _formatDate(lastLogin) : '—'),
               const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(tr('Khu vực làm việc (sơ đồ bàn)'),
+                    style: const TextStyle(
+                        color: Color(0xFF18181B),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  tr(posAreas.isEmpty
+                      ? 'Chưa có khu vực — thêm nhóm bàn ở sơ đồ POS.'
+                      : (selectedAreaIds.isEmpty
+                          ? 'Chưa chọn = xem tất cả khu vực'
+                          : 'Chỉ hiện bàn thuộc ${selectedAreaIds.length} khu đã chọn')),
+                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilterChip(
+                      label: Text(tr('Tất cả khu')),
+                      selected: selectedAreaIds.isEmpty,
+                      onSelected: (_) async {
+                        setSheet(() => selectedAreaIds.clear());
+                        final uid = account['id']?.toString() ?? '';
+                        if (uid.isEmpty) return;
+                        try {
+                          await _apiService.setPosUserServiceAreas(uid, []);
+                        } catch (_) {}
+                      },
+                    ),
+                    for (final area in posAreas)
+                      FilterChip(
+                        label: Text(tr(_posAreaLabel(area))),
+                        selected: selectedAreaIds.contains(_posAreaId(area)),
+                        onSelected: (on) async {
+                          final id = _posAreaId(area);
+                          if (id.isEmpty) return;
+                          setSheet(() {
+                            if (on) {
+                              selectedAreaIds.add(id);
+                            } else {
+                              selectedAreaIds.remove(id);
+                            }
+                          });
+                          final uid = account['id']?.toString() ?? '';
+                          if (uid.isEmpty) return;
+                          try {
+                            await _apiService.setPosUserServiceAreas(
+                                uid, selectedAreaIds.toList());
+                          } catch (_) {}
+                        },
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               const Divider(color: Color(0xFFE4E4E7)),
               const SizedBox(height: 16),
               // Action buttons
               Row(
                 children: [
-                  if (_perm.canEdit('UserManagement')) ...[
+                  if (_perm.canEdit('UserManagement') ||
+                      _perm.canCreate('UserManagement')) ...[
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: () {
@@ -1149,7 +1260,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           _showChangePasswordDialog(account);
                         },
                         icon: const Icon(Icons.lock_reset, size: 18),
-                        label: Text(tr('Đổi MK')),
+                        label: Text(tr('Cập nhật mật khẩu')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: HrmPageChrome.primaryNavy,
                           side:
@@ -1238,6 +1349,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               ],
             ],
           ),
+        ),
         ),
       ),
     );
@@ -1532,24 +1644,15 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     final passwordController = TextEditingController();
     final confirmPasswordController = TextEditingController();
     String selectedRole = accountRole;
-    Map<String, dynamic>? selectedEmployee;
     bool showPassword = false;
     bool showConfirmPassword = false;
 
-    final availableEmployees = _employeesAvailableForAccount;
-    final pickerCandidates =
-        EmployeePickerItem.fromMaps(availableEmployees);
-
-    // Khu vực POS — gán cho Order/Waiter (rỗng = xem tất cả).
+    // Khu vực POS — luôn hiện chip; rỗng = xem tất cả.
     final posAreas = <Map<String, dynamic>>[];
     final selectedAreaIds = <String>{};
     try {
       final areaRes = await _apiService.getPosServiceAreas();
-      if (areaRes['isSuccess'] == true && areaRes['data'] is List) {
-        for (final e in (areaRes['data'] as List).whereType<Map>()) {
-          posAreas.add(Map<String, dynamic>.from(e));
-        }
-      }
+      posAreas.addAll(_extractPosAreaMaps(areaRes['data']));
       if (isEditing) {
         final uid = account['id']?.toString() ?? '';
         if (uid.isNotEmpty) {
@@ -1568,54 +1671,20 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       }
     } catch (_) {}
 
-    // Danh sách các quyền hạn
+    // Chỉ các vai trò đã có trong Phân quyền (kèm Thu ngân / Order hệ thống).
     final roles = [
-      {
-        'value': 'Admin',
-        'label': 'Quản trị viên',
-        'color': HrmPageChrome.chipDark
-      },
-      {
-        'value': 'Director',
-        'label': 'Giám đốc',
-        'color': HrmPageChrome.chipMid
-      },
-      {
-        'value': 'Manager',
-        'label': 'Quản lý',
-        'color': HrmPageChrome.chip
-      },
-      {
-        'value': 'DepartmentHead',
-        'label': 'Trưởng phòng',
-        'color': HrmPageChrome.chipMid
-      },
-      {
-        'value': 'Accountant',
-        'label': 'Kế toán',
-        'color': HrmPageChrome.primaryNavy
-      },
-      {
-        'value': 'Cashier',
-        'label': 'Thu ngân',
-        'color': HrmPageChrome.chip
-      },
-      {
-        'value': 'Waiter',
-        'label': 'Order',
-        'color': HrmPageChrome.chipMid
-      },
-      {
-        'value': 'Employee',
-        'label': 'Nhân viên',
-        'color': HrmPageChrome.primaryNavy
-      },
-      {
-        'value': 'User',
-        'label': 'Người dùng',
-        'color': const Color(0xFF71717A)
-      },
+      for (final r in _permissionRoles)
+        {
+          'value': r.name,
+          'label': r.displayName,
+          'color': _getRoleDisplayInfo(r.name)['color'],
+        },
     ];
+    if (!roles.any((r) => r['value'] == selectedRole) && roles.isNotEmpty) {
+      selectedRole = roles.any((r) => r['value'] == 'Cashier')
+          ? 'Cashier'
+          : roles.first['value'] as String;
+    }
 
     showDialog(
       context: context,
@@ -1624,33 +1693,32 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
           final isMobile = Responsive.isMobile(context);
 
           Future<void> onSubmit() async {
-            if (employeeIdController.text.isEmpty ||
-                fullNameController.text.isEmpty ||
-                emailController.text.isEmpty) {
+            if (fullNameController.text.trim().isEmpty ||
+                emailController.text.trim().isEmpty) {
               appNotification.showWarning(
                   title: 'Thiếu thông tin',
-                  message: tr('Vui lòng điền đầy đủ thông tin'));
+                  message: tr('Cần họ tên và email — không bắt buộc chọn hồ sơ HR'));
               return;
             }
-            if (!isEditing && selectedEmployee == null) {
-              appNotification.showWarning(
-                  title: 'Chưa chọn nhân viên',
-                  message: tr('Vui lòng chọn nhân viên từ danh sách'));
-              return;
+            if (employeeIdController.text.trim().isEmpty) {
+              employeeIdController.text =
+                  emailController.text.trim().split('@').first;
             }
-            if (!isEditing) {
-              if (passwordController.text.isEmpty) {
+            if (!isEditing || passwordController.text.isNotEmpty) {
+              if (passwordController.text.isEmpty && !isEditing) {
                 appNotification.showWarning(
                     title: 'Thiếu mật khẩu', message: tr('Vui lòng nhập mật khẩu'));
                 return;
               }
-              if (passwordController.text != confirmPasswordController.text) {
+              if (passwordController.text.isNotEmpty &&
+                  passwordController.text != confirmPasswordController.text) {
                 appNotification.showWarning(
                     title: 'Mật khẩu không khớp',
                     message: tr('Vui lòng nhập lại mật khẩu'));
                 return;
               }
-              if (passwordController.text.length < 6) {
+              if (passwordController.text.isNotEmpty &&
+                  passwordController.text.length < 6) {
                 appNotification.showWarning(
                     title: 'Mật khẩu yếu',
                     message: tr('Mật khẩu tối thiểu 6 ký tự'));
@@ -1663,8 +1731,6 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 : '';
             final firstName = nameParts.isNotEmpty ? nameParts.last : '';
             final data = {
-              if (!isEditing && selectedEmployee != null)
-                'employeeId': selectedEmployee!['id'].toString(),
               'userName': employeeIdController.text,
               'firstName': firstName,
               'lastName': lastName,
@@ -1689,10 +1755,19 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   savedUserId = d['id'].toString();
                 }
               }
-              // Gán khu vực: chỉ áp dụng Waiter/Order (và Employee nếu chọn).
-              // Admin/Manager/Cashier luôn xem tất cả — xóa gán nếu có.
+              if (isEditing &&
+                  passwordController.text.length >= 6 &&
+                  savedUserId != null &&
+                  savedUserId.isNotEmpty) {
+                try {
+                  await _apiService.resetAccountPassword(
+                      savedUserId, passwordController.text);
+                } catch (_) {}
+              }
+              // Gán khu: Cashier / Order / nhân viên — không chọn = xem tất cả.
+              // Admin/Manager luôn xem tất cả — xóa gán nếu có.
               if (savedUserId != null && savedUserId.isNotEmpty) {
-                final restrictRoles = {'Waiter', 'Employee', 'User'};
+                final restrictRoles = {'Cashier', 'Waiter', 'Employee', 'User'};
                 final areaIds = restrictRoles.contains(selectedRole)
                     ? selectedAreaIds.toList()
                     : <String>[];
@@ -1731,61 +1806,68 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Form fields
-              // Employee selector (only when creating)
-              if (!isEditing) ...[
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    EmployeePickerFormField(
-                      labelText: tr('Chọn nhân viên *'),
-                      hintText: tr(availableEmployees.isEmpty
-                          ? 'Không còn nhân viên chưa có tài khoản'
-                          : 'Bấm để tìm và chọn nhân viên...'),
-                      enabled: availableEmployees.isNotEmpty,
-                      candidates: pickerCandidates,
-                      selectedId: selectedEmployee?['id']?.toString(),
-                      presentation: EmployeePickerPresentation.bottomSheet,
-                      pickerTitle: 'Chọn nhân viên',
-                      pickerSubtitle: availableEmployees.isEmpty
-                          ? null
-                          : '${availableEmployees.length} nhân viên chưa có tài khoản',
-                      onChanged: (item) {
-                        if (item == null) {
-                          setDialogState(() => selectedEmployee = null);
-                          return;
-                        }
-                        final emp = availableEmployees.firstWhere(
-                          (e) => e['id'].toString() == item.id,
-                          orElse: () => <String, dynamic>{},
-                        );
-                        if (emp.isEmpty) return;
+              Text(tr('Khu vực làm việc (sơ đồ bàn)'),
+                  style: const TextStyle(
+                      color: Color(0xFF18181B),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700)),
+              const SizedBox(height: 4),
+              Text(
+                tr(posAreas.isEmpty
+                    ? 'Chưa có khu vực — thêm nhóm bàn ở sơ đồ POS. Không chọn = xem tất cả.'
+                    : (selectedAreaIds.isEmpty
+                        ? 'Chưa chọn = xem tất cả khu vực'
+                        : 'Sơ đồ chỉ hiện bàn thuộc ${selectedAreaIds.length} khu đã chọn')),
+                style: TextStyle(color: Colors.grey[500], fontSize: 11),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilterChip(
+                    label: Text(tr('Tất cả khu')),
+                    selected: selectedAreaIds.isEmpty,
+                    onSelected: (_) {
+                      setDialogState(() => selectedAreaIds.clear());
+                    },
+                  ),
+                  for (final area in posAreas)
+                    FilterChip(
+                      label: Text(tr(_posAreaLabel(area))),
+                      selected: selectedAreaIds.contains(_posAreaId(area)),
+                      onSelected: (on) {
+                        final id = _posAreaId(area);
+                        if (id.isEmpty) return;
                         setDialogState(() {
-                          selectedEmployee = emp;
-                          employeeIdController.text =
-                              emp['employeeCode']?.toString() ?? '';
-                          fullNameController.text = item.name;
-                          emailController.text = emp['companyEmail'] ??
-                              emp['personalEmail'] ??
-                              '';
-                          phoneController.text =
-                              emp['phoneNumber']?.toString() ?? '';
+                          if (on) {
+                            selectedAreaIds.add(id);
+                          } else {
+                            selectedAreaIds.remove(id);
+                          }
                         });
                       },
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      tr(availableEmployees.isEmpty
-                          ? 'Tất cả nhân viên trong hồ sơ đã có tài khoản'
-                          : 'Danh sách gồm nhân viên hồ sơ HR chưa đăng ký tài khoản (${availableEmployees.length})'),
-                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-              ],
-
-              // Row 1: Mã nhân viên + Tên nhân viên
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text(
+                tr(isEditing
+                    ? 'Cập nhật mật khẩu nhân viên'
+                    : 'Mật khẩu đăng nhập'),
+                style: const TextStyle(
+                    color: Color(0xFF18181B),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                tr(isEditing
+                    ? 'Để trống nếu giữ mật khẩu cũ'
+                    : 'Bắt buộc khi tạo tài khoản mới'),
+                style: TextStyle(color: Colors.grey[500], fontSize: 11),
+              ),
+              const SizedBox(height: 8),
               ..._buildFieldPair(
                 isMobile: isMobile,
                 first: Column(
@@ -1793,11 +1875,123 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(tr(isEditing ? 'Tên đăng nhập' : 'Mã nhân viên'),
+                        Text(
+                            tr(isEditing ? 'Mật khẩu mới' : 'Mật khẩu'),
                             style: const TextStyle(
                                 color: Color(0xFF71717A), fontSize: 13)),
-                        Text(tr(' *'),
-                            style: TextStyle(color: Color(0xFFEF4444))),
+                        if (!isEditing)
+                          const Text(' *',
+                              style: TextStyle(color: Color(0xFFEF4444))),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: passwordController,
+                      obscureText: !showPassword,
+                      style: const TextStyle(
+                          color: Color(0xFF18181B), fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: tr(isEditing
+                            ? 'Để trống nếu giữ nguyên'
+                            : 'Tối thiểu 6 ký tự'),
+                        hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                              showPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: const Color(0xFFA1A1AA),
+                              size: 20),
+                          onPressed: () => setDialogState(
+                              () => showPassword = !showPassword),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE4E4E7)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE4E4E7)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                              color: HrmPageChrome.primaryNavy),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                second: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(tr('Xác nhận mật khẩu'),
+                            style: const TextStyle(
+                                color: Color(0xFF71717A), fontSize: 13)),
+                        if (!isEditing)
+                          const Text(' *',
+                              style: TextStyle(color: Color(0xFFEF4444))),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: confirmPasswordController,
+                      obscureText: !showConfirmPassword,
+                      style: const TextStyle(
+                          color: Color(0xFF18181B), fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: tr('Nhập lại mật khẩu'),
+                        hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 12),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                              showConfirmPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: const Color(0xFFA1A1AA),
+                              size: 20),
+                          onPressed: () => setDialogState(() =>
+                              showConfirmPassword = !showConfirmPassword),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE4E4E7)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE4E4E7)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                              color: HrmPageChrome.primaryNavy),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Row 1: Tên đăng nhập + Tên nhân viên
+              ..._buildFieldPair(
+                isMobile: isMobile,
+                first: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(tr(isEditing ? 'Tên đăng nhập' : 'Tên đăng nhập'),
+                            style: const TextStyle(
+                                color: Color(0xFF71717A), fontSize: 13)),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -1806,7 +2000,9 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       style: const TextStyle(
                           color: Color(0xFF18181B), fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: tr(isEditing ? 'username' : 'NV001'),
+                        hintText: tr(isEditing
+                            ? 'username'
+                            : 'Để trống = lấy từ email'),
                         hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
@@ -1871,7 +2067,10 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(tr('Mã NV được tự động điền khi chọn nhân viên'),
+              Text(
+                tr(isEditing
+                    ? 'Tên đăng nhập của tài khoản'
+                    : 'Nhập tên đăng nhập — hoặc để trống để lấy phần trước @ email'),
                 style: TextStyle(color: Colors.grey[500], fontSize: 11),
               ),
               const SizedBox(height: 16),
@@ -2031,166 +2230,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   ),
                 ],
               ),
-              if (posAreas.isNotEmpty &&
-                  (selectedRole == 'Waiter' ||
-                      selectedRole == 'Employee' ||
-                      selectedRole == 'User')) ...[
-                const SizedBox(height: 16),
-                Text(tr('Khu vực bàn được phép'),
-                    style: const TextStyle(
-                        color: Color(0xFF71717A), fontSize: 13)),
-                const SizedBox(height: 6),
-                Text(
-                  tr(selectedAreaIds.isEmpty
-                      ? 'Chưa chọn = xem tất cả khu vực'
-                      : 'Chỉ hiện ${selectedAreaIds.length} khu đã chọn trên sơ đồ'),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    FilterChip(
-                      label: Text(tr('Tất cả khu')),
-                      selected: selectedAreaIds.isEmpty,
-                      onSelected: (_) {
-                        setDialogState(() => selectedAreaIds.clear());
-                      },
-                    ),
-                    for (final area in posAreas)
-                      FilterChip(
-                        label: Text(tr(area['name']?.toString() ?? '')),
-                        selected: selectedAreaIds
-                            .contains(area['id']?.toString() ?? ''),
-                        onSelected: (on) {
-                          final id = area['id']?.toString() ?? '';
-                          if (id.isEmpty) return;
-                          setDialogState(() {
-                            if (on) {
-                              selectedAreaIds.add(id);
-                            } else {
-                              selectedAreaIds.remove(id);
-                            }
-                          });
-                        },
-                      ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 16),
-
-              // Row 4: Mật khẩu + Xác nhận mật khẩu
-              if (!isEditing) ...[
-                ..._buildFieldPair(
-                  isMobile: isMobile,
-                  first: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(tr('Mật khẩu'),
-                              style: TextStyle(
-                                  color: Color(0xFF71717A), fontSize: 13)),
-                          Text(tr(' *'),
-                              style: TextStyle(color: Color(0xFFEF4444))),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: passwordController,
-                        obscureText: !showPassword,
-                        style: const TextStyle(
-                            color: Color(0xFF18181B), fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: tr('Tối thiểu 6 ký tự'),
-                          hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                                showPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                                color: const Color(0xFFA1A1AA),
-                                size: 20),
-                            onPressed: () => setDialogState(
-                                () => showPassword = !showPassword),
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE4E4E7)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE4E4E7)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: HrmPageChrome.primaryNavy),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  second: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(tr('Xác nhận mật khẩu'),
-                              style: TextStyle(
-                                  color: Color(0xFF71717A), fontSize: 13)),
-                          Text(tr(' *'),
-                              style: TextStyle(color: Color(0xFFEF4444))),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: confirmPasswordController,
-                        obscureText: !showConfirmPassword,
-                        style: const TextStyle(
-                            color: Color(0xFF18181B), fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: tr('Nhập lại mật khẩu'),
-                          hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                                showConfirmPassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                                color: const Color(0xFFA1A1AA),
-                                size: 20),
-                            onPressed: () => setDialogState(() =>
-                                showConfirmPassword = !showConfirmPassword),
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE4E4E7)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Color(0xFFE4E4E7)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: HrmPageChrome.primaryNavy),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
+              const SizedBox(height: 24),
             ],
           );
 
@@ -2473,19 +2513,18 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
     final confirmPasswordController = TextEditingController();
     final searchController = TextEditingController();
     final selectedIds = <String>{};
-    String selectedRole = 'Employee';
+    String selectedRole = _permissionRoles.any((r) => r.name == 'Cashier')
+        ? 'Cashier'
+        : (_permissionRoles.isNotEmpty
+            ? _permissionRoles.first.name
+            : 'Employee');
     bool showPassword = false;
     bool showConfirmPassword = false;
     bool isSubmitting = false;
 
-    const roles = [
-      {'value': 'Waiter', 'label': 'Order'},
-      {'value': 'Cashier', 'label': 'Thu ngân'},
-      {'value': 'Employee', 'label': 'Nhân viên'},
-      {'value': 'User', 'label': 'Người dùng'},
-      {'value': 'Accountant', 'label': 'Kế toán'},
-      {'value': 'DepartmentHead', 'label': 'Trưởng phòng'},
-      {'value': 'Manager', 'label': 'Quản lý'},
+    final roles = [
+      for (final r in _permissionRoles)
+        {'value': r.name, 'label': r.displayName},
     ];
 
     showDialog(

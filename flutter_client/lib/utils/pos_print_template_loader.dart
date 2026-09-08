@@ -10,6 +10,37 @@ List<PosPrintTemplate> parsePosPrintTemplatesResponse(Map<String, dynamic> res) 
   return [];
 }
 
+/// Chọn mẫu đúng khổ máy (K58/K80). Mặc định store K80 không dùng cho máy 58mm.
+PosPrintTemplate? pickPosPrintTemplateForPaper(
+  List<PosPrintTemplate> list, {
+  String? paperSize,
+  String? templateId,
+}) {
+  if (list.isEmpty) return null;
+  DateTime stamp(PosPrintTemplate t) =>
+      t.updatedAt ?? t.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+  final want = (paperSize ?? '').trim().toUpperCase();
+  if (want.isNotEmpty) {
+    final sized = list
+        .where((t) => t.paperSize.trim().toUpperCase() == want)
+        .toList();
+    if (sized.isNotEmpty) {
+      final defs = sized.where((t) => t.isDefault).toList();
+      final pool = defs.isNotEmpty ? defs : sized;
+      pool.sort((a, b) => stamp(b).compareTo(stamp(a)));
+      return pool.first;
+    }
+  }
+  if (templateId != null && templateId.isNotEmpty) {
+    final hit = list.where((t) => t.id == templateId).firstOrNull;
+    if (hit != null) return hit;
+  }
+  final defaults = list.where((t) => t.isDefault).toList();
+  final pool = defaults.isNotEmpty ? defaults : list;
+  final sorted = [...pool]..sort((a, b) => stamp(b).compareTo(stamp(a)));
+  return sorted.first;
+}
+
 /// Tải danh sách mẫu in; tự seed mặc định nếu chưa có.
 Future<List<PosPrintTemplate>> loadPosPrintTemplates(
   ApiService api,

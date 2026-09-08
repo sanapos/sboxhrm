@@ -25,7 +25,7 @@ public class PermissionManagementController(
     ILogger<PermissionManagementController> logger) : AuthenticatedControllerBase
 {
     private static readonly string[] SystemRoles =
-        ["Admin", "Director", "Accountant", "DepartmentHead", "Manager", "Employee", "User"];
+        ["Admin", "Director", "Accountant", "DepartmentHead", "Manager", "Cashier", "Waiter", "Employee", "User"];
 
     #region Get Permissions
 
@@ -206,7 +206,8 @@ public class PermissionManagementController(
             modulePermissions = await FilterModulesByStorePackageAsync(modulePermissions);
 
             var displayName = permissions.FirstOrDefault()?.RoleDisplayName;
-            if (string.IsNullOrWhiteSpace(displayName))
+            if (string.IsNullOrWhiteSpace(displayName) ||
+                displayName.Equals(roleName, StringComparison.OrdinalIgnoreCase))
                 displayName = GetRoleDisplayName(roleName);
 
             result.Add(new RolePermissionGroupDto
@@ -450,6 +451,8 @@ public class PermissionManagementController(
         // Luôn cho phép cấu hình phân quyền / tài khoản trên UI quản trị
         if (module.Equals("Role", StringComparison.OrdinalIgnoreCase)) return true;
         if (module.Equals("UserManagement", StringComparison.OrdinalIgnoreCase)) return true;
+        // Không hiện trên ma trận chức danh — dùng cho gán phạm vi CN/PB.
+        if (module.Equals("DataScope", StringComparison.OrdinalIgnoreCase)) return false;
         return allowed.Contains(module);
     }
 
@@ -521,6 +524,8 @@ public class PermissionManagementController(
         "accountant" => "Kế toán",
         "departmenthead" => "Trưởng phòng",
         "manager" => "Quản lý",
+        "cashier" => "Thu ngân",
+        "waiter" => "Order",
         "employee" => "Nhân viên",
         "user" => "Người dùng",
         _ => roleName

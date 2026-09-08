@@ -244,6 +244,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(
+        context: context,
         title: 'Thiết lập Phụ cấp',
         actions: toolbarActions,
       ),

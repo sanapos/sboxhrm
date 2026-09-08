@@ -422,7 +422,7 @@ class NotificationCreditsTabState extends State<NotificationCreditsTab> {
               final per = credits > 0 ? (price / credits).round() : 0;
               return ListTile(
                 title: Text((p['name'] ?? '').toString()),
-                subtitle: Text('$credits lượt · ${price.toStringAsFixed(0)} đ · ~$per đ/lượt'),
+                subtitle: Text(tr('$credits lượt · ${price.toStringAsFixed(0)} đ · ~$per đ/lượt')),
               );
             }),
           ],

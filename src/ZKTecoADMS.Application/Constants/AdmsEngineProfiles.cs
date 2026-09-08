@@ -82,6 +82,12 @@ public static class AdmsEngineProfiles
         return Default;
     }
 
+    public static bool IsAndroidVisibleLight(string? platform, string? firmware, string? serialNumber) =>
+        ResolveProfile(platform, firmware, serialNumber) == AndroidVisibleLight;
+
+    public static bool IsAndroidVisibleLight(Domain.Entities.DeviceInfo? info, string? serialNumber) =>
+        IsAndroidVisibleLight(info?.Platform, info?.FirmwareVersion, serialNumber);
+
     public static void ApplyProfileDefaults(Domain.Entities.DeviceInfo info, string profile)
     {
         var previous = info.EngineProfile;

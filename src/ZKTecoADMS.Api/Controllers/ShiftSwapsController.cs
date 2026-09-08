@@ -20,28 +20,19 @@ namespace ZKTecoADMS.Api.Controllers;
 public class ShiftSwapsController(IMediator mediator, ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
     /// <summary>
-    /// Danh sách đồng nghiệp cùng phòng ban (để chọn khi tạo yêu cầu đổi ca).
+    /// Đồng nghiệp trong cửa hàng để chọn khi tạo yêu cầu đổi ca.
+    /// Admin/QL không có hồ sơ Employee vẫn thấy đủ NV đang làm.
     /// </summary>
     [HttpGet("colleagues")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("ShiftSwap", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ShiftSwap", "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<List<SwapColleagueDto>>>> GetColleagues()
     {
-        var myEmployee = await dbContext.Employees.AsNoTracking()
-            .FirstOrDefaultAsync(e => e.ApplicationUserId == CurrentUserId && e.StoreId == RequiredStoreId);
-        if (myEmployee == null)
-            return Ok(AppResponse<List<SwapColleagueDto>>.Success([]));
-
-        var query = dbContext.Employees.AsNoTracking()
+        var colleagues = await dbContext.Employees.AsNoTracking()
             .Where(e => e.StoreId == RequiredStoreId
                 && e.ApplicationUserId != null
                 && e.ApplicationUserId != CurrentUserId
-                && e.WorkStatus == EmployeeWorkStatus.Active);
-
-        if (!string.IsNullOrWhiteSpace(myEmployee.Department))
-            query = query.Where(e => e.Department == myEmployee.Department);
-
-        var colleagues = await query
+                && e.WorkStatus == EmployeeWorkStatus.Active)
             .OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
             .Select(e => new SwapColleagueDto
             {
@@ -61,7 +52,7 @@ public class ShiftSwapsController(IMediator mediator, ZKTecoDbContext dbContext)
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("ShiftSwap", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ShiftSwap", "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<PagedResult<ShiftSwapRequestDto>>>> GetShiftSwaps(
         [FromQuery] PaginationRequest request,
         [FromQuery] ShiftSwapStatus? status = null)
@@ -76,7 +67,7 @@ public class ShiftSwapsController(IMediator mediator, ZKTecoDbContext dbContext)
     /// </summary>
     [HttpGet("pending-for-me")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("ShiftSwap", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ShiftSwap", "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<PagedResult<ShiftSwapRequestDto>>>> GetPendingForMe(
         [FromQuery] PaginationRequest request)
     {
@@ -92,7 +83,7 @@ public class ShiftSwapsController(IMediator mediator, ZKTecoDbContext dbContext)
     /// </summary>
     [HttpGet("pending-approval")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("ShiftSwap", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ShiftSwap", "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<PagedResult<ShiftSwapRequestDto>>>> GetPendingApproval(
         [FromQuery] PaginationRequest request)
     {
@@ -150,7 +141,7 @@ public class ShiftSwapsController(IMediator mediator, ZKTecoDbContext dbContext)
     /// </summary>
     [HttpPost("{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("ShiftSwap", ModulePermissionAction.Approve)]
+    [RequireAnyModulePermission(ModulePermissionAction.Approve, "ShiftSwap", "ScheduleApproval")]
     public async Task<ActionResult<AppResponse<bool>>> ApproveSwap(
         Guid id,
         [FromBody] ManagerDecisionDto request)

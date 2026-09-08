@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:sbox_pos/shims/sunmi_api_shim.dart';
@@ -30,14 +32,14 @@ class _SunmiReceiptLayout {
   factory _SunmiReceiptLayout.fromMm(int paperWidthMm) {
     final k58 = paperWidthMm <= 58;
     if (k58) {
-      // K57/K58: chữ to, cột đủ 32 để căn hết khổ.
+      // K58: chữ vừa khổ, khỏi vỡ cột.
       return const _SunmiReceiptLayout._(
         k58: true,
         chars: 32,
-        titleSize: 40,
-        bodySize: 26,
-        smallSize: 22,
-        totalSize: 32,
+        titleSize: 32,
+        bodySize: 20,
+        smallSize: 18,
+        totalSize: 26,
         colLeft: 20,
         colRight: 12,
         itemLeft: 20,
@@ -88,9 +90,7 @@ class PosSunmiNativePrint {
     return '${m}p';
   }
 
-  /// Tôn trọng feed cấu hình; phiếu bếp/kho gọn — khỏi dư đuôi dài.
-  static const _minFeedSunmi = 5;
-  static const _minFeedKitchen = 2;
+  /// Tôn trọng số dòng đã chỉnh (0 = không đẩy thêm).
   static const _maxFeed = 40;
 
   static Future<bool> printSaleOrder(
@@ -120,9 +120,7 @@ class PosSunmiNativePrint {
       final raw = linesOverride ?? order.lines;
       final lines = mergeSameItems ? _mergeLines(raw) : raw;
       final titleOverride = slipTitle ?? documentTitle;
-      final feed = warehouseSlip
-          ? _resolveFeed(settings.resolvedFeedBeforeCut, min: _minFeedKitchen)
-          : _resolveFeed(settings.resolvedFeedBeforeCut, min: _minFeedSunmi);
+      final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
       final double effectiveVat = vatAmount > 0
           ? vatAmount
           : (vatIncludedInPrice ? 0.0 : order.vatAmount);
@@ -151,14 +149,13 @@ class PosSunmiNativePrint {
   }
 
   static int _resolveFeed(int configured, {int min = 0}) {
+    if (configured <= 0) return 0;
     final n = configured.clamp(0, _maxFeed);
     return n < min ? min : n;
   }
 
   static Future<void> _feedPaper(int lines) async {
-    final n = lines.clamp(0, _maxFeed);
-    if (n <= 0) return;
-    await SunmiPrinter.lineWrap(n);
+    await PosPrinterTransport.finishSunmiSlip(feedLines: lines);
   }
 
   /// Báo cáo dạng dòng chữ (tổng kết cuối ngày, v.v.) — UTF-8 native.
@@ -182,8 +179,7 @@ class PosSunmiNativePrint {
       if (!bound) return false;
 
       final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
-      final feed =
-          _resolveFeed(settings.resolvedFeedBeforeCut, min: _minFeedKitchen);
+      final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
       final date = DateFormat('dd/MM/yyyy HH:mm').format(sentAt);
       final img = <PosReceiptImageLine>[
         PosReceiptImageLine(
@@ -249,13 +245,8 @@ class PosSunmiNativePrint {
         }
       }
       img.add(const PosReceiptImageLine(text: '', isDivider: true));
-      await _printImageLines(layout, img);
+      await _printImageLines(layout, img, trailingFeedLines: feed);
       await _feedPaper(feed);
-      try {
-        await SunmiPrinter.cutPaper();
-      } catch (e) {
-        debugPrint('Sunmi cutPaper: $e');
-      }
       return PosPrinterTransport.verifySunmiAfterPrint();
     } catch (e) {
       debugPrint('Sunmi kitchen slip failed: $e');
@@ -280,12 +271,13 @@ class PosSunmiNativePrint {
       final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
       final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
       for (var c = 0; c < copies.clamp(1, 10); c++) {
+        _beginSlipBatch();
         await _center(title, size: layout.titleSize, bold: true);
         await _rule(layout);
         for (final raw in lines) {
           final line = raw.trimRight();
           if (line.isEmpty) {
-            await SunmiPrinter.printText(' ');
+            _slipBatch?.add(const PosReceiptImageLine(text: ''));
             continue;
           }
           if (line.replaceAll(RegExp(r'[─\-═=]'), '').trim().isEmpty) {
@@ -308,12 +300,8 @@ class PosSunmiNativePrint {
           await _rule(layout);
           await _center(footer.trim(), size: layout.smallSize);
         }
-        await _feedPaper(feed);
-        try {
-          await SunmiPrinter.cutPaper();
-        } catch (e) {
-          debugPrint('Sunmi cutPaper: $e');
-        }
+        await _commitSlipBatch(layout, feedLines: feed);
+        await PosPrinterTransport.finishSunmiSlip(feedLines: feed);
       }
       return true;
     } catch (e) {
@@ -347,6 +335,7 @@ class PosSunmiNativePrint {
       final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
       final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
       final badge = paperBadge ?? (layout.k58 ? 'K58' : 'K80');
+      _beginSlipBatch();
 
       if (storeName.trim().isNotEmpty) {
         await _center(storeName.trim(), size: layout.titleSize, bold: true);
@@ -398,12 +387,8 @@ class PosSunmiNativePrint {
       }
 
       await _center(footer, size: layout.smallSize);
+      await _commitSlipBatch(layout, feedLines: feed);
       await _feedPaper(feed);
-      try {
-        await SunmiPrinter.cutPaper();
-      } catch (e) {
-        debugPrint('Sunmi cutPaper: $e');
-      }
       return true;
     } catch (e) {
       debugPrint('Sunmi EOD report failed: $e');
@@ -423,13 +408,13 @@ class PosSunmiNativePrint {
       final bound = await PosPrinterTransport.ensureSunmiBound();
       if (!bound) return false;
       final layout = _SunmiReceiptLayout.fromMm(settings.paperWidthMm);
-      final feed = _resolveFeed(
-        settings.resolvedFeedBeforeCut,
-        min: kitchenFeed ? _minFeedKitchen : _minFeedSunmi,
-      );
+      final feed = _resolveFeed(settings.resolvedFeedBeforeCut);
       final dots = PosThermalBitmapEncoder.paperDots(settings.paperWidthMm);
+      final handheld = !await PosPrinterTransport.sunmiHasAutoCutter();
       for (var c = 0; c < copies.clamp(1, 10); c++) {
         final batch = <PosReceiptImageLine>[];
+        _handheldEscAcc = handheld ? <int>[] : null;
+        _handheldAccDots = dots;
         Future<void> flushBatch() async {
           if (batch.isEmpty) return;
           final png = await PosThermalBitmapEncoder.receiptToPng(
@@ -438,36 +423,38 @@ class PosSunmiNativePrint {
             frameStyle: output.frameStyle,
             frameInsetMm: output.frameInsetMm,
             frameMarginMm: output.frameMarginMm,
+            trailingFeedLines: 0,
           );
           batch.clear();
           if (png != null) {
-            await SunmiPrinter.printImage(
-              png,
-              align: SunmiPrintAlign.CENTER,
-            );
+            await _emitSunmiPng(png);
           }
         }
 
-        for (final step in output.steps) {
-          if (step is PosPrintCompiledQr) {
-            await flushBatch();
-            await _printCompiledQr(step, layout);
-            continue;
-          }
-          if (step is PosPrintCompiledBarcode) {
-            await flushBatch();
-            await _printCompiledBarcode(step);
-            continue;
-          }
-          final img = compiledStepToImageLine(step);
-          if (img != null) batch.add(img);
-        }
-        await flushBatch();
-        await _feedPaper(feed);
         try {
-          await SunmiPrinter.cutPaper();
-        } catch (e) {
-          debugPrint('Sunmi cutPaper: $e');
+          for (final step in output.steps) {
+            if (step is PosPrintCompiledQr) {
+              await flushBatch();
+              await _printCompiledQr(step, layout);
+              continue;
+            }
+            if (step is PosPrintCompiledBarcode) {
+              await flushBatch();
+              await _flushHandheldAccNow();
+              await _printCompiledBarcode(step);
+              continue;
+            }
+            final img = compiledStepToImageLine(step);
+            if (img != null) batch.add(img);
+          }
+          await flushBatch();
+          if (handheld) {
+            await _commitHandheldAcc(feedLines: feed, paperDots: dots);
+          } else {
+            await PosPrinterTransport.finishSunmiSlip(feedLines: feed);
+          }
+        } finally {
+          _handheldEscAcc = null;
         }
       }
       return PosPrinterTransport.verifySunmiAfterPrint();
@@ -486,39 +473,28 @@ class PosSunmiNativePrint {
     try {
       final bound = await PosPrinterTransport.ensureSunmiBound();
       if (!bound) return false;
-      final layout = _SunmiReceiptLayout.fromMm(paperWidthMm);
-
-      await _center(storeLabel, size: layout.titleSize, bold: true);
-      await _center(
-        layout.k58 ? 'Mẫu in thử K58' : 'Mẫu in thử K80',
-        size: layout.bodySize,
-        bold: true,
+      final handheld = !await PosPrinterTransport.sunmiHasAutoCutter();
+      final layout = _SunmiReceiptLayout.fromMm(handheld ? 58 : paperWidthMm);
+      debugPrint(
+        'Sunmi testPrint handheld=$handheld feed=$feedLines '
+        'mm=${handheld ? 58 : paperWidthMm}',
       );
-      await _rule(layout);
-      await _center('Tiếng Việt: ĂÂÊÔƠƯ Đ', size: layout.bodySize);
-      await _saleItemRow(
-        layout,
-        name: 'Tên hàng',
-        qty: 'SL',
-        price: 'Đ.giá',
-        total: 'T.tiền',
-      );
-      await _saleItemRow(
-        layout,
-        name: 'Món thử',
-        qty: '1',
-        price: '2.850.000',
-        total: '2.850.000',
-      );
-      await _rule(layout);
-      await _pair(layout, 'TỔNG CỘNG', '125.000 đ', bold: true);
-      await _rule(layout);
+      // Một ảnh duy nhất — V2s printImage từng dòng sẽ đẩy đuôi trắng rất dài.
+      await _printImageLines(layout, [
+        _imgCenter(storeLabel, layout.titleSize),
+        _imgCenter(
+          layout.k58 ? 'Mẫu in thử K58' : 'Mẫu in thử K80',
+          layout.bodySize,
+        ),
+        _imgDiv(),
+        _imgCenter('Tiếng Việt: ĂÂÊÔƠƯ Đ', layout.bodySize),
+        _imgSale(layout, name: 'Tên hàng', qty: 'SL', price: 'Đ.giá', total: 'T.tiền', header: true),
+        _imgSale(layout, name: 'Món thử', qty: '1', price: '2.850.000', total: '2.850.000'),
+        _imgDiv(),
+        _imgPair(layout, 'TỔNG CỘNG', '125.000 đ', bold: true),
+        _imgDiv(),
+      ], trailingFeedLines: _resolveFeed(feedLines));
       await _feedPaper(_resolveFeed(feedLines));
-      try {
-        await SunmiPrinter.cutPaper();
-      } catch (e) {
-        debugPrint('Sunmi cutPaper: $e');
-      }
       return true;
     } catch (e) {
       debugPrint('Sunmi native test print failed: $e');
@@ -546,6 +522,7 @@ class PosSunmiNativePrint {
     final shop = storeName?.trim().isNotEmpty == true
         ? storeName!.trim()
         : 'CỬA HÀNG';
+    _beginSlipBatch();
     await _center(shop, size: layout.titleSize, bold: true);
     if (storeAddress != null && storeAddress.trim().isNotEmpty) {
       await _center('DC: ${storeAddress.trim()}', size: layout.smallSize, bold: true);
@@ -666,42 +643,32 @@ class PosSunmiNativePrint {
     }
     await _rule(layout);
 
-    // printRow width phải = 12. Cột 5+1+3+3: tên trái, SL/Đ.giá/T.tiền phải
-    // (in từ mép phải — không cắt 2.850.000, không xuống hàng).
-    final cols = PosReceiptLayout.fromMm(layout.k58 ? 58 : 80);
     await _saleItemRow(
       layout,
       name: 'Tên hàng',
       qty: 'SL',
       price: 'Đ.giá',
-      total: 'T.tiền',
+      total: 'T.T',
+      header: true,
     );
     await _rule(layout);
 
-    String moneyCell(double v) => PosReceiptLayout.moneyItem(v);
+    String moneyCell(double v) => layout.k58
+        ? PosReceiptLayout.moneyItemCompact(v)
+        : PosReceiptLayout.moneyItem(v);
 
     for (final line in lines) {
       final saleUnit = line.qty > 0 ? line.lineTotal / line.qty : line.unitPrice;
       final unitPrice =
           line.discountAmount > 0 ? saleUnit : line.unitPrice;
       final name = line.productName.trim().isEmpty ? 'Món' : line.productName.trim();
-      final chunks = PosReceiptLayout.wrap(name, cols.nameW);
       await _saleItemRow(
         layout,
-        name: chunks.first,
+        name: name,
         qty: _qty.format(line.qty),
         price: moneyCell(unitPrice),
         total: moneyCell(line.lineTotal),
       );
-      for (var i = 1; i < chunks.length; i++) {
-        await _saleItemRow(
-          layout,
-          name: chunks[i],
-          qty: '',
-          price: '',
-          total: '',
-        );
-      }
       if (line.discountAmount > 0) {
         await _saleItemRow(
           layout,
@@ -730,7 +697,7 @@ class PosSunmiNativePrint {
         ? linesTotal
         : (order.subTotal > 0 ? order.subTotal : linesTotal);
 
-    await _pair(layout, 'Tổng thành tiền:', _money.format(hangTotal));
+    await _pair(layout, 'Tổng tiền hàng:', _money.format(hangTotal));
     final ck = order.discount > 0 ? order.discount : lineDiscount;
     if (!warehouseSlip && ck > 0) {
       await _pair(layout, 'Chiết khấu:', _money.format(ck));
@@ -743,7 +710,7 @@ class PosSunmiNativePrint {
     }
     await _pair(
       layout,
-      'Tổng cộng:',
+      'TỔNG CỘNG:',
       _money.format(receiptTotal),
       bold: true,
     );
@@ -752,12 +719,8 @@ class PosSunmiNativePrint {
       if (order.note != null && order.note!.trim().isNotEmpty) {
         await _left('Ghi chú: ${order.note!.trim()}', size: layout.smallSize);
       }
+      await _commitSlipBatch(layout, feedLines: feedLines);
       await _feedPaper(feedLines);
-      try {
-        await SunmiPrinter.cutPaper();
-      } catch (e) {
-        debugPrint('Sunmi cutPaper: $e');
-      }
       return PosPrinterTransport.verifySunmiAfterPrint();
     }
 
@@ -774,14 +737,10 @@ class PosSunmiNativePrint {
       await _left('Ghi chú: ${order.note!.trim()}', size: layout.smallSize);
     }
     await _rule(layout);
-    await _center('Cam on quy khach!', size: layout.bodySize, bold: true);
+    await _center('Cảm ơn quý khách!', size: layout.bodySize, bold: true);
 
+    await _commitSlipBatch(layout, feedLines: feedLines);
     await _feedPaper(feedLines);
-    try {
-      await SunmiPrinter.cutPaper();
-    } catch (e) {
-      debugPrint('Sunmi cutPaper: $e');
-    }
     return PosPrinterTransport.verifySunmiAfterPrint();
   }
 
@@ -798,7 +757,7 @@ class PosSunmiNativePrint {
       paperDots: dots,
     );
     if (png != null) {
-      await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
+      await _emitSunmiPng(png);
     }
     if (qr.caption.trim().isNotEmpty) {
       await _center(qr.caption.trim(), size: layout.smallSize, bold: true);
@@ -830,59 +789,248 @@ class PosSunmiNativePrint {
     }
   }
 
+  /// Gộp nhiều dòng thành 1 printImage — V2s đẩy đuôi trắng sau mỗi ảnh.
+  static List<PosReceiptImageLine>? _slipBatch;
+
+  /// V2s mẫu V2: gom mọi GS v 0 thành 1 printEscPos rồi mới nhồi feed.
+  static List<int>? _handheldEscAcc;
+  static int _handheldAccDots = 384;
+
+  static Future<void> _flushHandheldAccNow() async {
+    final acc = _handheldEscAcc;
+    if (acc == null || acc.isEmpty) return;
+    await SunmiPrinter.printEscPos(List<int>.from(acc));
+    acc.clear();
+  }
+
+  static Future<void> _commitHandheldAcc({
+    required int feedLines,
+    required int paperDots,
+  }) async {
+    var payload = List<int>.from(_handheldEscAcc ?? const <int>[]);
+    _handheldEscAcc = null;
+    payload = PosThermalBitmapEncoder.appendHandheldFeed(
+      payload,
+      feedLines,
+      paperDots: paperDots,
+    );
+    if (payload.isEmpty) return;
+    await SunmiPrinter.printEscPos(payload);
+  }
+
+  static Future<bool> _tryAccText(
+    String text, {
+    required int size,
+    required bool center,
+    bool bold = false,
+  }) async {
+    if (_handheldEscAcc == null) return false;
+    final raster = await PosThermalBitmapEncoder.textLineToRaster(
+      text,
+      paperDots: _handheldAccDots,
+      fontSize: size.toDouble(),
+      bold: bold,
+      center: center,
+    );
+    if (raster != null && raster.isNotEmpty) {
+      _handheldEscAcc!.addAll(PosPrinterTransport.stripTrailingCut(raster));
+    }
+    return true;
+  }
+
+  static void _beginSlipBatch() {
+    _slipBatch = <PosReceiptImageLine>[];
+  }
+
+  static Future<void> _commitSlipBatch(
+    _SunmiReceiptLayout layout, {
+    int feedLines = 0,
+  }) async {
+    final lines = _slipBatch;
+    _slipBatch = null;
+    if (lines == null || lines.isEmpty) return;
+    await _printImageLines(layout, lines, trailingFeedLines: feedLines);
+  }
+
+  static PosReceiptImageLine _imgCenter(String text, int size, {bool bold = true}) =>
+      PosReceiptImageLine(
+        text: text,
+        fontSize: size.toDouble(),
+        bold: bold,
+        center: true,
+      );
+
+  static PosReceiptImageLine _imgLeft(String text, int size, {bool bold = true}) =>
+      PosReceiptImageLine(
+        text: text,
+        fontSize: size.toDouble(),
+        bold: bold,
+      );
+
+  static PosReceiptImageLine _imgDiv() =>
+      const PosReceiptImageLine(text: '', isDivider: true);
+
+  static PosReceiptImageLine _imgPair(
+    _SunmiReceiptLayout layout,
+    String left,
+    String right, {
+    bool bold = false,
+  }) =>
+      PosReceiptImageLine(
+        text: left,
+        rightText: right,
+        fontSize: bold
+            ? (layout.k58 ? 22 : 24)
+            : (layout.k58 ? 20 : 22).toDouble(),
+        bold: true,
+      );
+
+  static PosReceiptImageLine _imgSale(
+    _SunmiReceiptLayout layout, {
+    required String name,
+    required String qty,
+    required String price,
+    required String total,
+    bool header = false,
+  }) {
+    final hasCols = qty.trim().isNotEmpty ||
+        price.trim().isNotEmpty ||
+        total.trim().isNotEmpty;
+    return PosReceiptImageLine(
+      text: name,
+      colQty: hasCols ? qty : null,
+      colPrice: hasCols ? price : null,
+      colTotal: hasCols ? total : null,
+      fontSize: layout.k58 ? (header ? 17 : 15) : 22,
+      bold: header,
+    );
+  }
+
   static Future<void> _printImageLines(
     _SunmiReceiptLayout layout,
-    List<PosReceiptImageLine> lines,
-  ) async {
+    List<PosReceiptImageLine> lines, {
+    int trailingFeedLines = 0,
+  }) async {
+    final handheld = !await PosPrinterTransport.sunmiHasAutoCutter();
+    final dots = handheld ? 384 : (layout.k58 ? 384 : 576);
+    // V2s không dao: printImage của SDK tự đẩy ~1 đoạn giấy sau mỗi ảnh.
+    // Raster phải đúng 384 chấm — ảnh scale=2 (768) in GS v 0 sẽ quấn ra thêm 1 khúc.
+    if (handheld) {
+      final raster = await PosThermalBitmapEncoder.receiptToRaster(
+        lines,
+        paperDots: dots,
+        initPrinter: false,
+        keepPx: 0,
+      );
+      if (raster != null && raster.isNotEmpty) {
+        // LF sau GS v 0 bị firmware V2s bỏ qua — số dòng chỉnh không đổi.
+        // Nhồi hàng trắng vào chiều cao bitmap (1 dòng = 24 chấm ≈ 3mm).
+        final payload = PosThermalBitmapEncoder.appendHandheldFeed(
+          PosPrinterTransport.stripTrailingCut(raster),
+          trailingFeedLines,
+          paperDots: dots,
+        );
+        await SunmiPrinter.printEscPos(payload);
+      }
+      return;
+    }
+    // Máy có dao: feed do finishSunmiSlip (lineWrap + cut) xử lý, không bake ảnh.
     final png = await PosThermalBitmapEncoder.receiptToPng(
       lines,
-      paperDots: layout.k58 ? 384 : 576,
+      paperDots: dots,
+      trailingFeedLines: 0,
     );
     if (png != null) {
       await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
     }
   }
 
+  static Future<void> _emitSunmiPng(Uint8List png) async {
+    if (await PosPrinterTransport.sunmiHasAutoCutter()) {
+      await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
+      return;
+    }
+    final raster = await PosThermalBitmapEncoder.pngToEscPos(png);
+    if (raster == null || raster.isEmpty) return;
+    final bytes = PosPrinterTransport.stripTrailingCut(raster);
+    if (_handheldEscAcc != null) {
+      _handheldEscAcc!.addAll(bytes);
+      return;
+    }
+    await SunmiPrinter.printEscPos(bytes);
+  }
+
   /// Đường kẻ full khổ: font tỉ lệ nên 32 ký tự '=' ở size 18 chỉ ~3/4 giấy K58.
   static Future<void> _rule(_SunmiReceiptLayout layout) async {
+    final batch = _slipBatch;
+    if (batch != null) {
+      batch.add(_imgDiv());
+      return;
+    }
     final png = await PosThermalBitmapEncoder.horizontalRulePng(
       paperDots: layout.k58 ? 384 : 576,
       thickness: 2,
     );
     if (png != null) {
-      await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
+      await _emitSunmiPng(png);
     }
   }
 
-  static Future<void> _center(String text, {int size = 24, bool bold = false}) =>
-      SunmiPrinter.printText(
-        text,
-        style: SunmiTextStyle(
-          align: SunmiPrintAlign.CENTER,
-          fontSize: size,
-          bold: true, // Sunmi: luôn đậm để nét rõ trên giấy nhiệt
-        ),
-      );
+  static Future<void> _center(String text, {int size = 24, bool bold = false}) async {
+    final batch = _slipBatch;
+    if (batch != null) {
+      batch.add(_imgCenter(text, size, bold: bold));
+      return;
+    }
+    if (await _tryAccText(text, size: size, center: true, bold: bold)) return;
+    await SunmiPrinter.printText(
+      text,
+      style: SunmiTextStyle(
+        align: SunmiPrintAlign.CENTER,
+        fontSize: size,
+        bold: true,
+      ),
+    );
+  }
 
-  static Future<void> _left(String text, {int size = 24, bool bold = false}) =>
-      SunmiPrinter.printText(
-        text,
-        style: SunmiTextStyle(
-          align: SunmiPrintAlign.LEFT,
-          fontSize: size,
-          bold: true, // nhiệt: luôn đậm cho nét rõ
-        ),
-      );
+  static Future<void> _left(String text, {int size = 24, bool bold = false}) async {
+    final batch = _slipBatch;
+    if (batch != null) {
+      batch.add(_imgLeft(text, size, bold: bold));
+      return;
+    }
+    if (await _tryAccText(text, size: size, center: false, bold: bold)) return;
+    await SunmiPrinter.printText(
+      text,
+      style: SunmiTextStyle(
+        align: SunmiPrintAlign.LEFT,
+        fontSize: size,
+        bold: true,
+      ),
+    );
+  }
 
-  /// Hàng hóa / tổng: vẽ ảnh đúng 576 điểm — T1 cắt printRow ở mép phải.
   static Future<void> _saleItemRow(
     _SunmiReceiptLayout layout, {
     required String name,
     required String qty,
     required String price,
     required String total,
+    bool header = false,
   }) async {
     debugPrint('SALE PRINT row name="$name" qty="$qty" price="$price" total="$total"');
+    final batch = _slipBatch;
+    if (batch != null) {
+      batch.add(_imgSale(
+        layout,
+        name: name,
+        qty: qty,
+        price: price,
+        total: total,
+        header: header,
+      ));
+      return;
+    }
     final hasCols = qty.trim().isNotEmpty ||
         price.trim().isNotEmpty ||
         total.trim().isNotEmpty;
@@ -893,14 +1041,14 @@ class PosSunmiNativePrint {
           colQty: hasCols ? qty : null,
           colPrice: hasCols ? price : null,
           colTotal: hasCols ? total : null,
-          fontSize: layout.k58 ? 20 : 22,
-          bold: true,
+          fontSize: layout.k58 ? (header ? 17 : 15) : 22,
+          bold: header,
         ),
       ],
       paperDots: layout.k58 ? 384 : 576,
     );
     if (png != null) {
-      await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
+      await _emitSunmiPng(png);
     }
   }
 
@@ -910,6 +1058,11 @@ class PosSunmiNativePrint {
     String right, {
     bool bold = false,
   }) async {
+    final batch = _slipBatch;
+    if (batch != null) {
+      batch.add(_imgPair(layout, left, right, bold: bold));
+      return;
+    }
     final png = await PosThermalBitmapEncoder.receiptToPng(
       [
         PosReceiptImageLine(
@@ -924,7 +1077,7 @@ class PosSunmiNativePrint {
       paperDots: layout.k58 ? 384 : 576,
     );
     if (png != null) {
-      await SunmiPrinter.printImage(png, align: SunmiPrintAlign.CENTER);
+      await _emitSunmiPng(png);
     }
   }
 

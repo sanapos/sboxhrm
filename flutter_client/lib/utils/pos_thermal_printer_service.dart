@@ -762,7 +762,7 @@ class PosThermalPrinterService {
 
     b.center();
 
-    await b.line('Cam on quy khach!');
+    await b.line('Cảm ơn quý khách!');
 
     await b.finishAsync();
 
@@ -798,9 +798,11 @@ class PosThermalPrinterService {
   ) async {
     b.left();
     final layout = PosReceiptLayout.fromSettingsChars(b.maxChars);
-    String money(double v) => PosReceiptLayout.moneyItem(v);
-    for (final h in layout.saleHeaders) {
-      await b.boldLine(h, size: layout.k58 ? 19 : 21);
+    String money(double v) => layout.k58
+        ? PosReceiptLayout.moneyItemCompact(v)
+        : PosReceiptLayout.moneyItem(v);
+    for (final h in layout.saleHeadersVi) {
+      await b.boldLine(h, size: layout.k58 ? 17 : 21);
     }
     await b.separator();
 
@@ -851,25 +853,25 @@ class PosThermalPrinterService {
     b.left();
     await b.separator();
     final hangTotal = subTotal > 0 ? subTotal : total;
-    await b.pair('Tong thanh tien:', _money.format(hangTotal));
+    await b.pair('Tổng thành tiền:', _money.format(hangTotal));
     final ck = orderDiscount > 0 ? orderDiscount : lineDiscount;
     if (ck > 0) {
-      await b.pair('Chiet khau:', _money.format(ck));
+      await b.pair('Chiết khấu:', _money.format(ck));
     }
     if (vatAmount > 0) {
       await b.pair('VAT:', _money.format(vatAmount));
     }
     if (surchargeAmount > 0) {
-      await b.pair('Phu thu:', _money.format(surchargeAmount));
+      await b.pair('Phụ thu:', _money.format(surchargeAmount));
     }
     if (deliveryFee > 0) {
-      await b.pair('Phi giao hang:', _money.format(deliveryFee));
+      await b.pair('Phí giao hàng:', _money.format(deliveryFee));
     }
-    await b.boldPair('Tong cong:', _money.format(total));
+    await b.boldPair('Tổng cộng:', _money.format(total));
     if (includePayment && order != null) {
-      await b.pair('Thanh toan:', _money.format(order.paidAmount));
+      await b.pair('Thanh toán:', _money.format(order.paidAmount));
       if (order.balanceDue > 0) {
-        await b.pair('Con no:', _money.format(order.balanceDue));
+        await b.pair('Còn nợ:', _money.format(order.balanceDue));
       }
     }
   }
@@ -1252,12 +1254,17 @@ class _EscPosBuilder {
       _imageLines.clear();
     }
 
-    final n = _settings.resolvedFeedBeforeCut.clamp(1, 28);
-    if (!_useImageBatch && !_settings.compactCutFeed) {
+    final n = _settings.resolvedFeedBeforeCut.clamp(0, 28);
+    if (!_useImageBatch && !_settings.compactCutFeed && n > 0) {
       feed(2);
     }
-    _add([0x1B, 0x64, n]);
-    _add([0x1D, 0x56, _settings.partialCut ? 0x01 : 0x00]);
+    if (n > 0) {
+      _add([0x1B, 0x64, n]);
+    }
+    // Máy không dao cắt (V2s): GS V bị firmware hiểu thành đẩy giấy rất dài.
+    if (_settings.printerBrand != PosThermalPrinterBrand.sunmi) {
+      _add([0x1D, 0x56, _settings.partialCut ? 0x01 : 0x00]);
+    }
     // Bip / mở két sau cắt — stripTrailingCut (Sunmi) giữ lại các lệnh này.
     PosPrinterPeripheral.appendEscPosTrailing(
       _buf,

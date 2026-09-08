@@ -7,6 +7,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Controllers.Filters;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Authorization;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.SystemAdmin;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Helpers;
@@ -114,7 +115,7 @@ public class SystemAdminController : AuthenticatedControllerBase
             var totalUsers = await _userManager.Users.CountAsync();
 
             // Thống kê devices — online nếu có heartbeat trong 90s gần nhất (thay vì dựa vào cột DeviceStatus có thể stale)
-            var onlineThreshold = utcNow.AddSeconds(-90);
+            var onlineThreshold = utcNow.Subtract(DeviceConnectivity.OnlineWindow);
             var totalDevices = await _dbContext.Devices.CountAsync();
             var onlineDevices = await _dbContext.Devices.CountAsync(d => d.LastOnline != null && d.LastOnline > onlineThreshold);
             var offlineDevices = totalDevices - onlineDevices;

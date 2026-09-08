@@ -160,7 +160,8 @@ public partial class PosPrintersController
     [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PrinterProductSummaryDto>>>> GetPrinterProductSummary(
         [FromQuery] bool includeLocal = false,
-        [FromQuery] bool autoCleanup = true)
+        [FromQuery] bool autoCleanup = true,
+        [FromQuery] string? ownerDeviceId = null)
     {
         var storeId = RequiredStoreId;
         if (autoCleanup)
@@ -171,10 +172,24 @@ public partial class PosPrintersController
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive)
             .OrderBy(p => p.SortOrder).ThenBy(p => p.Name)
             .ToListAsync();
+        var servedByAgent = await OnlineAgentPrinterIdsAsync(storeId);
+        // Chip Agent (online + offline gần đây): máy không còn trong list Agent
+        // và 0 món → client có thể ẩn / dọn.
+        var listedByAgent = await AnyAgentPrinterIdsAsync(storeId);
         var cloud = printers.Where(p => !p.IsDeviceLocal).ToList();
-        var visible = new List<PosStorePrinter>(cloud);
+        // Máy cloud chưa gán chip Agent: không hiện trong gán món / KDS.
+        var visible = new List<PosStorePrinter>(
+            cloud.Where(p => listedByAgent.Contains(p.Id) || servedByAgent.Contains(p.Id)));
+        var owner = (ownerDeviceId ?? "").Trim();
         foreach (var local in printers.Where(p => p.IsDeviceLocal))
         {
+            // Máy nội bộ: chỉ máy của thiết bị đang gán — không lẫn máy POS khác.
+            if (owner.Length > 0)
+            {
+                if (string.Equals(local.OwnerDeviceId, owner, StringComparison.OrdinalIgnoreCase))
+                    visible.Add(local);
+                continue;
+            }
             if (includeLocal || !cloud.Any(c => SamePhysicalPort(local, c)))
                 visible.Add(local);
         }
@@ -191,10 +206,6 @@ public partial class PosPrintersController
             .ToListAsync();
         var kitchenMap = kitchenCounts.ToDictionary(x => x.PrinterId, x => x.Count);
         var labelMap = labelCounts.ToDictionary(x => x.PrinterId, x => x.Count);
-        var servedByAgent = await OnlineAgentPrinterIdsAsync(storeId);
-        // Chip Agent (online + offline gần đây): máy không còn trong list Agent
-        // và 0 món → client có thể ẩn / dọn.
-        var listedByAgent = await AnyAgentPrinterIdsAsync(storeId);
 
         var items = visible.Select(p =>
         {
@@ -490,12 +501,8 @@ public partial class PosPrintersController
         if (printer == null) return BadRequest(AppResponse<object>.Fail("Máy in không hợp lệ"));
         if (printer.IsDeviceLocal)
         {
-            var twin = await FindCloudTwinOfAsync(printer);
-            if (twin != null)
-            {
-                printerId = twin.Id;
-                printer = twin;
-            }
+            return BadRequest(AppResponse<object>.Fail(
+                "Máy nội bộ: gán sản phẩm trên thiết bị đó, không ghi đè map cửa hàng / máy khác."));
         }
         var forLabel = await ResolveAssignForLabelAsync(printerId, storeId, dto.ForLabel);
         var laneName = forLabel ? "tem" : "phiếu bếp";
@@ -908,7 +915,9 @@ public partial class PosPrintersController
         [FromQuery] bool unassignedOnly = false,
         [FromQuery] bool forLabel = false,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50)
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? ownerDeviceId = null,
+        [FromQuery] bool deviceLocalOnly = false)
     {
         var storeId = RequiredStoreId;
         page = Math.Max(1, page);
@@ -965,6 +974,37 @@ public partial class PosPrintersController
                     : null,
                 p.IsActive))
             .ToListAsync();
+
+        var owner = (ownerDeviceId ?? "").Trim();
+        if (owner.Length > 0 || deviceLocalOnly)
+        {
+            var printers = await db.PosStorePrinters.AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null)
+                .Select(p => new { p.Id, p.IsDeviceLocal, p.OwnerDeviceId })
+                .ToListAsync();
+            var map = printers.ToDictionary(p => p.Id);
+            bool keep(Guid? id)
+            {
+                if (id == null) return true;
+                if (!map.TryGetValue(id.Value, out var pr)) return false;
+                var mine = pr.IsDeviceLocal &&
+                    !string.IsNullOrWhiteSpace(pr.OwnerDeviceId) &&
+                    string.Equals(pr.OwnerDeviceId, owner, StringComparison.OrdinalIgnoreCase);
+                if (deviceLocalOnly) return mine;
+                return !pr.IsDeviceLocal || mine;
+            }
+            items = items.Select(p => p with
+            {
+                PrinterId = keep(p.PrinterId) ? p.PrinterId : null,
+                PrinterName = keep(p.PrinterId) ? p.PrinterName : null,
+                CategoryPrinterId = keep(p.CategoryPrinterId) ? p.CategoryPrinterId : null,
+                CategoryPrinterName = keep(p.CategoryPrinterId) ? p.CategoryPrinterName : null,
+                LabelPrinterId = keep(p.LabelPrinterId) ? p.LabelPrinterId : null,
+                LabelPrinterName = keep(p.LabelPrinterId) ? p.LabelPrinterName : null,
+                CategoryLabelPrinterId = keep(p.CategoryLabelPrinterId) ? p.CategoryLabelPrinterId : null,
+                CategoryLabelPrinterName = keep(p.CategoryLabelPrinterId) ? p.CategoryLabelPrinterName : null,
+            }).ToList();
+        }
 
         return Ok(AppResponse<object>.Success(new { total, page, pageSize, items, forLabel }));
     }

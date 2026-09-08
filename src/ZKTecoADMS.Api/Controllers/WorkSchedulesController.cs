@@ -18,10 +18,10 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("WorkSchedule", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<PagedResult<WorkScheduleDto>>>> GetWorkSchedules(
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10,
+        [FromQuery] int pageSize = 200,
         [FromQuery] Guid? employeeUserId = null,
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
@@ -141,7 +141,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
     [RequireAnyModulePermission(ModulePermissionAction.View, "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<PagedResult<ScheduleRegistrationDto>>>> GetScheduleRegistrations(
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10,
+        [FromQuery] int pageSize = 200,
         [FromQuery] Guid? employeeUserId = null,
         [FromQuery] ScheduleRegistrationStatus? status = null,
         [FromQuery] DateTime? fromDate = null,
@@ -175,7 +175,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
 
     [HttpPost("registrations/{id}/approve")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("WorkSchedule", ModulePermissionAction.Approve)]
+    [RequireAnyModulePermission(ModulePermissionAction.Approve, "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<ScheduleRegistrationDto>>> ApproveScheduleRegistration(
         Guid id, 
         [FromBody] ApproveScheduleRegistrationDto request)
@@ -240,7 +240,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
     // ── Staffing Quotas ──
     [HttpGet("staffing-quotas")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("WorkSchedule", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<List<ShiftStaffingQuotaDto>>>> GetStaffingQuotas()
     {
         var query = new GetShiftStaffingQuotasQuery(RequiredStoreId);

@@ -2,6 +2,7 @@ using System.Text;
 using ZKTecoADMS.Application.Commands.IClock.CDataPost;
 using ZKTecoADMS.Application.Commands.IClock.DeviceCmdCommand;
 using ZKTecoADMS.Application.Queries.IClock.CDataGet;
+using ZKTecoADMS.Application.Queries.IClock.GetBioPhoto;
 using ZKTecoADMS.Application.Queries.IClock.GetRequest;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -31,6 +32,25 @@ public class ClockController(
         
         logger.LogWarning("[ICLOCK OUT] SN={SN} Response length={Length}", SN, response?.Length ?? 0);
         return Content(response, "text/plain");
+    }
+
+    /// <summary>
+    /// VL device downloads JPEG after DATA UPDATE BIOPHOTO Url=iclock/doc/biophoto/{id}.jpg
+    /// </summary>
+    [HttpGet("doc/biophoto/{id}")]
+    public async Task<IActionResult> BioPhoto(string id)
+    {
+        var raw = id.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
+            ? id[..^4]
+            : id;
+        if (!Guid.TryParse(raw, out var guid))
+            return NotFound();
+
+        var jpeg = await bus.Send(new GetIClockBioPhotoQuery(guid));
+        if (jpeg.Length == 0)
+            return NotFound();
+
+        return File(jpeg, "image/jpeg");
     }
 
     /// <summary>

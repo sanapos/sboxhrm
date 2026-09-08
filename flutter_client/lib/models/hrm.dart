@@ -885,7 +885,11 @@ class ScheduleRegistration {
   factory ScheduleRegistration.fromJson(Map<String, dynamic> json) {
     ScheduleRegistrationStatus parseStatus(dynamic v) {
       if (v == null) return ScheduleRegistrationStatus.pending;
-      if (v is int) return ScheduleRegistrationStatus.values[v];
+      if (v is int &&
+          v >= 0 &&
+          v < ScheduleRegistrationStatus.values.length) {
+        return ScheduleRegistrationStatus.values[v];
+      }
       final s = v.toString().toLowerCase();
       if (s == 'approved' || s == '1') {
         return ScheduleRegistrationStatus.approved;
@@ -897,18 +901,18 @@ class ScheduleRegistration {
     }
 
     return ScheduleRegistration(
-      id: json['id'] ?? '',
-      employeeUserId: json['employeeUserId'] ?? '',
-      employeeName: json['employeeName'] ?? '',
-      employeeCode: json['employeeCode'] ?? '',
+      id: json['id']?.toString() ?? '',
+      employeeUserId: json['employeeUserId']?.toString() ?? '',
+      employeeName: json['employeeName']?.toString() ?? '',
+      employeeCode: json['employeeCode']?.toString() ?? '',
       date: parseApiCalendarDate(json['date']) ?? DateTime.now(),
-      shiftId: json['shiftId'],
-      shiftName: json['shiftName'] ?? '',
-      isDayOff: json['isDayOff'] ?? false,
-      note: json['note'],
+      shiftId: json['shiftId']?.toString(),
+      shiftName: json['shiftName']?.toString() ?? '',
+      isDayOff: json['isDayOff'] == true,
+      note: json['note']?.toString(),
       status: parseStatus(json['status']),
-      approvedById: json['approvedById'],
-      approvedByName: json['approvedByName'],
+      approvedById: json['approvedById']?.toString(),
+      approvedByName: json['approvedByName']?.toString(),
       approvedDate: parseApiUtcDateTime(json['approvedDate']),
       rejectionReason: json['rejectionReason'],
       createdAt: parseApiUtcDateTime(json['createdAt']) ?? DateTime.now(),

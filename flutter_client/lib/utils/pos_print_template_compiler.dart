@@ -234,21 +234,50 @@ abstract final class PosPrintTemplateCompiler {
     'Ten_Hang_Hoa': 'Tên hàng',
     'Don_Gia': 'Đơn giá',
     'So_Luong': 'SL',
-    'Thanh_Tien': 'Thanh toán',
+    'Thanh_Tien': 'Thành tiền',
+  };
+
+  /// Header cột K58 — chữ ngắn để khỏi vỡ "Đơn" / "Thanh".
+  static const k58ColumnLabels = <String, String>{
+    'Ten_Hang_Hoa': 'Tên hàng',
+    'Don_Gia': 'Đ.giá',
+    'So_Luong': 'SL',
+    'Thanh_Tien': 'T.T',
   };
 
   static String resolveFieldLabel(
     PosPrintBlock block,
     String token, {
     String? fallback,
+    bool k58 = false,
   }) {
     final custom = block.fieldLabels?[token]?.trim();
-    if (custom != null && custom.isNotEmpty) return custom;
-    if (fallback != null && fallback.isNotEmpty) return fallback;
-    return defaultTotalLabels[token] ??
-        defaultColumnLabels[token] ??
-        token;
+    if (custom != null && custom.isNotEmpty) {
+      if (k58 && k58ColumnLabels.containsKey(token) && custom.length > 6) {
+        return k58ColumnLabels[token]!;
+      }
+      return restoreVietnamesePrintLabel(custom);
+    }
+    if (k58 && k58ColumnLabels.containsKey(token)) {
+      return k58ColumnLabels[token]!;
+    }
+    if (fallback != null && fallback.isNotEmpty) {
+      return restoreVietnamesePrintLabel(fallback);
+    }
+    return restoreVietnamesePrintLabel(
+      defaultTotalLabels[token] ?? defaultColumnLabels[token] ?? token,
+    );
   }
+
+  static bool _isK58InvoiceMetaKey(String key) =>
+      key == 'Ma_Don_Hang' || key == 'Ngay' || key == 'Gio';
+
+  static String _k58InvoiceMetaLabel(String key) => switch (key) {
+        'Ma_Don_Hang' => 'Số HĐ',
+        'Ngay' => 'Ngày',
+        'Gio' => 'Giờ',
+        _ => key,
+      };
 
   static String _withPrefix(String? label, String value) {
     final l = (label ?? '').trim();
@@ -259,29 +288,23 @@ abstract final class PosPrintTemplateCompiler {
     return '$l: $value';
   }
 
-  static List<PosPrintBlock> _ensureKitchenLabelInvoiceNo(
-    List<PosPrintBlock> blocks,
-  ) {
-    final hasHd = blocks.any((b) =>
-        b.field == 'Ma_Don_Hang' ||
-        b.leftField == 'Ma_Don_Hang' ||
-        (b.text ?? '').contains('{Ma_Don_Hang}'));
-    if (hasHd) return blocks;
-    final out = <PosPrintBlock>[];
-    var inserted = false;
-    for (final b in blocks) {
-      out.add(b);
-      final isTable = b.field == 'Ten_Ban' || b.leftField == 'Ten_Ban';
-      if (!inserted && isTable) {
-        out.add(PosPrintBlock(
-          type: PosPrintBlockType.field,
-          field: 'Ma_Don_Hang',
-          style: const PosPrintTextStyle(fontSize: 16, bold: true),
-        ));
-        inserted = true;
-      }
+  /// SL / ĐVT tách riêng trên tem bếp — compiler gộp vào tên món, không in khối này.
+  static bool kitchenLabelHidesBlock(PosPrintBlock block) {
+    if (block.type == PosPrintBlockType.text &&
+        _isQtyOnlyToken(block.text ?? '')) {
+      return true;
     }
-    return out;
+    if (block.type == PosPrintBlockType.field &&
+        _isKitchenLabelQtyField(block.field)) {
+      return true;
+    }
+    if (block.type == PosPrintBlockType.pair &&
+        _isKitchenLabelQtyField(block.leftField) &&
+        ((block.rightField ?? '').isEmpty ||
+            _isKitchenLabelQtyField(block.rightField))) {
+      return true;
+    }
+    return false;
   }
 
   static bool _isQtyOnlyToken(String raw) {
@@ -378,11 +401,41 @@ abstract final class PosPrintTemplateCompiler {
       data['Ma_Don_Hang'] = PosReceiptLayout.formatSaleInvoiceNo(rawHd);
     }
 
+    final k58 = template.paperSize == PosPrintPaperSizes.k58;
+    final isSaleDoc = template.documentType == PosPrintDocumentTypes.saleInvoice ||
+        template.documentType == PosPrintDocumentTypes.saleReturn;
+    var working = template;
+    if (k58 && isSaleDoc) {
+      PosPrintTextStyle shrink(PosPrintTextStyle s) {
+        if (s.fontSize <= 18) return s;
+        return s.copyWith(fontSize: (s.fontSize - 2).clamp(14.0, 48.0));
+      }
+      working = template.copyWith(
+        blocks: template.blocks
+            .map((b) => b.copyWith(
+                  style: shrink(b.style),
+                  rightStyle: shrink(b.rightStyle ?? b.style),
+                ))
+            .toList(),
+      );
+    }
+
     final isKitchenLabel =
-        template.documentType == PosPrintDocumentTypes.kitchenLabel;
+        working.documentType == PosPrintDocumentTypes.kitchenLabel;
     final isBarcodeLabel =
-        template.documentType == PosPrintDocumentTypes.barcodeLabel;
+        working.documentType == PosPrintDocumentTypes.barcodeLabel;
     var effectiveItems = lineItems;
+    if (k58 && isSaleDoc) {
+      effectiveItems = [
+        for (final item in lineItems)
+          {
+            ...item,
+            'Don_Gia': PosReceiptLayout.compactPrintedMoney(item['Don_Gia'] ?? ''),
+            'Thanh_Tien':
+                PosReceiptLayout.compactPrintedMoney(item['Thanh_Tien'] ?? ''),
+          },
+      ];
+    }
     var effectiveKitchen = kitchenLines ?? lineItems;
     // Tem: khối「Tên hàng」lineItems — nếu caller chỉ điền data.Ten_Hang_Hoa thì tự tạo 1 dòng.
     if ((isKitchenLabel || isBarcodeLabel) && effectiveItems.isEmpty) {
@@ -431,18 +484,17 @@ abstract final class PosPrintTemplateCompiler {
     htmlBuf.write(
       '<div style="width:${width}mm;font-family:Arial,sans-serif;color:#000;$frameCss">',
     );
-    final blocks = isKitchenLabel
-        ? _ensureKitchenLabelInvoiceNo(template.blocks)
-        : template.blocks;
     var skipNextKhu = false;
-    for (var bi = 0; bi < blocks.length; bi++) {
-      final block = blocks[bi];
+    for (var bi = 0; bi < working.blocks.length; bi++) {
+      final block = working.blocks[bi];
       switch (block.type) {
         case PosPrintBlockType.text:
           if (isKitchenLabel && _isQtyOnlyToken(block.text ?? '')) {
             continue;
           }
-          final t = _resolveToken(block.text ?? '', data);
+          final t = restoreVietnamesePrintLabel(
+            _resolveToken(block.text ?? '', data),
+          );
           if (t.trim().isNotEmpty &&
               !_textTokensAllBlank(block.text ?? '', data)) {
             steps.add(_lineFromStyle(t, block.style, sourceBlockIndex: bi));
@@ -516,6 +568,9 @@ abstract final class PosPrintTemplateCompiler {
               raw = fromData;
             }
           }
+          if (k58 && isSaleDoc && block.field == 'Gio') {
+            continue;
+          }
           if (!isBlankPrintValue(raw)) {
             String? prefix = block.label?.trim();
             if (prefix == null || prefix.isEmpty) {
@@ -523,6 +578,39 @@ abstract final class PosPrintTemplateCompiler {
               if (fieldKey != null) {
                 prefix = block.fieldLabels?[fieldKey];
               }
+            }
+            if (prefix != null && prefix.isNotEmpty) {
+              prefix = restoreVietnamesePrintLabel(prefix);
+            }
+            if (k58 && isSaleDoc && block.field == 'Ma_Don_Hang') {
+              prefix ??= 'Số HĐ';
+              final t = restoreVietnamesePrintLabel(_withPrefix(prefix, raw));
+              steps.add(_lineFromStyle(
+                t,
+                block.style.copyWith(align: PosPrintTextAlign.left),
+                sourceBlockIndex: bi,
+              ));
+              htmlBuf.write(_htmlText(
+                t,
+                block.style.copyWith(align: PosPrintTextAlign.left),
+              ));
+              continue;
+            }
+            if (k58 && isSaleDoc && block.field == 'Ngay') {
+              prefix ??= 'Ngày';
+              final gio = (data['Gio'] ?? '').trim();
+              final dated = gio.isEmpty ? raw : '$raw  $gio';
+              final t = restoreVietnamesePrintLabel(_withPrefix(prefix, dated));
+              steps.add(_lineFromStyle(
+                t,
+                block.style.copyWith(align: PosPrintTextAlign.left),
+                sourceBlockIndex: bi,
+              ));
+              htmlBuf.write(_htmlText(
+                t,
+                block.style.copyWith(align: PosPrintTextAlign.left),
+              ));
+              continue;
             }
             final parts = raw.split(RegExp(r'[\r\n]+'));
             for (var pi = 0; pi < parts.length; pi++) {
@@ -579,11 +667,64 @@ abstract final class PosPrintTemplateCompiler {
           }
           if (isBlankPrintValue(leftVal)) leftVal = '';
           if (isBlankPrintValue(rightVal)) rightVal = '';
+          // K58: Số HĐ / Ngày mỗi loại một hàng — khỏi cắt HD30082026 và năm.
+          if (k58 &&
+              isSaleDoc &&
+              _isK58InvoiceMetaKey(leftKey) &&
+              _isK58InvoiceMetaKey(rightKey)) {
+            void emitMeta(String key, String val) {
+              final v = val.trim();
+              if (v.isEmpty) return;
+              final label = restoreVietnamesePrintLabel(
+                block.fieldLabels?[key] ?? _k58InvoiceMetaLabel(key),
+              );
+              final t = _withPrefix(label, v);
+              steps.add(_lineFromStyle(
+                t,
+                block.style.copyWith(align: PosPrintTextAlign.left),
+                sourceBlockIndex: bi,
+              ));
+              htmlBuf.write(_htmlText(
+                t,
+                block.style.copyWith(align: PosPrintTextAlign.left),
+              ));
+            }
+
+            final hd = leftKey == 'Ma_Don_Hang'
+                ? leftVal
+                : rightKey == 'Ma_Don_Hang'
+                    ? rightVal
+                    : '';
+            var ngay = leftKey == 'Ngay'
+                ? leftVal
+                : rightKey == 'Ngay'
+                    ? rightVal
+                    : '';
+            var gio = leftKey == 'Gio'
+                ? leftVal
+                : rightKey == 'Gio'
+                    ? rightVal
+                    : (data['Gio'] ?? '');
+            if (hd.trim().isNotEmpty) emitMeta('Ma_Don_Hang', hd);
+            if (ngay.trim().isEmpty) ngay = data['Ngay'] ?? '';
+            if (ngay.trim().isNotEmpty) {
+              final g = gio.trim();
+              emitMeta('Ngay', g.isEmpty ? ngay : '$ngay  $g');
+            } else if (gio.trim().isNotEmpty) {
+              emitMeta('Gio', gio);
+            }
+            continue;
+          }
           String? leftPrefix = block.label?.trim();
           if (leftPrefix == null || leftPrefix.isEmpty) {
             leftPrefix = block.fieldLabels?[leftKey];
           }
-          final rightPrefix = block.fieldLabels?[rightKey];
+          leftPrefix = restoreVietnamesePrintLabel(leftPrefix ?? '');
+          if (leftPrefix.isEmpty) leftPrefix = null;
+          final rightRaw = block.fieldLabels?[rightKey];
+          final rightPrefix = (rightRaw == null || rightRaw.trim().isEmpty)
+              ? null
+              : restoreVietnamesePrintLabel(rightRaw);
           final left = leftVal.isEmpty ? '' : _withPrefix(leftPrefix, leftVal);
           final right = rightVal.isEmpty
               ? ''
@@ -661,6 +802,7 @@ abstract final class PosPrintTemplateCompiler {
               fontSize: headerFs,
               bold: headerStyle.bold,
               sourceBlockIndex: bi,
+              k58: k58,
             );
           }
           htmlBuf.write(
@@ -680,6 +822,7 @@ abstract final class PosPrintTemplateCompiler {
               showNote: showNote,
               wrapNoteParens: isKitchenLabel,
               sourceBlockIndex: bi,
+              k58: k58 && isSaleDoc,
             );
             htmlBuf.write(_htmlLineItem(
               item,
@@ -728,7 +871,9 @@ abstract final class PosPrintTemplateCompiler {
           for (final key in block.fields ?? []) {
             final val = data[key] ?? '';
             if (isBlankPrintValue(val)) continue;
-            final label = resolveFieldLabel(block, key);
+            final label = restoreVietnamesePrintLabel(
+              resolveFieldLabel(block, key, k58: k58),
+            );
             final isTotal = key == 'Tong_Cong';
             final style = isTotal ? (block.rightStyle ?? block.style) : block.style;
             final size = style.fontSize.clamp(14.0, 48.0);
@@ -755,8 +900,12 @@ abstract final class PosPrintTemplateCompiler {
           htmlBuf.write('<div style="height:${block.height}px"></div>');
         case PosPrintBlockType.vietQr:
           if (vietQrImageUrl != null && vietQrImageUrl.isNotEmpty) {
-            final title = _resolveToken(block.qrTitle ?? '', data).trim();
-            final caption = _resolveToken(block.qrCaption, data).trim();
+            final title = restoreVietnamesePrintLabel(
+              _resolveToken(block.qrTitle ?? '', data).trim(),
+            );
+            final caption = restoreVietnamesePrintLabel(
+              _resolveToken(block.qrCaption, data).trim(),
+            );
             final amount = block.qrShowAmount ? (data['Tong_Cong'] ?? '') : '';
             steps.add(PosPrintCompiledQr(
               imageUrl: vietQrImageUrl,
@@ -816,16 +965,18 @@ abstract final class PosPrintTemplateCompiler {
     required double fontSize,
     bool bold = true,
     int? sourceBlockIndex,
+    bool k58 = false,
   }) {
+    final cols = k58 ? k58ColumnLabels : defaultColumnLabels;
     steps.add(PosPrintCompiledSaleRow(
       name: resolveFieldLabel(block, 'Ten_Hang_Hoa',
-          fallback: defaultColumnLabels['Ten_Hang_Hoa']),
+          fallback: cols['Ten_Hang_Hoa'], k58: k58),
       qty: resolveFieldLabel(block, 'So_Luong',
-          fallback: defaultColumnLabels['So_Luong']),
+          fallback: cols['So_Luong'], k58: k58),
       price: resolveFieldLabel(block, 'Don_Gia',
-          fallback: defaultColumnLabels['Don_Gia']),
+          fallback: cols['Don_Gia'], k58: k58),
       total: resolveFieldLabel(block, 'Thanh_Tien',
-          fallback: defaultColumnLabels['Thanh_Tien']),
+          fallback: cols['Thanh_Tien'], k58: k58),
       fontSize: fontSize,
       bold: bold,
       sourceBlockIndex: sourceBlockIndex,
@@ -838,7 +989,7 @@ abstract final class PosPrintTemplateCompiler {
     int? sourceBlockIndex,
   }) =>
       PosPrintCompiledLine(
-        text: tr(text),
+        text: tr(restoreVietnamesePrintLabel(text)),
         fontSize: style.fontSize,
         bold: style.bold,
         center: style.align == PosPrintTextAlign.center,
@@ -903,6 +1054,7 @@ abstract final class PosPrintTemplateCompiler {
     bool showNote = true,
     bool wrapNoteParens = false,
     int? sourceBlockIndex,
+    bool k58 = false,
   }) {
     final stripUnit = !showUnit;
     final name = _saleItemName(item, stripUnit: stripUnit);
@@ -910,7 +1062,9 @@ abstract final class PosPrintTemplateCompiler {
     final price = showPrice ? (item['Don_Gia'] ?? '') : '';
     final total = showTotal ? (item['Thanh_Tien'] ?? '') : '';
     final note = showNote ? (item['Ghi_Chu'] ?? item['note'] ?? '').trim() : '';
-    final bodySize = style.fontSize.clamp(14.0, 48.0);
+    final bodySize = k58
+        ? (style.fontSize - 2).clamp(13.0, 48.0)
+        : style.fontSize.clamp(14.0, 48.0);
     final smallSize = (bodySize - 6).clamp(11.0, 48.0);
 
     steps.add(PosPrintCompiledSaleRow(
@@ -919,7 +1073,7 @@ abstract final class PosPrintTemplateCompiler {
       price: price,
       total: total,
       fontSize: bodySize,
-      bold: style.bold,
+      bold: k58 ? false : style.bold,
       showQty: showQty || showUnit,
       showPrice: showPrice,
       showTotal: showTotal,
@@ -940,6 +1094,7 @@ abstract final class PosPrintTemplateCompiler {
   }
 
   static String _htmlText(String t, PosPrintTextStyle style) {
+    t = restoreVietnamesePrintLabel(t);
     final align = switch (style.align) {
       PosPrintTextAlign.center => 'center',
       PosPrintTextAlign.right => 'right',

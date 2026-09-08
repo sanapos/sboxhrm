@@ -31,7 +31,11 @@
     <PackageReference Include="FirebaseAdmin" Version="3.1.0" />
   </ItemGroup>
 
-  <ItemGroup>
+    <ItemGroup>
+      <EmbeddedResource Include="SchemaPatches\EnsureCompleteSchema.sql" />
+    </ItemGroup>
+
+    <ItemGroup>
     <Folder Include="Interceptors\" />
   </ItemGroup>
 

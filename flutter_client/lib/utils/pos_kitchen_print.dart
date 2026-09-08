@@ -14,8 +14,9 @@ import 'pos_html_print.dart';
 import 'pos_print_template_runtime.dart';
 import 'pos_print_config_session.dart';
 import 'pos_local_printers_store.dart';
+import 'pos_device_product_printers.dart';
+import 'pos_print_device_scope.dart';
 import 'pos_print_orchestrator.dart';
-import 'pos_print_role.dart';
 import 'pos_print_template_renderer.dart';
 import 'pos_printer_readiness.dart';
 import 'pos_printer_transport.dart';
@@ -274,6 +275,13 @@ PosThermalPrinterSettings _thermalSettingsForTemplate(
   PosThermalPrinterSettings settings,
   PosPrintTemplate? template,
 ) {
+  if (settings.paperWidthMm <= 58) {
+    return settings.copyWith(paperSize: PosPrintPaperSizes.k58);
+  }
+  if (template != null &&
+      template.paperSize == PosPrintPaperSizes.k58) {
+    return settings;
+  }
   if (template != null && PosPrintPaperSizes.isThermal(template.paperSize)) {
     return settings.copyWith(paperSize: template.paperSize);
   }
@@ -367,7 +375,10 @@ Future<bool> _dispatchWarehouseBytes({
   // LAN từ Agent/cloud (không có local) → không TCP, đi cloud.
   if (!kIsWeb) {
     final ownedLocal =
-        await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
+        await PosLocalPrintersStore.instance.resolveForStorePrinter(
+      printer,
+      exactPort: true,
+    );
     final onDevice = ownedLocal != null &&
         PosLocalPrintersStore.profileAllowsDirectLocal(ownedLocal);
     final tryDirect = onDevice;
@@ -454,6 +465,7 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipForOrder({
       await PosPrintConfigSession.instance.warehouseTemplate(templateId);
 
   final svc = PosProductPrinterService.instance;
+  await svc.preload(force: true);
   final groups = <String, List<PosSaleOrderLine>>{};
   final noPrinterLines = <PosSaleOrderLine>[];
 
@@ -462,7 +474,7 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipForOrder({
     for (final p in PosPrintOrchestrator.instance.printers)
       if (p.documentTypes.contains(PosCloudDocumentTypes.stockIssue) ||
           p.documentTypes.contains(PosLocalPrinterRoles.stockIssue))
-        p.id,
+        p.id.toLowerCase(),
   };
 
   final printerIds = await Future.wait(
@@ -474,87 +486,52 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipForOrder({
 
   for (final row in printerIds) {
     final pid = row.printerId;
-    // Chỉ nhận máy gán SP nếu máy đó thật sự có vai trò Xuất kho —
-    // tránh phiếu kho in nhầm máy Báo bếp.
-    if (pid == null ||
-        pid.isEmpty ||
-        !stockCapableIds.contains(pid)) {
+    if (pid == null || pid.isEmpty) {
       noPrinterLines.add(row.line);
       continue;
     }
-    groups.putIfAbsent(pid, () => []).add(row.line);
+    if (await PosPrintDeviceScope.canExactLocal(
+      pid,
+      documentRole: PosLocalPrinterRoles.stockIssue,
+    )) {
+      groups.putIfAbsent(pid, () => []).add(row.line);
+      continue;
+    }
+    final agent = await PosPrintDeviceScope.agentFacingPrinter(pid);
+    if (agent != null &&
+        stockCapableIds.contains(agent.id.toLowerCase())) {
+      groups.putIfAbsent(agent.id, () => []).add(row.line);
+      continue;
+    }
+    noPrinterLines.add(row.line);
   }
 
   final attempts = <WarehouseSlipPrinterAttempt>[];
-  var localPrintedAll = false;
 
-  // Ưu tiên máy nội bộ vai trò StockIssue — KHÔNG fallback máy hóa đơn/Sunmi.
-  if (!kIsWeb) {
-    final stockLocals = await PosLocalPrintersStore.instance
-        .forRole(PosLocalPrinterRoles.stockIssue);
-    final thermalCandidates = <PosThermalPrinterSettings>[
-      for (final p in stockLocals.where((p) => !p.isLabel)) p.toThermalSettings(),
-    ];
-
-    if (thermalCandidates.isNotEmpty) {
-      var localOk = false;
-      String localName = 'Máy in cục bộ';
-      for (final thermal in thermalCandidates) {
-        final ok = await _tryLocalWarehousePrint(
-          order: order,
-          lines: order.lines,
-          template: template,
-          branchName: branchName,
-          storeAddress: storeAddress,
-          storePhone: storePhone,
-          thermal: thermal,
-          slipTitleOverride: slipTitleOverride,
-        );
-        if (ok) {
-          localOk = true;
-          localName = thermal.connectionType.label;
-          break;
-        }
-      }
-      if (localOk) {
-        localPrintedAll = true;
-        attempts.add(
-          WarehouseSlipPrinterAttempt(
-            printerName: localName,
-            lines: order.lines,
-            success: true,
-          ),
-        );
-        // Đã in đủ cục bộ → không in thêm lên máy gán món (tránh phiếu kép / báo bếp).
-        return WarehouseSlipPrintResult(
-          attempts: attempts,
-          noPrinterLines: const [],
-        );
-      } else if (groups.isEmpty && noPrinterLines.isNotEmpty) {
-        return WarehouseSlipPrintResult(
-          attempts: [
-            WarehouseSlipPrinterAttempt(
-              printerName: 'Máy in xuất kho',
-              lines: order.lines,
-              errorMessage: 'Không in được trên máy in xuất kho nội bộ',
-              reason: PendingWarehousePrintReason.dispatchFailed,
-            ),
-          ],
-          noPrinterLines: noPrinterLines,
-        );
-      }
-    }
+  // Món chưa gán: chỉ đổ vào máy kho khi cửa hàng có đúng 1 máy Xuất kho (không phải máy gửi).
+  final stockCloud = await PosPrintDeviceScope.excludeSenderLocals(
+    PosPrintOrchestrator.instance
+        .resolvePrinters(PosCloudDocumentTypes.stockIssue),
+  );
+  if (noPrinterLines.isNotEmpty && stockCloud.length == 1) {
+    groups.putIfAbsent(stockCloud.first.id, () => []).addAll(noPrinterLines);
+    noPrinterLines.clear();
   }
 
-  // Không có máy StockIssue nội bộ / cloud gán SP → gom in máy StockIssue cửa hàng.
   if (groups.isEmpty) {
-    final stockCloud = PosPrintOrchestrator.instance
-        .resolvePrinters(PosCloudDocumentTypes.stockIssue);
-    if (stockCloud.isNotEmpty) {
-      for (final line in [...noPrinterLines]) {
-        groups.putIfAbsent(stockCloud.first.id, () => []).add(line);
-      }
-      noPrinterLines.clear();
+    if (stockCloud.length > 1 && noPrinterLines.isNotEmpty) {
+      return WarehouseSlipPrintResult(
+        attempts: [
+          WarehouseSlipPrinterAttempt(
+            printerName: 'Xuất kho',
+            lines: noPrinterLines,
+            errorMessage:
+                'Nhiều máy xuất kho — gán món cho đúng máy, không in hết lên máy đầu.',
+            reason: PendingWarehousePrintReason.printerNotFound,
+          ),
+        ],
+        noPrinterLines: noPrinterLines,
+      );
     } else if (noPrinterLines.isNotEmpty || order.lines.isNotEmpty) {
       // Không cấu hình máy xuất kho → báo rõ, không đẩy sang bếp/Sunmi.
       return WarehouseSlipPrintResult(
@@ -572,10 +549,6 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipForOrder({
     } else {
       return const WarehouseSlipPrintResult();
     }
-  }
-
-  if (groups.isEmpty) {
-    return WarehouseSlipPrintResult(noPrinterLines: noPrinterLines);
   }
 
   for (final entry in groups.entries) {
@@ -645,7 +618,7 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipForOrder({
   return WarehouseSlipPrintResult(
     attempts: attempts,
     // Đã in đủ trên máy cục bộ → không treo SP chưa gán máy cloud.
-    noPrinterLines: localPrintedAll ? const [] : noPrinterLines,
+    noPrinterLines: noPrinterLines,
   );
 }
 
@@ -1061,12 +1034,11 @@ Future<bool> _printKitchenCompactSlipLocked({
 
   final wantOverrideId = overridePrinterId?.trim() ?? '';
     if (overridePrinter != null || wantOverrideId.isNotEmpty) {
-    PosStorePrinter? printer = overridePrinter == null
-        ? null
-        : PosPrintOrchestrator.instance.preferCloudAgentPrinter(overridePrinter);
+    PosStorePrinter? printer = overridePrinter;
     if (printer == null) {
       await PosPrintOrchestrator.instance.refreshConfig();
-      printer = PosPrintOrchestrator.instance.printerById(wantOverrideId);
+      printer =
+          PosPrintOrchestrator.instance.printerByIdExact(wantOverrideId);
       if (printer == null) {
         debugPrint('Kitchen reprint: printer not found id=$wantOverrideId');
         return false;
@@ -1116,56 +1088,47 @@ Future<bool> _printKitchenCompactSlipLocked({
     // Dùng cache TTL (máy in 3 phút, gán SP 5 phút). Bust mỗi lần bấm
     // Thông báo làm A7 đơ: 3 API + parse JSON trên isolate UI.
     await PosPrintOrchestrator.instance.refreshConfig();
-    await svc.preload();
-    final resolved = await Future.wait(lines.map((l) async => (
-          line: l,
-          printerId: (l.productId ?? '').isEmpty
-              ? null
-              : await svc.resolvePrinterId(l.productId!),
-        )));
-    // Gán SP/nhóm là store-wide (cả máy Agent). Tắt Agent trên A6 không
-    // xóa map này — remap local→cloud twin khiến phiếu đi hàng đợi không ai nhận.
-    final agentOn = kIsWeb || await PosPrintRole.isPrintAgentDevice();
+    await svc.preload(force: true);
+    await PosDeviceProductPrinters.instance.preload();
+    final kitchenRole = isCancel
+        ? PosLocalPrinterRoles.kitchenVoid
+        : PosLocalPrinterRoles.kitchenSlip;
+    final resolved = await Future.wait(lines.map((l) async {
+      final pid = (l.productId ?? '').trim();
+      final route = pid.isEmpty
+          ? const KitchenPrintRoute.none()
+          : await svc.resolveKitchenRoute(pid, documentRole: kitchenRole);
+      return (line: l, route: route);
+    }));
     final assignedGroups = <String, List<KitchenTicketLine>>{};
+    final agentOnlyIds = <String>{};
     final defaultLines = <KitchenTicketLine>[];
     for (final row in resolved) {
-      if (row.printerId == null || row.printerId!.isEmpty) {
+      final id = (row.route.printerId ?? '').trim();
+      if (row.route.lane == KitchenPrintLane.none || id.isEmpty) {
         defaultLines.add(row.line);
-      } else {
-        // Agent bật: gộp twin local/cloud. Agent tắt: giữ ID gốc (máy cục bộ).
-        final canonical = agentOn
-            ? (PosPrintOrchestrator.instance
-                    .printerById(row.printerId)
-                    ?.id ??
-                row.printerId!)
-            : row.printerId!;
-        assignedGroups.putIfAbsent(canonical, () => []).add(row.line);
+        continue;
+      }
+      assignedGroups.putIfAbsent(id, () => []).add(row.line);
+      if (row.route.lane == KitchenPrintLane.agent) {
+        agentOnlyIds.add(id.toLowerCase());
       }
     }
     debugPrint(
-      'Kitchen DBG: resolved=${resolved.map((r) => '${r.line.productName}->${r.printerId}').join(', ')} '
+      'Kitchen DBG: resolved=${resolved.map((r) => '${r.line.productName}->${r.route.lane.name}/${r.route.printerId}').join(', ')} '
       'assignedGroups=${assignedGroups.keys.toList()} defaultLines=${defaultLines.length}',
     );
 
     if (assignedGroups.isNotEmpty) {
       var allOk = true;
-      final hasLocalKitchen = await _kitchenHasLocalSlipPrinters();
-      // Agent bật / máy khác: in đúng máy đã gán. Agent tắt + có máy bếp
-      // cục bộ: không đẩy hàng đợi Agent — fallback máy nội bộ.
+      // Món đã gán → chỉ máy đó. Không đổ sang bếp A7 vừa thêm (chưa gán món).
       for (final entry in assignedGroups.entries) {
         final groupLines = entry.value;
-        final printer = (agentOn
-                ? PosPrintOrchestrator.instance.printerById(entry.key)
-                : _kitchenPrinterWithoutCloudRemap(entry.key)) ??
+        final viaAgent = agentOnlyIds.contains(entry.key.toLowerCase());
+        final printer = PosPrintOrchestrator.instance
+                .printerByIdExact(entry.key) ??
             PosPrintOrchestrator.instance.printerById(entry.key);
         if (printer == null) {
-          if (!agentOn && hasLocalKitchen) {
-            debugPrint(
-              'Kitchen DBG: printer id=${entry.key} not found — Agent tắt, fallback local',
-            );
-            defaultLines.addAll(groupLines);
-            continue;
-          }
           debugPrint(
             'Kitchen DBG: printer id=${entry.key} not found — KHÔNG fallback default',
           );
@@ -1208,19 +1171,16 @@ Future<bool> _printKitchenCompactSlipLocked({
             : PosLocalPrinterRoles.kitchenSlip;
         final onDevice = !kIsWeb
             ? await PosLocalPrintersStore.instance
-                .resolveOnDeviceForStorePrinter(printer, documentRole: role)
+                .resolveOnDeviceForStorePrinter(
+                printer,
+                documentRole: role,
+                exactPort: true,
+              )
             : null;
         final canLocalPort =
             onDevice != null || await _kitchenAssignedHasLocalPort(printer);
-        if (!agentOn && !canLocalPort && hasLocalKitchen) {
-          debugPrint(
-            'Kitchen DBG: bỏ gán ${printer.name} (${printer.connectionType}) '
-            '— Agent tắt, không có cổng local, fallback máy bếp nội bộ '
-            'lines=${groupLines.length}',
-          );
-          defaultLines.addAll(groupLines);
-          continue;
-        }
+        // Món đã gán → chỉ máy đó (local đúng cổng hoặc cloud/Agent).
+        // Không fallback bếp A7 khi gán máy A6 — trước đây in local + Agent.
         debugPrint(
           'Kitchen DBG: dispatching assigned printer ${printer.name} '
           '(${printer.connectionType}) localPort=$canLocalPort '
@@ -1263,8 +1223,8 @@ Future<bool> _printKitchenCompactSlipLocked({
           successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
           skipDedup: skipDedup,
           waitForCompletion: waitForCompletion,
-          preferDirectPrint: canLocalPort,
-          forceCloud: false,
+          preferDirectPrint: !viaAgent && canLocalPort,
+          forceCloud: viaAgent,
           onHang: wrapHang(groupLines),
         );
         if (!ok) {
@@ -1277,7 +1237,7 @@ Future<bool> _printKitchenCompactSlipLocked({
           );
         }
       }
-      // Món chưa gán, hoặc gán máy Agent không in được khi Agent tắt.
+      // Chỉ món chưa gán máy — không kèm món đã gán máy khác.
       if (defaultLines.isEmpty) return allOk;
       final defaultOk = await _printKitchenCompactSlipDefault(
         tableName: tableName,
@@ -1373,6 +1333,31 @@ Future<bool> _printKitchenCompactSlipDefault({
   KitchenPrinterFailedCallback? onPrinterFailed,
 }) async {
   if (lines.isEmpty) return false;
+  // Máy bếp vừa thêm (chưa gán món) là catch-all — không in món đã gán máy khác.
+  final work = await _kitchenOnlyUnassignedLines(lines);
+  if (work.isEmpty) {
+    debugPrint('Kitchen DBG: default kitchen skip — mọi món đã gán máy khác');
+    return true;
+  }
+  if (work.length != lines.length) {
+    debugPrint(
+      'Kitchen DBG: default kitchen bỏ ${lines.length - work.length} món đã gán máy khác',
+    );
+    return _printKitchenCompactSlipDefault(
+      tableName: tableName,
+      isCancel: isCancel,
+      lines: work,
+      senderName: senderName,
+      sentAt: sentAt,
+      orderNo: orderNo,
+      skipDedup: skipDedup,
+      dedupRef: dedupRef,
+      waitForCompletion: waitForCompletion,
+      showFeedback: showFeedback,
+      onCloudHang: onCloudHang,
+      onPrinterFailed: onPrinterFailed,
+    );
+  }
   final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
   final table =
       tableName.trim().isEmpty ? 'Bàn' : tableName.trim();
@@ -1411,7 +1396,7 @@ Future<bool> _printKitchenCompactSlipDefault({
       kitchenLocals = await PosLocalPrintersStore.instance
           .forRoleOnDevice(PosLocalPrinterRoles.kitchenSlip);
     }
-    kitchenLocals = _preferExternalKitchenLocals(kitchenLocals);
+    kitchenLocals = _preferKitchenDefaultLocals(kitchenLocals, cloudDoc);
     if (kitchenLocals.isNotEmpty) {
       final usbList = await PosPrinterReadiness.listUsbDevices();
       final usbProfiles = kitchenLocals
@@ -1446,7 +1431,7 @@ Future<bool> _printKitchenCompactSlipDefault({
               senderName: senderName,
               sentAt: sentAt,
               orderNo: orderNo,
-              skipDedup: true,
+              skipDedup: skipDedup,
               dedupRef: kitchenRefFit(
                   '${dedupRef ?? orderNo ?? 'k'}|${line.productName}'),
               waitForCompletion: waitForCompletion,
@@ -1459,27 +1444,32 @@ Future<bool> _printKitchenCompactSlipDefault({
           if (showFeedback && splitOk) {
             NotificationOverlayManager().showSuccess(
               title: isCancel ? 'Hủy bếp' : 'Báo bếp',
-              message: '${lines.length} phiếu (cắt từng món)',
+              message: tr('${lines.length} phiếu (cắt từng món)'),
             );
           }
           return splitOk;
         }
         var anyOk = false;
-        final tpl = await PosPrintConfigSession.instance
-            .kitchenTemplate(isCancel: isCancel, force: true);
         for (final local in readyLocals) {
           final kitchenSettings = local.toThermalSettings().copyWith(
                 openCashDrawer: false,
-                compactCutFeed: true,
               );
+          final tpl = await PosPrintConfigSession.instance.kitchenTemplate(
+            isCancel: isCancel,
+            force: true,
+            paperSize:
+                PosPrintPaperSizes.fromWidthMm(kitchenSettings.paperWidthMm),
+          );
           final v2 = PosPrintTemplateRuntime.resolveOrPreset(
             template: tpl,
             documentType: isCancel
                 ? PosPrintDocumentTypes.kitchenVoid
                 : PosPrintDocumentTypes.kitchenSlip,
-            paperSize: kitchenSettings.paperSize,
+            paperSize: PosPrintPaperSizes.fromWidthMm(
+                kitchenSettings.paperWidthMm),
             printerProfile: PosPrintPrinterProfiles.forPaperAndBrand(
-              paperSize: kitchenSettings.paperSize,
+              paperSize: PosPrintPaperSizes.fromWidthMm(
+                  kitchenSettings.paperWidthMm),
               isSunmi: kitchenSettings.connectionType ==
                       PosThermalConnectionType.sunmi ||
                   kitchenSettings.printerBrand ==
@@ -1563,11 +1553,14 @@ Future<bool> _printKitchenCompactSlipDefault({
   // Phiếu bếp mặc định: chỉ 1 máy (isDefault hoặc máy đầu) — tránh in hết
   // USB + WiFi khi món chưa gán / fallback.
   await PosPrintOrchestrator.instance.refreshConfig();
-  var cloudPrinters =
-      PosPrintOrchestrator.instance.resolvePrinters(cloudDoc);
+  var cloudPrinters = await PosPrintDeviceScope.excludeSenderLocals(
+    PosPrintOrchestrator.instance.resolvePrinters(cloudDoc),
+  );
   if (cloudPrinters.isEmpty && isCancel) {
-    cloudPrinters = PosPrintOrchestrator.instance
-        .resolvePrinters(PosCloudDocumentTypes.kitchenSlip);
+    cloudPrinters = await PosPrintDeviceScope.excludeSenderLocals(
+      PosPrintOrchestrator.instance
+          .resolvePrinters(PosCloudDocumentTypes.kitchenSlip),
+    );
   }
   if (cloudPrinters.isEmpty) {
     debugPrint(
@@ -1613,9 +1606,8 @@ Future<bool> _printKitchenCompactSlipDefault({
       successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
       skipDedup: skipDedup,
       waitForCompletion: waitForCompletion,
-      preferDirectPrint: true,
-      // A7 không có cổng → orchestrator tự cloud. A6 có cổng → in local dù Agent tắt.
-      forceCloud: false,
+      preferDirectPrint: false,
+      forceCloud: true,
       onHang: onCloudHang,
     );
     if (ok) {
@@ -1630,6 +1622,35 @@ Future<bool> _printKitchenCompactSlipDefault({
     }
   }
   return anyCloudOk;
+}
+
+/// Bếp mặc định: máy cửa hàng đã chọn (cloud pick) trước, rồi USB/LAN.
+List<PosLocalPrinterProfile> _preferKitchenDefaultLocals(
+  List<PosLocalPrinterProfile> locals,
+  String cloudDoc,
+) {
+  if (locals.isEmpty) return locals;
+  var cloud = PosPrintOrchestrator.instance.resolvePrinters(cloudDoc);
+  if (cloud.isEmpty && cloudDoc != PosCloudDocumentTypes.kitchenSlip) {
+    cloud = PosPrintOrchestrator.instance
+        .resolvePrinters(PosCloudDocumentTypes.kitchenSlip);
+  }
+  cloud = _preferExternalKitchenCloud(cloud);
+  if (cloud.isNotEmpty) {
+    final want = cloud.first.id.trim().toLowerCase();
+    final match = locals
+        .where((p) => (p.storePrinterId ?? '').trim().toLowerCase() == want)
+        .firstOrNull;
+    if (match != null) {
+      return [
+        match,
+        ..._preferExternalKitchenLocals(
+          locals.where((p) => p.id != match.id).toList(),
+        ),
+      ];
+    }
+  }
+  return _preferExternalKitchenLocals(locals);
 }
 
 /// USB/LAN/BT bếp trước máy in trong Sunmi. `isDefault` thường là hóa đơn.
@@ -1647,8 +1668,11 @@ List<PosLocalPrinterProfile> _preferExternalKitchenLocals(
 
 List<PosStorePrinter> _preferExternalKitchenCloud(List<PosStorePrinter> printers) {
   if (printers.length <= 1) return printers;
-  final ranked = [...printers]..sort((a, b) =>
-      _kitchenCloudRank(a).compareTo(_kitchenCloudRank(b)));
+  final ranked = [...printers]..sort((a, b) {
+      final byPort = _kitchenCloudRank(a).compareTo(_kitchenCloudRank(b));
+      if (byPort != 0) return byPort;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
   final external = ranked.where((p) => !p.isSunmi).toList();
   return external.isNotEmpty ? external : ranked;
 }
@@ -1677,21 +1701,33 @@ PosStorePrinter? _kitchenPrinterWithoutCloudRemap(String id) {
       .firstOrNull;
 }
 
-Future<bool> _kitchenHasLocalSlipPrinters() async {
-  if (kIsWeb) return false;
-  var locals = await PosLocalPrintersStore.instance
-      .forRoleOnDevice(PosLocalPrinterRoles.kitchenSlip);
-  if (locals.isEmpty) {
-    locals = await PosLocalPrintersStore.instance
-        .forRoleOnDevice(PosLocalPrinterRoles.kitchenVoid);
+/// Phiếu bếp mặc định chỉ nhận món chưa gán máy (SP/nhóm).
+Future<List<KitchenTicketLine>> _kitchenOnlyUnassignedLines(
+  List<KitchenTicketLine> lines,
+) async {
+  final svc = PosProductPrinterService.instance;
+  final out = <KitchenTicketLine>[];
+  for (final l in lines) {
+    final pid = (l.productId ?? '').trim();
+    if (pid.isEmpty) {
+      out.add(l);
+      continue;
+    }
+    final route = await svc.resolveKitchenRoute(
+      pid,
+      documentRole: PosLocalPrinterRoles.kitchenSlip,
+    );
+    if (route.lane == KitchenPrintLane.none) {
+      out.add(l);
+    }
   }
-  return locals.isNotEmpty;
+  return out;
 }
 
 Future<bool> _kitchenAssignedHasLocalPort(PosStorePrinter printer) async {
   if (kIsWeb) return false;
-  final local =
-      await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
+  final local = await PosLocalPrintersStore.instance
+      .resolveForStorePrinter(printer, exactPort: true);
   if (local != null &&
       PosLocalPrintersStore.profileAllowsDirectLocal(local)) {
     return true;

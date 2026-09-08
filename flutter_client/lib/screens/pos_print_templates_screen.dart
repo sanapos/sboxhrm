@@ -870,15 +870,29 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hubBody = widget.embeddedInSettings &&
+        !HrmPageChrome.showInPageAppBar(context);
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: widget.embeddedInSettings
+      backgroundColor: hubBody
           ? HrmPageChrome.scaffoldBackground(context)
           : const Color(0xFFF3F4F6),
+      appBar: hubBody
+          ? null
+          : AppBar(
+              title: Text(tr('Mẫu in')),
+              backgroundColor: PosTheme.kiotBlue,
+              foregroundColor: Colors.white,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: tr('Quay lại'),
+                onPressed: () => Navigator.maybePop(context),
+              ),
+            ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!widget.embeddedInSettings)
+          if (!hubBody)
             const PosModuleToolbar(activeModule: 'PosSell'),
           Material(
             color: Colors.white,

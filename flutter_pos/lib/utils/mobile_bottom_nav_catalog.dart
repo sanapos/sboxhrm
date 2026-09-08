@@ -79,6 +79,13 @@ abstract final class MobileBottomNavCatalog {
       moduleCode: 'PosSaleOrders',
     ),
     MobileBottomNavItemDef(
+      id: 'PosKds',
+      label: 'Màn hình bếp',
+      icon: Icons.kitchen_outlined,
+      activeIcon: Icons.kitchen,
+      moduleCode: 'PosKds',
+    ),
+    MobileBottomNavItemDef(
       id: 'Employee',
       label: 'Nhân sự',
       icon: Icons.people_outline,

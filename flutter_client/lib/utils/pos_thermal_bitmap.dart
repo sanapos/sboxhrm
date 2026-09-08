@@ -73,8 +73,8 @@ class PosThermalBitmapEncoder {
       fontSize: fontSize,
       fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
       color: const Color(0xFF000000),
-      height: 1.12,
-      letterSpacing: 0.2,
+      height: 1.28,
+      letterSpacing: 0.15,
     );
   }
 
@@ -86,6 +86,7 @@ class PosThermalBitmapEncoder {
     PosPrintFrameStyle frameStyle = PosPrintFrameStyle.none,
     double frameInsetMm = 2.5,
     double frameMarginMm = 1.5,
+    int trailingFeedLines = 0,
   }) async {
     final image = await _renderReceiptImage(
       lines,
@@ -94,10 +95,13 @@ class PosThermalBitmapEncoder {
       frameStyle: frameStyle,
       frameInsetMm: frameInsetMm,
       frameMarginMm: frameMarginMm,
+      trailingFeedLines: trailingFeedLines,
     );
     if (image == null) return null;
-    final bd = await image.toByteData(format: ui.ImageByteFormat.png);
-    image.dispose();
+    final trimmed = await _trimTrailingWhite(image, keepPx: 0);
+    if (!identical(trimmed, image)) image.dispose();
+    final bd = await trimmed.toByteData(format: ui.ImageByteFormat.png);
+    trimmed.dispose();
     return bd?.buffer.asUint8List();
   }
 
@@ -109,6 +113,8 @@ class PosThermalBitmapEncoder {
     PosPrintFrameStyle frameStyle = PosPrintFrameStyle.none,
     double frameInsetMm = 2.5,
     double frameMarginMm = 1.5,
+    bool initPrinter = true,
+    int keepPx = 1,
   }) async {
     final image = await _renderReceiptImage(
       lines,
@@ -119,7 +125,60 @@ class PosThermalBitmapEncoder {
       frameMarginMm: frameMarginMm,
     );
     if (image == null) return null;
-    return _imageToEscPos(image, initPrinter: true);
+    var work = await _trimTrailingWhite(image, keepPx: keepPx);
+    if (!identical(work, image)) image.dispose();
+    if (work.width != paperDots) {
+      final scaled = await _scaleToWidth(work, paperDots);
+      if (!identical(scaled, work)) work.dispose();
+      work = scaled;
+    }
+    try {
+      return await _imageToEscPos(
+        work,
+        initPrinter: initPrinter,
+        keepPx: keepPx,
+      );
+    } finally {
+      work.dispose();
+    }
+  }
+
+  /// PNG → GS v 0 (V2s: tránh Sunmi printImage tự đẩy đuôi giấy).
+  static Future<List<int>?> pngToEscPos(
+    Uint8List png, {
+    bool initPrinter = false,
+    int keepPx = 0,
+  }) async {
+    try {
+      final codec = await ui.instantiateImageCodec(png);
+      final frame = await codec.getNextFrame();
+      final image = frame.image;
+      try {
+        var work = image;
+        var maxW = image.width;
+        if (maxW > 576 && maxW <= 1152) {
+          maxW = 576;
+        } else if (maxW > 384 && maxW <= 768) {
+          maxW = 384;
+        }
+        if (work.width != maxW) {
+          work = await _scaleToWidth(image, maxW);
+        }
+        try {
+          return _imageToEscPos(
+            work,
+            initPrinter: initPrinter,
+            keepPx: keepPx,
+          );
+        } finally {
+          if (!identical(work, image)) work.dispose();
+        }
+      } finally {
+        image.dispose();
+      }
+    } catch (_) {
+      return null;
+    }
   }
 
   static ({
@@ -134,7 +193,7 @@ class PosThermalBitmapEncoder {
     List<PosReceiptImageLine> saleLines = const [],
   }) {
     final k58 = contentW < 900;
-    final gap = k58 ? 8.0 : 12.0;
+    final gap = k58 ? 20.0 : 12.0;
     final measureStyle = style ??
         const TextStyle(fontSize: 20, fontWeight: FontWeight.w700);
     double measure(String s, double minW, double maxW) {
@@ -149,15 +208,15 @@ class PosThermalBitmapEncoder {
     final anyQty = saleLines.any((l) => l.colQty != null);
     final anyPrice = saleLines.any((l) => l.colPrice != null);
     final anyTotal = saleLines.any((l) => l.colTotal != null);
-    final qtyW = anyQty ? measure('999', k58 ? 36.0 : 44.0, k58 ? 64.0 : 80.0) : 0.0;
+    final qtyW = anyQty ? measure('SL', k58 ? 56.0 : 44.0, k58 ? 80.0 : 80.0) : 0.0;
     var priceW = 0.0;
     var totalW = 0.0;
-    final capPrice = k58 ? 200.0 : 268.0;
-    final capTotal = k58 ? 216.0 : 288.0;
+    final capPrice = k58 ? 160.0 : 268.0;
+    final capTotal = k58 ? 168.0 : 288.0;
     if (anyPrice) {
-      priceW = k58 ? 64.0 : 80.0;
+      priceW = k58 ? 80.0 : 80.0;
       if (saleLines.isEmpty) {
-        priceW = measure('000.000', priceW, capPrice);
+        priceW = measure('000k', priceW, capPrice);
       } else {
         for (final line in saleLines) {
           final p = (line.colPrice ?? '').trim();
@@ -166,9 +225,9 @@ class PosThermalBitmapEncoder {
       }
     }
     if (anyTotal) {
-      totalW = k58 ? 72.0 : 88.0;
+      totalW = k58 ? 88.0 : 88.0;
       if (saleLines.isEmpty) {
-        totalW = measure('000.000', totalW, capTotal);
+        totalW = measure('000k', totalW, capTotal);
       } else {
         for (final line in saleLines) {
           final t = (line.colTotal ?? '').trim();
@@ -254,6 +313,7 @@ class PosThermalBitmapEncoder {
     PosPrintFrameStyle frameStyle = PosPrintFrameStyle.none,
     double frameInsetMm = 2.5,
     double frameMarginMm = 1.5,
+    int trailingFeedLines = 0,
   }) async {
     if (lines.isEmpty) return null;
     await ensureFont();
@@ -320,7 +380,7 @@ class PosThermalBitmapEncoder {
       }
       if (line.text.trim().isEmpty) {
         painters.add(null);
-        totalH += 10.0 * scale;
+        totalH += 4.0 * scale;
         continue;
       }
 
@@ -344,7 +404,8 @@ class PosThermalBitmapEncoder {
       totalH += tp.height + lineGap * scale;
     }
 
-    final hHi = (totalH + (framed ? pad * 2 : 0)).ceil().clamp(1, 16000);
+    final trail = trailingFeedLines.clamp(0, 40) * 16.0;
+    final hHi = (totalH + trail + (framed ? pad * 2 : 0)).ceil().clamp(1, 16000);
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawRect(
@@ -475,7 +536,7 @@ class PosThermalBitmapEncoder {
       }
       final tp = painters[i];
       if (tp == null) {
-        y += 10.0 * scale;
+        y += 4.0 * scale;
         continue;
       }
       final x = tp.textAlign == TextAlign.center
@@ -662,9 +723,74 @@ class PosThermalBitmapEncoder {
     ];
   }
 
+  /// Cắt hàng trắng cuối ảnh — V2s không dao cắt, đuôi PNG trắng = giấy trắng.
+  static Future<ui.Image> _trimTrailingWhite(
+    ui.Image image, {
+    int keepPx = 4,
+  }) async {
+    final w = image.width;
+    final h = image.height;
+    if (w <= 0 || h <= 2) return image;
+    final bd = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    if (bd == null) return image;
+    final rgba = bd.buffer.asUint8List();
+    var lastInk = -1;
+    for (var y = h - 1; y >= 0; y--) {
+      var ink = false;
+      final row = y * w * 4;
+      for (var x = 0; x < w; x++) {
+        final i = row + x * 4;
+        final lum = 0.299 * rgba[i] + 0.587 * rgba[i + 1] + 0.114 * rgba[i + 2];
+        if (lum < 250) {
+          ink = true;
+          break;
+        }
+      }
+      if (ink) {
+        lastInk = y;
+        break;
+      }
+    }
+    if (lastInk < 0) return image;
+    final newH = (lastInk + 1 + keepPx).clamp(1, h);
+    if (newH >= h) return image;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, w.toDouble(), newH.toDouble()),
+      Rect.fromLTWH(0, 0, w.toDouble(), newH.toDouble()),
+      Paint(),
+    );
+    final picture = recorder.endRecording();
+    final cropped = await picture.toImage(w, newH);
+    return cropped;
+  }
+
+  /// GS v 0 phải đúng số chấm khổ giấy. Ảnh render scale=2 (768px) in lên
+  /// V2s 384 chấm sẽ quấn hàng → dư đúng một khúc giấy.
+  static Future<ui.Image> _scaleToWidth(ui.Image image, int targetW) async {
+    final w = image.width;
+    final h = image.height;
+    final tw = targetW.clamp(8, 576);
+    if (w == tw || w <= 0 || h <= 0) return image;
+    final th = (h * tw / w).round().clamp(1, 16000);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+      Rect.fromLTWH(0, 0, tw.toDouble(), th.toDouble()),
+      Paint()..filterQuality = FilterQuality.medium,
+    );
+    final picture = recorder.endRecording();
+    return picture.toImage(tw, th);
+  }
+
   static Future<List<int>?> _imageToEscPos(
     ui.Image image, {
     bool initPrinter = false,
+    int keepPx = 1,
   }) async {
     final w = image.width;
     final h = image.height;
@@ -698,15 +824,127 @@ class PosThermalBitmapEncoder {
 
     if (!raster.any((b) => b != 0)) return null;
 
+    var lastInkRow = h - 1;
+    for (var y = h - 1; y >= 0; y--) {
+      var ink = false;
+      final row = y * bytesPerRow;
+      for (var i = 0; i < bytesPerRow; i++) {
+        if (raster[row + i] != 0) {
+          ink = true;
+          break;
+        }
+      }
+      if (ink) {
+        lastInkRow = y;
+        break;
+      }
+    }
+    final keepH = (lastInkRow + 1 + keepPx).clamp(1, h);
+    final cropped = keepH < h ? raster.sublist(0, keepH * bytesPerRow) : raster;
+
     return [
       if (initPrinter) ...[0x1B, 0x40],
       0x1D, 0x76, 0x30, 0x00,
       bytesPerRow & 0xFF,
       (bytesPerRow >> 8) & 0xFF,
-      h & 0xFF,
-      (h >> 8) & 0xFF,
-      ...raster,
-      0x0A,
+      keepH & 0xFF,
+      (keepH >> 8) & 0xFF,
+      ...cropped,
+    ];
+  }
+
+  /// 1 dòng đẩy giấy = 24 chấm (~3 mm @ 203 dpi), khớp `lineWrap` ESC/POS.
+  static const dotsPerFeedLine = 24;
+
+  static int feedDots(int lines) => lines.clamp(0, 40) * dotsPerFeedLine;
+
+  /// Raster trắng (GS v 0) — V2s chỉ chịu đẩy giấy khi in thêm điểm ảnh.
+  static List<int> feedOnlyRaster({
+    required int paperDots,
+    required int feedLines,
+  }) {
+    final extra = feedDots(feedLines);
+    if (extra <= 0) return const <int>[];
+    final w = paperDots.clamp(8, 576);
+    final bpr = (w + 7) ~/ 8;
+    final data = List<int>.filled(bpr * extra, 0);
+    // 1 chấm cuối: firmware không được bỏ block toàn trắng.
+    data[bpr * (extra - 1)] = 0x80;
+    return [
+      0x1D,
+      0x76,
+      0x30,
+      0x00,
+      bpr & 0xFF,
+      (bpr >> 8) & 0xFF,
+      extra & 0xFF,
+      (extra >> 8) & 0xFF,
+      ...data,
+    ];
+  }
+
+  /// Nối hàng trắng vào GS v 0 cuối payload. LF / ESC d sau raster bị V2s nuốt.
+  static List<int> extendGsV0TrailingDots(List<int> bytes, int extraDots) {
+    final extra = extraDots.clamp(0, 2000);
+    if (extra <= 0 || bytes.length < 8) return bytes;
+    var i = 0;
+    var lastCmd = -1;
+    var lastBpr = 0;
+    var lastH = 0;
+    while (i + 7 < bytes.length) {
+      if (bytes[i] == 0x1D &&
+          bytes[i + 1] == 0x76 &&
+          bytes[i + 2] == 0x30) {
+        final bpr = bytes[i + 4] + (bytes[i + 5] << 8);
+        final h = bytes[i + 6] + (bytes[i + 7] << 8);
+        if (bpr <= 0 || bpr > 256 || h < 0) {
+          i++;
+          continue;
+        }
+        lastCmd = i;
+        lastBpr = bpr;
+        lastH = h;
+        i += 8 + bpr * h;
+        continue;
+      }
+      i++;
+    }
+    if (lastCmd < 0 || lastBpr <= 0) return bytes;
+    final newH = (lastH + extra).clamp(1, 65535);
+    final added = newH - lastH;
+    if (added <= 0) return bytes;
+    final dataStart = lastCmd + 8;
+    final dataEnd = dataStart + lastBpr * lastH;
+    if (dataEnd > bytes.length) return bytes;
+    final zeros = List<int>.filled(lastBpr * added, 0);
+    zeros[lastBpr * (added - 1)] = 0x80;
+    return <int>[
+      ...bytes.sublist(0, lastCmd + 6),
+      newH & 0xFF,
+      (newH >> 8) & 0xFF,
+      ...bytes.sublist(dataStart, dataEnd),
+      ...zeros,
+      ...bytes.sublist(dataEnd),
+    ];
+  }
+
+  /// V2s: nhồi feed vào cùng payload raster (không gửi LF rời).
+  static List<int> appendHandheldFeed(
+    List<int> bytes,
+    int feedLines, {
+    int paperDots = 384,
+  }) {
+    final n = feedLines.clamp(0, 40);
+    if (n <= 0) return bytes;
+    if (bytes.isEmpty) {
+      return feedOnlyRaster(paperDots: paperDots, feedLines: n);
+    }
+    final extra = feedDots(n);
+    final extended = extendGsV0TrailingDots(bytes, extra);
+    if (extended.length != bytes.length) return extended;
+    return <int>[
+      ...bytes,
+      ...feedOnlyRaster(paperDots: paperDots, feedLines: n),
     ];
   }
 

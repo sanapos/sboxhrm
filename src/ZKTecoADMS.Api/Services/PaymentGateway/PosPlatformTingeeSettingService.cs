@@ -5,12 +5,15 @@ using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Services.PaymentGateway;
 
+public sealed record TingeeOpenApiAuth(string ClientId, string Secret, string BaseUrl);
+
 public interface IPosPlatformTingeeSettingService
 {
     Task<PlatformTingeeSettingDto> GetSettingsAsync(CancellationToken ct = default);
     Task<PlatformTingeeSettingDto> UpsertSettingsAsync(
         PlatformTingeeSettingUpsertRequest req, string? actor, CancellationToken ct = default);
     Task<string?> ResolveWebhookSecretAsync(CancellationToken ct = default);
+    Task<TingeeOpenApiAuth> RequireOpenApiAuthAsync(CancellationToken ct = default);
     string ResolveApiBaseUrl(PlatformTingeeSettingDto? settings = null);
 }
 
@@ -66,6 +69,18 @@ public sealed class PosPlatformTingeeSettingService(
         if (row == null) return null;
         var secret = row.TingeeWebhookSecret ?? row.TingeeSecretKey;
         return string.IsNullOrWhiteSpace(secret) ? null : secret;
+    }
+
+    public async Task<TingeeOpenApiAuth> RequireOpenApiAuthAsync(CancellationToken ct = default)
+    {
+        var row = await GetOrCreateAsync(ct);
+        var secret = (row.TingeeSecretKey ?? "").Trim();
+        var clientId = (row.TingeeClientId ?? "").Trim();
+        if (!row.TingeeEnabled)
+            throw new InvalidOperationException("SuperAdmin chưa bật Tingee platform.");
+        if (clientId.Length == 0 || secret.Length == 0)
+            throw new InvalidOperationException("Thiếu Client ID / Secret Token Tingee master.");
+        return new TingeeOpenApiAuth(clientId, secret, ResolveApiBaseUrl(Map(row)));
     }
 
     public string ResolveApiBaseUrl(PlatformTingeeSettingDto? settings = null)

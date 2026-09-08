@@ -549,6 +549,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'PosCashierShift': {'canView', 'canCreate'},
     'PosPrinters': {'canView', 'canEdit'},
     'PosStorePrinters': {'canView', 'canEdit'},
+    'PosShipping': {'canView', 'canCreate', 'canEdit'},
     'PosBooking': {'canView', 'canCreate', 'canEdit'},
     'PosCustomers': {'canView', 'canCreate', 'canEdit'},
     'PosWarranty': {'canView'},
@@ -1735,6 +1736,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     return Scaffold(
       backgroundColor: HrmPageChrome.scaffoldBackground(context),
       appBar: HrmPageChrome.appBar(
+        context: context,
         title: 'Phân quyền',
         actions: saveAction != null ? [saveAction] : null,
       ),

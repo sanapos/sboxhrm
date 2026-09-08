@@ -12,13 +12,14 @@ class PosReceiptLayout {
 
   factory PosReceiptLayout.fromMm(int paperWidthMm) {
     if (paperWidthMm <= 58) {
+      // Cột tiền `25k` — để tên hàng ~16 ký tự, khỏi cắt "Bánh mì thịt".
       return const PosReceiptLayout._(
         k58: true,
         chars: 32,
-        nameW: 8,
-        qtyW: 4,
-        priceW: 10,
-        totalW: 10,
+        nameW: 16,
+        qtyW: 3,
+        priceW: 6,
+        totalW: 7,
       );
     }
     return const PosReceiptLayout._(
@@ -48,6 +49,19 @@ class PosReceiptLayout {
 
   /// Tiền đầy đủ có chấm nghìn — dòng tổng cộng.
   static String moneyItem(double v) => _withDots(v.round());
+
+  /// Chuỗi tiền đã format (`25.000`) → `25k` cho cột hàng K58. Không đụng dòng tổng.
+  static String compactPrintedMoney(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty) return s;
+    final lower = s.toLowerCase().replaceAll(' ', '');
+    if (lower.endsWith('k') || lower.endsWith('tr')) return s;
+    final digits = s.replaceAll(RegExp(r'[^\d-]'), '');
+    if (digits.isEmpty || digits == '-') return s;
+    final n = int.tryParse(digits);
+    if (n == null) return s;
+    return moneyItemCompact(n.toDouble());
+  }
 
   /// Cột Đ.giá / T.tiền hàng: `500k`, `1.5tr` — tên hàng rộng hơn, không cắt số.
   static String moneyItemCompact(double v) {

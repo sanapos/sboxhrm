@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -294,7 +295,7 @@ public class DeviceService(
 
     public async Task<IEnumerable<Device>> GetConnectedDevicesAsync()
     {
-        var threshold = DateTime.UtcNow.AddSeconds(-90);
+        var threshold = DateTime.UtcNow.Subtract(DeviceConnectivity.OnlineWindow);
         return await context.Devices
             .Where(d => d.LastOnline != null && d.LastOnline > threshold)
             .OrderByDescending(d => d.LastOnline)
@@ -310,7 +311,7 @@ public class DeviceService(
             .ToListAsync();
     }
 
-    public async Task<AppResponse<Device>> ClaimDeviceAsync(Guid userId, string serialNumber, string deviceName, string? description = null, string? location = null)
+    public async Task<AppResponse<Device>> ClaimDeviceAsync(Guid userId, string serialNumber, string deviceName, string? description = null, string? location = null, Guid? storeId = null)
     {
         // Tìm thiết bị theo Serial Number
         var device = await GetDeviceBySerialNumberAsync(serialNumber);
@@ -335,7 +336,8 @@ public class DeviceService(
         device.DeviceName = deviceName;
         device.Description = description;
         device.Location = location;
-        device.DeviceStatus = "Online";
+        if (storeId.HasValue) device.StoreId = storeId;
+        device.DeviceStatus = DeviceConnectivity.IsOnline(device.LastOnline) ? "Online" : "Offline";
         device.IsActive = true;
         device.UpdatedAt = DateTime.UtcNow;
 

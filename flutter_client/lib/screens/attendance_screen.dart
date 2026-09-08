@@ -1251,8 +1251,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           final skipped = importResult['skipped'] ?? 0;
           appNotification.showSuccess(
             title: 'Import thành công',
-            message:
-                'Đã thêm ${importResult['imported']} lần chấm'
+            message: 'Đã thêm ${importResult['imported']} lần chấm'
                 '${skipped > 0 ? ', bỏ qua $skipped trùng' : ''}'
                 '${(importResult['failed'] ?? 0) > 0 ? ', ${importResult['failed']} lỗi' : ''}',
           );

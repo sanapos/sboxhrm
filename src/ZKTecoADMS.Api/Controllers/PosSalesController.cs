@@ -543,6 +543,7 @@ public partial class PosSalesController(
                 p.AutoOpenToppingPopup,
                 p.ShowComboComponentsOnSell,
                 VariantCount = p.Variants.Count(v => v.Deleted == null && v.IsActive),
+                p.DailySoldOutOn,
             })
             .ToListAsync();
 
@@ -712,6 +713,12 @@ public partial class PosSalesController(
                     };
                 }).ToList());
 
+        var sellBizDate = PosDailySoldOutHelper.BusinessDate(
+            await dbContext.PosStoreSellSettings.AsNoTracking()
+                .Where(s => s.StoreId == storeId && s.Deleted == null)
+                .Select(s => (int?)s.ReportDayStartHour)
+                .FirstOrDefaultAsync() ?? 0);
+
         var items = products.Select(p =>
         {
             var comboLines = comboLinesByProduct.GetValueOrDefault(p.Id, []);
@@ -761,6 +768,7 @@ public partial class PosSalesController(
                 p.AutoOpenToppingPopup,
                 p.ShowComboComponentsOnSell,
                 p.VariantCount,
+                IsDailySoldOut = PosDailySoldOutHelper.IsLockedToday(p.DailySoldOutOn, sellBizDate),
                 ToppingOptions = toppingMap.GetValueOrDefault(p.Id),
                 ToppingGroupIds = toppingGroupIdsByProduct.GetValueOrDefault(p.Id),
                 ToppingGroups = toppingGroupsByProduct.GetValueOrDefault(p.Id),

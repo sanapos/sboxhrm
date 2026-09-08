@@ -176,7 +176,8 @@ public class ShippingWebhookController(
             var root = doc.RootElement;
             var tracking = root.TryGetProperty("trackingCode", out var t) ? t.GetString()
                 : root.TryGetProperty("tracking_code", out var t2) ? t2.GetString()
-                : root.TryGetProperty("order_id", out var oid) ? oid.GetString() : null;
+                : root.TryGetProperty("order_id", out var oid) ? oid.GetString()
+                : root.TryGetProperty("_id", out var ahaId) ? ahaId.GetString() : null;
             var status = root.TryGetProperty("status", out var st) ? st.GetString()
                 : root.TryGetProperty("statusText", out var st2) ? st2.GetString() : null;
             var ok = await shipping.ApplyWebhookStatusAsync(carrier, tracking, tracking, status, ct);

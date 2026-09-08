@@ -12,13 +12,13 @@ import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/branch_filter_helper.dart';
-import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
+import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class KpiScreen extends StatefulWidget {
@@ -64,9 +64,6 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   String? _filterBranchId;
   List<Map<String, dynamic>> _branches = [];
 
-  // --- Mobile UI ---
-  bool _showKpiFilters = false;
-  bool _showOverviewPanel = false;
   // --- Export ---
   final GlobalKey _dashboardKey = GlobalKey();
   final GlobalKey _targetsKey = GlobalKey();
@@ -244,10 +241,23 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final tab = _tabCtrl.index;
     return [
       HrmTopBarAction(
+        icon: _hasActiveFilters
+            ? Icons.filter_alt
+            : Icons.filter_list_outlined,
+        label: 'Bộ lọc',
+        onPressed: _showFilterSheet,
+      ),
+      HrmTopBarAction(
         icon: Icons.refresh_rounded,
         label: 'Tải lại',
         onPressed: _loading ? null : () => _loadData(),
       ),
+      if (_kpiCycleAction() case final cycle?)
+        HrmTopBarAction(
+          icon: cycle.icon,
+          label: cycle.label,
+          onPressed: cycle.onPressed,
+        ),
       if (tab == 1) ...[
         if (perm.canCreate('KPI'))
           HrmTopBarAction(
@@ -271,13 +281,52 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               ? _importExcelActuals
               : () => _requireOpenPeriod(),
         ),
-      ],
-      if (tab == 2 && _isPeriodLocked)
         HrmTopBarAction(
-          icon: Icons.calculate_outlined,
-          label: 'Tính lương KPI',
-          onPressed: () => _calculateSalary(_selPeriodId),
+          icon: Icons.cloud_upload_outlined,
+          label: 'Ghi Google Sheet',
+          onPressed: _isPeriodOpen
+              ? _writeTargetsToGSheet
+              : () => _requireOpenPeriod(),
         ),
+      ],
+      if (perm.canExport('KPI')) ...[
+        if (tab == 0)
+          HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: _isExporting
+                ? null
+                : () => _exportPng(_dashboardKey, 'TongQuan_KPI'),
+          ),
+        if (tab == 1) ...[
+          HrmTopBarAction(
+            icon: Icons.table_chart_outlined,
+            label: 'Xuất Excel',
+            onPressed: _isExporting ? null : _exportTargetsExcel,
+          ),
+          HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: _isExporting
+                ? null
+                : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
+          ),
+        ],
+        if (tab == 2) ...[
+          HrmTopBarAction(
+            icon: Icons.table_chart_outlined,
+            label: 'Xuất Excel',
+            onPressed: _isExporting ? null : _exportSalaryExcel,
+          ),
+          HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất PNG',
+            onPressed: _isExporting
+                ? null
+                : () => _exportPng(_salaryKey, 'Lương_KPI'),
+          ),
+        ],
+      ],
     ];
   }
 
@@ -291,53 +340,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       backgroundColor: HrmPageChrome.background,
       body: Column(
         children: [
-          _buildHeader(),
-          _buildWorkflowBanner(),
-          Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
-            ),
-            child: TabBar(
-              controller: _tabCtrl,
-              isScrollable: isMobile,
-              tabAlignment: isMobile ? TabAlignment.start : TabAlignment.center,
-              labelColor: _accent,
-              unselectedLabelColor: HrmPageChrome.textMuted,
-              indicatorColor: _accent,
-              indicatorWeight: 2,
-              indicatorSize: TabBarIndicatorSize.label,
-              padding: isMobile ? EdgeInsets.zero : null,
-              labelPadding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 16),
-              labelStyle:
-                  TextStyle(fontWeight: FontWeight.w600, fontSize: isMobile ? 12 : 13),
-              unselectedLabelStyle:
-                  TextStyle(fontWeight: FontWeight.w500, fontSize: isMobile ? 12 : 13),
-              tabs: [
-                Tab(
-                    icon: isMobile
-                        ? null
-                        : const Icon(Icons.dashboard_rounded, size: 18),
-                    text: tr('Tổng quan')),
-                Tab(
-                    icon: isMobile
-                        ? null
-                        : const Icon(Icons.track_changes_rounded, size: 18),
-                    text: tr('Chỉ tiêu')),
-                Tab(
-                    icon: isMobile
-                        ? null
-                        : const Icon(Icons.account_balance_wallet_rounded,
-                            size: 18),
-                    text: tr('Lương KPI')),
-                Tab(
-                    icon: isMobile
-                        ? null
-                        : const Icon(Icons.settings_rounded, size: 18),
-                    text: tr('Thiết lập')),
-              ],
-            ),
-          ),
+          _buildKpiChrome(isMobile),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
@@ -359,249 +362,104 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildHeader() {
-    final isMobile = Responsive.isMobile(context);
-    final embedded = HrmPageChrome.isEmbedded;
-    final currentPeriod = _currentPeriod;
-    final periodStatus = _currentPeriodStatus;
-    final statusLabel =
-        periodStatus >= 0 ? _periodStatusLabel(periodStatus) : '';
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        isMobile ? 10 : 14,
-        embedded ? 6 : (isMobile ? 6 : 8),
-        isMobile ? 4 : 8,
-        6,
-      ),
-      child: Row(
-        children: [
-          if (!embedded && !isMobile) ...[
-            Icon(Icons.trending_up_rounded, size: 20, color: _accent),
-            const SizedBox(width: 8),
-            Text(
-              tr('KPI'),
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: HrmPageChrome.textDark,
-              ),
-            ),
-            const SizedBox(width: 12),
-          ],
-          Expanded(child: _buildPeriodSelector(isMobile)),
-          if (statusLabel.isNotEmpty) ...[
-            const SizedBox(width: 6),
-            _buildStatusBadge(statusLabel, periodStatus, compact: true),
-          ],
-          if (!isMobile)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              tooltip: tr('Tải lại dữ liệu'),
-              onPressed: _loading ? null : () => _loadData(),
-              icon: const Icon(Icons.refresh_rounded,
-                  size: 20, color: HrmPageChrome.textMuted),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// Thanh hướng dẫn quy trình: Mở → Khóa → Tính lương → Duyệt
-  Widget _buildWorkflowBanner() {
-    if (_selPeriodId == null || _currentPeriodStatus < 0) {
-      return const SizedBox.shrink();
-    }
-    final status = _currentPeriodStatus;
+  ({String label, IconData icon, VoidCallback onPressed})? _kpiCycleAction() {
+    if (_selPeriodId == null || _currentPeriodStatus < 0) return null;
     final perm = Provider.of<PermissionProvider>(context, listen: false);
-    final isMobile = Responsive.isMobile(context);
-
-    String hint;
-    String? actionLabel;
-    VoidCallback? action;
-
-    switch (status) {
+    switch (_currentPeriodStatus) {
       case 0:
-        hint = 'Bước 1: Giao chỉ tiêu và cập nhật doanh số trên tab Chỉ tiêu.';
-        if (perm.canApprove('KPI')) {
-          actionLabel = 'Khóa chu kỳ';
-          action = () => _updatePeriodStatus(_currentPeriod!['id'], 1);
-        }
+        if (!perm.canApprove('KPI') || _currentPeriod == null) return null;
+        return (
+          label: 'Khóa chu kỳ',
+          icon: Icons.lock_outline,
+          onPressed: () => _updatePeriodStatus(_currentPeriod!['id'], 1),
+        );
       case 1:
-        hint =
-            'Bước 2: Chu kỳ đã khóa. Kiểm tra số liệu rồi tính lương trên tab Lương KPI.';
-        actionLabel = 'Tính lương KPI';
-        action = () {
-          _tabCtrl.animateTo(2);
-          _calculateSalary(_selPeriodId);
-        };
+        return (
+          label: 'Tính lương KPI',
+          icon: Icons.calculate_outlined,
+          onPressed: () {
+            _tabCtrl.animateTo(2);
+            _calculateSalary(_selPeriodId);
+          },
+        );
       case 2:
-        hint = 'Bước 3: Đã tính lương. Duyệt để hoàn tất chu kỳ.';
-        if (perm.canApprove('KPI')) {
-          actionLabel = 'Duyệt lương';
-          action = () async {
+        if (!perm.canApprove('KPI')) return null;
+        return (
+          label: 'Duyệt lương',
+          icon: Icons.verified_outlined,
+          onPressed: () async {
             _tabCtrl.animateTo(2);
             final ok = await _approveAllSalaries();
             if (ok && mounted) {
               await _updatePeriodStatus(_currentPeriod!['id'], 3);
               await _loadData(showLoading: false);
             }
-          };
-        }
-      case 3:
-        hint = 'Chu kỳ đã duyệt — chỉ xem, không chỉnh sửa.';
+          },
+        );
       default:
-        hint = '';
+        return null;
     }
+  }
 
-    final steps = Row(
-      children: [
-        _workflowStepChip(0, 'Giao KPI', status, compact: isMobile),
-        _workflowConnector(status >= 1, compact: isMobile),
-        _workflowStepChip(1, 'Khóa', status, compact: isMobile),
-        _workflowConnector(status >= 2, compact: isMobile),
-        _workflowStepChip(2, 'Tính lương', status, compact: isMobile),
-        _workflowConnector(status >= 3, compact: isMobile),
-        _workflowStepChip(3, 'Duyệt', status, compact: isMobile),
+  Widget _buildKpiChrome(bool isMobile) {
+    final periodStatus = _currentPeriodStatus;
+    final statusLabel =
+        periodStatus >= 0 ? _periodStatusLabel(periodStatus) : '';
+    final tabBar = TabBar(
+      controller: _tabCtrl,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      labelColor: _accent,
+      unselectedLabelColor: HrmPageChrome.textMuted,
+      indicatorColor: _accent,
+      indicatorWeight: 2,
+      indicatorSize: TabBarIndicatorSize.label,
+      padding: EdgeInsets.zero,
+      labelPadding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12),
+      labelStyle: TextStyle(
+          fontWeight: FontWeight.w600, fontSize: isMobile ? 12 : 13),
+      unselectedLabelStyle: TextStyle(
+          fontWeight: FontWeight.w500, fontSize: isMobile ? 12 : 13),
+      tabs: [
+        Tab(height: isMobile ? 36 : 42, text: tr('Tổng quan')),
+        Tab(height: isMobile ? 36 : 42, text: tr('Chỉ tiêu')),
+        Tab(height: isMobile ? 36 : 42, text: tr('Lương KPI')),
+        Tab(height: isMobile ? 36 : 42, text: tr('Thiết lập')),
       ],
     );
 
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-          isMobile ? 8 : 16, isMobile ? 4 : 8, isMobile ? 6 : 16, isMobile ? 4 : 10),
-      decoration: BoxDecoration(
-        color: _accent.withValues(alpha: 0.04),
-        border: Border(
-          bottom: BorderSide(color: _accent.withValues(alpha: 0.12)),
+    return Material(
+      color: Colors.white,
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
         ),
-      ),
-      child: isMobile
-          ? Row(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: steps,
-                  ),
-                ),
-                if (actionLabel != null && action != null)
-                  TextButton(
-                    onPressed: action,
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      foregroundColor: _accent,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      tr(actionLabel!),
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: steps,
-                ),
-                if (hint.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    tr(hint),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: HrmPageChrome.textMuted,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-                if (actionLabel != null && action != null) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: FilledButton.icon(
-                      onPressed: action,
-                      icon: Icon(
-                        status == 0
-                            ? Icons.lock_outline
-                            : status == 1
-                                ? Icons.calculate_outlined
-                                : Icons.verified_outlined,
-                        size: 18,
-                      ),
-                      label: Text(tr(actionLabel!)),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _accent,
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+        padding: EdgeInsets.only(left: isMobile ? 8 : 12, right: 4),
+        child: Row(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: isMobile ? 128 : 220,
+                minWidth: isMobile ? 104 : 160,
+              ),
+              child: _buildPeriodSelector(isMobile),
             ),
-    );
-  }
-
-  Widget _workflowStepChip(int step, String label, int currentStatus,
-      {bool compact = false}) {
-    final done = currentStatus > step;
-    final active = currentStatus == step;
-    final color = done || active ? _accent : HrmPageChrome.textMuted;
-    return Container(
-      padding: EdgeInsets.symmetric(
-          horizontal: compact ? 7 : 10, vertical: compact ? 3 : 5),
-      decoration: BoxDecoration(
-        color: active
-            ? _accent.withValues(alpha: 0.12)
-            : (done ? HrmPageChrome.chip.withValues(alpha: 0.08) : Colors.white),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: active
-              ? _accent.withValues(alpha: 0.35)
-              : const Color(0xFFE4E4E7),
+            if (statusLabel.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              _buildStatusBadge(statusLabel, periodStatus, compact: true),
+            ],
+            Expanded(
+              child: SizedBox(
+                height: isMobile ? 36 : 42,
+                child: tabBar,
+              ),
+            ),
+          ],
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (done)
-            const Icon(Icons.check_circle, size: 12, color: HrmPageChrome.chip)
-          else
-            Text(tr('${step + 1}'),
-                style: TextStyle(
-                    fontSize: compact ? 10 : 11,
-                    fontWeight: FontWeight.w700,
-                    color: color)),
-          SizedBox(width: compact ? 3 : 5),
-          Text(tr(label),
-              style: TextStyle(
-                  fontSize: compact ? 10 : 11,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  color: color)),
-        ],
-      ),
     );
   }
 
-  Widget _workflowConnector(bool active, {bool compact = false}) {
-    return Container(
-      width: compact ? 10 : 16,
-      height: 2,
-      margin: EdgeInsets.symmetric(horizontal: compact ? 1 : 2),
-      color: active ? HrmPageChrome.chip : const Color(0xFFE4E4E7),
-    );
-  }
 
   Widget _buildPeriodSelector(bool isMobile) {
     if (_periods.isEmpty) {
@@ -702,9 +560,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   }
 
   List<Map<String, dynamic>> get _filteredSalaries {
-    if (_filterDepartment == null && _filterEmployeeId == null) {
-      return _salaries;
-    }
+    if (!_hasActiveFilters) return _salaries;
     final filteredEmpIds =
         _filteredTargets.map((t) => t['employeeId']?.toString()).toSet();
     return _salaries
@@ -716,6 +572,265 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       _filterBranchId != null ||
       _filterDepartment != null ||
       _filterEmployeeId != null;
+
+  String _filterSubtitle() {
+    final parts = <String>[];
+    if (_filterBranchId != null) {
+      final b = _branches.where((x) => x['id']?.toString() == _filterBranchId);
+      if (b.isNotEmpty) parts.add(b.first['name']?.toString() ?? '');
+    }
+    if (_filterDepartment != null) parts.add(_filterDepartment!);
+    if (_filterEmployeeId != null) {
+      final t = _targets
+          .where((x) => x['employeeId']?.toString() == _filterEmployeeId);
+      if (t.isNotEmpty) {
+        parts.add(t.first['employeeName']?.toString() ?? '');
+      }
+    }
+    if (parts.isEmpty) return 'Chi nhánh, phòng ban, nhân viên';
+    return parts.join(' · ');
+  }
+
+  void _clearKpiFilters() {
+    setState(() {
+      _filterBranchId = null;
+      _filterDepartment = null;
+      _filterEmployeeId = null;
+    });
+  }
+
+  Widget _buildActiveFilterBanner() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Material(
+        color: _accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: _showFilterSheet,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+            child: Row(
+              children: [
+                Icon(Icons.filter_alt, size: 16, color: _accent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr(_filterSubtitle()),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _clearKpiFilters,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(tr('Xóa'), style: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _kpiFilterDecoration(String label) {
+    return InputDecoration(
+      labelText: tr(label),
+      labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300)),
+      enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade200)),
+      focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: _accent)),
+      filled: true,
+      fillColor: Colors.white,
+      isDense: true,
+    );
+  }
+
+  List<Map<String, dynamic>> get _employeeFilterSource {
+    var list = List<Map<String, dynamic>>.from(_targets);
+    if (_filterBranchId != null) {
+      final ids = _branchEmpIds;
+      list = list
+          .where((t) => ids.contains(t['employeeId']?.toString()))
+          .toList();
+    }
+    if (_filterDepartment != null) {
+      list = list
+          .where((t) => t['department']?.toString() == _filterDepartment)
+          .toList();
+    }
+    return list;
+  }
+
+  Widget _buildFilterFields({VoidCallback? onTick}) {
+    void apply(VoidCallback fn) {
+      setState(fn);
+      onTick?.call();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (BranchFilterHelper.showBranchFilter(_branches)) ...[
+          DropdownButtonFormField<String?>(
+            key: ValueKey('kpi-branch-$_filterBranchId'),
+            initialValue: _filterBranchId,
+            isExpanded: true,
+            decoration: _kpiFilterDecoration('Chi nhánh'),
+            items: [
+              DropdownMenuItem(
+                  value: null,
+                  child: Text(tr('Tất cả'), style: TextStyle(fontSize: 13))),
+              ..._branches.map((b) => DropdownMenuItem(
+                  value: b['id']?.toString(),
+                  child: Text(tr(b['name']?.toString() ?? ''),
+                      style: const TextStyle(fontSize: 13),
+                      overflow: TextOverflow.ellipsis))),
+            ],
+            onChanged: (v) => apply(() {
+              _filterBranchId = v;
+              _filterDepartment = null;
+              _filterEmployeeId = null;
+            }),
+          ),
+          const SizedBox(height: 10),
+        ],
+        DropdownButtonFormField<String?>(
+          key: ValueKey('kpi-dept-$_filterDepartment'),
+          initialValue: _filterDepartment,
+          isExpanded: true,
+          decoration: _kpiFilterDecoration('Phòng ban'),
+          items: [
+            DropdownMenuItem(
+                value: null,
+                child: Text(tr('Tất cả'), style: TextStyle(fontSize: 13))),
+            ..._departments.map((d) => DropdownMenuItem(
+                value: d,
+                child: Text(tr(d), style: const TextStyle(fontSize: 13)))),
+          ],
+          onChanged: (v) => apply(() {
+            _filterDepartment = v;
+            _filterEmployeeId = null;
+          }),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String?>(
+          key: ValueKey('kpi-emp-$_filterEmployeeId'),
+          initialValue: _filterEmployeeId,
+          isExpanded: true,
+          decoration: _kpiFilterDecoration('Nhân viên'),
+          items: [
+            DropdownMenuItem(
+                value: null,
+                child: Text(tr('Tất cả'), style: TextStyle(fontSize: 13))),
+            ..._employeeFilterSource.map((t) => DropdownMenuItem(
+                  value: t['employeeId']?.toString(),
+                  child: Text(tr(t['employeeName']?.toString() ?? ''),
+                      style: const TextStyle(fontSize: 13),
+                      overflow: TextOverflow.ellipsis),
+                )),
+          ],
+          onChanged: (v) => apply(() => _filterEmployeeId = v),
+        ),
+      ],
+    );
+  }
+
+  void _showFilterSheet() {
+    showAppSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            final inset = MediaQuery.viewInsetsOf(ctx).bottom;
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(8, 8, 8, 12 + inset),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD4D4D8),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.filter_list, size: 20, color: _accent),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                tr('Bộ lọc KPI'),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (_hasActiveFilters)
+                              TextButton(
+                                onPressed: () {
+                                  _clearKpiFilters();
+                                  setSheet(() {});
+                                },
+                                child: Text(tr('Xóa lọc')),
+                              ),
+                            IconButton(
+                              tooltip: tr('Đóng'),
+                              onPressed: () => Navigator.pop(ctx),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                        child: _buildFilterFields(
+                            onTick: () => setSheet(() {})),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   Widget _buildExportButtons({
     VoidCallback? onExcel,
@@ -769,245 +884,6 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     fontSize: 11, color: HrmPageChrome.textMuted)),
         ],
       ),
-    );
-  }
-
-  Widget _buildFilterSection(ThemeData theme,
-      {List<Widget>? footerActions, bool embeddedInOverview = false}) {
-    final isMobile = Responsive.isMobile(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (isMobile && !embeddedInOverview)
-          Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: () => setState(() => _showKpiFilters = !_showKpiFilters),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: _hasActiveFilters
-                        ? _accent.withValues(alpha: 0.35)
-                        : const Color(0xFFE4E4E7),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.filter_list,
-                        size: 18,
-                        color: _hasActiveFilters ? _accent : HrmPageChrome.textMuted),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        tr(_hasActiveFilters
-                            ? 'Bộ lọc (đang áp dụng)'
-                            : 'Bộ lọc theo chi nhánh / phòng ban'),
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: _hasActiveFilters
-                              ? _accent
-                              : HrmPageChrome.textDark,
-                        ),
-                      ),
-                    ),
-                    Icon(
-                      _showKpiFilters
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      color: HrmPageChrome.textMuted,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          )
-        else if (!embeddedInOverview)
-          _sectionLabel('Bộ lọc',
-              subtitle: 'Chi nhánh, phòng ban, nhân viên'),
-        if (embeddedInOverview || !isMobile || _showKpiFilters) ...[
-          if (isMobile) const SizedBox(height: 8),
-          _buildFilterRow(theme),
-          if (_hasActiveFilters && isMobile)
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: () => setState(() {
-                  _filterBranchId = null;
-                  _filterDepartment = null;
-                  _filterEmployeeId = null;
-                }),
-                icon: const Icon(Icons.clear, size: 16),
-                label: Text(tr('Xóa bộ lọc')),
-              ),
-            ),
-        ],
-        if (footerActions != null && footerActions.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          ...footerActions,
-        ],
-      ],
-    );
-  }
-
-  Widget _buildFilterRow(ThemeData theme) {
-    return HrmFilterBar(
-      margin: EdgeInsets.zero,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.filter_list_rounded,
-                size: 18, color: HrmPageChrome.textMuted),
-            const SizedBox(width: 8),
-          if (BranchFilterHelper.showBranchFilter(_branches)) ...[
-            Expanded(
-              child: DropdownButtonFormField<String?>(
-                key: ValueKey('branch_$_filterBranchId'),
-                initialValue: _filterBranchId,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: tr('Chi nhánh'),
-                  labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade300)),
-                  enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade200)),
-                  focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: _accent)),
-                  filled: true,
-                  fillColor: Colors.white,
-                  isDense: true,
-                ),
-                items: [
-                  DropdownMenuItem(
-                      value: null,
-                      child: Text(tr('Tất cả'), style: TextStyle(fontSize: 12))),
-                  ..._branches.map((b) => DropdownMenuItem(
-                      value: b['id']?.toString(),
-                      child: Text(tr(b['name']?.toString() ?? ''),
-                          style: const TextStyle(fontSize: 12),
-                          overflow: TextOverflow.ellipsis))),
-                ],
-                onChanged: (v) => setState(() {
-                  _filterBranchId = v;
-                  _filterDepartment = null;
-                  _filterEmployeeId = null;
-                }),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: DropdownButtonFormField<String?>(
-              initialValue: _filterDepartment,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: tr('Phòng ban'),
-                labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey.shade300)),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey.shade200)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: _accent)),
-                filled: true,
-                fillColor: Colors.white,
-                isDense: true,
-              ),
-              items: [
-                DropdownMenuItem(
-                    value: null,
-                    child: Text(tr('Tất cả'), style: TextStyle(fontSize: 12))),
-                ..._departments.map((d) => DropdownMenuItem(
-                    value: d,
-                    child: Text(tr(d), style: const TextStyle(fontSize: 12)))),
-              ],
-              onChanged: (v) => setState(() {
-                _filterDepartment = v;
-                _filterEmployeeId = null;
-              }),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: DropdownButtonFormField<String?>(
-              initialValue: _filterEmployeeId,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: tr('Nhân viên'),
-                labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey.shade300)),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide(color: Colors.grey.shade200)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: _accent)),
-                filled: true,
-                fillColor: Colors.white,
-                isDense: true,
-              ),
-              items: [
-                DropdownMenuItem(
-                    value: null,
-                    child: Text(tr('Tất cả'), style: TextStyle(fontSize: 12))),
-                ...(_filterDepartment != null
-                        ? _targets.where((t) =>
-                            t['department']?.toString() == _filterDepartment)
-                        : _targets)
-                    .map((t) => DropdownMenuItem(
-                          value: t['employeeId']?.toString(),
-                          child: Text(tr(t['employeeName']?.toString() ?? ''),
-                              style: const TextStyle(fontSize: 12),
-                              overflow: TextOverflow.ellipsis),
-                        )),
-              ],
-              onChanged: (v) => setState(() => _filterEmployeeId = v),
-            ),
-          ),
-          if (_filterDepartment != null ||
-              _filterEmployeeId != null ||
-              _filterBranchId != null) ...[
-            const SizedBox(width: 4),
-            Container(
-              decoration: BoxDecoration(
-                  color: _red.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8)),
-              child: IconButton(
-                onPressed: () => setState(() {
-                  _filterDepartment = null;
-                  _filterEmployeeId = null;
-                  _filterBranchId = null;
-                }),
-                icon: const Icon(Icons.clear_rounded, size: 18, color: _red),
-                tooltip: tr('Xóa bộ lọc'),
-                constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                padding: EdgeInsets.zero,
-              ),
-            ),
-          ],
-        ],
-      ),
-    ],
     );
   }
 
@@ -1252,16 +1128,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildFilterSection(
-            theme,
-            footerActions: canExport && !isMobile
-                ? [
-                    _buildExportButtons(
-                      onPng: () => _exportPng(_dashboardKey, 'TongQuan_KPI'),
-                    ),
-                  ]
-                : null,
-          ),
+          if (_hasActiveFilters) _buildActiveFilterBanner(),
+          if (canExport && !isMobile) ...[
+            const SizedBox(height: 8),
+            _buildExportButtons(
+              onPng: () => _exportPng(_dashboardKey, 'TongQuan_KPI'),
+            ),
+          ],
           SizedBox(height: isMobile ? 8 : 12),
           if (!isMobile)
             _sectionLabel('Tóm tắt', subtitle: 'Số liệu chu kỳ đang chọn'),
@@ -2811,6 +2684,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final headerSections = _buildTargetsTabHeaders(theme, filtered, isMobile, btnStyle);
     if (isMobile) {
       return HrmResponsiveListLayout(
+        fabAware: true,
         headerSections: headerSections,
         desktopBody: const SizedBox.shrink(),
         mobileSlivers: (_) => _targetsTabMobileSlivers(filtered),
@@ -2890,27 +2764,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             ],
           ),
         ),
+      if (_hasActiveFilters) _buildActiveFilterBanner(),
       Padding(
-        padding: EdgeInsets.symmetric(horizontal: hPad),
-        child: HrmCollapsibleOverview(
-          expanded: _showOverviewPanel,
-          onToggle: () =>
-              setState(() => _showOverviewPanel = !_showOverviewPanel),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sectionLabel('Thống kê nhanh'),
-                  _buildTargetMiniStats(filtered, compact: isMobile),
-                ],
-              ),
-              const SizedBox(height: 10),
-              _buildFilterSection(theme, embeddedInOverview: true),
-            ],
-          ),
-        ),
+        padding: EdgeInsets.fromLTRB(hPad, 8, hPad, 0),
+        child: _buildTargetMiniStats(filtered, compact: isMobile),
       ),
       const SizedBox(height: 8),
     ];
@@ -4182,17 +4039,16 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             ],
           ),
           const SizedBox(height: 12),
-          _buildFilterSection(
-            theme,
-            footerActions: [
-              _buildExportButtons(
-                onExcel: _isExporting ? null : _exportSalaryExcel,
-                onPng: _isExporting
-                    ? null
-                    : () => _exportPng(_salaryKey, 'Lương_KPI'),
-              ),
-            ],
-          ),
+          if (_hasActiveFilters) _buildActiveFilterBanner(),
+          if (!Responsive.isMobile(context)) ...[
+            const SizedBox(height: 8),
+            _buildExportButtons(
+              onExcel: _isExporting ? null : _exportSalaryExcel,
+              onPng: _isExporting
+                  ? null
+                  : () => _exportPng(_salaryKey, 'Lương_KPI'),
+            ),
+          ],
           const SizedBox(height: 12),
           HrmPageChrome.horizontalStatCards(
             cards: [
@@ -4369,17 +4225,16 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             ],
           ),
           const SizedBox(height: 12),
-          _buildFilterSection(
-            theme,
-            footerActions: [
-              _buildExportButtons(
-                onExcel: _isExporting ? null : _exportSalaryExcel,
-                onPng: _isExporting
-                    ? null
-                    : () => _exportPng(_salaryKey, 'Lương_KPI'),
-              ),
-            ],
-          ),
+          if (_hasActiveFilters) _buildActiveFilterBanner(),
+          if (!Responsive.isMobile(context)) ...[
+            const SizedBox(height: 8),
+            _buildExportButtons(
+              onExcel: _isExporting ? null : _exportSalaryExcel,
+              onPng: _isExporting
+                  ? null
+                  : () => _exportPng(_salaryKey, 'Lương_KPI'),
+            ),
+          ],
           const SizedBox(height: 12),
           RepaintBoundary(
             key: _salaryKey,
@@ -6643,7 +6498,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         } else {
           NotificationOverlayManager().showError(
               title: 'Lỗi',
-              message: 'Lỗi: ${res['message'] ?? 'Không xác định'}');
+              message: "${res['message'] ?? 'Không xác định'}");
         }
       }
     } catch (e) {
@@ -6718,7 +6573,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               message: tr('Đã ghi chỉ tiêu cho $count/$total nhân viên vào cột D Google Sheet$errMsg'));
         } else {
           NotificationOverlayManager()
-              .showError(title: 'Lỗi', message: 'Lỗi: ${res['message'] ?? ''}');
+              .showError(title: 'Lỗi', message: "${res['message'] ?? ''}");
         }
       }
     } catch (e) {
@@ -6746,7 +6601,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           _loadPeriodData();
         } else {
           NotificationOverlayManager()
-              .showError(title: 'Lỗi', message: 'Lỗi: ${res['message'] ?? ''}');
+              .showError(title: 'Lỗi', message: "${res['message'] ?? ''}");
         }
       }
     } catch (e) {

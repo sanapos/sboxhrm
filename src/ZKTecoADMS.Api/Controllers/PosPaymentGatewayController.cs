@@ -21,7 +21,8 @@ public class PosPaymentGatewayController(
     IPosPaymentGatewayService gateway,
     IPosNotificationCreditService creditService,
     IPosPlatformNotificationCreditService platformCreditService,
-    IPosPlatformTingeeSettingService platformTingeeService) : AuthenticatedControllerBase
+    IPosPlatformTingeeSettingService platformTingeeService,
+    ITingeeMerchantProvisioningService tingeeProvision) : AuthenticatedControllerBase
 {
     private bool TryGetStoreId(out Guid storeId)
     {
@@ -45,7 +46,7 @@ public class PosPaymentGatewayController(
         {
             dto = new PaymentGatewaySettingDto(
                 PosPaymentNotifyProvider.VietQr.ToString(),
-                false, null, false, null, null, false, false);
+                false, null, false, null, null, null, false, false);
         }
         return Ok(AppResponse<PaymentGatewaySettingDto>.Success(dto));
     }
@@ -406,5 +407,169 @@ public class PosPaymentGatewayController(
                 totalCreditsPaid,
                 totalCreditsPending,
                 items)));
+    }
+
+    public record AdminTingeeStoreRequest(Guid StoreId);
+    public record AdminTingeeProvisionBody(Guid StoreId, string? Name, string? Phone, string? Email);
+    public record AdminTingeeLinkBankBody(
+        Guid StoreId,
+        string BankBin,
+        string AccountNumber,
+        string AccountName,
+        string? Identity,
+        string? Mobile,
+        string? AccountType,
+        bool IsNotifyAccountNumber = true);
+    public record AdminTingeeConfirmVaBody(Guid StoreId, string BankBin, string ConfirmId, string? OtpNumber);
+    public record AdminTingeeApplyVaBody(Guid StoreId, string VaAccountNumber);
+    public record StoreTingeeLinkBankBody(
+        string BankBin,
+        string AccountNumber,
+        string AccountName,
+        string? Identity,
+        string? Mobile,
+        string? AccountType,
+        bool IsNotifyAccountNumber = true);
+    public record StoreTingeeConfirmVaBody(string BankBin, string ConfirmId, string? OtpNumber);
+    public record StoreTingeeApplyVaBody(string VaAccountNumber);
+
+    [HttpGet("admin/tingee-store")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> AdminTingeeStore(
+        [FromQuery] Guid storeId, CancellationToken ct)
+    {
+        if (storeId == Guid.Empty)
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.GetStatusAsync(storeId, ct));
+    }
+
+    [HttpPost("admin/tingee-provision")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> AdminTingeeProvision(
+        [FromBody] AdminTingeeProvisionBody req, CancellationToken ct)
+    {
+        if (req.StoreId == Guid.Empty)
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.ProvisionAsync(
+            req.StoreId, new TingeeProvisionRequest(req.Name, req.Phone, req.Email), CurrentUserEmail, ct));
+    }
+
+    [HttpPost("admin/tingee-link-bank")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> AdminTingeeLinkBank(
+        [FromBody] AdminTingeeLinkBankBody req, CancellationToken ct)
+    {
+        if (req.StoreId == Guid.Empty)
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.LinkBankAsync(
+            req.StoreId,
+            new TingeeLinkBankRequest(
+                req.BankBin, req.AccountNumber, req.AccountName, req.Identity, req.Mobile,
+                req.AccountType ?? "personal-account", req.IsNotifyAccountNumber),
+            CurrentUserEmail, ct));
+    }
+
+    [HttpPost("admin/tingee-confirm-va")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> AdminTingeeConfirmVa(
+        [FromBody] AdminTingeeConfirmVaBody req, CancellationToken ct)
+    {
+        if (req.StoreId == Guid.Empty)
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.ConfirmVaAsync(
+            req.StoreId, new TingeeConfirmVaRequest(req.BankBin, req.ConfirmId, req.OtpNumber),
+            CurrentUserEmail, ct));
+    }
+
+    [HttpPost("admin/tingee-bank-link-session")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> AdminTingeeBankLinkSession(
+        [FromBody] AdminTingeeStoreRequest req, CancellationToken ct)
+    {
+        if (req.StoreId == Guid.Empty)
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.CreateBankLinkSessionAsync(req.StoreId, ct));
+    }
+
+    [HttpPost("admin/tingee-apply-va")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> AdminTingeeApplyVa(
+        [FromBody] AdminTingeeApplyVaBody req, CancellationToken ct)
+    {
+        if (req.StoreId == Guid.Empty)
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.ApplyVaAsync(
+            req.StoreId, req.VaAccountNumber, CurrentUserEmail, ct));
+    }
+
+    [HttpGet("tingee/status")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> StoreTingeeStatus(CancellationToken ct)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.GetStatusAsync(storeId, ct));
+    }
+
+    [HttpPost("tingee/link-bank")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> StoreTingeeLinkBank(
+        [FromBody] StoreTingeeLinkBankBody req, CancellationToken ct)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.LinkBankAsync(
+            storeId,
+            new TingeeLinkBankRequest(
+                req.BankBin, req.AccountNumber, req.AccountName, req.Identity, req.Mobile,
+                req.AccountType ?? "personal-account", req.IsNotifyAccountNumber),
+            CurrentUserEmail, ct));
+    }
+
+    [HttpPost("tingee/confirm-va")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> StoreTingeeConfirmVa(
+        [FromBody] StoreTingeeConfirmVaBody req, CancellationToken ct)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.ConfirmVaAsync(
+            storeId, new TingeeConfirmVaRequest(req.BankBin, req.ConfirmId, req.OtpNumber),
+            CurrentUserEmail, ct));
+    }
+
+    [HttpPost("tingee/bank-link-session")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> StoreTingeeBankLinkSession(
+        CancellationToken ct)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.CreateBankLinkSessionAsync(storeId, ct));
+    }
+
+    [HttpPost("tingee/apply-va")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> StoreTingeeApplyVa(
+        [FromBody] StoreTingeeApplyVaBody req, CancellationToken ct)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail("Thiếu cửa hàng"));
+        return await TryTingee(() => tingeeProvision.ApplyVaAsync(
+            storeId, req.VaAccountNumber, CurrentUserEmail, ct));
+    }
+
+    async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> TryTingee(
+        Func<Task<TingeeStoreProvisionDto>> run)
+    {
+        try
+        {
+            var dto = await run();
+            return Ok(AppResponse<TingeeStoreProvisionDto>.Success(dto));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(AppResponse<TingeeStoreProvisionDto>.Fail(ex.Message));
+        }
     }
 }

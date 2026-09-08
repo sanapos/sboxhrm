@@ -190,7 +190,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             hintText: '10000',
-            suffixText: 'đ / 1 điểm',
+            suffixText: tr('đ / 1 điểm'),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             isDense: true,
           ),
@@ -212,7 +212,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             hintText: '100',
-            suffixText: 'đ',
+            suffixText: tr('đ'),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             isDense: true,
           ),

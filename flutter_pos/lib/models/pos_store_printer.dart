@@ -70,6 +70,23 @@ class PosStorePrinter {
   /// Danh sách «cloud / Agent» — máy nội bộ sync luôn RequiresAgent=false.
   bool get isCloudAgentPrinter => !isDeviceLocal && requiresAgent;
 
+  /// Máy đang gán vai trò báo bếp / tem bếp — không dùng làm máy hóa đơn cloud.
+  bool get hasKitchenDocumentRole =>
+      documentTypes.contains(PosCloudDocumentTypes.kitchenSlip) ||
+      documentTypes.contains(PosCloudDocumentTypes.kitchenVoid) ||
+      documentTypes.contains(PosCloudDocumentTypes.kitchenLabel);
+
+  bool get looksLikeReceiptPrinter {
+    if (isSunmi) return true;
+    final n = name.toLowerCase();
+    return n.contains('sunmi') ||
+        n.contains('hóa đơn') ||
+        n.contains('hoa don') ||
+        n.contains('thu ngân') ||
+        n.contains('thu ngan') ||
+        n.contains('receipt');
+  }
+
   /// Phiếu bếp / in lại: máy bếp + máy hóa đơn (Sunmi) khi máy bếp hỏng.
   bool get canPrintKitchenSlip {
     if (isLabelPrinter) return false;

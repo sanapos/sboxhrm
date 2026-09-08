@@ -76,6 +76,15 @@ public static class ClockCommandBuilder
         return $"DATA QUERY FINGERTMP PIN={pin}";
     }
 
+    /// <summary>Pull VL / SenseFace templates (BIODATA Type=1 fingerprint, Type=9 face).</summary>
+    public static string BuildGetBiodataCommand() => "DATA QUERY BIODATA";
+
+    public static string BuildGetBiodataForUserCommand(string pin) =>
+        $"DATA QUERY BIODATA Pin={pin}";
+
+    /// <summary>Pull legacy NIR face templates (FACE table).</summary>
+    public static string BuildGetFacesCommand() => "DATA QUERY FACE";
+
     /// <summary>
     /// Remote VL-face enroll — captured from sana.zkbiotimecloud.com for SenseFace 2A:
     /// <c>C:1854446:ENROLL_BIO TYPE=9\tPIN=123\tCardNo=\tRETRY=3\tOVERWRITE=1</c>
@@ -89,6 +98,72 @@ public static class ClockCommandBuilder
     public static string BuildDeleteFaceCommand(string pin)
     {
         return $"DATA DELETE FACE PIN={pin}";
+    }
+
+    /// <summary>
+    /// Push fingerprint to device. Captured from BioTime ADMS:
+    /// <c>DATA UPDATE FINGERTMP PIN=…	FID=…	Size=…	Valid=1	TMP=…</c>
+    /// </summary>
+    public static string BuildUpdateFingerprintCommand(
+        string pin,
+        int fingerIndex,
+        string template,
+        int? size = null,
+        int valid = 1)
+    {
+        var sz = size is > 0 ? size.Value : template.Length;
+        return $"DATA UPDATE FINGERTMP PIN={pin}\tFID={fingerIndex}\tSize={sz}\tValid={valid}\tTMP={template}";
+    }
+
+    /// <summary>
+    /// Push VL face template blob (SpeedFace / some SenseFace). Captured from older BioTime:
+    /// <c>DATA UPDATE BIODATA Pin=…	No=0	Index=0	Valid=1	Duress=0	Type=9	MajorVer=58	MinorVer=12	Tmp=…</c>
+    /// ZAM70 NF24 often returns device error -30 on this — use <see cref="BuildUpdateBioPhotoCommand"/> instead.
+    /// Note: Pin=/Tmp= (not PIN=/TMP=).
+    /// </summary>
+    public static string BuildUpdateVisibleFaceCommand(
+        string pin,
+        string template,
+        int index = 0,
+        int majorVer = 58,
+        int minorVer = 12)
+    {
+        return $"DATA UPDATE BIODATA Pin={pin}\tNo=0\tIndex={index}\tValid=1\tDuress=0\tType=9\tMajorVer={majorVer}\tMinorVer={minorVer}\tTmp={template}";
+    }
+
+    /// <summary>
+    /// Push visible-light face as JPEG. Captured from zkbiotime.xmzkteco.com (ZAM70 profile):
+    /// <c>DATA UPDATE BIOPHOTO PIN=…	Type=9	Format=1	Url=iclock/doc/biophoto/{id}.jpg</c>
+    /// </summary>
+    public static string BuildUpdateBioPhotoCommand(string pin, string relativeUrl, int type = 9)
+    {
+        return $"DATA UPDATE BIOPHOTO PIN={pin}\tType={type}\tFormat=1\tUrl={relativeUrl}";
+    }
+
+    /// <summary>
+    /// Inline JPEG (same table as BioTime Url form). Use when the device cannot fetch Url.
+    /// </summary>
+    public static string BuildUpdateBioPhotoContentCommand(string pin, byte[] jpegBytes, int type = 9)
+    {
+        var b64 = Convert.ToBase64String(jpegBytes);
+        return $"DATA UPDATE BIOPHOTO PIN={pin}\tType={type}\tSize={jpegBytes.Length}\tContent={b64}";
+    }
+
+    /// <summary>Legacy NIR face (FID ≥ 50) — PUSH SDK FACE table.</summary>
+    public static string BuildUpdateFaceTemplateCommand(string pin, int faceIndex, string template, int? size = null)
+    {
+        var sz = size is > 0 ? size.Value : template.Length;
+        return $"DATA UPDATE FACE PIN={pin}\tFID={faceIndex}\tSize={sz}\tValid=1\tTMP={template}";
+    }
+
+    /// <summary>
+    /// Push user photo. Captured from BioTime:
+    /// <c>DATA UPDATE USERPIC PIN=…	Size=…	Content=&lt;jpeg-base64&gt;</c>
+    /// </summary>
+    public static string BuildUpdateUserPicCommand(string pin, byte[] jpegBytes)
+    {
+        var b64 = Convert.ToBase64String(jpegBytes);
+        return $"DATA UPDATE USERPIC PIN={pin}\tSize={jpegBytes.Length}\tContent={b64}";
     }
 
     public static DateTime VietnamEndOfToday()

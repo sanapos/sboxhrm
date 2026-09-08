@@ -713,8 +713,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     if (res['isSuccess'] == true) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã thu cọc',
-        message:
-            '${_moneyFmt.format(amount)}đ · ${picked.pay.methodLabel} · ${b.customerName}',
+        message: tr('${_moneyFmt.format(amount)}đ · ${picked.pay.methodLabel} · ${b.customerName}'),
       );
       await _reload();
     } else {
@@ -2070,17 +2069,17 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
   Future<void> _submit() async {
     if (_resourceId == null || _resourceId!.isEmpty) {
       NotificationOverlayManager()
-          .showError(title: 'Thiếu $_noun', message: 'Chọn $_noun');
+          .showError(title: 'Thiếu $_noun', message: tr('Chọn $_noun'));
       return;
     }
     if (_nameCtrl.text.trim().isEmpty && _customerId == null) {
       NotificationOverlayManager()
-          .showError(title: 'Thiếu khách', message: 'Nhập tên hoặc chọn CRM');
+          .showError(title: 'Thiếu khách', message: tr('Nhập tên hoặc chọn CRM'));
       return;
     }
     if (_requireService && _serviceProductId == null) {
       NotificationOverlayManager()
-          .showError(title: 'Thiếu dịch vụ', message: 'Chọn dịch vụ');
+          .showError(title: 'Thiếu dịch vụ', message: tr('Chọn dịch vụ'));
       return;
     }
 
@@ -2493,7 +2492,7 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
                           labelText: tr('Thu cọc ngay'),
                           border: const OutlineInputBorder(),
                           isDense: true,
-                          suffixText: 'đ',
+                          suffixText: tr('đ'),
                         ),
                       ),
                       const SizedBox(height: 10),

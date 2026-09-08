@@ -5,6 +5,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -90,7 +91,8 @@ public partial class PosProductsController(
         bool ShowComboComponentsOnSell = false,
         decimal? LengthCm = null,
         decimal? WidthCm = null,
-        decimal? HeightCm = null);
+        decimal? HeightCm = null,
+        bool IsDailySoldOut = false);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -207,6 +209,7 @@ public partial class PosProductsController(
         var storeId = RequiredStoreId;
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
+        var listBizDate = await ResolveStoreBusinessDateAsync(storeId);
 
         var query = dbContext.PosProducts
             .AsNoTracking()
@@ -352,6 +355,7 @@ public partial class PosProductsController(
                 p.SessionPackValidDays,
                 p.CreatedAt,
                 p.UpdatedAt,
+                p.DailySoldOutOn,
             })
             .ToListAsync();
 
@@ -418,7 +422,8 @@ public partial class PosProductsController(
                 ShowComboComponentsOnSell: r.ShowComboComponentsOnSell,
                 LengthCm: r.LengthCm,
                 WidthCm: r.WidthCm,
-                HeightCm: r.HeightCm);
+                HeightCm: r.HeightCm,
+                IsDailySoldOut: PosDailySoldOutHelper.IsLockedToday(r.DailySoldOutOn, listBizDate));
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -1117,7 +1122,18 @@ public partial class PosProductsController(
             ShowComboComponentsOnSell: p.ShowComboComponentsOnSell,
             LengthCm: p.LengthCm,
             WidthCm: p.WidthCm,
-            HeightCm: p.HeightCm);
+            HeightCm: p.HeightCm,
+            IsDailySoldOut: PosDailySoldOutHelper.IsLockedToday(
+                p.DailySoldOutOn, await ResolveStoreBusinessDateAsync(storeId)));
+    }
+
+    private async Task<DateTime> ResolveStoreBusinessDateAsync(Guid storeId)
+    {
+        var hour = await dbContext.PosStoreSellSettings.AsNoTracking()
+            .Where(s => s.StoreId == storeId && s.Deleted == null)
+            .Select(s => (int?)s.ReportDayStartHour)
+            .FirstOrDefaultAsync() ?? 0;
+        return PosDailySoldOutHelper.BusinessDate(hour);
     }
 
     private async Task<(

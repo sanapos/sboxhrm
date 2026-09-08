@@ -1,3 +1,4 @@
+using System.Reflection;
 using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
@@ -57,13 +58,170 @@ public class ZKTecoDbInitializer(
                 await context.Database.ExecuteSqlRawAsync(
                     "ALTER TABLE \"Departments\" ADD COLUMN IF NOT EXISTS \"Positions\" VARCHAR(2000);");
 
+                // Fingerprint/face push commands exceed varchar(1000).
+                await context.Database.ExecuteSqlRawAsync(
+                    "ALTER TABLE \"DeviceCommands\" ALTER COLUMN \"Command\" TYPE text;");
+
+                // Isolated from the giant POS bootstrap batch below: one missing table
+                // (e.g. PosServiceResources) used to roll back this entire script, which
+                // left SuperAdmin "gói dịch vụ" / store login 500 on a fresh server.
                 await context.Database.ExecuteSqlRawAsync(@"
-                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OpenCashDrawer"" boolean NOT NULL DEFAULT false;
-                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OpenDrawerCashOnly"" boolean NOT NULL DEFAULT true;
-                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""BeepOnPrint"" boolean NOT NULL DEFAULT false;
-                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""IsDeviceLocal"" boolean NOT NULL DEFAULT false;
-                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OwnerDeviceId"" character varying(64) NULL;
-                    ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""CutPerItem"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowMobile"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""MaxBranches"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowFcm"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowedFcmCategories"" text NOT NULL DEFAULT '[]';
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""IsPublic"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""Province"" character varying(120) NULL;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowMobile"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""MaxBranches"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowFcm"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowedFcmCategories"" text NOT NULL DEFAULT '[]';
+                    ALTER TABLE ""Agents"" ADD COLUMN IF NOT EXISTS ""RenewalDayBalance"" integer NOT NULL DEFAULT 0;
+                ");
+
+                await context.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS ""StoreAccessDevices"" (
+                        ""Id"" uuid NOT NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""UserId"" uuid NULL,
+                        ""DeviceKey"" character varying(80) NOT NULL,
+                        ""Platform"" character varying(20) NOT NULL DEFAULT 'web',
+                        ""DeviceName"" character varying(200) NULL,
+                        ""LastSeenAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        CONSTRAINT ""PK_StoreAccessDevices"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_StoreAccessDevices_Store_DeviceKey""
+                        ON ""StoreAccessDevices"" (""StoreId"", ""DeviceKey"");
+
+                    CREATE TABLE IF NOT EXISTS ""ServerMetricSamples"" (
+                        ""Id"" uuid NOT NULL,
+                        ""SampledAt"" timestamp without time zone NOT NULL,
+                        ""CpuPercent"" double precision NOT NULL,
+                        ""RamPercent"" double precision NOT NULL,
+                        ""RamUsedMb"" bigint NOT NULL DEFAULT 0,
+                        ""RamTotalMb"" bigint NOT NULL DEFAULT 0,
+                        ""ProcessWorkingSetMb"" bigint NOT NULL DEFAULT 0,
+                        ""Source"" character varying(20) NOT NULL DEFAULT 'unknown',
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        CONSTRAINT ""PK_ServerMetricSamples"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_ServerMetricSamples_SampledAt""
+                        ON ""ServerMetricSamples"" (""SampledAt"");
+                ");
+
+                await ApplyCompleteSchemaPatchAsync();
+
+                await context.Database.ExecuteSqlRawAsync(@"
+                    ALTER TABLE ""Holidays"" ADD COLUMN IF NOT EXISTS ""EmployeeIds"" TEXT;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SaleQuickNotesJson"" character varying(4000);
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""VatRate"" numeric(5,2) NOT NULL DEFAULT 8;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""VatExempt"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SupplierId"" uuid NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DefaultPrinterId"" uuid NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DefaultLabelPrinterId"" uuid NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WarrantyMonths"" integer NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""RequiresSerial"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""TrackExpiry"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ExpiryWarningDays"" integer NOT NULL DEFAULT 30;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ServiceBillingMode"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""MinBillMinutes"" integer NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""BillRoundMinutes"" integer NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DefaultDurationMinutes"" integer NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""GraceMinutes"" integer NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""RoundAfterMinutes"" integer NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""OpeningFee"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""OpeningMinutes"" integer NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SessionPackCount"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SessionPackValidDays"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""IsTopping"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowToppings"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AutoOpenToppingPopup"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ShowComboComponentsOnSell"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowDecimalQty"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SortOrder"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""LengthCm"" numeric(18,2) NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WidthCm"" numeric(18,2) NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""HeightCm"" numeric(18,2) NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DailySoldOutOn"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SaleDate"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SoldBy"" character varying(200) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SoldByEmployeeId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SalesChannel"" character varying(100) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""PriceListName"" character varying(100) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""PrintCount"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""LastPrintedAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""CustomerId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""IsDelivery"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryAddress"" character varying(500) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryPhone"" character varying(50) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryPartner"" character varying(100) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryDate"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryStatus"" character varying(50) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""VoucherId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""VoucherCode"" character varying(50) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""VoucherDiscount"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""PointsRedeemed"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""PointsDiscount"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""PointsEarned"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""ServiceResourceId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""ResourceSessionId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""ServiceStartedAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""ServiceEndedAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""LockVersion"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""LockedByUserId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""LockedByEmployeeId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""LockedByDisplayName"" character varying(200) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""LockedByDeviceId"" character varying(80) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""LockedByDeviceName"" character varying(120) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""LockedAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""LockExpiresAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""InvoiceSlot"" integer NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""VatAmount"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SurchargeAmount"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryFee"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""PriceListId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SplitFromOrderId"" uuid NULL;
+                    ALTER TABLE ""PosProductCategories"" ADD COLUMN IF NOT EXISTS ""DefaultPrinterId"" uuid NULL;
+                    ALTER TABLE ""PosProductCategories"" ADD COLUMN IF NOT EXISTS ""DefaultLabelPrinterId"" uuid NULL;
+                    ALTER TABLE ""PosSuppliers"" ADD COLUMN IF NOT EXISTS ""SupplierCode"" character varying(30) NOT NULL DEFAULT '';
+                    ALTER TABLE ""PosSuppliers"" ADD COLUMN IF NOT EXISTS ""Province"" character varying(100) NULL;
+                    ALTER TABLE ""PosSuppliers"" ADD COLUMN IF NOT EXISTS ""Ward"" character varying(100) NULL;
+                    ALTER TABLE ""PosSuppliers"" ADD COLUMN IF NOT EXISTS ""GroupId"" uuid NULL;
+                    ALTER TABLE ""PosSuppliers"" ADD COLUMN IF NOT EXISTS ""CompanyName"" character varying(200) NULL;
+                    ALTER TABLE ""PosSuppliers"" ADD COLUMN IF NOT EXISTS ""TaxCode"" character varying(50) NULL;
+                    ALTER TABLE ""PosSuppliers"" ADD COLUMN IF NOT EXISTS ""IdentityNo"" character varying(50) NULL;
+                    ALTER TABLE ""PosSuppliers"" ADD COLUMN IF NOT EXISTS ""Note"" character varying(1000) NULL;
+                    ALTER TABLE ""PosSuppliers"" ADD COLUMN IF NOT EXISTS ""TotalPurchase"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosSuppliers"" ADD COLUMN IF NOT EXISTS ""CurrentDebt"" numeric(18,2) NOT NULL DEFAULT 0;
+                ");
+
+                await context.Database.ExecuteSqlRawAsync(@"
+                    DO $$ BEGIN
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PosStorePrinters') THEN
+                            ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OpenCashDrawer"" boolean NOT NULL DEFAULT false;
+                            ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OpenDrawerCashOnly"" boolean NOT NULL DEFAULT true;
+                            ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""BeepOnPrint"" boolean NOT NULL DEFAULT false;
+                            ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""IsDeviceLocal"" boolean NOT NULL DEFAULT false;
+                            ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""OwnerDeviceId"" character varying(64) NULL;
+                            ALTER TABLE ""PosStorePrinters"" ADD COLUMN IF NOT EXISTS ""CutPerItem"" boolean NOT NULL DEFAULT false;
+                        END IF;
+                    END $$;
                 ");
 
                 // =============== Mobile Attendance Tables ===============
@@ -250,6 +408,11 @@ public class ZKTecoDbInitializer(
                         END IF;
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ShiftStaffingQuotas') THEN
                             ALTER TABLE ""ShiftStaffingQuotas"" ADD COLUMN IF NOT EXISTS ""DailyQuotasJson"" TEXT;
+                            ALTER TABLE ""ShiftStaffingQuotas"" ADD COLUMN IF NOT EXISTS ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE;
+                            ALTER TABLE ""ShiftStaffingQuotas"" ADD COLUMN IF NOT EXISTS ""LastModified"" TIMESTAMP WITHOUT TIME ZONE;
+                            ALTER TABLE ""ShiftStaffingQuotas"" ADD COLUMN IF NOT EXISTS ""LastModifiedBy"" TEXT;
+                            ALTER TABLE ""ShiftStaffingQuotas"" ADD COLUMN IF NOT EXISTS ""Deleted"" TIMESTAMP WITHOUT TIME ZONE;
+                            ALTER TABLE ""ShiftStaffingQuotas"" ADD COLUMN IF NOT EXISTS ""DeletedBy"" TEXT;
                         END IF;
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ShiftTemplates') THEN
                             ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""Description"" TEXT;
@@ -260,6 +423,8 @@ public class ZKTecoDbInitializer(
                             ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""OvertimeMinutesThreshold"" INTEGER NOT NULL DEFAULT 30;
                             ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""EarlyOvertimeMinutesThreshold"" INTEGER NOT NULL DEFAULT 30;
                             ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""ShiftType"" TEXT;
+                            ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""LunchBreakStartTime"" interval NULL;
+                            ALTER TABLE ""ShiftTemplates"" ADD COLUMN IF NOT EXISTS ""LunchBreakEndTime"" interval NULL;
                         END IF;
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'AttendanceCorrectionRequests') THEN
                             ALTER TABLE ""AttendanceCorrectionRequests"" ADD COLUMN IF NOT EXISTS ""EmployeeCode"" VARCHAR(100);
@@ -342,19 +507,23 @@ public class ZKTecoDbInitializer(
                         -- bị xóa trước đó chặn vĩnh viễn việc tái tạo slot đó (lỗi duplicate key
                         -- lặp lại liên tục mỗi lần poll invoice-slots). Đổi sang partial unique
                         -- index chỉ áp cho các đơn còn sống.
-                        DROP INDEX IF EXISTS ""IX_PosSaleOrders_StoreId_OrderNo"";
-                        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosSaleOrders_StoreId_OrderNo""
-                            ON ""PosSaleOrders"" (""StoreId"", ""OrderNo"")
-                            WHERE ""Deleted"" IS NULL;
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PosSaleOrders') THEN
+                            DROP INDEX IF EXISTS ""IX_PosSaleOrders_StoreId_OrderNo"";
+                            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosSaleOrders_StoreId_OrderNo""
+                                ON ""PosSaleOrders"" (""StoreId"", ""OrderNo"")
+                                WHERE ""Deleted"" IS NULL;
+                        END IF;
 
                         -- Cùng lỗi TransactionCode: TransferCode phiếu chuyển quỹ sinh đếm theo
                         -- StoreId nhưng unique index cũ là GLOBAL trên toàn bảng. Partial để nhất
                         -- quán với CashTransactions/PosSaleOrders.
-                        DROP INDEX IF EXISTS ""IX_FundTransfers_TransferCode"";
-                        DROP INDEX IF EXISTS ""IX_FundTransfers_StoreId_TransferCode"";
-                        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_FundTransfers_StoreId_TransferCode""
-                            ON ""FundTransfers"" (""StoreId"", ""TransferCode"")
-                            WHERE ""Deleted"" IS NULL;
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'FundTransfers') THEN
+                            DROP INDEX IF EXISTS ""IX_FundTransfers_TransferCode"";
+                            DROP INDEX IF EXISTS ""IX_FundTransfers_StoreId_TransferCode"";
+                            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_FundTransfers_StoreId_TransferCode""
+                                ON ""FundTransfers"" (""StoreId"", ""TransferCode"")
+                                WHERE ""Deleted"" IS NULL;
+                        END IF;
 
                         CREATE TABLE IF NOT EXISTS ""PayslipAttendanceSnapshots"" (
                             ""Id"" uuid NOT NULL PRIMARY KEY,
@@ -421,6 +590,8 @@ public class ZKTecoDbInitializer(
                 ");
 
                 // Create tables from migrations if not existing
+                try
+                {
                 await context.Database.ExecuteSqlRawAsync(@"
                     CREATE TABLE IF NOT EXISTS ""AdvanceApprovalRecords"" (
                         ""Id"" uuid NOT NULL PRIMARY KEY,
@@ -1112,7 +1283,84 @@ public class ZKTecoDbInitializer(
 
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""PriceListId"" uuid NULL;
 
-                    -- Floor map ops
+                    -- Floor map ops (CREATE first — ALTER on a missing table used to abort this whole batch)
+                    CREATE TABLE IF NOT EXISTS ""PosServiceAreas"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(100) NOT NULL,
+                        ""Code"" character varying(50) NULL,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""AreaType"" character varying(50) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosServiceAreas_StoreId_Name""
+                        ON ""PosServiceAreas"" (""StoreId"", ""Name"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosServiceResources"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""AreaId"" uuid NOT NULL,
+                        ""Code"" character varying(50) NOT NULL,
+                        ""Name"" character varying(100) NOT NULL,
+                        ""ResourceKind"" integer NOT NULL DEFAULT 1,
+                        ""Capacity"" integer NOT NULL DEFAULT 1,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""DefaultHourlyRate"" numeric(18,2) NULL,
+                        ""DefaultServiceProductId"" uuid NULL,
+                        ""LayoutX"" double precision NULL,
+                        ""LayoutY"" double precision NULL,
+                        ""LayoutW"" double precision NOT NULL DEFAULT 120,
+                        ""LayoutH"" double precision NOT NULL DEFAULT 100,
+                        ""NeedsCleaning"" boolean NOT NULL DEFAULT false,
+                        ""QrOrderToken"" character varying(32) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosServiceResources_StoreId_Code""
+                        ON ""PosServiceResources"" (""StoreId"", ""Code"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosResourceSessions"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""ResourceId"" uuid NOT NULL,
+                        ""SaleOrderId"" uuid NULL,
+                        ""CustomerId"" uuid NULL,
+                        ""StartedAt"" timestamp without time zone NOT NULL,
+                        ""EndedAt"" timestamp without time zone NULL,
+                        ""PausedAt"" timestamp without time zone NULL,
+                        ""AccumulatedPauseMinutes"" integer NOT NULL DEFAULT 0,
+                        ""GuestCount"" integer NOT NULL DEFAULT 1,
+                        ""BillRequested"" boolean NOT NULL DEFAULT false,
+                        ""Status"" integer NOT NULL DEFAULT 0,
+                        ""Note"" character varying(500) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosResourceSessions_Store_Resource_Status""
+                        ON ""PosResourceSessions"" (""StoreId"", ""ResourceId"", ""Status"");
+
                     ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""LayoutX"" double precision NULL;
                     ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""LayoutY"" double precision NULL;
                     ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""LayoutW"" double precision NOT NULL DEFAULT 120;
@@ -1126,8 +1374,44 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenSentAt"" timestamp without time zone NULL;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenDoneQty"" numeric(18,3) NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""KitchenPrepStatus"" character varying(20) NOT NULL DEFAULT 'none';
+
+                    CREATE TABLE IF NOT EXISTS ""PosCustomers"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""CustomerCode"" character varying(30) NOT NULL,
+                        ""Name"" character varying(200) NOT NULL,
+                        ""Phone"" character varying(50) NULL,
+                        ""Email"" character varying(200) NULL,
+                        ""Address"" character varying(500) NULL,
+                        ""Province"" character varying(100) NULL,
+                        ""Ward"" character varying(100) NULL,
+                        ""CompanyName"" character varying(200) NULL,
+                        ""TaxCode"" character varying(50) NULL,
+                        ""Birthday"" timestamp without time zone NULL,
+                        ""DeliveryAddress"" character varying(500) NULL,
+                        ""Note"" character varying(1000) NULL,
+                        ""TotalPurchase"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""CurrentDebt"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""PointBalance"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosCustomers_StoreId_CustomerCode""
+                        ON ""PosCustomers"" (""StoreId"", ""CustomerCode"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosCustomers_StoreId_Name""
+                        ON ""PosCustomers"" (""StoreId"", ""Name"");
+
                     ALTER TABLE ""PosCustomers"" ADD COLUMN IF NOT EXISTS ""Birthday"" timestamp without time zone NULL;
                     ALTER TABLE ""PosCustomers"" ADD COLUMN IF NOT EXISTS ""DeliveryAddress"" character varying(500);
+
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""IsTopping"" boolean NOT NULL DEFAULT false;
 
                     -- Tách NVL / Topping thành ProductType riêng (3 / 4). Topping trước, rồi hàng ẩn POS.
                     UPDATE ""PosProducts"" SET ""ProductType"" = 4
@@ -1170,6 +1454,27 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AutoOpenToppingPopup"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ShowComboComponentsOnSell"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowDecimalQty"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DailySoldOutOn"" timestamp without time zone NULL;
+                    CREATE TABLE IF NOT EXISTS ""PosPrintTemplates"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(120) NOT NULL,
+                        ""DocumentType"" integer NOT NULL DEFAULT 1,
+                        ""PaperSize"" integer NOT NULL DEFAULT 1,
+                        ""HtmlContent"" text NOT NULL DEFAULT '',
+                        ""IsDefault"" boolean NOT NULL DEFAULT false,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""SourceCatalogId"" uuid NULL,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
                     ALTER TABLE ""PosPrintTemplates"" ADD COLUMN IF NOT EXISTS ""SourceCatalogId"" uuid NULL;
                     CREATE TABLE IF NOT EXISTS ""PosPrintTemplateCatalogs"" (
                         ""Id"" uuid PRIMARY KEY,
@@ -1193,6 +1498,44 @@ public class ZKTecoDbInitializer(
                         ON ""PosPrintTemplateCatalogs"" (""DocumentType"", ""SortOrder"");
                     CREATE INDEX IF NOT EXISTS ""IX_PosPrintTemplates_SourceCatalogId""
                         ON ""PosPrintTemplates"" (""SourceCatalogId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosStoreSellSettings"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""SellProfile"" integer NOT NULL DEFAULT 0,
+                        ""DefaultSellMode"" character varying(20) NOT NULL DEFAULT 'quick',
+                        ""EnableResources"" boolean NOT NULL DEFAULT false,
+                        ""EnableHourlyBilling"" boolean NOT NULL DEFAULT false,
+                        ""EnableSessionPacks"" boolean NOT NULL DEFAULT false,
+                        ""RequireResourceOnSale"" boolean NOT NULL DEFAULT false,
+                        ""ShowFloorPlan"" boolean NOT NULL DEFAULT false,
+                        ""AllowProvisionalBill"" boolean NOT NULL DEFAULT false,
+                        ""EnableMultiDeviceDraftLock"" boolean NOT NULL DEFAULT false,
+                        ""PromptGuestCountOnOpen"" boolean NOT NULL DEFAULT false,
+                        ""AllowNegativeStock"" boolean NOT NULL DEFAULT false,
+                        ""ReportDayStartHour"" integer NOT NULL DEFAULT 0,
+                        ""EnableCashierShift"" boolean NOT NULL DEFAULT false,
+                        ""EnableQrTableOrder"" boolean NOT NULL DEFAULT false,
+                        ""EnableQrOrderAutoPrint"" boolean NOT NULL DEFAULT true,
+                        ""DefaultHourlyProductId"" uuid NULL,
+                        ""LoyaltyEnabled"" boolean NOT NULL DEFAULT true,
+                        ""LoyaltyEarnPerAmount"" numeric(18,2) NOT NULL DEFAULT 10000,
+                        ""LoyaltyRedeemValue"" numeric(18,2) NOT NULL DEFAULT 100,
+                        ""LoyaltyMaxRedeemPercent"" numeric(18,2) NOT NULL DEFAULT 100,
+                        ""ExtraJson"" character varying(4000) NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosStoreSellSettings_StoreId""
+                        ON ""PosStoreSellSettings"" (""StoreId"");
+
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""AllowProvisionalBill"" boolean NOT NULL DEFAULT false;
                     DO $$
                     BEGIN
@@ -1269,6 +1612,10 @@ public class ZKTecoDbInitializer(
                         ON ""PosCashierShifts"" (""StoreId"", ""OpenedByUserId"")
                         WHERE ""Status"" = 'Open' AND ""Deleted"" IS NULL AND ""OpenedByUserId"" IS NOT NULL;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""DefaultHourlyProductId"" uuid NULL;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""LoyaltyEnabled"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""LoyaltyEarnPerAmount"" numeric(18,2) NOT NULL DEFAULT 10000;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""LoyaltyRedeemValue"" numeric(18,2) NOT NULL DEFAULT 100;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""LoyaltyMaxRedeemPercent"" numeric(18,2) NOT NULL DEFAULT 100;
                     ALTER TABLE ""PosServiceResources"" ADD COLUMN IF NOT EXISTS ""DefaultServiceProductId"" uuid NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""GraceMinutes"" integer NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""RoundAfterMinutes"" integer NULL;
@@ -1311,7 +1658,7 @@ public class ZKTecoDbInitializer(
                         ""ApiToken"" character varying(2000) NULL,
                         ""ShopId"" character varying(100) NULL,
                         ""Username"" character varying(100) NULL,
-                        ""Password"" character varying(200) NULL,
+                        ""Password"" character varying(2000) NULL,
                         ""ApiBaseUrl"" character varying(300) NULL,
                         ""PickupName"" character varying(120) NULL,
                         ""PickupPhone"" character varying(30) NULL,
@@ -1336,6 +1683,7 @@ public class ZKTecoDbInitializer(
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosShippingCarrierSettings_StoreId_CarrierCode""
                         ON ""PosShippingCarrierSettings"" (""StoreId"", ""CarrierCode"");
+                    ALTER TABLE ""PosShippingCarrierSettings"" ALTER COLUMN ""Password"" TYPE character varying(2000);
 
                     CREATE TABLE IF NOT EXISTS ""PosQrMenuItems"" (
                         ""Id"" uuid NOT NULL,
@@ -1628,6 +1976,7 @@ public class ZKTecoDbInitializer(
                         ""TingeeSecretKey"" character varying(300) NULL,
                         ""TingeeVaAccountNumber"" character varying(100) NULL,
                         ""TingeeMerchantId"" character varying(50) NULL,
+                        ""TingeeShopId"" character varying(50) NULL,
                         ""TingeeWebhookSecret"" character varying(300) NULL,
                         ""ExtraJson"" character varying(4000) NULL,
                         ""IsActive"" boolean NOT NULL DEFAULT true,
@@ -1643,6 +1992,9 @@ public class ZKTecoDbInitializer(
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosPaymentGatewaySettings_StoreId""
                         ON ""PosPaymentGatewaySettings"" (""StoreId"");
+
+                    ALTER TABLE ""PosPaymentGatewaySettings""
+                        ADD COLUMN IF NOT EXISTS ""TingeeShopId"" character varying(50) NULL;
 
                     CREATE TABLE IF NOT EXISTS ""PosStoreNotificationCredits"" (
                         ""Id"" uuid NOT NULL,
@@ -1856,7 +2208,8 @@ public class ZKTecoDbInitializer(
                     );
 
                     -- Không còn dùng «cần dọn» — bàn trống ngay sau thanh toán.
-                    UPDATE ""PosServiceResources"" SET ""NeedsCleaning"" = false WHERE ""NeedsCleaning"" = true;
+                    UPDATE ""PosServiceResources"" SET ""NeedsCleaning"" = false
+                    WHERE ""NeedsCleaning"" = true;
 
                     CREATE TABLE IF NOT EXISTS ""PosProductToppingOptions"" (
                         ""Id"" uuid PRIMARY KEY,
@@ -1983,7 +2336,14 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""LengthCm"" numeric(18,2) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WidthCm"" numeric(18,2) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""HeightCm"" numeric(18,2) NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DailySoldOutOn"" timestamp without time zone NULL;
                 ");
+                }
+                catch (Exception posBootstrapEx)
+                {
+                    logger.LogError(posBootstrapEx,
+                        "POS/schema bootstrap batch failed; isolated ServicePackage/Store columns were already applied. Remaining SQL continues.");
+                }
 
                 // WorkSchedules: ensure per-shift unique index
                 await context.Database.ExecuteSqlRawAsync(@"
@@ -2376,8 +2736,39 @@ public class ZKTecoDbInitializer(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "An error occurred while initialising the database.");
-            throw;
+            logger.LogError(ex, "An error occurred while initialising the database. API will still start; apply remaining SQL on next boot.");
+        }
+    }
+
+    private async Task ApplyCompleteSchemaPatchAsync()
+    {
+        await using var stream = typeof(ZKTecoDbInitializer).Assembly
+            .GetManifestResourceStream("ZKTecoADMS.Infrastructure.SchemaPatches.EnsureCompleteSchema.sql");
+        if (stream == null)
+        {
+            logger.LogWarning("EnsureCompleteSchema.sql embedded resource was not found.");
+            return;
+        }
+
+        using var reader = new StreamReader(stream);
+        var sql = await reader.ReadToEndAsync();
+        foreach (var raw in sql.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var lines = raw.Split('\n')
+                .Select(l => l.TrimEnd())
+                .Where(l => l.Length > 0 && !l.TrimStart().StartsWith("--"))
+                .ToArray();
+            var stmt = string.Join('\n', lines).Trim();
+            if (stmt.Length == 0)
+                continue;
+            try
+            {
+                await context.Database.ExecuteSqlRawAsync(stmt);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "EnsureCompleteSchema statement skipped.");
+            }
         }
     }
 
@@ -2396,9 +2787,18 @@ public class ZKTecoDbInitializer(
             await PatchPosReportRolePermissionsAsync();
             await SeedServicePackagesAsync();
             await PatchPosReportPackageModulesAsync();
-            await SeedPosProductSampleCatalogAsync();
-
             await context.SaveChangesAsync();
+
+            try
+            {
+                await SeedPosProductSampleCatalogAsync();
+                await context.SaveChangesAsync();
+            }
+            catch (Exception catalogEx)
+            {
+                logger.LogWarning(catalogEx, "POS sample catalog seed skipped (table/schema not ready). Service packages already saved.");
+            }
+
             logger.LogInformation("Database seeding completed successfully.");
         }
         catch (Exception ex)
@@ -3006,7 +3406,7 @@ public class ZKTecoDbInitializer(
     private async Task PatchPosSellOpsRolePermissionsAsync()
     {
         var opsCodes = PosPackageDefaults.SellAddonModules
-            .Concat(["PosKds", "PosQrOrder", "PosCashierShift", "PosPrinters", "PosEInvoice", "PosShipping"])
+            .Concat(["PosKds", "PosQrOrder", "PosCashierShift", "PosPrinters", "PosStorePrinters", "PosEInvoice", "PosShipping"])
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         var perms = await context.Permissions
@@ -3040,6 +3440,8 @@ public class ZKTecoDbInitializer(
                 var (v, c, e, d, x, a) = ModulePermissionDefaults.Get(src.RoleName, op.Module);
                 if (!v && !c && !e && !d && !x && !a)
                 {
+                    // Thiết lập POS: admin tick trên ma trận — không copy từ PosSell.
+                    if (op.Module is "PosStorePrinters" or "SettingsHub") continue;
                     v = src.CanView;
                     c = src.CanCreate && op.Module is "PosKds" or "PosCashierShift";
                     e = (src.CanEdit || src.CanCreate) && op.Module is "PosQrOrder" or "PosPrinters";

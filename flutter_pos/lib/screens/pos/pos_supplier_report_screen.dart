@@ -212,7 +212,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
       PosReportCard(
         title: 'Trả NCC ${_purchases?['returnCount'] ?? 0} phiếu · ${posReportMoney(_n(_purchases?['returnAmount']))}',
         child: returns.isEmpty
-            ? const PosReportEmpty(message: 'Không có phiếu trả')
+            ? PosReportEmpty(message: tr('Không có phiếu trả'))
             : Column(
                 children: [
                   for (final r in returns)
@@ -229,7 +229,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
       PosReportCard(
         title: 'Phiếu nhập (${_purchases?['receiptCount'] ?? receipts.length})',
         child: receipts.isEmpty
-            ? const PosReportEmpty(message: 'Không có phiếu nhập')
+            ? PosReportEmpty(message: tr('Không có phiếu nhập'))
             : Column(
                 children: [
                   for (final r in receipts)

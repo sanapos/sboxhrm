@@ -7,11 +7,38 @@ namespace ZKTecoADMS.Api.Controllers;
 
 public static class PosCustomerFinanceHelper
 {
-    /// <summary>1 điểm / 10.000đ doanh thu.</summary>
+    /// <summary>Fallback khi cửa hàng chưa cấu hình: 1 điểm / 10.000đ.</summary>
     public const decimal PointsPerAmount = 10_000m;
 
-    /// <summary>1 điểm = 100đ giảm giá.</summary>
+    /// <summary>Fallback: 1 điểm = 100đ giảm giá.</summary>
     public const decimal PointRedeemValue = 100m;
+
+    public readonly record struct PosLoyaltyRates(
+        bool Enabled,
+        decimal EarnPerAmount,
+        decimal RedeemValue,
+        decimal MaxRedeemPercent)
+    {
+        public static PosLoyaltyRates Defaults { get; } = new(true, PointsPerAmount, PointRedeemValue, 100m);
+
+        public bool CanEarn => Enabled && EarnPerAmount > 0;
+        public bool CanRedeem => Enabled && RedeemValue > 0;
+
+        public static PosLoyaltyRates From(PosStoreSellSettings? s)
+        {
+            if (s == null) return Defaults;
+            var maxPct = s.LoyaltyMaxRedeemPercent;
+            if (maxPct <= 0) maxPct = 100m;
+            if (maxPct > 100m) maxPct = 100m;
+            return new(
+                s.LoyaltyEnabled,
+                Math.Max(0, s.LoyaltyEarnPerAmount),
+                Math.Max(0, s.LoyaltyRedeemValue),
+                maxPct);
+        }
+    }
+
+    public static PosLoyaltyRates ResolveRates(PosStoreSellSettings? s) => PosLoyaltyRates.From(s);
 
     public record VoucherApplyResult(PosVoucher Voucher, decimal DiscountAmount, string? Error);
 
@@ -56,26 +83,35 @@ public static class PosCustomerFinanceHelper
     }
 
     public static (decimal PointsDiscount, decimal PointsRedeemed, string? Error) CalcPointsRedeem(
-        decimal pointsToRedeem, decimal customerBalance, decimal maxDiscountFromOrder)
+        decimal pointsToRedeem, decimal customerBalance, decimal maxDiscountFromOrder,
+        PosLoyaltyRates? rates = null)
     {
         if (pointsToRedeem <= 0) return (0, 0, null);
+        var r = rates ?? PosLoyaltyRates.Defaults;
+        if (!r.CanRedeem)
+            return (0, 0, "Cửa hàng chưa bật đổi điểm");
         if (pointsToRedeem > customerBalance)
             return (0, 0, "Khách không đủ điểm");
-        var discount = pointsToRedeem * PointRedeemValue;
-        if (discount > maxDiscountFromOrder)
+        var cap = maxDiscountFromOrder;
+        if (r.MaxRedeemPercent < 100m)
+            cap = Math.Min(cap, Math.Round(maxDiscountFromOrder * r.MaxRedeemPercent / 100m, 0));
+        cap = Math.Max(0, cap);
+        var discount = pointsToRedeem * r.RedeemValue;
+        if (discount > cap)
         {
-            pointsToRedeem = Math.Floor(maxDiscountFromOrder / PointRedeemValue);
-            discount = pointsToRedeem * PointRedeemValue;
+            pointsToRedeem = Math.Floor(cap / r.RedeemValue);
+            discount = pointsToRedeem * r.RedeemValue;
         }
         if (pointsToRedeem <= 0)
             return (0, 0, "Số điểm đổi quá nhỏ so với đơn hàng");
         return (discount, pointsToRedeem, null);
     }
 
-    public static decimal CalcPointsEarn(decimal netTotalAfterRedeem)
+    public static decimal CalcPointsEarn(decimal netTotalAfterRedeem, PosLoyaltyRates? rates = null)
     {
-        if (netTotalAfterRedeem <= 0) return 0;
-        return Math.Floor(netTotalAfterRedeem / PointsPerAmount);
+        var r = rates ?? PosLoyaltyRates.Defaults;
+        if (!r.CanEarn || netTotalAfterRedeem <= 0) return 0;
+        return Math.Floor(netTotalAfterRedeem / r.EarnPerAmount);
     }
 
     public static async Task ApplyPointsOnSaleCompleteAsync(
@@ -230,8 +266,10 @@ public static class PosCustomerFinanceHelper
         var totalBeforeVoid = totalAfterVoid - refundReversed;
         if (totalBeforeVoid < 0) totalBeforeVoid = 0;
 
-        // Tính lại điểm đáng có theo Total sau khi void return.
-        var targetEarned = CalcPointsEarn(order.Total);
+        // Tính lại điểm đáng có theo Total sau khi void return + tỷ lệ cửa hàng hiện tại.
+        var settings = await db.PosStoreSellSettings.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null);
+        var targetEarned = CalcPointsEarn(order.Total, PosLoyaltyRates.From(settings));
         var delta = targetEarned - order.PointsEarned;
         if (delta == 0) return;
 

@@ -531,9 +531,9 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
                           decoration:
                               PosTheme.inputDecoration(label: 'Nhóm hàng *'),
                           items: [
-                            const DropdownMenuItem<String?>(
+                            DropdownMenuItem<String?>(
                               value: null,
-                              child: Text('— Nhập mới / chọn —'),
+                              child: Text(tr('— Nhập mới / chọn —')),
                             ),
                             ..._categories.map(
                               (c) => DropdownMenuItem<String?>(
@@ -592,9 +592,9 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
                           decoration:
                               PosTheme.inputDecoration(label: 'Thương hiệu'),
                           items: [
-                            const DropdownMenuItem<String?>(
+                            DropdownMenuItem<String?>(
                               value: null,
-                              child: Text('— Không / nhập mới —'),
+                              child: Text(tr('— Không / nhập mới —')),
                             ),
                             ..._brands.map(
                               (b) => DropdownMenuItem<String?>(

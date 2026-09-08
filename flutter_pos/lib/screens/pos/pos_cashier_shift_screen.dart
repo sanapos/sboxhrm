@@ -642,7 +642,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
           decoration: InputDecoration(
             labelText: tr(label),
             hintText: '0',
-            suffixText: 'đ',
+            suffixText: tr('đ'),
             filled: true,
             fillColor: const Color(0xFFF8FAFC),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

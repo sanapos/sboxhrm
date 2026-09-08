@@ -15,6 +15,17 @@ internal static class PosNotificationHelper
         nameof(Roles.DepartmentHead),
     ];
 
+    /// <summary>Thu ngân / phục vụ / quản lý — nhận FCM đơn QR và đặt lịch khi app tắt.</summary>
+    private static readonly string[] FrontlineRoles =
+    [
+        nameof(Roles.Admin),
+        nameof(Roles.Director),
+        nameof(Roles.Manager),
+        nameof(Roles.DepartmentHead),
+        nameof(Roles.Cashier),
+        nameof(Roles.Waiter),
+    ];
+
     public static async Task NotifySaleCompletedAsync(
         ISystemNotificationService notifications,
         ZKTecoDbContext db,
@@ -142,7 +153,8 @@ internal static class PosNotificationHelper
     {
         try
         {
-            var userIds = await GetPosQrNotifyUserIdsAsync(db, storeId, cancellationToken);
+            var userIds = await GetPosOpsUserIdsAsync(
+                db, storeId, cancellationToken, "PosQrOrder", "PosSell", "PosKds");
             if (userIds.Count == 0) return;
 
             var title = "Đơn online mới";
@@ -166,12 +178,101 @@ internal static class PosNotificationHelper
         }
     }
 
-    private static async Task<List<Guid>> GetPosQrNotifyUserIdsAsync(
+    public static async Task NotifyQrTableOrderAsync(
+        ISystemNotificationService notifications,
         ZKTecoDbContext db,
         Guid storeId,
-        CancellationToken cancellationToken)
+        Guid orderId,
+        string orderNo,
+        string tableName,
+        string itemPreview,
+        bool needsConfirm,
+        CancellationToken cancellationToken = default)
     {
-        var ids = new HashSet<Guid>(await GetPosManagerUserIdsAsync(db, storeId, cancellationToken));
+        try
+        {
+            var userIds = await GetPosOpsUserIdsAsync(
+                db, storeId, cancellationToken, "PosQrOrder", "PosSell", "PosKds");
+            if (userIds.Count == 0) return;
+
+            var title = needsConfirm ? "Đơn QR chờ xác nhận" : "Đơn QR bàn";
+            var preview = string.IsNullOrWhiteSpace(itemPreview) ? "có món mới" : itemPreview.Trim();
+            var message = $"{tableName} · {orderNo} · {preview}";
+
+            await notifications.CreateAndSendToUsersAsync(
+                userIds,
+                NotificationType.Info,
+                title,
+                message,
+                relatedEntityId: orderId,
+                relatedEntityType: "PosQrTableOrder",
+                fromUserId: null,
+                categoryCode: "pos",
+                storeId: storeId);
+        }
+        catch
+        {
+            // Notification failure must not affect QR table submit.
+        }
+    }
+
+    public static async Task NotifyReservationCreatedAsync(
+        ISystemNotificationService notifications,
+        ZKTecoDbContext db,
+        Guid storeId,
+        Guid reservationId,
+        string resourceName,
+        string customerName,
+        string? phone,
+        DateTime reservedAt,
+        int guestCount,
+        bool hasPreOrder,
+        Guid? fromUserId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var userIds = await GetPosOpsUserIdsAsync(
+                db, storeId, cancellationToken, "PosBooking", "PosSell");
+            if (userIds.Count == 0) return;
+
+            var phonePart = string.IsNullOrWhiteSpace(phone) ? "" : $" · {phone.Trim()}";
+            var prePart = hasPreOrder ? " · có đặt món" : "";
+            var guests = guestCount < 1 ? 1 : guestCount;
+            var message =
+                $"{resourceName} · {customerName}{phonePart} · {reservedAt:dd/MM HH:mm} · {guests} khách{prePart}";
+
+            await notifications.CreateAndSendToUsersAsync(
+                userIds,
+                NotificationType.Info,
+                "Đặt lịch mới",
+                message,
+                relatedEntityId: reservationId,
+                relatedEntityType: "PosResourceReservation",
+                fromUserId: fromUserId,
+                categoryCode: "pos",
+                storeId: storeId);
+        }
+        catch
+        {
+            // Notification failure must not affect reservation create.
+        }
+    }
+
+    private static async Task<List<Guid>> GetPosOpsUserIdsAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        CancellationToken cancellationToken,
+        params string[] extraModules)
+    {
+        var ids = new HashSet<Guid>();
+
+        var roleUsers = await db.Users.AsNoTracking()
+            .Where(u => u.IsActive && u.StoreId == storeId && FrontlineRoles.Contains(u.Role))
+            .Select(u => u.Id)
+            .ToListAsync(cancellationToken);
+        foreach (var id in roleUsers)
+            ids.Add(id);
 
         var ownerId = await db.Stores.AsNoTracking()
             .Where(s => s.Id == storeId)
@@ -180,22 +281,25 @@ internal static class PosNotificationHelper
         if (ownerId is Guid oid && oid != Guid.Empty)
             ids.Add(oid);
 
-        var rolesWithQr = await (
-            from rp in db.RolePermissions.AsNoTracking()
-            join p in db.Permissions.AsNoTracking() on rp.PermissionId equals p.Id
-            where rp.IsActive && rp.CanView
-                && (rp.StoreId == storeId || rp.StoreId == null)
-                && p.Module == "PosQrOrder"
-            select rp.RoleName
-        ).Distinct().ToListAsync(cancellationToken);
-        if (rolesWithQr.Count > 0)
+        if (extraModules.Length > 0)
         {
-            var qrUsers = await db.Users.AsNoTracking()
-                .Where(u => u.IsActive && u.StoreId == storeId && rolesWithQr.Contains(u.Role))
-                .Select(u => u.Id)
-                .ToListAsync(cancellationToken);
-            foreach (var uid in qrUsers)
-                ids.Add(uid);
+            var rolesWithMod = await (
+                from rp in db.RolePermissions.AsNoTracking()
+                join p in db.Permissions.AsNoTracking() on rp.PermissionId equals p.Id
+                where rp.IsActive && rp.CanView
+                    && (rp.StoreId == storeId || rp.StoreId == null)
+                    && extraModules.Contains(p.Module)
+                select rp.RoleName
+            ).Distinct().ToListAsync(cancellationToken);
+            if (rolesWithMod.Count > 0)
+            {
+                var extra = await db.Users.AsNoTracking()
+                    .Where(u => u.IsActive && u.StoreId == storeId && rolesWithMod.Contains(u.Role))
+                    .Select(u => u.Id)
+                    .ToListAsync(cancellationToken);
+                foreach (var uid in extra)
+                    ids.Add(uid);
+            }
         }
 
         return ids.ToList();

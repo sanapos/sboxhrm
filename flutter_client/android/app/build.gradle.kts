@@ -38,6 +38,12 @@ android {
         versionName = flutter.versionName
     }
 
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     // hrm = Play listing hiện tại (sbox.sana.vn). pos = listing SBOX POS mới.
     flavorDimensions += "app"
     productFlavors {
@@ -59,6 +65,12 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             ndk {
                 debugSymbolLevel = "SYMBOL_TABLE"
             }
@@ -73,6 +85,7 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.activity:activity-ktx:1.10.1")
+    implementation("androidx.core:core-ktx:1.16.0")
     // shared_preferences_android 2.4.20 pulls datastore 1.2.0 whose
     // libdatastore_shared_counter.so fails Play 16 KB RELRO. 1.2.1 rebuilt it.
     implementation("androidx.datastore:datastore:1.2.1")

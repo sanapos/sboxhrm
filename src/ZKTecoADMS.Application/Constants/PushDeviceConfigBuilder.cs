@@ -11,9 +11,11 @@ public static class PushDeviceConfigBuilder
         string serialNumber,
         string attLogStamp,
         string operLogStamp = "9999",
-        string bioDataStamp = "9999")
+        string bioDataStamp = "9999",
+        string photoStamp = "9999")
     {
         // Keep SBOX stamp names for sync, plus agap aliases (Stamp/OpStamp) + registry/ping flags.
+        // PhotoStamp / BIOPHOTOStamp: BioTime ZAM70 re-upload uses PhotoStamp=0 (not QUERY BIODATA).
         return $"GET OPTION FROM: {serialNumber}\r\n" +
                $"PushProtVer=2.4.1\r\n" +
                $"PushOptionsFlag=1\r\n" +
@@ -24,6 +26,9 @@ public static class PushDeviceConfigBuilder
                $"OPERLOGStamp={operLogStamp}\r\n" +
                $"BIODATAStamp={bioDataStamp}\r\n" +
                $"FINGERTMPStamp={bioDataStamp}\r\n" +
+               $"PhotoStamp={photoStamp}\r\n" +
+               $"ATTPHOTOStamp={photoStamp}\r\n" +
+               $"BIOPHOTOStamp={photoStamp}\r\n" +
                $"Stamp={attLogStamp}\r\n" +
                $"OpStamp={operLogStamp}\r\n" +
                $"ErrorDelay=5\r\n" +
@@ -34,7 +39,8 @@ public static class PushDeviceConfigBuilder
                $"RequestDelay=5\r\n" +
                $"TransTimes=00:00;14:05\r\n" +
                $"TransInterval=1\r\n" +
-               $"TransFlag=1111111010\r\n" +
+               $"TransFlag=1111111111\r\n" +
+               $"TransFlag=AttLog\tOpLog\tEnrollUser\tChgUser\tEnrollFP\tChgFP\r\n" +
                $"Realtime=1\r\n" +
                $"SessionID={serialNumber}\r\n" +
                $"TimeZone=7\r\n" +

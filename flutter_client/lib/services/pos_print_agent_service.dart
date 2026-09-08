@@ -653,7 +653,7 @@ class PosPrintAgentService {
     // Uu ti?n c?ng USB/BT/LAN d? luu tr?n m?y Agent (in n?i b? OK) ?
     // cloud d?i khi thi?u/sai usbDeviceName ? job Completed nhung kh?ng ra gi?y.
     final local =
-        await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
+        await PosLocalPrintersStore.instance.resolveForStorePrinter(printer, exactPort: true);
     final settings = local != null
         ? local.toThermalSettings()
         : toThermalSettings(printer);
@@ -1148,16 +1148,6 @@ class PosPrintAgentService {
   }) async {
     final table = slipMap['tableName']?.toString() ?? '';
     final area = slipMap['areaName']?.toString() ?? '';
-    final place = area.trim().isEmpty
-        ? (table.trim().isEmpty ? 'Bàn' : table.trim())
-        : '${table.trim()} Â· ${area.trim()}';
-
-    String fmt(dynamic raw) {
-      final t = DateTime.tryParse(raw?.toString() ?? '');
-      if (t == null) return '';
-      final l = t.toLocal();
-      return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
-    }
 
     final qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
     final itemRows = <String>[];
@@ -1192,61 +1182,84 @@ class PosPrintAgentService {
     if (itemRows.isEmpty) return false;
 
     earliestCall ??= DateTime.tryParse(slipMap['calledAt']?.toString() ?? '');
-    final ready = fmt(slipMap['readyAt']);
-    final callAt = earliestCall;
-    final called = callAt == null
-        ? ''
-        : '${callAt.hour.toString().padLeft(2, '0')}:${callAt.minute.toString().padLeft(2, '0')}';
-    final timeLine = called.isNotEmpty
-        ? 'Gọi $called · Ra ${ready.isEmpty ? DateFormat('HH:mm').format(DateTime.now()) : ready}'
-        : 'Ra ${ready.isEmpty ? DateFormat('HH:mm').format(DateTime.now()) : ready}';
-
-    // Giống báo chế biến: bàn → badge → món → giờ (không HĐ/NV/ngày).
-    final textLines = <String>[
-      '*** RA MÓN ***',
-      ...itemRows,
-      timeLine,
-    ];
-    final onSunmi = await PosPrinterTransport.isSunmiDevice();
-    if (onSunmi) {
-      var ok = true;
-      for (var i = 0; i < copies.clamp(1, 10); i++) {
-        final sent = await PosSunmiNativePrint.printTextReport(
-          title: place,
-          lines: textLines,
-          settings: settings.copyWith(
-            openCashDrawer: false,
-            feedBeforeCut: 2,
-          ),
-        );
-        if (!sent) {
-          ok = false;
-          break;
-        }
+    final readyAt = DateTime.tryParse(slipMap['readyAt']?.toString() ?? '') ??
+        DateTime.now();
+    final calledAt = earliestCall ?? readyAt;
+    final compiledLines =
+        <({String name, String qty, String? unit, String? note})>[];
+    if (linesRaw is List) {
+      for (final item in linesRaw) {
+        if (item is! Map) continue;
+        final row = Map<String, dynamic>.from(item);
+        final name = row['productName']?.toString() ?? '';
+        if (name.isEmpty) continue;
+        final qtyNum = (row['qty'] as num?)?.toDouble() ??
+            double.tryParse('${row['qty']}') ??
+            1;
+        compiledLines.add((
+          name: name,
+          qty: qtyFmt.format(qtyNum),
+          unit: row['unitName']?.toString(),
+          note: row['note']?.toString(),
+        ));
       }
-      return ok;
     }
-    return _printKitchenSlipEscPos(
-      settings: settings.copyWith(openCashDrawer: false, feedBeforeCut: 2),
-      isCancel: false,
-      tableName: place,
-      lines: [
-        for (final row in itemRows)
-          (
-            name: row.contains(' × ')
-                ? row.split(' × ').skip(1).join(' × ')
-                : row,
-            qty: row.contains(' × ') ? row.split(' × ').first : '1',
-            unit: null,
-            note: null,
-          ),
-      ],
-      senderName: 'KDS',
-      orderNo: '',
-      sentAt: DateTime.tryParse(slipMap['readyAt']?.toString() ?? '') ??
-          DateTime.now(),
-      copies: copies,
+    if (compiledLines.isEmpty) {
+      for (final row in itemRows) {
+        compiledLines.add((
+          name: row.contains(' × ')
+              ? row.split(' × ').skip(1).join(' × ')
+              : row,
+          qty: row.contains(' × ') ? row.split(' × ').first : '1',
+          unit: null,
+          note: null,
+        ));
+      }
+    }
+    final paperSize = PosPrintPaperSizes.fromWidthMm(settings.paperWidthMm);
+    final output = PosPrintTemplateRuntime.compileKdsReadySlip(
+      paperSize: paperSize,
+      printerProfile: PosPrintPrinterProfiles.forPaperAndBrand(
+        paperSize: paperSize,
+        isSunmi: settings.printerBrand == PosThermalPrinterBrand.sunmi,
+        isZywell: settings.printerBrand == PosThermalPrinterBrand.zywell,
+      ),
+      tableName: table,
+      areaName: area,
+      orderNo: slipMap['orderNo']?.toString() ?? '',
+      calledAt: calledAt,
+      readyAt: readyAt,
+      lines: compiledLines,
     );
+    final printSettings = settings.copyWith(openCashDrawer: false);
+    final targetIsSunmi =
+        printSettings.connectionType == PosThermalConnectionType.sunmi ||
+            printSettings.printerBrand == PosThermalPrinterBrand.sunmi;
+    if (targetIsSunmi && await PosPrinterTransport.isSunmiDevice()) {
+      return PosPrintTemplateRuntime.printCompiledSunmi(
+        output: output,
+        settings: printSettings,
+        copies: copies.clamp(1, 10),
+        kitchenFeed: true,
+      );
+    }
+    final bytes = await PosPrintTemplateRuntime.buildCompiledEscPosBytes(
+      output: output,
+      settings: printSettings,
+    );
+    for (var i = 0; i < copies.clamp(1, 10); i++) {
+      final sent = await PosPrinterTransport.send(
+        connectionType: printSettings.connectionType,
+        bluetoothAddress: printSettings.bluetoothAddress,
+        lanHost: printSettings.lanHost,
+        lanPort: printSettings.lanPort,
+        usbDeviceName: printSettings.usbDeviceName,
+        bytes: bytes,
+        sunmiFeedLines: printSettings.resolvedFeedBeforeCut,
+      );
+      if (!sent) return false;
+    }
+    return true;
   }
 
 
@@ -1278,16 +1291,11 @@ class PosPrintAgentService {
     final docType = warehouseSlip
         ? PosPrintDocumentTypes.stockIssue
         : PosPrintDocumentTypes.saleInvoice;
-    final template = await resolvePosPrintTemplate(documentType: docType);
-    final paperSize = () {
-      final fromTpl = (template?.paperSize ?? '').trim();
-      if (fromTpl.isNotEmpty) return fromTpl;
-      final fromSettings = settings.paperSize.trim();
-      if (fromSettings.isNotEmpty) return fromSettings;
-      return settings.paperWidthMm <= 58
-          ? PosPrintPaperSizes.k58
-          : PosPrintPaperSizes.k80;
-    }();
+    final paperSize = PosPrintPaperSizes.fromWidthMm(settings.paperWidthMm);
+    final template = await resolvePosPrintTemplate(
+      documentType: docType,
+      paperSize: paperSize,
+    );
     final v2 = PosPrintTemplateRuntime.resolveOrPreset(
       template: template,
       documentType: docType,
@@ -1338,8 +1346,11 @@ class PosPrintAgentService {
     required DateTime sentAt,
     required int copies,
   }) async {
-    final tpl = await PosPrintConfigSession.instance
-        .kitchenTemplate(isCancel: isCancel, force: true);
+    final tpl = await PosPrintConfigSession.instance.kitchenTemplate(
+      isCancel: isCancel,
+      force: true,
+      paperSize: PosPrintPaperSizes.fromWidthMm(settings.paperWidthMm),
+    );
     final v2 = PosPrintTemplateRuntime.resolveOrPreset(
       template: tpl,
       documentType: isCancel
@@ -1422,7 +1433,7 @@ class PosPrintAgentService {
     // Hardware Sunmi chưa cài → nhả job cho Agent máy đã cài (A6 K80).
     if (printer.isSunmi) {
       final sunmiLocal =
-          await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
+          await PosLocalPrintersStore.instance.resolveForStorePrinter(printer, exactPort: true);
       return sunmiLocal != null &&
           PosLocalPrintersStore.profileAllowsDirectLocal(sunmiLocal) &&
           sunmiLocal.connectionType == PosThermalConnectionType.sunmi &&
@@ -1430,7 +1441,7 @@ class PosPrintAgentService {
     }
 
     final local =
-        await PosLocalPrintersStore.instance.resolveForStorePrinter(printer);
+        await PosLocalPrintersStore.instance.resolveForStorePrinter(printer, exactPort: true);
     final settings = local != null
         ? local.toThermalSettings()
         : toThermalSettings(printer);

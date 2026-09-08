@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../config/sbox_app_variant.dart';
 import 'login_screen.dart';
 
 class StoreSuccessScreen extends StatefulWidget {
@@ -588,7 +589,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        tr('SBOX HRM - SBOX POS'),
+                        tr(SboxAppVariant.productLine),
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.6),
                           fontSize: 10,
@@ -801,7 +802,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                 Icon(Icons.verified_rounded,
                     size: 13, color: Colors.blue.shade400),
                 const SizedBox(width: 6),
-                Text(tr('SBOX HRM - SBOX POS  •  Giải pháp quản lý toàn diện cho doanh nghiệp'),
+                Text(tr('${SboxAppVariant.productLine}  •  ${SboxAppVariant.slogan}'),
                   style: TextStyle(
                     color: Colors.grey[600],
                     fontSize: 11,

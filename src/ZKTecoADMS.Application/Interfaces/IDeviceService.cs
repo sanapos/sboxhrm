@@ -56,7 +56,7 @@ public interface IDeviceService
     /// <summary>
     /// User claim thiết bị bằng Serial Number
     /// </summary>
-    Task<AppResponse<Device>> ClaimDeviceAsync(Guid userId, string serialNumber, string deviceName, string? description = null, string? location = null);
+    Task<AppResponse<Device>> ClaimDeviceAsync(Guid userId, string serialNumber, string deviceName, string? description = null, string? location = null, Guid? storeId = null);
     
     /// <summary>
     /// Lấy danh sách thiết bị của một user (đã claim)

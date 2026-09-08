@@ -20,4 +20,7 @@ public enum DeviceCommandTypes
     OpenDoor,               // Mở cửa
     CloseDoor,              // Đóng cửa
     GetDeviceInfo,          // Lấy thông tin thiết bị
+    PushFingerprint,        // Đẩy vân tay sang máy (DATA UPDATE FINGERTMP)
+    PushFace,               // Đẩy khuôn mặt (BIOPHOTO Url JPEG trên ZAM70, BIODATA/FACE trên máy khác)
+    PushUserPic,            // Đẩy ảnh user (DATA UPDATE USERPIC)
 }

@@ -98,7 +98,7 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
                 {
                     Id = f.Id,
                     FingerIndex = f.FingerIndex,
-                    HasTemplate = true,
+                    HasTemplate = DeviceUserPins.IsCopyableTemplate(f.Template),
                     Quality = f.Quality,
                     CreatedAt = f.CreatedAt
                 })

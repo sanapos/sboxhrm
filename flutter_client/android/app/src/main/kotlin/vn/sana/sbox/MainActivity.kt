@@ -9,7 +9,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
-import androidx.activity.enableEdgeToEdge
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -29,8 +28,16 @@ class MainActivity : FlutterFragmentActivity() {
     private val CUSTOMER_DISPLAY_EVENTS = "com.sboxhrm/customer_display_events"
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        applyPlayEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // FlutterFragmentActivity.configureStatusBarForFullscreenFlutterExperience()
+        // runs after super.onCreate and undoes edge-to-edge — re-apply.
+        applyPlayEdgeToEdge()
+    }
+
+    override fun onPostResume() {
+        super.onPostResume()
+        applyPlayEdgeToEdge()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

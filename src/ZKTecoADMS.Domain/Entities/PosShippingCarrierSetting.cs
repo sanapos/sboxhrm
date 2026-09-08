@@ -33,7 +33,7 @@ public class PosShippingCarrierSetting : AuditableEntity<Guid>
     [MaxLength(100)]
     public string? Username { get; set; }
 
-    [MaxLength(200)]
+    [MaxLength(2000)]
     public string? Password { get; set; }
 
     /// <summary>Ghi đè base URL nếu cần (mặc định theo carrier + sandbox).</summary>

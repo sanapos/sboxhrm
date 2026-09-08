@@ -2,7 +2,11 @@
 class StoreRoleHelper {
   StoreRoleHelper._();
 
-  static String _norm(String? role) => (role ?? '').trim().toLowerCase();
+  static String _norm(String? role) {
+    final s = (role ?? '').trim().toLowerCase();
+    if (s == 'super admin' || s == 'super-admin') return 'superadmin';
+    return s;
+  }
 
   /// SuperAdmin / Agent — cổng quản trị hệ thống (không dùng MainLayout cửa hàng).
   static bool isSystemPortalRole(String? role) {

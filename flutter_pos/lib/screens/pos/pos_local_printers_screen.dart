@@ -134,6 +134,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
     final result = await showModalBottomSheet<PosLocalPrinterProfile>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: false,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
@@ -255,29 +256,14 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
     if (!mounted) return;
     await _reload();
 
-    // Gán SP chỉ hợp lệ trên máy Agent/cloud — remap twin từ bản nội bộ.
-    await PosPrintOrchestrator.instance.refreshConfig();
-    final orch = PosPrintOrchestrator.instance;
-    final localRow = orch.printers
-        .where((x) => x.id.toLowerCase() == id.toLowerCase())
-        .firstOrNull;
-    final target = localRow == null
-        ? null
-        : orch.preferCloudAgentPrinter(localRow);
-    if (target == null) {
-      NotificationOverlayManager().showError(
-        title: tr('Không tìm thấy máy in'),
-        message: tr('Đồng bộ lại máy «${p.name}» rồi gán món.'),
-      );
-      return;
-    }
-
+    // Máy nội bộ: gán danh sách trên máy này — không remap sang twin Agent
+    // (twin chung cửa hàng sẽ hiện món máy khác đã gán).
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => PosPrinterManageProductsScreen(
-          printerId: target.id,
-          printerName: target.name,
+          printerId: id,
+          printerName: profile.name,
           isLabel: profile.isLabel,
           purpose: purposeFromRoles(profile.roles),
         ),
@@ -294,6 +280,11 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
         title: Text(tr('Máy in nội bộ')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: tr('Quay lại'),
+          onPressed: () => Navigator.maybePop(context),
+        ),
         actions: [
           IconButton(
             tooltip: tr('Kiểm tra kết nối'),
@@ -1120,15 +1111,42 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final mq = MediaQuery.of(context);
+    final kb = mq.viewInsets.bottom;
+    final view = View.of(context);
+    final dpr = view.devicePixelRatio;
+    final sysBottom = view.viewPadding.bottom / dpr;
+    final sysTop = view.viewPadding.top / dpr;
+    final top = [mq.viewPadding.top, mq.padding.top, sysTop].reduce((a, b) => a > b ? a : b);
+    final nav = [
+      mq.viewPadding.bottom,
+      mq.padding.bottom,
+      sysBottom,
+      48.0,
+    ].reduce((a, b) => a > b ? a : b);
+    final bottomGap = kb > 0 ? kb : nav;
     final roleOptions = PosLocalPrinterRoles.forKind(_kind);
+    // Không trừ bottomGap khỏi chiều cao: sheet neo đáy nên trừ ở đây chỉ tạo
+    // khoảng trống phía TRÊN. Khoảng chừa đáy xử lý bằng padding-bottom bên dưới.
+    final sheetH = (mq.size.height - top - 8)
+        .clamp(320.0, mq.size.height);
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottom),
-      child: SingleChildScrollView(
+      padding: EdgeInsets.only(top: top),
+      child: SizedBox(
+      height: sheetH,
+      child: Padding(
+        // Chừa đáy = bottomGap (thanh điều hướng / bàn phím). Sheet neo đáy màn
+        // hình nên phải đệm đáy tại đây, nếu không nút "Lưu" bị nav bar che.
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 16 + bottomGap),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
             Text(
               tr(widget.initial == null
                   ? 'Thêm máy in nội bộ'
@@ -1528,8 +1546,9 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                 controller: _feedBeforeCut,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: tr('Số dòng giãn cách trước khi cắt'),
-                  helperText: tr('Mặc định 1'),
+                  labelText: tr('Số dòng đẩy giấy sau khi in'),
+                  helperText: tr(
+                      '1 dòng ≈ 3mm. V2s xé tay: thử 8–12 để lộ chữ khỏi nắp đầu in.'),
                   border: const OutlineInputBorder(),
                 ),
               ),
@@ -1584,8 +1603,12 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
+            const SizedBox(height: 8),
+          ],
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
               onPressed: _testing ? null : _testPrint,
               icon: _testing
                   ? const SizedBox(
@@ -1602,7 +1625,8 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
               style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
               child: Text(tr('Lưu')),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

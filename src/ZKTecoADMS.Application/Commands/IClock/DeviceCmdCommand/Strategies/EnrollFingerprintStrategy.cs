@@ -1,8 +1,11 @@
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Domain.Repositories;
 
 namespace ZKTecoADMS.Application.Commands.IClock.DeviceCmdCommand.Strategies;
 
@@ -33,7 +36,8 @@ public class EnrollFingerprintStrategy(
 
         // Look up the original DeviceCommand to get the command string with PIN and FID
         var deviceCommand = await deviceCommandRepository.GetSingleAsync(
-            c => c.CommandId == response.CommandId, cancellationToken: cancellationToken);
+            c => c.CommandId == response.CommandId && c.DeviceId == device.Id,
+            cancellationToken: cancellationToken);
         
         if (deviceCommand == null)
         {
@@ -61,9 +65,8 @@ public class EnrollFingerprintStrategy(
 
         logger.LogWarning("[EnrollFingerprint] Parsed PIN={Pin}, FID={FID}", pin, fingerIndex);
 
-        // Find DeviceUser by PIN and DeviceId
-        var deviceUser = await deviceUserRepository.GetSingleAsync(
-            u => u.Pin == pin && u.DeviceId == device.Id, cancellationToken: cancellationToken);
+        var deviceUser = await DeviceUserPins.FindOnDeviceAsync(
+            deviceUserRepository, device.Id, pin, cancellationToken);
 
         if (deviceUser == null)
         {
@@ -87,7 +90,7 @@ public class EnrollFingerprintStrategy(
         if (existing != null)
         {
             existing.UpdatedAt = DateTime.UtcNow;
-            await fingerprintRepository.UpdateAsync(existing);
+            await fingerprintRepository.UpdateAsync(existing, cancellationToken);
             logger.LogWarning("[EnrollFingerprint] Updated fingerprint record: User={UserName}, FingerIndex={Index}", 
                 deviceUser.Name, fingerIndex);
         }
@@ -98,16 +101,64 @@ public class EnrollFingerprintStrategy(
                 Id = Guid.NewGuid(),
                 EmployeeId = deviceUser.Id,
                 FingerIndex = fingerIndex,
-                Template = "enrolled-via-adms",
+                Template = DeviceUserPins.EnrolledViaAdmsPlaceholder,
                 TemplateSize = null,
                 Quality = 1,
                 Version = 10,
             };
 
-            await fingerprintRepository.AddAsync(fingerprint);
+            await fingerprintRepository.AddAsync(fingerprint, cancellationToken);
             logger.LogWarning("[EnrollFingerprint] SAVED fingerprint: User={UserName}, FingerIndex={Index}, Id={Id}", 
                 deviceUser.Name, fingerIndex, fingerprint.Id);
         }
+
+        // ENROLL_FP ACK không kèm TMP. Copy sang máy khác cần file — kéo ngay từ máy nguồn.
+        await QueueFingerprintPullAsync(device.Id, deviceUser.Pin, fingerIndex, deviceUser.Id, cancellationToken);
+    }
+
+    private async Task QueueFingerprintPullAsync(
+        Guid deviceId, string pin, int fingerIndex, Guid deviceUserId, CancellationToken ct)
+    {
+        var pending = await deviceCommandRepository.GetAllAsync(
+            c => c.DeviceId == deviceId
+                 && c.CommandType == DeviceCommandTypes.SyncFingerprints
+                 && (c.Status == CommandStatus.Created || c.Status == CommandStatus.Sent),
+            cancellationToken: ct);
+        var hasStamp = pending.Any(c => AdmsEngineProfiles.IsStampSyncMarker(c.Command));
+        var alreadyQuery = pending.Any(c =>
+            c.Command.Contains($"PIN={pin}", StringComparison.OrdinalIgnoreCase)
+            || c.Command.Contains($"PIN={DeviceUserPins.Key(pin)}", StringComparison.OrdinalIgnoreCase));
+
+        if (!hasStamp)
+        {
+            await deviceCommandRepository.AddAsync(new DeviceCommand
+            {
+                DeviceId = deviceId,
+                CommandId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 90_000 + 10_000,
+                Command = AdmsEngineProfiles.StampSyncCommand,
+                Priority = 5,
+                Status = CommandStatus.Created,
+                CommandType = DeviceCommandTypes.SyncFingerprints,
+                ObjectReferenceId = deviceUserId,
+            }, ct);
+        }
+
+        if (alreadyQuery) return;
+
+        await deviceCommandRepository.AddAsync(new DeviceCommand
+        {
+            DeviceId = deviceId,
+            CommandId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 90_000 + 10_001,
+            Command = ClockCommandBuilder.BuildGetFingerprintsForUserCommand(pin, fingerIndex),
+            Priority = 4,
+            Status = CommandStatus.Created,
+            CommandType = DeviceCommandTypes.SyncFingerprints,
+            ObjectReferenceId = deviceUserId,
+        }, ct);
+
+        logger.LogWarning(
+            "[EnrollFingerprint] Queued OPERLOGStamp=0 + QUERY FINGERTMP PIN={Pin} FID={Fid}",
+            pin, fingerIndex);
     }
 
     private static string? ParseValue(string command, string key)

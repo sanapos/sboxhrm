@@ -7,6 +7,7 @@ using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
@@ -24,7 +25,8 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public partial class PosSellIndustryController(
     ZKTecoDbContext db,
-    IHubContext<AttendanceHub> hub) : AuthenticatedControllerBase
+    IHubContext<AttendanceHub> hub,
+    ISystemNotificationService notifications) : AuthenticatedControllerBase
 {
     void NotifyFloorChanged(
         Guid storeId,
@@ -62,7 +64,11 @@ public partial class PosSellIndustryController(
         bool EnableQrOrderAutoPrint,
         int ReportDayStartHour,
         Guid? DefaultHourlyProductId,
-        string? ExtraJson);
+        string? ExtraJson,
+        bool LoyaltyEnabled = true,
+        decimal LoyaltyEarnPerAmount = 10000,
+        decimal LoyaltyRedeemValue = 100,
+        decimal LoyaltyMaxRedeemPercent = 100);
 
     public record SellSettingsSaveDto(
         string? SellProfile = null,
@@ -83,7 +89,11 @@ public partial class PosSellIndustryController(
         Guid? DefaultHourlyProductId = null,
         bool SetDefaultHourlyProductId = false,
         string? ExtraJson = null,
-        bool? ApplyProfileDefaults = null);
+        bool? ApplyProfileDefaults = null,
+        bool? LoyaltyEnabled = null,
+        decimal? LoyaltyEarnPerAmount = null,
+        decimal? LoyaltyRedeemValue = null,
+        decimal? LoyaltyMaxRedeemPercent = null);
 
     [HttpGet("sell-settings")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
@@ -240,6 +250,14 @@ public partial class PosSellIndustryController(
             s.EnableQrTableOrder = dto.EnableQrTableOrder.Value;
         if (dto.EnableQrOrderAutoPrint.HasValue)
             s.EnableQrOrderAutoPrint = dto.EnableQrOrderAutoPrint.Value;
+        if (dto.LoyaltyEnabled.HasValue)
+            s.LoyaltyEnabled = dto.LoyaltyEnabled.Value;
+        if (dto.LoyaltyEarnPerAmount.HasValue)
+            s.LoyaltyEarnPerAmount = Math.Max(0, dto.LoyaltyEarnPerAmount.Value);
+        if (dto.LoyaltyRedeemValue.HasValue)
+            s.LoyaltyRedeemValue = Math.Max(0, dto.LoyaltyRedeemValue.Value);
+        if (dto.LoyaltyMaxRedeemPercent.HasValue)
+            s.LoyaltyMaxRedeemPercent = Math.Clamp(dto.LoyaltyMaxRedeemPercent.Value, 1, 100);
     }
 
     async Task<int> CountLiveResourceSessionsAsync(Guid storeId) =>
@@ -307,7 +325,8 @@ public partial class PosSellIndustryController(
         s.AllowNegativeStock, s.EnableCashierShift, s.EnableQrTableOrder,
         s.EnableQrOrderAutoPrint,
         Math.Clamp(s.ReportDayStartHour, 0, 23),
-        s.DefaultHourlyProductId, s.ExtraJson);
+        s.DefaultHourlyProductId, s.ExtraJson,
+        s.LoyaltyEnabled, s.LoyaltyEarnPerAmount, s.LoyaltyRedeemValue, s.LoyaltyMaxRedeemPercent);
 
     // ── Areas / resources ─────────────────────────────────────────────────────
 

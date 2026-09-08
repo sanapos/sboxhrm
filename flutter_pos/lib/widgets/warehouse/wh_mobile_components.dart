@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'wh_mobile_theme.dart';
+import '../../utils/play_system_ui.dart';
 import '../../l10n/app_tr.dart';
 
 /// Scaffold chuẩn cho màn Kho mobile — nền xám, bottom bar cố định.
@@ -33,9 +34,7 @@ class WhMobileScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.dark.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
+      value: kPlayOverlayOnLightBg,
       child: Scaffold(
         backgroundColor: WhMobileTheme.bg,
         extendBody: true,

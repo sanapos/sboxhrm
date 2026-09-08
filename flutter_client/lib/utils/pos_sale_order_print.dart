@@ -15,6 +15,7 @@ import 'pos_local_printers_store.dart';
 import 'pos_print_template_loader.dart';
 import 'pos_pdf_fonts.dart';
 import 'pos_print_orchestrator.dart';
+import 'pos_print_role.dart';
 import 'pos_print_template_renderer.dart';
 import 'pos_topping_format.dart';
 import 'pos_printer_transport.dart';
@@ -260,41 +261,36 @@ List<PosSaleOrderLine> _mergeSaleLines(List<PosSaleOrderLine> lines) {
 Future<PosPrintTemplate?> _resolveSalePrintTemplate(
   String? templateId, {
   String documentType = PosPrintDocumentTypes.saleInvoice,
+  String? paperSize,
 }) async {
-  // Chính sách cửa hàng: ưu tiên mẫu IsDefault của store (không lệch theo máy).
   var list = await loadPosPrintTemplates(ApiService(), documentType);
-  // Phiếu trả: nếu chưa seed/gán mẫu riêng → dùng mẫu hóa đơn gọn.
   if (list.isEmpty && documentType == PosPrintDocumentTypes.saleReturn) {
     list = await loadPosPrintTemplates(
       ApiService(),
       PosPrintDocumentTypes.saleInvoice,
     );
   }
-  if (list.isEmpty) return null;
-  final storeDefault = list.where((t) => t.isDefault).firstOrNull ?? list.first;
-  if (templateId != null && templateId.isNotEmpty) {
-    final hit = list.where((t) => t.id == templateId).firstOrNull;
-    if (hit != null) return hit;
-  }
-  return storeDefault;
+  return pickPosPrintTemplateForPaper(
+    list,
+    paperSize: paperSize,
+    templateId: templateId,
+  );
 }
 
 PosThermalPrinterSettings _thermalSettingsForTemplate(
   PosThermalPrinterSettings settings,
   PosPrintTemplate? template,
 ) {
-  if (template == null) return settings;
-  final ps = template.paperSize;
-  // Luôn theo khổ mẫu: K80 không bị in hẹp kiểu K58.
-  if (ps == PosPrintPaperSizes.k80) {
-    return settings.copyWith(paperSize: 'K80');
+  // Máy K58 là nguồn sự thật — không ép layout K80 (vỡ chữ 58mm).
+  if (settings.paperWidthMm <= 58) {
+    return settings.copyWith(paperSize: PosPrintPaperSizes.k58);
   }
-  if (ps == PosPrintPaperSizes.k58 && settings.paperWidthMm > 58) {
-    // Giữ khổ máy thật (80mm) — không thu hẹp.
+  if (template != null &&
+      template.paperSize == PosPrintPaperSizes.k58) {
     return settings;
   }
-  if (PosPrintPaperSizes.isThermal(ps)) {
-    return settings.copyWith(paperSize: ps);
+  if (template != null && PosPrintPaperSizes.isThermal(template.paperSize)) {
+    return settings.copyWith(paperSize: template.paperSize);
   }
   return settings;
 }
@@ -321,9 +317,8 @@ Future<List<int>> _buildSaleEscPosMatchingLocal({
     s = s.copyWith(textMode: PosThermalTextMode.image);
   }
 
-  // Cùng preset profile như A6 local EscPos (attempt) — không zywell riêng.
-  final paper = template?.paperSize ??
-      (s.paperWidthMm <= 58 ? PosPrintPaperSizes.k58 : PosPrintPaperSizes.k80);
+  // Khổ theo máy in — mẫu K80 không được biên dịch 80mm rồi đẩy máy 58mm.
+  final paper = PosPrintPaperSizes.fromWidthMm(s.paperWidthMm);
   final v2 = PosPrintTemplateRuntime.resolveOrPreset(
     template: template,
     documentType: documentType,
@@ -469,7 +464,12 @@ Future<bool> printPosSaleOrder({
       overridePrinter: target,
       buildEscPos: (printer) async {
         var settings = toThermalSettings(printer);
-        settings = _thermalSettingsForTemplate(settings, template);
+        final tpl = await _resolveSalePrintTemplate(
+          templateId,
+          documentType: documentType,
+          paperSize: PosPrintPaperSizes.fromWidthMm(settings.paperWidthMm),
+        );
+        settings = _thermalSettingsForTemplate(settings, tpl);
         final isProvisional =
             (documentTitle ?? '').toUpperCase().contains('TẠM');
         final allowKick = openCashDrawer ?? !printOrder.isReprint;
@@ -483,7 +483,7 @@ Future<bool> printPosSaleOrder({
         return _buildSaleEscPosMatchingLocal(
           printOrder: printOrder,
           settings: settings,
-          template: template,
+          template: tpl,
           branchName: branchName,
           storeAddress: storeAddress,
           storePhone: storePhone,
@@ -500,7 +500,7 @@ Future<bool> printPosSaleOrder({
   final thermal = await PosThermalPrinterSettings.load();
   await PosPrintOrchestrator.instance.refreshConfig();
   final cloudPrinters = PosPrintOrchestrator.instance
-      .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
+      .resolveCloudPrinters(PosCloudDocumentTypes.saleInvoice);
 
   // App: in local khi máy này có cổng hóa đơn (không cần bật Agent).
   // A7/web không có profile → cloud.
@@ -532,16 +532,22 @@ Future<bool> printPosSaleOrder({
           (documentTitle ?? '').toUpperCase().contains('TẠM');
       var anyOk = false;
       for (var i = 0; i < thermalCandidates.length; i++) {
+        final cand = thermalCandidates[i];
+        final tpl = await _resolveSalePrintTemplate(
+          templateId,
+          documentType: documentType,
+          paperSize: PosPrintPaperSizes.fromWidthMm(cand.paperWidthMm),
+        );
         final settings = await _prepareLocalThermalSettings(
-          thermalCandidates[i],
-          template,
+          cand,
+          tpl,
           order: isProvisional ? null : printOrder,
           allowOpenCashDrawer: openCashDrawer ?? !printOrder.isReprint,
         );
         final printed = await _tryLocalSalePrint(
           printOrder: printOrder,
           settings: settings,
-          template: template,
+          template: tpl,
           branchName: branchName,
           storeAddress: storeAddress,
           storePhone: storePhone,
@@ -571,13 +577,31 @@ Future<bool> printPosSaleOrder({
         }
         return true;
       }
+      // Chính máy Agent vừa thử local: không cloud — tránh 2 bill.
+      var selfInvoiceAgent = false;
+      for (final p in cloudPrinters) {
+        if (await PosPrintRole.isAgentForPrinter(p.id)) {
+          selfInvoiceAgent = true;
+          break;
+        }
+      }
+      if (selfInvoiceAgent) {
+        if (showFeedback) {
+          NotificationOverlayManager().showError(
+            title: 'Chưa in được',
+            message: tr(
+                'Máy in hóa đơn lỗi. Phiếu treo — không chuyển máy khác.'),
+          );
+        }
+        return false;
+      }
       // Chỉ bỏ cloud khi không còn máy Agent — Oppo vẫn phải gửi được sang Sunmi.
       if (preferDevicePrintOnly && cloudPrinters.isEmpty) {
         if (showFeedback) {
           NotificationOverlayManager().showError(
             title: 'Chưa in được',
             message: tr(
-                'Máy in cục bộ lỗi và chưa có Print Agent. Không mở mẫu phiếu.'),
+                'Máy in hóa đơn chưa sẵn sàng. Phiếu treo — không chuyển máy khác.'),
           );
         }
         return false;
@@ -607,7 +631,12 @@ Future<bool> printPosSaleOrder({
       onHang: onCloudHang,
       buildEscPos: (printer) async {
         var settings = toThermalSettings(printer);
-        settings = _thermalSettingsForTemplate(settings, template);
+        final tpl = await _resolveSalePrintTemplate(
+          templateId,
+          documentType: documentType,
+          paperSize: PosPrintPaperSizes.fromWidthMm(settings.paperWidthMm),
+        );
+        settings = _thermalSettingsForTemplate(settings, tpl);
         final isProvisional =
             (documentTitle ?? '').toUpperCase().contains('TẠM');
         final allowKick = openCashDrawer ?? !printOrder.isReprint;
@@ -621,7 +650,7 @@ Future<bool> printPosSaleOrder({
         return _buildSaleEscPosMatchingLocal(
           printOrder: printOrder,
           settings: settings,
-          template: template,
+          template: tpl,
           branchName: branchName,
           storeAddress: storeAddress,
           storePhone: storePhone,
@@ -641,7 +670,7 @@ Future<bool> printPosSaleOrder({
         NotificationOverlayManager().showError(
           title: 'In thất bại',
           message: tr(
-              'Không gửi được máy in / Print Agent offline — phiếu treo, không mở mẫu.'),
+              'Máy in hóa đơn offline. Phiếu treo — không chuyển máy khác.'),
         );
       }
       return false;
@@ -655,8 +684,8 @@ Future<bool> printPosSaleOrder({
       NotificationOverlayManager().showError(
         title: 'Chưa in được',
         message: tr(kIsWeb
-            ? 'Chưa cấu hình máy in cửa hàng hoặc Print Agent (Android) chưa online. Không mở mẫu phiếu.'
-            : 'Chưa cấu hình máy in nhiệt hoặc Print Agent. Vào Thiết lập in — không mở hộp thoại in hệ thống.'),
+            ? 'Chưa có máy in hóa đơn được chia sẻ (Print Agent). Phiếu treo — không gửi cloud.'
+            : 'Chưa có máy in hóa đơn trên máy này hoặc máy Agent được chia sẻ. Phiếu treo — không gửi cloud.'),
       );
     }
     return false;
@@ -761,7 +790,7 @@ Future<bool> _tryLocalSalePrint({
       final v2 = PosPrintTemplateRuntime.resolveOrPreset(
         template: template,
         documentType: documentType,
-        paperSize: template?.paperSize ?? PosPrintPaperSizes.k80,
+        paperSize: PosPrintPaperSizes.fromWidthMm(settings.paperWidthMm),
         printerProfile: settings.paperWidthMm <= 58
             ? PosPrintPrinterProfiles.sunmiK58
             : PosPrintPrinterProfiles.sunmiK80,
@@ -840,7 +869,7 @@ Future<bool> _tryLocalSalePrint({
     final v2 = PosPrintTemplateRuntime.resolveOrPreset(
       template: template,
       documentType: documentType,
-      paperSize: template?.paperSize ?? PosPrintPaperSizes.k80,
+      paperSize: PosPrintPaperSizes.fromWidthMm(s.paperWidthMm),
       printerProfile: s.paperWidthMm <= 58
           ? PosPrintPrinterProfiles.sunmiK58
           : PosPrintPrinterProfiles.sunmiK80,

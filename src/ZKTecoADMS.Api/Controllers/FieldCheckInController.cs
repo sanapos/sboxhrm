@@ -12,6 +12,7 @@ using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -1607,8 +1608,15 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
             if (!allowOutsideCheckIn)
             {
+                // Bản đồ nhân sự: chỉ store có bật chức năng này mới theo dõi vị trí,
+                // và chỉ theo dõi trong thời gian ca làm việc đã duyệt. NV chưa có ca
+                // (chưa cài ca) → không lưu vị trí. Giữ nguyên hành vi cũ cho NV bật
+                // "chấm ngoài CT" (allowOutsideCheckIn) — luôn lưu.
+                var storeHasFieldCheckIn = await StorePackageHelper
+                    .IsModuleAllowedAsync(_dbContext, storeId, "FieldCheckIn");
+
                 var nowLocal = DateTime.Now;
-                var onShift = await _dbContext.Shifts
+                var onShift = storeHasFieldCheckIn && await _dbContext.Shifts
                     .AsNoTracking()
                     .AnyAsync(s => s.StoreId == storeId
                         && s.EmployeeUserId == CurrentUserId
@@ -1619,8 +1627,8 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 if (!onShift)
                 {
                     _logger.LogWarning(
-                        "ReportLocation skipped for {UserId} store {StoreId}: not-eligible (allowOutside={AllowOutside}, outsideDevices={DeviceCount})",
-                        userId, storeId, allowOutsideCheckIn, outsideDeviceIds.Count);
+                        "ReportLocation skipped for {UserId} store {StoreId}: not-eligible (feature={Feature}, allowOutside={AllowOutside}, outsideDevices={DeviceCount})",
+                        userId, storeId, storeHasFieldCheckIn, allowOutsideCheckIn, outsideDeviceIds.Count);
                     return Ok(AppResponse<object>.Success(new { stored = false, reason = "not-eligible" }));
                 }
             }
@@ -1937,15 +1945,18 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 .ToList();
 
             var allowOutsideCheckIn = HasOutsideCheckIn(empIdStr, empCode, appUserIdStr, outsideCheckInKeys);
+            // NV đang được theo dõi realtime trong ca cũng phải hiển thị trên bản đồ,
+            // không chỉ riêng NV bật "chấm ngoài CT".
+            var hasLiveGps = IsRecentUtc(live?.UpdatedAt, 10);
             var isFieldTracking = fieldStaffOnly
-                ? allowOutsideCheckIn
+                ? (allowOutsideCheckIn || hasLiveGps)
                 : IsFieldTrackable(journey, empVisits.Count, source, allowOutsideCheckIn);
             var hasActiveCheckin = empVisits.Any(v => v.Status == "checked_in");
             var isOnline = IsOnlineFieldStaff(
                 journey?.Status, source, lastUpdate, hasActiveCheckin, isFieldTracking,
                 allowOutsideCheckIn, live?.UpdatedAt);
 
-            if (fieldStaffOnly && allowOutsideCheckIn && !isOnline)
+            if (fieldStaffOnly && isFieldTracking && !isOnline)
             {
                 lat = null;
                 lng = null;
@@ -1979,7 +1990,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
         .ToList();
 
         if (fieldStaffOnly)
-            result = result.Where(e => e.allowOutsideCheckIn).ToList();
+            result = result.Where(e => e.isFieldTracking).ToList();
 
         // Include store users who have location data but no Employee record
         var allMatchedIds = new HashSet<string>();
@@ -2064,19 +2075,20 @@ public class FieldCheckInController : AuthenticatedControllerBase
                     .Select(v => new { v.LocationName, v.CheckInTime, v.CheckOutTime, v.TimeSpentMinutes, v.Status, v.CheckInLatitude, v.CheckInLongitude })
                     .ToList();
 
+                var uLive = liveLocations.FirstOrDefault(l => l.EmployeeId == userIdStr);
+                var uHasLiveGps = IsRecentUtc(uLive?.UpdatedAt, 10);
                 var uAllowOutside = HasOutsideCheckIn(userIdStr, null, userIdStr, outsideCheckInKeys);
-                if (fieldStaffOnly && !uAllowOutside) continue;
+                if (fieldStaffOnly && !uAllowOutside && !uHasLiveGps) continue;
 
                 var uIsFieldTracking = fieldStaffOnly
-                    ? uAllowOutside
+                    ? (uAllowOutside || uHasLiveGps)
                     : IsFieldTrackable(uJourney, uVisits.Count, uSource, uAllowOutside);
                 var uHasActiveCheckin = uVisits.Any(v => v.Status == "checked_in");
-                var uLive = liveLocations.FirstOrDefault(l => l.EmployeeId == userIdStr);
                 var uIsOnline = IsOnlineFieldStaff(
                     uJourney?.Status, uSource, uLastUpdate, uHasActiveCheckin, uIsFieldTracking,
                     uAllowOutside, uLive?.UpdatedAt);
 
-                if (fieldStaffOnly && uAllowOutside && !uIsOnline)
+                if (fieldStaffOnly && uIsFieldTracking && !uIsOnline)
                 {
                     uLat = null;
                     uLng = null;

@@ -367,6 +367,19 @@ class PermissionProvider extends ChangeNotifier {
     if (moduleCode == 'PosSaleReturns' && _flag('PosSell', action)) {
       return true;
     }
+    // Addon vận hành khi bán — khớp server: chỉ kế thừa Xem từ PosSell.
+    if ((moduleCode == 'PosKds' ||
+            moduleCode == 'PosQrOrder' ||
+            moduleCode == 'PosCashierShift' ||
+            moduleCode == 'PosCustomers' ||
+            moduleCode == 'PosBooking' ||
+            moduleCode == 'PosWarranty' ||
+            moduleCode == 'PosCustomerDisplay' ||
+            moduleCode == 'PosEInvoice') &&
+        action == 'canView' &&
+        _flag('PosSell', 'canView')) {
+      return true;
+    }
     // ĐVVC: xem/tạo từ PosSell; sửa cấu hình từ PosSell Edit hoặc SettingsHub.
     if (moduleCode == 'PosShipping') {
       if (action == 'canView' && _flag('PosSell', 'canView')) return true;

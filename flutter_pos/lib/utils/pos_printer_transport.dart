@@ -6,6 +6,7 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:sbox_pos/shims/sunmi_api_shim.dart';
 
 import 'pos_thermal_printer_settings.dart';
+import 'pos_thermal_bitmap.dart';
 import 'pos_printer_peripheral.dart';
 import 'pos_usb_printer.dart';
 
@@ -33,6 +34,64 @@ class PosPrinterTransport {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Handheld (V2s/V2/V1…) in trong máy — không có dao cắt, chỉ xé tay.
+  static Future<bool> sunmiHasAutoCutter() async {
+    if (kIsWeb || !Platform.isAndroid) return false;
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      final m =
+          '${info.model} ${info.device} ${info.product}'.toLowerCase();
+      if (m.contains('v2s') ||
+          m.contains('v2_') ||
+          m.contains('v1s') ||
+          RegExp(r'\bv1\b').hasMatch(m) ||
+          m.contains('p2mini') ||
+          m.contains('l2s') ||
+          m.contains('l2k')) {
+        return false;
+      }
+      if (m.contains('t1') ||
+          m.contains('t2') ||
+          m.contains('nt3') ||
+          m.contains('d2')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  /// Đẩy giấy đúng số dòng đã chỉnh. 0 = không đẩy thêm.
+  /// Máy không dao cắt: không gọi cutPaper (trên V2s lệnh cắt nuốt feed).
+  static Future<void> finishSunmiSlip({required int feedLines}) async {
+    final n = feedLines.clamp(0, 40);
+    final hasCutter = await sunmiHasAutoCutter();
+    // V2s (không dao): KHÔNG đẩy giấy ở đây. Lệnh feed gửi rời sau raster bị
+    // firmware nuốt ⇒ giấy kẹt đầu in. Feed được nhồi hàng trắng vào GS v 0
+    // (xem _printImageLines / _sendSunmi). Chỉ máy có dao mới đẩy + cắt tại đây.
+    if (!hasCutter) return;
+    if (n > 0) {
+      try {
+        await SunmiPrinter.lineWrap(n);
+      } catch (e) {
+        debugPrint('Sunmi lineWrap: $e');
+      }
+    }
+    try {
+      await SunmiPrinter.cutPaper();
+    } catch (e) {
+      debugPrint('Sunmi cutPaper: $e');
+    }
+  }
+
+  /// Feed n dòng: nhồi hàng trắng vào GS v 0 (LF sau raster bị V2s bỏ qua).
+  static List<int> _escFeedBytes(List<int> payload, int n, {int paperDots = 384}) {
+    return PosThermalBitmapEncoder.appendHandheldFeed(
+      payload,
+      n,
+      paperDots: paperDots,
+    );
   }
 
   /// Chuẩn hóa brand Sunmi khi cổng đã chọn là Sunmi.
@@ -197,12 +256,13 @@ class PosPrinterTransport {
 
   /// Bỏ lệnh cắt GS V + feed thừa cuối payload — tránh giấy trắng dài khi
   /// Sunmi còn lineWrap/cutPaper sau printEscPos.
+  /// Beep (ESC B) / mở két (ESC p) đứng sau cắt nên phải bỏ qua, không break.
   static List<int> stripTrailingCut(List<int> bytes) {
     final out = List<int>.from(bytes);
+    final kept = <int>[];
     var guard = 0;
-    while (out.length >= 2 && guard++ < 64) {
+    while (out.length >= 2 && guard++ < 96) {
       final n = out.length;
-      // GS V m [n] — cắt
       if (n >= 3 && out[n - 3] == 0x1D && out[n - 2] == 0x56) {
         out.removeRange(n - 3, n);
         continue;
@@ -211,18 +271,27 @@ class PosPrinterTransport {
         out.removeRange(n - 4, n);
         continue;
       }
-      // ESC d n — feed n dòng
       if (n >= 3 && out[n - 3] == 0x1B && out[n - 2] == 0x64) {
         out.removeRange(n - 3, n);
         continue;
       }
-      // LF / CR thừa
+      if (n >= 4 && out[n - 4] == 0x1B && out[n - 3] == 0x42) {
+        kept.insertAll(0, out.sublist(n - 4));
+        out.removeRange(n - 4, n);
+        continue;
+      }
+      if (n >= 5 && out[n - 5] == 0x1B && out[n - 4] == 0x70) {
+        kept.insertAll(0, out.sublist(n - 5));
+        out.removeRange(n - 5, n);
+        continue;
+      }
       if (out[n - 1] == 0x0A || out[n - 1] == 0x0D) {
         out.removeLast();
         continue;
       }
       break;
     }
+    out.addAll(kept);
     return out;
   }
 
@@ -313,23 +382,25 @@ class PosPrinterTransport {
       // Shim map printEscPos → printRawData (sunmi_printer_plus 2.x AIDL).
       // Strip GS V — cắt bằng cutPaper sau khi đẩy giấy.
       final payload = stripTrailingCut(bytes);
-      final result = await SunmiPrinter.printEscPos(payload);
+      final feed = feedLines.clamp(0, 40);
+      final hasCutter = await sunmiHasAutoCutter();
+
+      // Máy KHÔNG dao (V2s): nhồi hàng trắng vào CÙNG GS v 0. LF / lineWrap
+      // gửi rời (và cả LF nối sau raster) bị firmware nuốt ⇒ số dòng không đổi.
+      final toSend = (!hasCutter && feed > 0)
+          ? _escFeedBytes(payload, feed)
+          : payload;
+      final result = await SunmiPrinter.printEscPos(toSend);
       debugPrint('Sunmi printEscPos result: $result');
       if (!sunmiEscPosResultOk(result)) {
         debugPrint('Sunmi printEscPos rejected: $result');
         return false;
       }
 
-      // ESC/POS fallback: tôn trọng feed đã resolve (không kẹp 6 — cắt sớm mất món).
-      // Native Sunmi tự feed trong PosSunmiNativePrint.
-      final feed = feedLines.clamp(0, 28);
-      if (feed > 0) {
-        await SunmiPrinter.lineWrap(feed);
-      }
-      try {
-        await SunmiPrinter.cutPaper();
-      } catch (e) {
-        debugPrint('Sunmi cutPaper: $e');
+      // Máy có dao: đẩy giấy + cắt (feed rời chạy ổn trên dòng máy có dao).
+      // Máy không dao: feed đã nằm trong payload ở trên, không gọi lại.
+      if (hasCutter) {
+        await finishSunmiSlip(feedLines: feed);
       }
       // Bổ sung API mở két nếu payload có ESC p (strip không xóa lệnh này).
       final drawerSig = PosPrinterPeripheral.openDrawerEscPos();

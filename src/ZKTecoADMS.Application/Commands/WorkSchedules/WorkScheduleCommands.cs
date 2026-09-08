@@ -552,8 +552,7 @@ public class ApproveScheduleRegistrationHandler(
                 includeProperties: [
                     nameof(ScheduleRegistration.Employee),
                     nameof(ScheduleRegistration.Shift),
-                    nameof(ScheduleRegistration.ApprovedBy),
-                    nameof(ScheduleRegistration.ApprovalRecords)
+                    nameof(ScheduleRegistration.ApprovedBy)
                 ],
                 cancellationToken: cancellationToken);
 
@@ -586,13 +585,43 @@ public class ApproveScheduleRegistrationHandler(
                 registration.TotalApprovalLevels = Math.Max(1, registration.TotalApprovalLevels);
             }
 
+            var approver = await userManager.FindByIdAsync(request.ApprovedById.ToString());
+            var canApproveAsStoreManager = IsStoreScheduleApproverRole(approver?.Role);
+
+            // Bản ghi mồ côi: mọi bước đã Approved nhưng phiếu vẫn Pending (Apply lịch lần trước bị lỗi).
+            if (currentRecord == null
+                && request.IsApproved
+                && allRecords.Count > 0
+                && allRecords.All(r => r.Status == ApprovalStatus.Approved))
+            {
+                if (!canApproveAsStoreManager)
+                    return AppResponse<ScheduleRegistrationDto>.Error("Bạn không có quyền hoàn tất yêu cầu này");
+
+                var quotaErrorOrphan = await ScheduleStaffingQuotaHelper.GetQuotaExceededMessageAsync(
+                    staffingQuotaRepository, workScheduleRepository, registrationRepository,
+                    employeeRepository, registration, request.StoreId, cancellationToken);
+                if (quotaErrorOrphan != null)
+                    return AppResponse<ScheduleRegistrationDto>.Error(quotaErrorOrphan);
+
+                await ApplyApprovedScheduleAsync(registration, request.StoreId, workScheduleRepository, cancellationToken);
+                registration.Status = ScheduleRegistrationStatus.Approved;
+                registration.ApprovedById = request.ApprovedById;
+                registration.ApprovedDate = DateTime.UtcNow;
+                registration.RejectionReason = null;
+                registration.CurrentApprovalStep = allRecords.Max(r => r.StepOrder);
+                await registrationRepository.UpdateAsync(registration, cancellationToken);
+                return await ReloadRegistrationDtoAsync(
+                    registrationRepository, registration.Id, request.StoreId, cancellationToken);
+            }
+
             if (currentRecord == null)
                 return AppResponse<ScheduleRegistrationDto>.Error("Không còn bước duyệt nào cần xử lý");
 
-            var approver = await userManager.FindByIdAsync(request.ApprovedById.ToString());
-            var isAdmin = approver?.Role is "Admin" or "SuperAdmin";
-            var isAssigned = currentRecord.AssignedUserId == request.ApprovedById;
-            if (!isAdmin && !isAssigned)
+            // Màn Duyệt lịch: QL/GĐ được duyệt hàng đợi cửa hàng, không chỉ người được gán chuỗi.
+            // AssignedUserId null (không có QL trực tiếp / Admin) → bất kỳ QL cửa hàng cũng duyệt được.
+            var isAssigned = !currentRecord.AssignedUserId.HasValue
+                             || currentRecord.AssignedUserId == request.ApprovedById;
+            if (!canApproveAsStoreManager && !isAssigned)
                 return AppResponse<ScheduleRegistrationDto>.Error("Bạn không có quyền duyệt bước này");
 
             if (!request.IsApproved)
@@ -638,6 +667,9 @@ public class ApproveScheduleRegistrationHandler(
                     employeeRepository, registration, request.StoreId, cancellationToken);
                 if (quotaError != null)
                     return AppResponse<ScheduleRegistrationDto>.Error(quotaError);
+
+                // Ghi lịch trước khi đánh dấu bước duyệt — nếu Apply lỗi, phiếu vẫn Pending để duyệt lại.
+                await ApplyApprovedScheduleAsync(registration, request.StoreId, workScheduleRepository, cancellationToken);
             }
 
             currentRecord.ActualUserId = request.ApprovedById;
@@ -656,7 +688,6 @@ public class ApproveScheduleRegistrationHandler(
                 registration.ApprovedDate = DateTime.UtcNow;
                 registration.RejectionReason = null;
 
-                await ApplyApprovedScheduleAsync(registration, request.StoreId, workScheduleRepository, cancellationToken);
                 await registrationRepository.UpdateAsync(registration, cancellationToken);
 
                 try
@@ -704,21 +735,44 @@ public class ApproveScheduleRegistrationHandler(
                 catch { }
             }
 
-            var refreshed = await registrationRepository.GetSingleAsync(
-                filter: r => r.Id == registration.Id && r.StoreId == request.StoreId,
-                includeProperties: [
-                    nameof(ScheduleRegistration.Employee),
-                    nameof(ScheduleRegistration.Shift),
-                    nameof(ScheduleRegistration.ApprovalRecords)
-                ],
-                cancellationToken: cancellationToken);
-
-            return AppResponse<ScheduleRegistrationDto>.Success(refreshed!.Adapt<ScheduleRegistrationDto>());
+            return await ReloadRegistrationDtoAsync(
+                registrationRepository, registration.Id, request.StoreId, cancellationToken);
         }
         catch (Exception ex)
         {
             return AppResponse<ScheduleRegistrationDto>.Error(ex.Message);
         }
+    }
+
+    /// <summary>Cùng tập vai trò policy AtLeastManager — màn Duyệt lịch là hàng đợi cửa hàng.</summary>
+    private static bool IsStoreScheduleApproverRole(string? role)
+    {
+        if (string.IsNullOrWhiteSpace(role))
+            return false;
+        return role.Equals(nameof(Roles.Admin), StringComparison.OrdinalIgnoreCase)
+            || role.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase)
+            || role.Equals(nameof(Roles.Director), StringComparison.OrdinalIgnoreCase)
+            || role.Equals(nameof(Roles.Manager), StringComparison.OrdinalIgnoreCase)
+            || role.Equals(nameof(Roles.DepartmentHead), StringComparison.OrdinalIgnoreCase)
+            || role.Equals(nameof(Roles.Agent), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<AppResponse<ScheduleRegistrationDto>> ReloadRegistrationDtoAsync(
+        IRepository<ScheduleRegistration> registrationRepository,
+        Guid registrationId,
+        Guid storeId,
+        CancellationToken cancellationToken)
+    {
+        var refreshed = await registrationRepository.GetSingleAsync(
+            filter: r => r.Id == registrationId && r.StoreId == storeId,
+            includeProperties: [
+                nameof(ScheduleRegistration.Employee),
+                nameof(ScheduleRegistration.Shift),
+                nameof(ScheduleRegistration.ApprovalRecords)
+            ],
+            cancellationToken: cancellationToken);
+
+        return AppResponse<ScheduleRegistrationDto>.Success(refreshed!.Adapt<ScheduleRegistrationDto>());
     }
 
     private static async Task ApplyApprovedScheduleAsync(
@@ -727,9 +781,11 @@ public class ApproveScheduleRegistrationHandler(
         IRepository<WorkSchedule> workScheduleRepository,
         CancellationToken cancellationToken)
     {
+        var dayStart = registration.Date.Date;
+        var dayEnd = dayStart.AddDays(1);
         var daySchedules = await workScheduleRepository.GetAllAsync(
             ws => ws.EmployeeUserId == registration.EmployeeUserId
-                  && ws.Date.Date == registration.Date.Date
+                  && ws.Date >= dayStart && ws.Date < dayEnd
                   && ws.StoreId == storeId,
             cancellationToken: cancellationToken);
 

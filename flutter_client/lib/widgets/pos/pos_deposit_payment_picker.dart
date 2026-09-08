@@ -211,7 +211,7 @@ Future<({double amount, PosDepositPayChoice pay})?> showPosCollectDepositDialog(
                 decoration: InputDecoration(
                   labelText: tr('Số tiền cọc'),
                   border: const OutlineInputBorder(),
-                  suffixText: 'đ',
+                  suffixText: tr('đ'),
                 ),
               ),
               const SizedBox(height: 12),

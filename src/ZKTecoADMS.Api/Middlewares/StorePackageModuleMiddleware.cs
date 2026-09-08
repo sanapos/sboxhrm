@@ -230,9 +230,9 @@ public class StorePackageModuleMiddleware
             path.StartsWith("/api/pos/customer-display", StringComparison.OrdinalIgnoreCase))
             return true;
 
-        // Gói có PosSell → KDS / QR / ca / máy in thiết bị / HĐĐT / ĐVVC (gói cũ chưa tick addon).
+        // Gói có PosSell → QR / KDS / ca / máy in thiết bị / HĐĐT / ĐVVC (gói cũ chưa tick addon).
         if (allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase) &&
-            module is "PosKds" or "PosQrOrder" or "PosCashierShift" or "PosPrinters"
+            module is "PosQrOrder" or "PosKds" or "PosCashierShift" or "PosPrinters"
                 or "PosEInvoice" or "PosShipping")
             return true;
 

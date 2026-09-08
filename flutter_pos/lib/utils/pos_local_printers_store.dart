@@ -595,7 +595,7 @@ class PosLocalPrintersStore {
   /// Máy Sunmi có sẵn in trong máy nhưng chưa cài trong app → false → cloud.
   Future<bool> hasInstalledOnDevice(PosStorePrinter printer) async {
     if (printer.id.isEmpty) return false;
-    final local = await resolveForStorePrinter(printer);
+    final local = await resolveForStorePrinter(printer, exactPort: true);
     return local != null && profileAllowsDirectLocal(local);
   }
 
@@ -627,8 +627,9 @@ class PosLocalPrintersStore {
   Future<PosLocalPrinterProfile?> resolveOnDeviceForStorePrinter(
     PosStorePrinter printer, {
     required String documentRole,
+    bool exactPort = false,
   }) async {
-    final local = await resolveForStorePrinter(printer);
+    final local = await resolveForStorePrinter(printer, exactPort: exactPort);
     if (local == null || !profileAllowsDirectLocal(local)) return null;
     if (!roleMatchesDocument(local.roles, documentRole)) return null;
     return local;
@@ -646,13 +647,14 @@ class PosLocalPrintersStore {
   /// Quan trọng: không dùng chip USB khi job là máy LAN/WiFi (storePrinterId gắn nhầm) —
   /// nếu không, báo bếp gán WiFi sẽ in ra USB rồi treo/ báo lỗi máy WiFi.
   Future<PosLocalPrinterProfile?> resolveForStorePrinter(
-    PosStorePrinter printer,
-  ) async {
+    PosStorePrinter printer, {
+    bool exactPort = false,
+  }) async {
     if (printer.id.isEmpty) return null;
     final byId = await byStorePrinterId(printer.id);
     if (byId != null) {
-      if (matchesStorePrinter(byId, printer) ||
-          _compatibleConnection(byId.connectionType, printer.connectionType)) {
+      // Chỉ tin storePrinterId khi cổng khớp — không nhận mọi USB/LAN cùng loại.
+      if (matchesStorePrinter(byId, printer, exactPort: exactPort)) {
         return byId;
       }
       debugPrint(
@@ -664,29 +666,16 @@ class PosLocalPrintersStore {
 
     final all = await loadAll();
     for (final p in all.where((x) => x.enabled)) {
-      if (matchesStorePrinter(p, printer)) return p;
+      if (matchesStorePrinter(p, printer, exactPort: exactPort)) return p;
     }
     return null;
   }
 
-  /// Cùng loại cổng (Lan/Usb/BT/Sunmi) — không cho USB thay LAN dù cùng storePrinterId.
-  static bool _compatibleConnection(
-    PosThermalConnectionType local,
-    String storeConnectionType,
-  ) {
-    final conn = switch (local) {
-      PosThermalConnectionType.lan => 'Lan',
-      PosThermalConnectionType.bluetooth => 'Bluetooth',
-      PosThermalConnectionType.usb => 'Usb',
-      PosThermalConnectionType.sunmi => 'Sunmi',
-    };
-    return storeConnectionType.trim().toLowerCase() == conn.toLowerCase();
-  }
-
   static bool matchesStorePrinter(
     PosLocalPrinterProfile local,
-    PosStorePrinter store,
-  ) {
+    PosStorePrinter store, {
+    bool exactPort = false,
+  }) {
     final conn = switch (local.connectionType) {
       PosThermalConnectionType.lan => 'Lan',
       PosThermalConnectionType.bluetooth => 'Bluetooth',
@@ -696,19 +685,26 @@ class PosLocalPrintersStore {
     if (store.connectionType != conn) return false;
     switch (local.connectionType) {
       case PosThermalConnectionType.lan:
-        return (store.lanHost ?? '').trim() == (local.lanHost ?? '').trim();
+        final host = (store.lanHost ?? '').trim();
+        final localHost = (local.lanHost ?? '').trim();
+        if (host.isEmpty || localHost.isEmpty) return false;
+        return host.toLowerCase() == localHost.toLowerCase();
       case PosThermalConnectionType.bluetooth:
-        return (store.bluetoothAddress ?? '').toLowerCase() ==
-            (local.bluetoothAddress ?? '').toLowerCase();
+        final a = (store.bluetoothAddress ?? '').trim();
+        final b = (local.bluetoothAddress ?? '').trim();
+        if (a.isEmpty || b.isEmpty) return false;
+        return a.toLowerCase() == b.toLowerCase();
       case PosThermalConnectionType.usb:
         final a = (store.usbDeviceName ?? '').trim();
         final b = (local.usbDeviceName ?? '').trim();
         if (a.isNotEmpty && b.isNotEmpty) return a == b;
-        // Cùng USB + tên gần giống (chip «zywel usb» vs máy cloud trùng).
+        // Gán món / 2 máy «Bếp»: không khớp chỉ vì cùng tên — A7 in local + Agent.
+        if (exactPort) return false;
         return local.name.trim().toLowerCase() ==
             store.name.trim().toLowerCase();
       case PosThermalConnectionType.sunmi:
-        return true;
+        return local.name.trim().toLowerCase() ==
+            store.name.trim().toLowerCase();
     }
   }
 

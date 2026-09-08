@@ -11,7 +11,6 @@ public class DeviceCommand : Entity<Guid>
     public long CommandId { get; set; } = DateTime.Now.Ticks;
 
     [Required]
-    [MaxLength(1000)]
     public string Command { get; set; } = string.Empty;
 
     public int Priority { get; set; } = 1;

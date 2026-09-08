@@ -6,6 +6,8 @@ import '../../utils/pos_sell_print_settings.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/pos/pos_sell_mobile_print_settings_screen.dart';
+import '../../widgets/pos/pos_theme.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Máy in / mẫu in runtime — Settings hub (HRM). Tái dùng UI mobile print settings.
 class PosPrinterSettingsHubScreen extends StatefulWidget {
@@ -42,9 +44,25 @@ class _PosPrinterSettingsHubScreenState
   @override
   Widget build(BuildContext context) {
     if (_loading || _print == null || _thermal == null) {
-      return const ColoredBox(
+      final spinner = const ColoredBox(
         color: HrmPageChrome.background,
         child: Center(child: CircularProgressIndicator()),
+      );
+      if (!HrmPageChrome.showInPageAppBar(context)) return spinner;
+      return Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        appBar: AppBar(
+          title: Text(tr('Thiết lập in')),
+          backgroundColor: Colors.white,
+          foregroundColor: PosTheme.textPrimary,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: tr('Quay lại'),
+            onPressed: () => Navigator.maybePop(context),
+          ),
+        ),
+        body: spinner,
       );
     }
     return PosSellMobilePrintSettingsScreen(

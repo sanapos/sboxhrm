@@ -231,6 +231,16 @@ public static class StorePackageHelper
                 cancellationToken);
         if (existing != null)
         {
+            var wasReleased = existing.Deleted != null || !existing.IsActive;
+            if (wasReleased)
+            {
+                var used = await CountActiveAccessDevicesAsync(db, storeId, cancellationToken);
+                if (maxAccess > 0 && used >= maxAccess)
+                {
+                    return (false,
+                        $"Cửa hàng đã đạt giới hạn {maxAccess} thiết bị truy cập theo gói dịch vụ. Vui lòng gỡ thiết bị cũ trong Thiết lập SBOX hoặc nâng cấp gói.");
+                }
+            }
             existing.UserId = userId;
             existing.Platform = p;
             if (!string.IsNullOrWhiteSpace(deviceName)) existing.DeviceName = deviceName.Trim();
@@ -242,13 +252,11 @@ public static class StorePackageHelper
             return (true, null);
         }
 
-        var current = await db.StoreAccessDevices.CountAsync(
-            d => d.StoreId == storeId && d.Deleted == null && d.IsActive,
-            cancellationToken);
+        var current = await CountActiveAccessDevicesAsync(db, storeId, cancellationToken);
         if (maxAccess > 0 && current >= maxAccess)
         {
             return (false,
-                $"Cửa hàng đã đạt giới hạn {maxAccess} thiết bị truy cập theo gói dịch vụ. Vui lòng gỡ thiết bị cũ hoặc nâng cấp gói.");
+                $"Cửa hàng đã đạt giới hạn {maxAccess} thiết bị truy cập theo gói dịch vụ. Vui lòng gỡ thiết bị cũ trong Thiết lập SBOX hoặc nâng cấp gói.");
         }
 
         db.StoreAccessDevices.Add(new StoreAccessDevice
@@ -265,6 +273,27 @@ public static class StorePackageHelper
         });
         await db.SaveChangesAsync(cancellationToken);
         return (true, null);
+    }
+
+    public static Task<int> CountActiveAccessDevicesAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        CancellationToken cancellationToken = default) =>
+        db.StoreAccessDevices.CountAsync(
+            d => d.StoreId == storeId && d.Deleted == null && d.IsActive,
+            cancellationToken);
+
+    public static async Task<(int Used, int Max, bool Unlimited)> GetAccessDeviceQuotaAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        CancellationToken cancellationToken = default)
+    {
+        var store = await db.Stores.AsNoTracking()
+            .Include(s => s.ServicePackage)
+            .FirstOrDefaultAsync(s => s.Id == storeId, cancellationToken);
+        var max = store?.ServicePackage?.MaxAccessDevices ?? store?.MaxAccessDevices ?? 0;
+        var used = await CountActiveAccessDevicesAsync(db, storeId, cancellationToken);
+        return (used, max, max <= 0);
     }
 
     public static async Task<bool> CanSendFcmAsync(

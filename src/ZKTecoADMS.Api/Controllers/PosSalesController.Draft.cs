@@ -7,6 +7,7 @@ using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Api.Controllers.Reports;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -146,7 +147,7 @@ public partial class PosSalesController
             dto.ServiceResourceId, dto.ResourceSessionId, dto.ServiceStartedAt, dto.ServiceEndedAt,
             dto.ExpectedLockVersion, dto.DeviceId, dto.DeviceName, dto.InvoiceSlot,
             dto.VatAmount, dto.IssueEInvoice, dto.EInvoiceBuyer,
-            dto.SurchargeAmount, dto.DeliveryFee);
+            dto.SurchargeAmount, dto.DeliveryFee, dto.SaleDate);
 
         // Thanh toán: RepeatableRead + retry serialization/unique (giống CreateSale) —
         // tránh 500 «lỗi hệ thống» khi autosave/máy khác tranh chấp tồn hoặc mã HD/phiếu thu.
@@ -751,6 +752,7 @@ public partial class PosSalesController
         var sellSettingsComplete = await dbContext.PosStoreSellSettings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null);
         var allowNegComplete = sellSettingsComplete?.AllowNegativeStock == true;
+        var loyaltyRatesComplete = PosCustomerFinanceHelper.ResolveRates(sellSettingsComplete);
         // Draft cũ chỉ có UnitName — resolve UnitId để quy đổi tồn đúng.
         await PosSaleStockHelper.EnsureLineUnitIdsAsync(dbContext, order.Lines);
         var lineInputs = order.Lines
@@ -870,6 +872,8 @@ public partial class PosSalesController
                         .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
                     if (saleCustomer != null)
                     {
+                        order.PointsEarned = PosCustomerFinanceHelper.CalcPointsEarn(
+                            order.Total, loyaltyRatesComplete);
                         await PosCustomerFinanceHelper.ApplyPointsOnSaleCompleteAsync(
                             dbContext, storeId, order, saleCustomer, CurrentUserEmail);
                         if (order.VoucherId.HasValue)
@@ -1161,12 +1165,17 @@ public partial class PosSalesController
                 .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null && v.IsActive)
                 .ToDictionaryAsync(v => v.Id));
 
+        var priorProductIds = priorInputs.Select(x => x.ProductId).ToHashSet();
+        var bizDate = PosDailySoldOutHelper.BusinessDate(sellSettings?.ReportDayStartHour ?? 0);
         foreach (var line in dto.Lines)
         {
             if (!products.TryGetValue(line.ProductId, out var prod))
                 return (null, null, $"Hàng hóa không hợp lệ: {line.ProductId}");
             var qtyErr = PosQtyRules.ValidateLineQty(prod, line.Qty, complete ? "Thanh toán" : "Lưu đơn");
             if (qtyErr != null) return (null, null, qtyErr);
+            if (PosDailySoldOutHelper.IsLockedToday(prod.DailySoldOutOn, bizDate)
+                && !priorProductIds.Contains(prod.Id))
+                return (null, null, $"{prod.Name} đã hết / tạm khóa hôm nay");
         }
 
         var now = DateTime.UtcNow;
@@ -1530,6 +1539,7 @@ public partial class PosSalesController
         }
 
         var afterVoucher = merchandise - voucherDiscount;
+        var loyaltyRates = PosCustomerFinanceHelper.ResolveRates(sellSettings);
         if (dto.PointsToRedeem > 0)
         {
             if (!dto.CustomerId.HasValue)
@@ -1538,7 +1548,7 @@ public partial class PosSalesController
                 .FirstOrDefaultAsync(c => c.Id == dto.CustomerId && c.StoreId == storeId && c.Deleted == null);
             if (ptCust == null) return (null, null, "Khách hàng không hợp lệ");
             var (ptDisc, ptRedeem, ptErr) = PosCustomerFinanceHelper.CalcPointsRedeem(
-                dto.PointsToRedeem, ptCust.PointBalance, afterVoucher);
+                dto.PointsToRedeem, ptCust.PointBalance, afterVoucher, loyaltyRates);
             if (ptErr != null) return (null, null, ptErr);
             order.PointsRedeemed = ptRedeem;
             order.PointsDiscount = ptDisc;
@@ -1560,7 +1570,7 @@ public partial class PosSalesController
         order.SurchargeAmount = Math.Max(0, dto.SurchargeAmount);
         order.DeliveryFee = Math.Max(0, dto.DeliveryFee);
         order.PointsEarned = complete && dto.CustomerId.HasValue
-            ? PosCustomerFinanceHelper.CalcPointsEarn(order.Total)
+            ? PosCustomerFinanceHelper.CalcPointsEarn(order.Total, loyaltyRates)
             : 0;
 
         var seatedDeposit = 0m;

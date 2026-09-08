@@ -13,7 +13,11 @@ public class GetDeviceUserDevicesHandler(
         
         var deviceUsers = await deviceUserRepository.GetAllWithIncludeAsync(
             i => (!hasDeviceFilter || request.DeviceIds!.Contains(i.DeviceId)) && i.IsActive,
-            includes: query => query.Include(i => i.Device).Include(i => i.Employee!).Include(i => i.FingerprintTemplates),
+            includes: query => query
+                .Include(i => i.Device)
+                .Include(i => i.Employee!)
+                .Include(i => i.FingerprintTemplates)
+                .Include(i => i.FaceTemplates),
             orderBy: query => query.OrderByDescending(i => i.Device.DeviceName).ThenBy(i => i.Pin),
             cancellationToken: cancellationToken
         );

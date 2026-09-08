@@ -359,10 +359,11 @@ String renderWarehouseSlipTemplate(
   return renderPosPrintTemplateHtml(templateHtml, data: data, lineItems: lines);
 }
 
-/// Mẫu in của cửa hàng: luôn lấy mặc định store (mới nhất), không lệch theo máy.
+/// Mẫu in: ưu tiên đúng khổ máy (K58/K80), rồi mặc định cửa hàng.
 Future<PosPrintTemplate?> resolvePosPrintTemplate({
   required String documentType,
   String? templateId,
+  String? paperSize,
 }) async {
   final api = ApiService();
   var listRes = await api.getPosPrintTemplates(documentType: documentType);
@@ -370,20 +371,11 @@ Future<PosPrintTemplate?> resolvePosPrintTemplate({
   if (list.isEmpty) {
     list = await loadPosPrintTemplates(api, documentType);
   }
-  if (list.isEmpty) return null;
-  DateTime stamp(PosPrintTemplate t) =>
-      t.updatedAt ?? t.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-  final defaults = list.where((t) => t.isDefault).toList();
-  if (defaults.isNotEmpty) {
-    defaults.sort((a, b) => stamp(b).compareTo(stamp(a)));
-    return defaults.first;
-  }
-  if (templateId != null && templateId.isNotEmpty) {
-    final hit = list.where((t) => t.id == templateId).firstOrNull;
-    if (hit != null) return hit;
-  }
-  list.sort((a, b) => stamp(b).compareTo(stamp(a)));
-  return list.first;
+  return pickPosPrintTemplateForPaper(
+    list,
+    paperSize: paperSize,
+    templateId: templateId,
+  );
 }
 
 String renderSampleTemplatePreview(

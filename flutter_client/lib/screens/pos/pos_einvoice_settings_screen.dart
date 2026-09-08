@@ -195,13 +195,26 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      const spinner = Center(child: CircularProgressIndicator());
+      if (HrmPageChrome.hideOuterChrome(context)) return spinner;
+      return Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        appBar: HrmPageChrome.appBar(
+          context: context,
+          title: 'Hóa đơn điện tử',
+        ),
+        body: spinner,
+      );
     }
     final viettel = _provider == 'Viettel';
     final easy = _provider == 'Easy';
     final canTest = viettel || easy;
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
+      appBar: HrmPageChrome.appBar(
+        context: context,
+        title: 'Hóa đơn điện tử',
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [

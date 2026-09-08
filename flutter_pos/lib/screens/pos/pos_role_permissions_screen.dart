@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
+import '../../utils/permission_role_options.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 
@@ -19,7 +20,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
   bool _loading = true;
   bool _saving = false;
   String? _role;
-  List<String> _roles = [];
+  List<PermissionRoleOption> _roles = [];
   List<Map<String, dynamic>> _permissions = [];
 
   static const _posModules = <({String code, String label, String group})>[
@@ -31,13 +32,14 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     (code: 'PosKds', label: 'Màn hình bếp (KDS)', group: 'Menu bán hàng'),
     (code: 'PosQrOrder', label: 'QR order bàn', group: 'Menu bán hàng'),
     (code: 'CashTransaction', label: 'Phiếu thu / phiếu chi', group: 'Menu bán hàng'),
-    (code: 'PosCustomerDisplay', label: 'Màn hình phụ (khi bán)', group: 'Menu bán hàng'),
     (code: 'PosSalesReport', label: 'Báo cáo POS / cuối ngày', group: 'Menu bán hàng'),
-    (code: 'SettingsHub', label: 'Thiết lập POS (cửa hàng, ngành hàng, cổng CK)', group: 'Thiết lập POS'),
+    (code: 'SettingsHub', label: 'Trung tâm (ngành hàng, cửa hàng, sơ đồ bàn, cổng CK)', group: 'Thiết lập POS'),
     (code: 'PosPrinters', label: 'Máy in thiết bị', group: 'Thiết lập POS'),
     (code: 'PosStorePrinters', label: 'Máy in cloud', group: 'Thiết lập POS'),
     (code: 'PosPrintTemplates', label: 'Mẫu in', group: 'Thiết lập POS'),
     (code: 'PosEInvoice', label: 'Hóa đơn điện tử', group: 'Thiết lập POS'),
+    (code: 'PosShipping', label: 'Đơn vị giao hàng', group: 'Thiết lập POS'),
+    (code: 'PosCustomerDisplay', label: 'Màn hình phụ', group: 'Thiết lập POS'),
     (code: 'UserManagement', label: 'Tài khoản', group: 'Thiết lập POS'),
     (code: 'Role', label: 'Phân quyền', group: 'Thiết lập POS'),
     (code: 'PosReportRevenue', label: 'Doanh thu', group: 'Báo cáo'),
@@ -67,26 +69,16 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     setState(() => _loading = true);
     try {
       final raw = await _api.getRoles();
-      final names = <String>{};
-      for (final e in raw) {
-        if (e is String && e.trim().isNotEmpty) {
-          names.add(e.trim());
-        } else if (e is Map) {
-          final n = (e['roleName'] ?? e['RoleName'] ?? e['name'] ?? e['Name'] ?? '')
-              .toString()
-              .trim();
-          if (n.isNotEmpty) names.add(n);
-        }
-      }
-      if (names.isEmpty) {
-        names.addAll(['Admin', 'Manager', 'Cashier', 'Waiter', 'Employee']);
-      }
+      var options = PermissionRoleOptions.parse(raw);
+      if (options.isEmpty) options = PermissionRoleOptions.fallback;
       if (!mounted) return;
       setState(() {
-        _roles = names.toList()..sort();
+        _roles = options;
         _loading = false;
       });
-      final pick = _roles.contains('Cashier') ? 'Cashier' : _roles.first;
+      final pick = options.any((r) => r.name == 'Cashier')
+          ? 'Cashier'
+          : options.first.name;
       await _selectRole(pick);
     } catch (e) {
       if (!mounted) return;
@@ -218,7 +210,14 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
       if (code == 'PosCashierShift' || code == 'PosKds' || code == 'PosProducts') {
         p['canCreate'] = on;
       }
-      if (code == 'SettingsHub' || code == 'PosPrinters' || code == 'Role') {
+      if (code == 'SettingsHub' ||
+          code == 'PosPrinters' ||
+          code == 'PosStorePrinters' ||
+          code == 'PosPrintTemplates' ||
+          code == 'PosEInvoice' ||
+          code == 'PosShipping' ||
+          code == 'PosCustomerDisplay' ||
+          code == 'Role') {
         p['canCreate'] = on;
       }
     });
@@ -305,10 +304,10 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                       children: [
                         for (final r in _roles)
                           ListTile(
-                            selected: r == _role,
+                            selected: r.name == _role,
                             selectedTileColor: PosTheme.kiotBlueLight,
-                            title: Text(tr(r)),
-                            onTap: () => _selectRole(r),
+                            title: Text(tr(r.displayName)),
+                            onTap: () => _selectRole(r.name),
                           ),
                       ],
                     ),

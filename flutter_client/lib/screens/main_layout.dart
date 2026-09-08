@@ -106,6 +106,7 @@ import 'pos/pos_warranty_lookup_screen.dart';
 import 'pos/pos_mobile_hub_screen.dart';
 import 'pos/pos_qr_menu_screen.dart';
 import 'pos/pos_qr_online_orders_screen.dart';
+import 'pos/pos_kds_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
 import '../utils/responsive_helper.dart';
@@ -1702,6 +1703,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'PosSell',
     ),
     NavItem(
+      icon: Icons.kitchen_outlined,
+      activeIcon: Icons.kitchen,
+      label: 'Màn hình bếp (KDS)',
+      subtitle: 'Báo bếp',
+      screen: const PosKdsScreen(),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosKds',
+    ),
+    NavItem(
       icon: Icons.receipt_long_outlined,
       activeIcon: Icons.receipt_long,
       label: 'Đơn hàng',
@@ -3008,7 +3019,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         continue;
       }
       // Lọc theo quyền canView - ẩn module nếu không có quyền xem
-      if (!permProvider.canViewNav(_navItems[i].moduleCode)) continue;
+      if (!permProvider.canViewNav(_navItems[i].moduleCode) &&
+          !(_navItems[i].moduleCode == 'PosKds' &&
+              PermissionNavigation.canNavigate(permProvider, 'PosSell'))) {
+        continue;
+      }
       final group = _navItems[i].group.isEmpty ? 'Khác' : _navItems[i].group;
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, _navItems[i]));
@@ -3549,7 +3564,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         continue;
       }
       // Lọc theo quyền canView
-      if (!permProvider.canViewNav(item.moduleCode)) continue;
+      if (!permProvider.canViewNav(item.moduleCode) &&
+          !(item.moduleCode == 'PosKds' &&
+              PermissionNavigation.canNavigate(permProvider, 'PosSell'))) {
+        continue;
+      }
       final group = item.group.isEmpty ? 'Khác' : item.group;
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, item));
@@ -3789,6 +3808,7 @@ class NavItem {
     'Feedback': (l) => l.feedback,
     'PosProducts': (l) => l.posProducts,
     'PosSell': (l) => l.posSell,
+    'PosKds': (_) => 'Màn hình bếp (KDS)',
     'PosSaleOrders': (l) => l.posSaleOrders,
     'PosSaleReturns': (l) => l.posSaleReturns,
     'PosPurchaseReceipts': (l) => l.posPurchaseReceipts,
@@ -4135,7 +4155,11 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       )) {
         continue;
       }
-      if (!permProvider.canViewNav(item.moduleCode)) continue;
+      if (!permProvider.canViewNav(item.moduleCode) &&
+          !(item.moduleCode == 'PosKds' &&
+              PermissionNavigation.canNavigate(permProvider, 'PosSell'))) {
+        continue;
+      }
       final group = item.group.isEmpty ? 'Khác' : item.group;
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, item));

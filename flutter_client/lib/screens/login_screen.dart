@@ -12,6 +12,7 @@ import '../services/api_service.dart';
 import '../services/app_permission_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/sbox_hrm_brand.dart';
+import '../widgets/sbox_pos_hero_panel.dart';
 import '../config/sbox_app_variant.dart';
 import '../widgets/store_agent_support_card.dart';
 import '../utils/web_marketing_gate_stub.dart'
@@ -54,6 +55,12 @@ class _LoginScreenState extends State<LoginScreen>
   String _phoneNumber = '0973 024 042';
   String _zaloNumber = '0973024042';
   Map<String, dynamic>? _storeAgentContact;
+
+  bool get _isPos => SboxAppVariant.posBranding;
+  Color get _brand =>
+      _isPos ? const Color(0xFF2E7D32) : const Color(0xFF0C56D0);
+  Color get _brandDim =>
+      _isPos ? const Color(0xFF1B5E20) : const Color(0xFF004ABA);
   Timer? _agentLookupDebounce;
   String _appVersionLabel = '';
 
@@ -285,7 +292,7 @@ class _LoginScreenState extends State<LoginScreen>
             if (!mounted) return;
             NotificationOverlayManager().showError(
               title: 'Admin',
-              message: 'Dùng app SBOX HRM để vào cổng quản trị.',
+              message: tr('Dùng app SBOX HRM để vào cổng quản trị.'),
             );
           } else {
             Navigator.of(context).pushNamedAndRemoveUntil('/admin', (_) => false);
@@ -322,18 +329,17 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  // ====== DESKTOP: Split layout (left hero 7/12 + right form 5/12) ======
+  // ====== DESKTOP: POS hero 2/3; HRM hero 7/12 ======
   Widget _buildDesktopLayout(Size size) {
+    final pos = SboxAppVariant.posBranding;
     return Row(
       children: [
-        // ===== LEFT PANEL: Hero (7/12) =====
         Expanded(
-          flex: 7,
+          flex: pos ? 2 : 7,
           child: _buildHeroPanel(),
         ),
-        // ===== RIGHT PANEL: Form (5/12) =====
         Expanded(
-          flex: 5,
+          flex: pos ? 1 : 5,
           child: _buildFormPanel(isDesktop: true),
         ),
       ],
@@ -347,6 +353,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   // ===== Hero Panel (Left side) - ảnh nền + gradient overlay =====
   Widget _buildHeroPanel() {
+    if (SboxAppVariant.posBranding) {
+      return const SboxPosHeroPanel();
+    }
+
     const imageUrl =
         'https://lh3.googleusercontent.com/aida-public/AB6AXuD6gKf5JQatbloDEXQAJyi7OUPnQiNzZORiDKYsBmYfd5RGNvPEOgNyL1K1NW3zrx3NMlwn7vfdnRQpjFl4njRzguVyN7-OTnFC3uKzO2NZxboaxRf0he8vwScXzAANWuVj-B3bWWox3NkiwL3EkbqgZsCF4UvY0S92s_ryURmITms5q7pfRNqenj848647ByfIGa-yEIcjh6nJXtHIPjZSgoX4keaiY1mtAA6DV5k-naedu6M8dnZQTEshrBgVY6JQ7G3-wOdyCsoG';
 
@@ -572,15 +582,18 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Logo
-                  FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: _buildLogo(isDesktop: isDesktop)),
-                  const SizedBox(height: 36),
-                  // Welcome text
                   Align(
-                    alignment:
-                        isDesktop ? Alignment.centerLeft : Alignment.center,
+                    alignment: Alignment.center,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: _buildLogo(isDesktop: isDesktop),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  Align(
+                    alignment: _isPos || !isDesktop
+                        ? Alignment.center
+                        : Alignment.centerLeft,
                     child: Text(tr('Chào mừng trở lại'),
                       style: TextStyle(
                         fontSize: 26,
@@ -593,9 +606,10 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   const SizedBox(height: 8),
                   Align(
-                    alignment:
-                        isDesktop ? Alignment.centerLeft : Alignment.center,
-                    child: Text(tr('Nhập thông tin để truy cập hệ thống quản trị.'),
+                    alignment: _isPos || !isDesktop
+                        ? Alignment.center
+                        : Alignment.centerLeft,
+                    child: Text(tr(SboxAppVariant.loginSubtitle),
                       style: TextStyle(
                           color: Color(0xFF586064), fontSize: 14, height: 1.5),
                     ),
@@ -660,7 +674,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 },
                               ),
                               style: TextButton.styleFrom(
-                                foregroundColor: const Color(0xFF0C56D0),
+                                foregroundColor: _brand,
                                 padding: EdgeInsets.zero,
                                 minimumSize: Size.zero,
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -720,7 +734,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   checkColor: Colors.white,
                                   fillColor: WidgetStateProperty.resolveWith(
                                     (s) => s.contains(WidgetState.selected)
-                                        ? const Color(0xFF3B82F6)
+                                        ? _brand
                                         : Colors.transparent,
                                   ),
                                   shape: RoundedRectangleBorder(
@@ -741,16 +755,15 @@ class _LoginScreenState extends State<LoginScreen>
                           height: 54,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [Color(0xFF0C56D0), Color(0xFF004ABA)],
+                                colors: [_brand, _brandDim],
                               ),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF0C56D0)
-                                      .withValues(alpha: 0.25),
+                                  color: _brand.withValues(alpha: 0.28),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
                                 ),
@@ -811,14 +824,14 @@ class _LoginScreenState extends State<LoginScreen>
                             onPressed: () =>
                                 Navigator.of(context).pushNamed('/register'),
                             child: Text(tr('Đăng ký ngay'),
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF0C56D0))),
+                                    color: _brand)),
                           ),
                         ],
                       ),
                     ),
-                  if (kIsWeb) ...[
+                  if (kIsWeb && SboxAppVariant.posBranding) ...[
                     const SizedBox(height: 8),
                     TextButton.icon(
                       onPressed: () async {
@@ -840,7 +853,7 @@ class _LoginScreenState extends State<LoginScreen>
                       icon: const Icon(Icons.android, size: 18),
                       label: Text(tr('Tải APK SBOX POS (Android 6+)')),
                       style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF0C56D0),
+                        foregroundColor: _brand,
                         textStyle: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w600),
                       ),
@@ -877,16 +890,14 @@ class _LoginScreenState extends State<LoginScreen>
     );
 
     return Container(
-      color: const Color(0xFFF8F9FA),
+      color: _isPos ? Colors.white : const Color(0xFFF8F9FA),
       child: SafeArea(child: scrollContent),
     );
   }
 
   /// Footer nằm trong panel đăng nhập (cuộn theo form), không cố định viewport.
   Widget _buildLoginFooter({required bool isDesktop}) {
-    final copyright = SboxAppVariant.standalonePos
-        ? '@2026 SBOX POS'
-        : '@2026 SBOX HRM - SBOX POS';
+    final copyright = SboxAppVariant.copyright;
     final copyrightStyle = TextStyle(
       color: Colors.grey.shade400,
       fontSize: 11,
@@ -962,6 +973,14 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildLogo({bool isDesktop = false}) {
+    if (_isPos) {
+      return SboxBrandLockup(
+        expandText: false,
+        showSlogan: false,
+        logoSize: isDesktop ? 92 : 72,
+        alignment: MainAxisAlignment.center,
+      );
+    }
     return SboxBrandLockup(
       expandText: false,
       showSlogan: true,
@@ -1177,7 +1196,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  static Widget _buildField({
+  Widget _buildField({
     required TextEditingController controller,
     required String hint,
     required IconData icon,
@@ -1215,7 +1234,7 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF0C56D0), width: 2),
+          borderSide: BorderSide(color: _brand, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),

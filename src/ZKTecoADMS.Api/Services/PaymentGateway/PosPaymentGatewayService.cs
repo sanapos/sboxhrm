@@ -40,6 +40,7 @@ public sealed record PaymentGatewaySettingUpsertRequest(
     string? TingeeSecretKey,
     string? TingeeVaAccountNumber,
     string? TingeeMerchantId,
+    string? TingeeShopId,
     string? TingeeWebhookSecret);
 
 public sealed record CreateTransferIntentRequest(
@@ -94,6 +95,7 @@ public sealed class PosPaymentGatewayService(
         if (req.TingeeEnabled.HasValue) row.TingeeEnabled = req.TingeeEnabled.Value;
         if (req.TingeeVaAccountNumber != null) row.TingeeVaAccountNumber = req.TingeeVaAccountNumber.Trim();
         if (req.TingeeMerchantId != null) row.TingeeMerchantId = req.TingeeMerchantId.Trim();
+        if (req.TingeeShopId != null) row.TingeeShopId = req.TingeeShopId.Trim();
         row.UpdatedAt = DateTime.UtcNow;
         row.UpdatedBy = actor;
         await db.SaveChangesAsync(ct);
@@ -278,11 +280,9 @@ public sealed class PosPaymentGatewayService(
             settings = await db.PosPaymentGatewaySettings.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.StoreId == purchase.StoreId && x.Deleted == null, ct);
         }
-        if (settings == null && !string.IsNullOrWhiteSpace(payload.VaAccountNumber))
+        if (settings == null)
         {
-            settings = await db.PosPaymentGatewaySettings.AsNoTracking()
-                .FirstOrDefaultAsync(x => x.TingeeVaAccountNumber == payload.VaAccountNumber
-                    && x.TingeeEnabled && x.Deleted == null, ct);
+            settings = await FindTingeeSettingsByAccountAsync(payload.VaAccountNumber, ct);
         }
         if (settings == null && !string.IsNullOrWhiteSpace(payload.ClientId))
         {
@@ -460,6 +460,27 @@ public sealed class PosPaymentGatewayService(
             intent.OrderNo, intent.AmountExpected);
     }
 
+    async Task<PosPaymentGatewaySetting?> FindTingeeSettingsByAccountAsync(
+        string? account, CancellationToken ct)
+    {
+        var needle = (account ?? "").Trim();
+        if (needle.Length == 0) return null;
+        var lower = needle.ToLower();
+        var byVa = await db.PosPaymentGatewaySettings.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.TingeeEnabled && x.Deleted == null
+                && x.TingeeVaAccountNumber != null
+                && x.TingeeVaAccountNumber.ToLower() == lower, ct);
+        if (byVa != null) return byVa;
+
+        var storeId = await db.BankAccounts.AsNoTracking()
+            .Where(b => b.IsActive && b.AccountNumber == needle)
+            .Select(b => b.StoreId)
+            .FirstOrDefaultAsync(ct);
+        if (storeId == null || storeId == Guid.Empty) return null;
+        return await db.PosPaymentGatewaySettings.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.TingeeEnabled && x.Deleted == null, ct);
+    }
+
     private static PaymentGatewaySettingDto MapSetting(
         PosPaymentGatewaySetting s,
         PlatformTingeeSettingDto platform) => new(
@@ -469,6 +490,7 @@ public sealed class PosPaymentGatewayService(
         platform.HasTingeeSecretKey,
         s.TingeeVaAccountNumber,
         s.TingeeMerchantId,
+        s.TingeeShopId,
         platform.HasTingeeWebhookSecret,
         platform.TingeeEnabled && platform.HasTingeeWebhookSecret);
 

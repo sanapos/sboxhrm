@@ -7,9 +7,9 @@ class SafeNavigator {
   SafeNavigator._();
 
   /// Chỉ pop khi màn hình được [Navigator.push].
-  /// Trong Settings Hub ([HrmPageChrome.isEmbedded]) — không pop (sẽ gỡ MainLayout).
+  /// Body của Settings Hub — không pop (sẽ gỡ MainLayout). Overlay đã push thì pop được.
   static void popPageIfPushed(BuildContext context, [Object? result]) {
-    if (HrmPageChrome.isEmbedded) return;
+    if (HrmPageChrome.hideOuterChrome(context)) return;
     final nav = Navigator.maybeOf(context);
     if (nav != null && nav.canPop()) {
       nav.pop(result);

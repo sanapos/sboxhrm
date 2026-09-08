@@ -11,10 +11,12 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 Widget buildPosPrintTemplatePreview(
   PosPrintTemplateV2 template, {
   int? selectedBlockIndex,
+  ValueChanged<int>? onSelectBlock,
 }) {
   return _PosPrintTemplatePreviewLive(
     template: template,
     selectedBlockIndex: selectedBlockIndex,
+    onSelectBlock: onSelectBlock,
   );
 }
 
@@ -22,10 +24,12 @@ class _PosPrintTemplatePreviewLive extends StatefulWidget {
   const _PosPrintTemplatePreviewLive({
     required this.template,
     this.selectedBlockIndex,
+    this.onSelectBlock,
   });
 
   final PosPrintTemplateV2 template;
   final int? selectedBlockIndex;
+  final ValueChanged<int>? onSelectBlock;
 
   @override
   State<_PosPrintTemplatePreviewLive> createState() =>
@@ -83,8 +87,10 @@ class _PosPrintTemplatePreviewLiveState
     }
 
     final metrics = _PaperPreviewMetrics.of(template.paperSize);
-    final scale =
-        metrics.widthPx / PosPrintPaperSizes.thermalDots(template.paperSize);
+    // Tem in 203 DPI dùng fontSize * 0.72 — preview phải cùng hệ số, không lấy K58=384.
+    final scale = metrics.isLabel
+        ? (3.78 / (203 / 25.4)) * 0.72
+        : metrics.widthPx / PosPrintPaperSizes.thermalDots(template.paperSize);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -116,7 +122,9 @@ class _PosPrintTemplatePreviewLiveState
                 _PreviewStep(
                   step: step,
                   scale: scale * fit,
+                  isLabel: metrics.isLabel,
                   selectedBlockIndex: widget.selectedBlockIndex,
+                  onSelectBlock: widget.onSelectBlock,
                 ),
             ],
           ),
@@ -233,6 +241,27 @@ class _PosPrintTemplatePreviewLiveState
                         heightMm: metrics.isLabel ? metrics.heightMm : null,
                       ),
                     ),
+                    if (widget.selectedBlockIndex != null &&
+                        !output.steps.any((s) =>
+                            _stepSourceIndex(s) == widget.selectedBlockIndex))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: SizedBox(
+                          width: paperW,
+                          child: Text(
+                            tr(template.documentType ==
+                                    PosPrintDocumentTypes.kitchenLabel
+                                ? 'Khối đang chọn không in trên tem (đã gộp / ẩn). Chạm hàng vàng để chọn đúng khối.'
+                                : 'Khối đang chọn không hiện trên xem trước (trống hoặc bị ẩn).'),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.amber.shade900,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -369,9 +398,13 @@ class _MmRuler extends StatelessWidget {
   }
 }
 
-/// Cùng tỉ lệ với bitmap in (fontSize trên canvas [thermalDots] điểm).
-double _previewFontSize(double printerFontSize, double scale) =>
-    (printerFontSize * scale).clamp(8.0, 48.0);
+/// Bill nhiệt: font × (px khổ / thermalDots). Tem: đã gồm 0.72 × 203dpi → 96dpi.
+double _previewFontSize(
+  double printerFontSize,
+  double scale, {
+  bool isLabel = false,
+}) =>
+    (printerFontSize * scale).clamp(isLabel ? 5.0 : 8.0, isLabel ? 28.0 : 48.0);
 
 int? _stepSourceIndex(Object step) {
   if (step is PosPrintCompiledLine) return step.sourceBlockIndex;
@@ -386,31 +419,49 @@ class _PreviewStep extends StatelessWidget {
   const _PreviewStep({
     required this.step,
     required this.scale,
+    this.isLabel = false,
     this.selectedBlockIndex,
+    this.onSelectBlock,
   });
 
   final Object step;
   final double scale;
+  final bool isLabel;
   final int? selectedBlockIndex;
+  final ValueChanged<int>? onSelectBlock;
 
   @override
   Widget build(BuildContext context) {
     Widget child;
     if (step is PosPrintCompiledLine) {
-      child = _PreviewLine(line: step as PosPrintCompiledLine, scale: scale);
+      child = _PreviewLine(
+        line: step as PosPrintCompiledLine,
+        scale: scale,
+        isLabel: isLabel,
+      );
     } else if (step is PosPrintCompiledSaleRow) {
       child = _PreviewSaleRow(
         row: step as PosPrintCompiledSaleRow,
         scale: scale,
+        isLabel: isLabel,
       );
     } else if (step is PosPrintCompiledPair) {
-      child = _PreviewPair(pair: step as PosPrintCompiledPair, scale: scale);
+      child = _PreviewPair(
+        pair: step as PosPrintCompiledPair,
+        scale: scale,
+        isLabel: isLabel,
+      );
     } else if (step is PosPrintCompiledQr) {
-      child = _PreviewQr(qr: step as PosPrintCompiledQr, scale: scale);
+      child = _PreviewQr(
+        qr: step as PosPrintCompiledQr,
+        scale: scale,
+        isLabel: isLabel,
+      );
     } else if (step is PosPrintCompiledBarcode) {
       child = _PreviewBarcode(
         barcode: step as PosPrintCompiledBarcode,
         scale: scale,
+        isLabel: isLabel,
       );
     } else {
       return const SizedBox.shrink();
@@ -419,25 +470,37 @@ class _PreviewStep extends StatelessWidget {
     final src = _stepSourceIndex(step);
     final selected =
         selectedBlockIndex != null && src != null && src == selectedBlockIndex;
-    if (!selected) return child;
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 1),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF3BF),
-        border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
-        borderRadius: BorderRadius.circular(3),
-      ),
+    // Giữ full khổ giấy — Stack/ColoredBox từng co hàng → căn giữa thành căn trái.
+    child = SizedBox(width: double.infinity, child: child);
+    if (selected) {
+      child = DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3BF),
+          border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: child,
+      );
+    }
+    if (onSelectBlock == null || src == null) return child;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onSelectBlock!(src),
       child: child,
     );
   }
 }
 
 class _PreviewLine extends StatelessWidget {
-  const _PreviewLine({required this.line, required this.scale});
+  const _PreviewLine({
+    required this.line,
+    required this.scale,
+    this.isLabel = false,
+  });
 
   final PosPrintCompiledLine line;
   final double scale;
+  final bool isLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -463,14 +526,17 @@ class _PreviewLine extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 1),
-      child: Text(
-        tr(line.text),
-        textAlign: align,
-        style: TextStyle(
-          fontSize: _previewFontSize(line.fontSize, scale),
-          fontWeight: line.bold ? FontWeight.w700 : FontWeight.w400,
-          height: 1.15,
-          color: Colors.black,
+      child: SizedBox(
+        width: double.infinity,
+        child: Text(
+          tr(line.text),
+          textAlign: align,
+          style: TextStyle(
+            fontSize: _previewFontSize(line.fontSize, scale, isLabel: isLabel),
+            fontWeight: line.bold ? FontWeight.w700 : FontWeight.w400,
+            height: 1.15,
+            color: Colors.black,
+          ),
         ),
       ),
     );
@@ -478,15 +544,20 @@ class _PreviewLine extends StatelessWidget {
 }
 
 class _PreviewSaleRow extends StatelessWidget {
-  const _PreviewSaleRow({required this.row, required this.scale});
+  const _PreviewSaleRow({
+    required this.row,
+    required this.scale,
+    this.isLabel = false,
+  });
 
   final PosPrintCompiledSaleRow row;
   final double scale;
+  final bool isLabel;
 
   @override
   Widget build(BuildContext context) {
     final style = TextStyle(
-      fontSize: _previewFontSize(row.fontSize, scale),
+      fontSize: _previewFontSize(row.fontSize, scale, isLabel: isLabel),
       fontWeight: row.bold ? FontWeight.w700 : FontWeight.w400,
       height: 1.15,
       color: Colors.black,
@@ -541,15 +612,20 @@ class _PreviewSaleRow extends StatelessWidget {
 }
 
 class _PreviewPair extends StatelessWidget {
-  const _PreviewPair({required this.pair, required this.scale});
+  const _PreviewPair({
+    required this.pair,
+    required this.scale,
+    this.isLabel = false,
+  });
 
   final PosPrintCompiledPair pair;
   final double scale;
+  final bool isLabel;
 
   @override
   Widget build(BuildContext context) {
     final style = TextStyle(
-      fontSize: _previewFontSize(pair.fontSize, scale),
+      fontSize: _previewFontSize(pair.fontSize, scale, isLabel: isLabel),
       fontWeight: pair.bold ? FontWeight.w700 : FontWeight.w400,
       height: 1.15,
       color: Colors.black,
@@ -569,15 +645,20 @@ class _PreviewPair extends StatelessWidget {
 }
 
 class _PreviewQr extends StatelessWidget {
-  const _PreviewQr({required this.qr, required this.scale});
+  const _PreviewQr({
+    required this.qr,
+    required this.scale,
+    this.isLabel = false,
+  });
 
   final PosPrintCompiledQr qr;
   final double scale;
+  final bool isLabel;
 
   @override
   Widget build(BuildContext context) {
     final captionStyle = TextStyle(
-      fontSize: _previewFontSize(22, scale),
+      fontSize: _previewFontSize(22, scale, isLabel: isLabel),
       fontWeight: FontWeight.w600,
       color: Colors.black,
     );
@@ -612,14 +693,19 @@ class _PreviewQr extends StatelessWidget {
 }
 
 class _PreviewBarcode extends StatelessWidget {
-  const _PreviewBarcode({required this.barcode, required this.scale});
+  const _PreviewBarcode({
+    required this.barcode,
+    required this.scale,
+    this.isLabel = false,
+  });
 
   final PosPrintCompiledBarcode barcode;
   final double scale;
+  final bool isLabel;
 
   @override
   Widget build(BuildContext context) {
-    final h = (barcode.height * scale).clamp(28.0, 72.0);
+    final h = (barcode.height * scale).clamp(isLabel ? 16.0 : 28.0, isLabel ? 48.0 : 72.0);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
@@ -637,7 +723,7 @@ class _PreviewBarcode extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: 'monospace',
-                fontSize: _previewFontSize(18, scale),
+                fontSize: _previewFontSize(18, scale, isLabel: isLabel),
                 letterSpacing: 1.2,
                 fontWeight: FontWeight.w700,
               ),
@@ -650,7 +736,7 @@ class _PreviewBarcode extends StatelessWidget {
                 tr(barcode.data),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: _previewFontSize(18, scale),
+                  fontSize: _previewFontSize(18, scale, isLabel: isLabel),
                   fontWeight: FontWeight.w600,
                 ),
               ),

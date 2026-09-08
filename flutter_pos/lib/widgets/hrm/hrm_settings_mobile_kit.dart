@@ -10,7 +10,8 @@ class HrmSettingsMobileKit {
   HrmSettingsMobileKit._();
 
   /// Active khi mở từ hub — cả mobile lẫn web/desktop (đồng bộ trang chủ).
-  static bool active(BuildContext _) => HrmPageChrome.isEmbedded;
+  static bool active(BuildContext context) =>
+      HrmPageChrome.hideOuterChrome(context);
 
   static Color scaffoldBackground(BuildContext context) =>
       PosTheme.background;

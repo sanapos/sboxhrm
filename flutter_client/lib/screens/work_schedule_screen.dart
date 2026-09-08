@@ -22,6 +22,7 @@ import 'main_layout.dart';
 import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_fab_clearance.dart';
+import '../widgets/page_top_actions.dart';
 import '../widgets/shift_swap_ui.dart';
 import '../utils/leave_salary_shifts.dart';
 import '../utils/staffing_quota_utils.dart';
@@ -113,12 +114,26 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     return DateTime(d.year, d.month, d.day);
   }
 
+  static const List<Color> _kShiftPalette = [
+    Color(0xFF2563EB),
+    Color(0xFF0D9488),
+    Color(0xFF7C3AED),
+    Color(0xFFEA580C),
+    Color(0xFFDB2777),
+    Color(0xFF0284C7),
+    Color(0xFF65A30D),
+    Color(0xFF4F46E5),
+  ];
+
   @override
   void initState() {
     super.initState();
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     _isEmployee = authProvider.userRole == 'Employee';
     _tabController = TabController(length: _isEmployee ? 1 : 3, vsync: this);
+    _tabController.addListener(() {
+      if (mounted && !_tabController.indexIsChanging) setState(() {});
+    });
     _loadInitialData();
   }
 
@@ -151,6 +166,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           _loadStaffingQuotas(),
           _loadSwapColleagues(),
         ]);
+      }
+    } catch (e) {
+      debugPrint('WorkSchedule loadInitialData: $e');
+      if (mounted) {
+        appNotification.showError(
+            title: 'Không tải được lịch làm việc',
+            message: e.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -233,6 +255,23 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       if (s.id == shiftId) return s;
     }
     return null;
+  }
+
+  Color _colorForShift(Shift? shift) {
+    if (shift == null || shift.id.isEmpty) return const Color(0xFF71717A);
+    var idx = _allShifts.indexWhere((s) => s.id == shift.id);
+    if (idx < 0) idx = _shifts.indexWhere((s) => s.id == shift.id);
+    if (idx < 0) idx = shift.id.hashCode;
+    return _kShiftPalette[idx.abs() % _kShiftPalette.length];
+  }
+
+  Color _colorForShiftId(String? shiftId) => _colorForShift(_shiftById(shiftId));
+
+  bool _dayHasOpenRegistration(String employeeId, DateTime day) {
+    if (_getPendingRegistrations(employeeId, day).isNotEmpty) return true;
+    return _getRegistrationsForDay(employeeId, day).any((r) =>
+        r.status == ScheduleRegistrationStatus.pending ||
+        r.status == ScheduleRegistrationStatus.rejected);
   }
 
   String _employeeShiftEmptyMessage() {
@@ -466,6 +505,155 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     return ((daysSinceFirstDay + firstDayOfYear.weekday) / 7).ceil();
   }
 
+  List<HrmTopBarAction> _scheduleFabActions() {
+    final canExport = _perm.canExport('WorkSchedule');
+    final canApprove = _perm.canApprove('ScheduleApproval');
+    final canCreate = _perm.canCreate('WorkSchedule');
+    final tab = _isEmployee ? 0 : _tabController.index;
+    final items = <HrmTopBarAction>[];
+
+    if (canCreate && _pendingRegistrations.isNotEmpty) {
+      items.add(HrmTopBarAction(
+        icon: Icons.send,
+        label: 'Gửi đăng ký (${_pendingRegistrations.length})',
+        onPressed: _submitAllRegistrations,
+        primary: true,
+      ));
+      if (_perm.canDelete('WorkSchedule')) {
+        items.add(HrmTopBarAction(
+          icon: Icons.delete_sweep,
+          label: 'Xóa đăng ký chưa gửi',
+          onPressed: _clearAllPendingRegistrations,
+        ));
+      }
+    }
+    if (!_isEmployee && canApprove) {
+      items.add(HrmTopBarAction(
+        icon: Icons.assignment_turned_in,
+        label: 'Duyệt lịch làm việc',
+        onPressed: () =>
+            NavigationNotifier.goTo(NavigationNotifier.scheduleApproval),
+      ));
+    }
+    if (!_isEmployee) {
+      items.addAll([
+        HrmTopBarAction(
+          icon: Icons.today,
+          label: _l10n.copyDay,
+          onPressed: _showCopyDayDialog,
+        ),
+        HrmTopBarAction(
+          icon: Icons.date_range,
+          label: _l10n.copyWeek,
+          onPressed: _showCopyWeekDialog,
+        ),
+        HrmTopBarAction(
+          icon: Icons.calendar_month,
+          label: _l10n.copyMonth,
+          onPressed: _showCopyMonthDialog,
+        ),
+        HrmTopBarAction(
+          icon: Icons.notifications_active,
+          label: 'Nhắc đăng ký',
+          onPressed: _showSendReminderDialog,
+        ),
+        HrmTopBarAction(
+          icon: Icons.group_add,
+          label: 'Yêu cầu bổ sung ca',
+          onPressed: () => _showRequestCoverageDialog(),
+        ),
+        HrmTopBarAction(
+          icon: Icons.tune,
+          label: 'Định mức nhân sự',
+          onPressed: _showStaffingQuotaDialog,
+        ),
+      ]);
+    }
+    if (!_isEmployee && canExport) {
+      VoidCallback? excel;
+      VoidCallback? png;
+      if (tab == 0) {
+        excel = _exportShiftCentricExcel;
+        png = _exportShiftCentricPng;
+      } else if (tab == 1) {
+        excel = _exportScheduleTableExcel;
+        png = () => _exportTableToPng(_scheduleTableKey, 'DangKyChoDuyet');
+      } else {
+        excel = _exportApprovedExcel;
+        png = () => _exportTableToPng(_approvedTableKey, 'LichDaDuyet');
+      }
+      items.add(HrmTopBarAction(
+        icon: Icons.table_chart_outlined,
+        label: 'Xuất Excel',
+        onPressed: excel,
+      ));
+      items.add(HrmTopBarAction(
+        icon: Icons.image_outlined,
+        label: 'Xuất PNG',
+        onPressed: png,
+      ));
+    }
+    items.add(HrmTopBarAction(
+      icon: Icons.help_outline,
+      label: 'Hướng dẫn',
+      onPressed: _showScheduleGuide,
+    ));
+    items.add(HrmTopBarAction(
+      icon: Icons.refresh,
+      label: 'Tải lại',
+      onPressed: _loadInitialData,
+    ));
+    return items;
+  }
+
+  Widget _buildScheduleFab() {
+    final pendingCount = _pendingRegistrations.length;
+    return FloatingActionButton(
+      heroTag: 'work_schedule_actions_fab',
+      tooltip: tr(pendingCount > 0
+          ? 'Menu · $pendingCount chờ gửi'
+          : 'Menu'),
+      backgroundColor: HrmPageChrome.primaryNavy,
+      foregroundColor: Colors.white,
+      onPressed: () {
+        final acts = _scheduleFabActions();
+        if (acts.isEmpty) return;
+        if (acts.length == 1) {
+          acts.first.onPressed?.call();
+          return;
+        }
+        showPageTopActionsSheet(context, acts);
+      },
+      child: Badge(
+        isLabelVisible: pendingCount > 0,
+        label: Text('$pendingCount',
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
+        child: const Icon(Icons.apps_rounded, size: 26),
+      ),
+    );
+  }
+
+  Widget _wrapWithActionsFab(Widget child) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        HrmFabClearance(
+          fabVisible: true,
+          child: child,
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: SafeArea(
+            top: false,
+            left: false,
+            child: _buildScheduleFab(),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -475,48 +663,27 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       );
     }
     if (_isEmployee) {
-      final showSubmitFab = _pendingRegistrations.isNotEmpty &&
-          Provider.of<PermissionProvider>(context, listen: false)
-              .canCreate('WorkSchedule');
       return Scaffold(
         backgroundColor: HrmPageChrome.background,
-        body: HrmFabClearance(
-          fabVisible: showSubmitFab,
-          extendedFab: true,
-          child: _buildEmployeeCalendarView(),
-        ),
-        floatingActionButton: showSubmitFab
-            ? FloatingActionButton.extended(
-                onPressed: _submitAllRegistrations,
-                backgroundColor: HrmPageChrome.primaryNavy,
-                icon: const Icon(Icons.send, size: 18),
-                label: Text(tr('Gửi đăng ký (${_pendingRegistrations.length})'),
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-              )
-            : null,
+        body: _wrapWithActionsFab(_buildEmployeeCalendarView()),
       );
     }
-    final showSubmitFab = _pendingRegistrations.isNotEmpty &&
-        Provider.of<PermissionProvider>(context, listen: false)
-            .canCreate('WorkSchedule');
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: HrmCollapsibleOverview(
-              expanded: _showOverviewPanel,
-              onToggle: () =>
-                  setState(() => _showOverviewPanel = !_showOverviewPanel),
-              child: _buildWeekSelector(),
+      body: _wrapWithActionsFab(
+        Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: HrmCollapsibleOverview(
+                expanded: _showOverviewPanel,
+                onToggle: () =>
+                    setState(() => _showOverviewPanel = !_showOverviewPanel),
+                child: _buildWeekSelector(),
+              ),
             ),
-          ),
-          _buildTabBar(),
-          Expanded(
-            child: HrmFabClearance(
-              fabVisible: showSubmitFab,
-              extendedFab: true,
+            _buildTabBar(),
+            Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
@@ -526,18 +693,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-      floatingActionButton: showSubmitFab
-          ? FloatingActionButton.extended(
-              onPressed: _submitAllRegistrations,
-              backgroundColor: HrmPageChrome.primaryNavy,
-              icon: const Icon(Icons.send, size: 18),
-              label: Text(tr('Gửi (${_pendingRegistrations.length})'),
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-            )
-          : null,
     );
   }
 
@@ -625,84 +783,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   }
 
   Widget _buildTabShiftCentric() {
-    final canExport = Provider.of<PermissionProvider>(context, listen: false)
-        .canExport('WorkSchedule');
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildCopyScheduleToolbar(),
-          _buildManagerActionToolbar(),
-          if (canExport)
-            _buildExportBar(
-              onExportExcel: _exportShiftCentricExcel,
-              onExportPng: _exportShiftCentricPng,
-            ),
-          // Interactive grid (user sees this)
           _buildShiftCentricTable(),
-          // Manager grid legend
-          Container(
-            margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
-            ),
-            child: Wrap(
-              spacing: 12,
-              runSpacing: 6,
-              children: [
-                _buildLegendDot(HrmPageChrome.primaryNavy, 'Đã xếp lịch'),
-                _buildLegendDot(HrmPageChrome.chip, 'Đã duyệt'),
-                _buildLegendDot(HrmPageChrome.chipDark, 'Chờ duyệt'),
-                _buildLegendDot(HrmPageChrome.chipSoft, 'Chưa gửi'),
-                if (_staffingQuotas.isNotEmpty) ...[
-                  _buildLegendDot(const Color(0xFF3B82F6), 'Thiếu nhân sự'),
-                  _buildLegendDot(HrmPageChrome.chipLight, 'Gần/vượt định mức'),
-                ],
-              ],
-            ),
-          ),
+          _buildShiftColorLegend(showQuota: _staffingQuotas.isNotEmpty),
         ],
       ),
     );
   }
 
   Widget _buildTabPendingRegistrations() {
-    final canExport = Provider.of<PermissionProvider>(context, listen: false)
-        .canExport('WorkSchedule');
-    final canApprove = Provider.of<PermissionProvider>(context, listen: false)
-        .canApprove('ScheduleApproval');
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildCopyScheduleToolbar(),
-          if (canApprove)
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: OutlinedButton.icon(
-                onPressed: () => NavigationNotifier.goTo(
-                    NavigationNotifier.scheduleApproval),
-                icon: const Icon(Icons.assignment_turned_in,
-                    size: 16, color: HrmPageChrome.chipLight),
-                label: Text(tr('Duyệt lịch làm việc'),
-                    style: TextStyle(
-                        color: HrmPageChrome.chipLight, fontWeight: FontWeight.w600)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: HrmPageChrome.chipLight),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                ),
-              ),
-            ),
-          if (canExport)
-            _buildExportBar(
-              onExportExcel: _exportScheduleTableExcel,
-              onExportPng: () =>
-                  _exportTableToPng(_scheduleTableKey, 'DangKyChoDuyet'),
-            ),
           RepaintBoundary(
             key: _scheduleTableKey,
             child: Container(
@@ -711,9 +807,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildExportHeader(
-                        'ĐĂNG KÝ CHỜ DUYỆT', HrmPageChrome.chipLight),
+                        'ĐĂNG KÝ CHỜ DUYỆT', const Color(0xFFD97706)),
                     _buildPendingGrid(),
-                    _buildCompactLegend(),
+                    _buildShiftColorLegend(showStatus: true),
                   ]),
             ),
           ),
@@ -724,18 +820,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   }
 
   Widget _buildTabApprovedSchedule() {
-    final canExport = Provider.of<PermissionProvider>(context, listen: false)
-        .canExport('WorkSchedule');
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (canExport)
-            _buildExportBar(
-              onExportExcel: _exportApprovedExcel,
-              onExportPng: () =>
-                  _exportTableToPng(_approvedTableKey, 'LichDaDuyet'),
-            ),
           RepaintBoundary(
             key: _approvedTableKey,
             child: Container(
@@ -746,7 +834,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     _buildExportHeader(
                         'LỊCH LÀM VIỆC ĐÃ DUYỆT', HrmPageChrome.primaryNavy),
                     _buildApprovedGrid(),
-                    _buildCompactLegend(),
+                    _buildShiftColorLegend(showStatus: false),
                   ]),
             ),
           ),
@@ -1018,10 +1106,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   child: Column(
                                     children: [
                                       Text(tr(shift.name),
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.w700,
-                                              color: Color(0xFF18181B)),
+                                              color: _colorForShift(shift)),
                                           textAlign: TextAlign.center,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis),
@@ -1066,11 +1154,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     spacing: 12,
                     runSpacing: 6,
                     children: [
-                      _buildLegendDot(HrmPageChrome.primaryNavy, 'Đã xếp lịch'),
-                      _buildLegendDot(HrmPageChrome.chip, 'Đã duyệt'),
-                      _buildLegendDot(HrmPageChrome.chipDark, 'Chờ duyệt'),
+                      ..._shifts.map(
+                          (s) => _buildLegendDot(_colorForShift(s), s.name)),
+                      _buildLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
                       _buildLegendDot(const Color(0xFFEF4444), 'Từ chối'),
-                      _buildLegendDot(HrmPageChrome.chipSoft, 'Đăng ký mới'),
+                      _buildLegendDot(const Color(0xFF94A3B8), 'Đăng ký mới'),
                     ],
                   ),
                 ),
@@ -1109,6 +1197,60 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     );
   }
 
+  Widget _buildShiftColorLegend(
+      {bool showStatus = true, bool showQuota = false}) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE4E4E7)),
+      ),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 6,
+        children: [
+          ..._shifts.map((s) => _buildLegendDot(_colorForShift(s), s.name)),
+          if (showStatus) ...[
+            _buildLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
+            _buildLegendDot(const Color(0xFF94A3B8), 'Chưa gửi'),
+            _buildLegendDot(const Color(0xFFEF4444), 'Từ chối'),
+          ],
+          if (showQuota) ...[
+            _buildLegendDot(const Color(0xFF3B82F6), 'Thiếu nhân sự'),
+            _buildLegendDot(const Color(0xFFD97706), 'Gần/vượt định mức'),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _miniShiftChip(String name, Color color, {IconData? icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 10, color: color),
+            const SizedBox(width: 2),
+          ],
+          Text(tr(name),
+              style: TextStyle(
+                  fontSize: 9, fontWeight: FontWeight.w700, color: color),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmpGridCell(
       Shift shift, DateTime day, int dayIndex, bool isToday, String? myUserId) {
     // Check if already has confirmed work schedule
@@ -1132,35 +1274,31 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         (r['date'] as DateTime).month == day.month &&
         (r['date'] as DateTime).year == day.year);
 
-    // Determine cell state
+    // Determine cell state — fill by shift color so each ca is distinct
+    final shiftColor = _colorForShift(shift);
     Color bgColor;
     Color borderColor;
     Widget? icon;
 
-    if (hasSchedule) {
-      bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.12);
-      borderColor = HrmPageChrome.primaryNavy;
-      icon = const Icon(Icons.check, size: 18, color: HrmPageChrome.primaryNavy);
-    } else if (reg != null &&
-        reg.status == ScheduleRegistrationStatus.approved) {
-      bgColor = HrmPageChrome.chip.withValues(alpha: 0.12);
-      borderColor = HrmPageChrome.chip;
-      icon = const Icon(Icons.check_circle, size: 18, color: HrmPageChrome.chip);
+    if (hasSchedule ||
+        (reg != null && reg.status == ScheduleRegistrationStatus.approved)) {
+      bgColor = shiftColor.withValues(alpha: 0.14);
+      borderColor = shiftColor;
+      icon = Icon(Icons.check, size: 18, color: shiftColor);
     } else if (reg != null &&
         reg.status == ScheduleRegistrationStatus.pending) {
-      bgColor = const Color(0xFFFEF3C7);
-      borderColor = HrmPageChrome.chipDark;
-      icon =
-          const Icon(Icons.hourglass_empty, size: 16, color: HrmPageChrome.chipDark);
+      bgColor = shiftColor.withValues(alpha: 0.08);
+      borderColor = const Color(0xFFD97706);
+      icon = const Icon(Icons.hourglass_empty, size: 16, color: Color(0xFFD97706));
     } else if (reg != null &&
         reg.status == ScheduleRegistrationStatus.rejected) {
       bgColor = const Color(0xFFFEE2E2);
       borderColor = const Color(0xFFEF4444);
       icon = const Icon(Icons.close, size: 16, color: Color(0xFFEF4444));
     } else if (hasPendingLocal) {
-      bgColor = HrmPageChrome.chipSoft.withValues(alpha: 0.12);
-      borderColor = HrmPageChrome.chipSoft;
-      icon = const Icon(Icons.add_circle, size: 18, color: HrmPageChrome.chipSoft);
+      bgColor = shiftColor.withValues(alpha: 0.06);
+      borderColor = const Color(0xFF94A3B8);
+      icon = Icon(Icons.add_circle, size: 18, color: shiftColor);
     } else {
       bgColor = isToday ? const Color(0xFFF1F5F9) : Colors.white;
       borderColor = const Color(0xFFE4E4E7);
@@ -1519,13 +1657,16 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             Icon(Icons.swap_horiz, color: HrmPageChrome.primaryNavy),
             SizedBox(width: 8),
             Expanded(child: Text(tr('Đổi ca'), style: TextStyle(fontSize: 16))),
+            IconButton(
+              tooltip: tr('Hướng dẫn'),
+              icon: const Icon(Icons.help_outline, size: 20),
+              onPressed: () => showShiftSwapFlowHelpDialog(ctx),
+            ),
           ]),
           content: SizedBox(
             width: 400,
             child: SingleChildScrollView(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const ShiftSwapFlowHelpBanner(compact: true),
-                const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
@@ -1843,7 +1984,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             IconData statusIcon;
             switch (reg.status) {
               case ScheduleRegistrationStatus.approved:
-                statusColor = HrmPageChrome.chip;
+                statusColor = _colorForShift(shift);
                 statusText = 'Đã duyệt';
                 statusIcon = Icons.check_circle;
                 break;
@@ -1853,7 +1994,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 statusIcon = Icons.cancel;
                 break;
               default:
-                statusColor = HrmPageChrome.chipDark;
+                statusColor = const Color(0xFFD97706);
                 statusText = 'Chờ duyệt';
                 statusIcon = Icons.hourglass_empty;
             }
@@ -3747,15 +3888,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     }
 
     final emps = _filteredEmployees;
-    // Filter employees that have any pending/local/confirmed registrations this week
+    // Chỉ nhân viên còn phiếu chờ duyệt / chờ gửi / bị từ chối — không hiện ca đã duyệt
     final activeEmps = emps.where((emp) {
       final eid = _effectiveUserId(emp);
-      for (final day in days) {
-        if (_getSchedulesForDay(eid, day).isNotEmpty) return true;
-        if (_getPendingRegistrations(eid, day).isNotEmpty) return true;
-        if (_getRegistrationsForDay(eid, day).isNotEmpty) return true;
-      }
-      return false;
+      return days.any((day) => _dayHasOpenRegistration(eid, day));
     }).toList();
 
     return Container(
@@ -3848,7 +3984,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             Padding(
                 padding: EdgeInsets.all(24),
                 child: Center(
-                    child: Text(tr('Chưa có đăng ký nào'),
+                    child: Text(tr('Không còn đăng ký chờ duyệt'),
                         style: TextStyle(color: Color(0xFF71717A)))))
           else
             ...activeEmps.asMap().entries.map((entry) {
@@ -3905,31 +4041,16 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   Widget _buildPendingCell(
       Employee emp, DateTime day, bool isToday, bool canEdit) {
     final eid = _effectiveUserId(emp);
-    final schedules = _getSchedulesForDay(eid, day);
     final localPending = _getPendingRegistrations(eid, day);
     final submittedRegs = _getRegistrationsForDay(eid, day);
     final pendingRegs = submittedRegs
         .where((r) => r.status == ScheduleRegistrationStatus.pending)
         .toList();
-    final approvedRegs = submittedRegs
-        .where((r) => r.status == ScheduleRegistrationStatus.approved)
-        .toList();
     final rejectedRegs = submittedRegs
         .where((r) => r.status == ScheduleRegistrationStatus.rejected)
         .toList();
 
-    final totalItems = schedules.length +
-        localPending.length +
-        pendingRegs
-            .where((r) =>
-                schedules.every((s) => s.employeeUserId != r.employeeUserId))
-            .length +
-        approvedRegs
-            .where((r) =>
-                schedules.every((s) => s.employeeUserId != r.employeeUserId))
-            .length;
-
-    if (totalItems == 0 && rejectedRegs.isEmpty) {
+    if (pendingRegs.isEmpty && localPending.isEmpty && rejectedRegs.isEmpty) {
       return GestureDetector(
         onTap: canEdit ? () => _showRegisterDialog(emp, day) : null,
         child: Container(
@@ -3944,78 +4065,51 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       );
     }
 
-    // Build status dots
-    final dots = <Widget>[];
-    if (schedules.isNotEmpty) dots.add(_statusDot(HrmPageChrome.primaryNavy));
-    if (approvedRegs.isNotEmpty) dots.add(_statusDot(HrmPageChrome.chip));
-    if (pendingRegs.isNotEmpty) dots.add(_statusDot(HrmPageChrome.chipDark));
-    if (localPending.isNotEmpty) dots.add(_statusDot(HrmPageChrome.chipSoft));
-    if (rejectedRegs.isNotEmpty) dots.add(_statusDot(const Color(0xFFEF4444)));
-
-    // Primary color
-    Color borderColor;
-    Color bgColor;
-    if (pendingRegs.isNotEmpty || localPending.isNotEmpty) {
-      borderColor = HrmPageChrome.chipDark;
-      bgColor = const Color(0xFFFEF3C7);
-    } else if (schedules.isNotEmpty) {
-      borderColor = HrmPageChrome.primaryNavy;
-      bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.08);
-    } else if (approvedRegs.isNotEmpty) {
-      borderColor = HrmPageChrome.chip;
-      bgColor = HrmPageChrome.chip.withValues(alpha: 0.08);
-    } else {
-      borderColor = const Color(0xFFEF4444);
-      bgColor = const Color(0xFFFEE2E2);
+    final chips = <Widget>[];
+    for (final r in pendingRegs) {
+      final shift = _shiftById(r.shiftId);
+      chips.add(_miniShiftChip(
+          r.isDayOff ? 'Nghỉ' : (shift?.name ?? 'Ca'),
+          r.isDayOff ? const Color(0xFF71717A) : _colorForShift(shift),
+          icon: Icons.hourglass_empty));
+    }
+    for (final p in localPending) {
+      final shift = _shiftById(p['shiftId']?.toString());
+      chips.add(_miniShiftChip(
+          p['isDayOff'] == true ? 'Nghỉ' : (shift?.name ?? 'Ca'),
+          const Color(0xFF94A3B8),
+          icon: Icons.schedule_send));
+    }
+    for (final r in rejectedRegs) {
+      final shift = _shiftById(r.shiftId);
+      chips.add(_miniShiftChip(
+          r.isDayOff ? 'Nghỉ' : (shift?.name ?? 'Ca'),
+          const Color(0xFFEF4444),
+          icon: Icons.cancel));
     }
 
-    // Count labels
-    final labels = <Widget>[];
-    final confirmedCount = schedules.where((s) => !s.isDayOff).length;
-    final dayOffCount = schedules.where((s) => s.isDayOff).length;
-    final pendCount = pendingRegs.length + localPending.length;
-    if (confirmedCount > 0) {
-      labels.add(Text(tr('$confirmedCount ca'),
-          style: const TextStyle(
-              fontSize: 9,
-              color: HrmPageChrome.primaryNavy,
-              fontWeight: FontWeight.w600)));
-    }
-    if (dayOffCount > 0) {
-      labels.add(Text(tr('Nghỉ'),
-          style: TextStyle(
-              fontSize: 9,
-              color: Color(0xFF71717A),
-              fontWeight: FontWeight.w600)));
-    }
-    if (pendCount > 0) {
-      labels.add(Text(tr('$pendCount chờ'),
-          style: const TextStyle(
-              fontSize: 9,
-              color: Color(0xFFA16207),
-              fontWeight: FontWeight.w600)));
-    }
-    if (rejectedRegs.isNotEmpty) {
-      labels.add(Text(tr('${rejectedRegs.length} từ chối'),
-          style: const TextStyle(fontSize: 8, color: Color(0xFFEF4444))));
-    }
+    final hasRejectOnly =
+        pendingRegs.isEmpty && localPending.isEmpty && rejectedRegs.isNotEmpty;
+    final borderColor =
+        hasRejectOnly ? const Color(0xFFEF4444) : const Color(0xFFD97706);
+    final bgColor =
+        hasRejectOnly ? const Color(0xFFFEE2E2) : const Color(0xFFFFFBEB);
 
     return GestureDetector(
       onTap: canEdit ? () => _showRegisterDialog(emp, day) : null,
       child: Container(
-        height: 48,
+        constraints: const BoxConstraints(minHeight: 48),
         margin: const EdgeInsets.all(1),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         decoration: BoxDecoration(
             color: bgColor,
             border: Border.all(color: borderColor, width: 1.2),
             borderRadius: BorderRadius.circular(4)),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ...labels,
-            if (dots.isNotEmpty)
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: dots),
-          ],
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 2,
+          runSpacing: 2,
+          children: chips,
         ),
       ),
     );
@@ -4078,95 +4172,50 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             final rows = <Widget>[];
             for (final emp in emps) {
               final eid = _effectiveUserId(emp);
-              final schedules = _getSchedulesForDay(eid, day);
               final localPending = _getPendingRegistrations(eid, day);
-              final submittedRegs = _getRegistrationsForDay(eid, day);
-              if (schedules.isEmpty &&
-                  localPending.isEmpty &&
-                  submittedRegs.isEmpty) {
+              final submittedRegs = _getRegistrationsForDay(eid, day)
+                  .where((r) =>
+                      r.status == ScheduleRegistrationStatus.pending ||
+                      r.status == ScheduleRegistrationStatus.rejected)
+                  .toList();
+              if (localPending.isEmpty && submittedRegs.isEmpty) {
                 continue;
               }
 
               final chips = <Widget>[];
-              for (final ws in schedules) {
-                if (ws.isDayOff) {
-                  chips.add(_empChip(
-                      'Nghỉ', const Color(0xFF71717A), Icons.nightlight_round));
-                } else {
-                  final shift = _shifts.firstWhere((s) => s.id == ws.shiftId,
-                      orElse: () => Shift(
-                          id: '',
-                          name: 'Ca',
-                          code: '',
-                          startTime: '',
-                          endTime: '',
-                          isActive: true,
-                          createdAt: DateTime.now()));
-                  chips.add(_empChip(
-                      shift.name, HrmPageChrome.primaryNavy, Icons.check_circle));
-                }
-              }
               for (final r in submittedRegs) {
-                if (schedules.any((s) =>
-                    s.shiftId == r.shiftId &&
-                    s.employeeUserId == r.employeeUserId)) {
-                  continue;
-                }
                 Color c;
                 IconData ic;
                 String suffix;
                 switch (r.status) {
                   case ScheduleRegistrationStatus.pending:
-                    c = HrmPageChrome.chipDark;
+                    c = _colorForShiftId(r.shiftId);
                     ic = Icons.hourglass_empty;
                     suffix = ' (chờ)';
-                    break;
-                  case ScheduleRegistrationStatus.approved:
-                    c = HrmPageChrome.chip;
-                    ic = Icons.check_circle;
-                    suffix = ' (duyệt)';
                     break;
                   case ScheduleRegistrationStatus.rejected:
                     c = const Color(0xFFEF4444);
                     ic = Icons.cancel;
                     suffix = ' (từ chối)';
                     break;
+                  default:
+                    continue;
                 }
                 if (r.isDayOff) {
                   chips.add(_empChip('Nghỉ$suffix', c, ic));
                 } else {
-                  final shift = r.shiftId != null
-                      ? _shifts.firstWhere((s) => s.id == r.shiftId,
-                          orElse: () => Shift(
-                              id: '',
-                              name: 'Ca',
-                              code: '',
-                              startTime: '',
-                              endTime: '',
-                              isActive: true,
-                              createdAt: DateTime.now()))
-                      : null;
+                  final shift = _shiftById(r.shiftId);
                   chips.add(_empChip('${shift?.name ?? 'Ca'}$suffix', c, ic));
                 }
               }
               for (final p in localPending) {
                 if (p['isDayOff'] == true) {
-                  chips.add(_empChip('Nghỉ (chưa gửi)', HrmPageChrome.chipSoft,
+                  chips.add(_empChip('Nghỉ (chưa gửi)', const Color(0xFF94A3B8),
                       Icons.schedule_send));
                 } else {
-                  final shift = p['shiftId'] != null
-                      ? _shifts.firstWhere((s) => s.id == p['shiftId'],
-                          orElse: () => Shift(
-                              id: '',
-                              name: 'Ca',
-                              code: '',
-                              startTime: '',
-                              endTime: '',
-                              isActive: true,
-                              createdAt: DateTime.now()))
-                      : null;
+                  final shift = _shiftById(p['shiftId']?.toString());
                   chips.add(_empChip('${shift?.name ?? 'Ca'} (chưa gửi)',
-                      HrmPageChrome.chipSoft, Icons.schedule_send));
+                      const Color(0xFF94A3B8), Icons.schedule_send));
                 }
               }
 
@@ -4404,25 +4453,95 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     );
   }
 
-  Widget _buildApprovedCell(Employee emp, DateTime day, bool isToday) {
+  List<({String name, Color color, bool dayOff})> _approvedMarks(
+      Employee emp, DateTime day) {
     final eid = _effectiveUserId(emp);
     final schedules = _getSchedulesForDay(eid, day);
-    final approvedRegs = _getRegistrationsForDay(eid, day)
+    final uniqueApproved = _getRegistrationsForDay(eid, day)
         .where((r) => r.status == ScheduleRegistrationStatus.approved)
-        .toList();
-    final uniqueApproved = approvedRegs
         .where((r) => schedules.every((s) =>
             s.shiftId != r.shiftId || s.employeeUserId != r.employeeUserId))
         .toList();
+    final marks = <({String name, Color color, bool dayOff})>[];
+    for (final s in schedules) {
+      if (s.isDayOff) {
+        marks.add((
+          name: 'Nghỉ',
+          color: const Color(0xFF71717A),
+          dayOff: true,
+        ));
+      } else {
+        final shift = _shiftById(s.shiftId);
+        marks.add((
+          name: shift?.name ?? 'Ca',
+          color: _colorForShift(shift),
+          dayOff: false,
+        ));
+      }
+    }
+    for (final r in uniqueApproved) {
+      if (r.isDayOff) {
+        marks.add((
+          name: r.note ?? 'Nghỉ',
+          color: const Color(0xFF71717A),
+          dayOff: true,
+        ));
+      } else {
+        final shift = _shiftById(r.shiftId);
+        marks.add((
+          name: shift?.name ?? 'Ca',
+          color: _colorForShift(shift),
+          dayOff: false,
+        ));
+      }
+    }
+    return marks;
+  }
 
-    final totalShifts = schedules.where((s) => !s.isDayOff).length +
-        uniqueApproved.where((r) => !r.isDayOff).length;
-    final hasDayOff = schedules.any((s) => s.isDayOff) ||
-        uniqueApproved.any((r) => r.isDayOff);
+  void _showApprovedMarksSheet(
+      Employee emp, DateTime day, List<({String name, Color color, bool dayOff})> marks) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr(emp.fullName),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 16)),
+              const SizedBox(height: 4),
+              Text(tr(DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)),
+                  style: const TextStyle(
+                      fontSize: 13, color: Color(0xFF71717A))),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: marks
+                    .map((m) => _miniShiftChip(m.name, m.color,
+                        icon: m.dayOff
+                            ? Icons.nightlight_round
+                            : Icons.check_circle))
+                    .toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-    if (totalShifts == 0 && !hasDayOff) {
+  Widget _buildApprovedCell(Employee emp, DateTime day, bool isToday) {
+    final marks = _approvedMarks(emp, day);
+    if (marks.isEmpty) {
       return Container(
-        height: 48,
+        height: 40,
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
             color: isToday ? const Color(0xFFF5F5F4) : Colors.white,
@@ -4433,41 +4552,63 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       );
     }
 
-    // Build compact display
-    final labels = <Widget>[];
-    if (hasDayOff) {
-      labels.add(Text(tr('Nghỉ'),
-          style: TextStyle(
-              fontSize: 9,
-              color: Color(0xFF71717A),
-              fontWeight: FontWeight.w600)));
-    }
-    if (totalShifts > 0) {
-      labels.add(Text(tr('$totalShifts ca'),
-          style: const TextStyle(
-              fontSize: 10,
-              color: HrmPageChrome.primaryNavy,
-              fontWeight: FontWeight.w700)));
-    }
+    final accent = marks.first.color;
+    final compact = Responsive.isMobile(context);
+    final workCount = marks.where((m) => !m.dayOff).length;
+    final dayOffOnly = workCount == 0;
 
-    return Container(
-      height: 48,
+    final cell = Container(
+      constraints: BoxConstraints(minHeight: compact ? 40 : 48),
       margin: const EdgeInsets.all(1),
+      padding: EdgeInsets.symmetric(
+          horizontal: compact ? 2 : 2, vertical: compact ? 4 : 4),
       decoration: BoxDecoration(
-        color: hasDayOff && totalShifts == 0
-            ? const Color(0xFF71717A).withValues(alpha: 0.06)
-            : HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
-        border: Border.all(
-            color: hasDayOff && totalShifts == 0
-                ? const Color(0xFF71717A)
-                : HrmPageChrome.primaryNavy,
-            width: 1.2),
+        color: accent.withValues(alpha: 0.08),
+        border: Border.all(color: accent, width: 1.2),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: labels,
-      ),
+      child: compact
+          ? Center(
+              child: dayOffOnly
+                  ? Icon(Icons.nightlight_round, size: 14, color: accent)
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ...marks.take(3).map((m) => Container(
+                              width: 7,
+                              height: 7,
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 1),
+                              decoration: BoxDecoration(
+                                  color: m.color, shape: BoxShape.circle),
+                            )),
+                        if (workCount > 1) ...[
+                          const SizedBox(width: 2),
+                          Text(tr('$workCount'),
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: accent)),
+                        ],
+                      ],
+                    ),
+            )
+          : Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 2,
+              runSpacing: 2,
+              children: marks
+                  .map((m) => _miniShiftChip(m.name, m.color,
+                      icon: m.dayOff ? Icons.nightlight_round : null))
+                  .toList(),
+            ),
+    );
+
+    if (!compact) return cell;
+    return GestureDetector(
+      onTap: () => _showApprovedMarksSheet(emp, day, marks),
+      child: cell,
     );
   }
 
@@ -4585,14 +4726,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                                color: HrmPageChrome.primaryNavy
+                                color: _colorForShift(shift)
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6)),
                             child: Text(tr(shift.name),
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: HrmPageChrome.primaryNavy)),
+                                    color: _colorForShift(shift))),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -5118,10 +5259,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       child: Column(
                         children: [
                           Text(tr(shift.name),
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF18181B)),
+                                  color: _colorForShift(shift)),
                               textAlign: TextAlign.center,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
@@ -5243,14 +5384,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                                color: HrmPageChrome.chipLight
+                                color: _colorForShift(shift)
                                     .withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(6)),
                             child: Text(tr(shift.name),
-                                style: const TextStyle(
+                                style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    color: HrmPageChrome.chipLight)),
+                                    color: _colorForShift(shift))),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -5413,6 +5554,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     Color bgColor;
     Color borderColor;
     Widget content;
+    final shiftColor = _colorForShift(shift);
 
     if (totalCount == 0) {
       bgColor = belowWarning
@@ -5424,28 +5566,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           ? const Icon(Icons.warning_amber, size: 14, color: Color(0xFF3B82F6))
           : Icon(Icons.add, size: 14, color: Colors.grey[300]);
     } else {
-      // Primary color by highest-priority status present
-      if (confirmedCount > 0) {
-        bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.08);
-        borderColor = HrmPageChrome.primaryNavy;
-      } else if (approvedCount > 0) {
-        bgColor = HrmPageChrome.chip.withValues(alpha: 0.08);
-        borderColor = HrmPageChrome.chip;
-      } else if (pendingCount > 0) {
-        bgColor = const Color(0xFFFEF3C7);
-        borderColor = HrmPageChrome.chipDark;
-      } else {
-        bgColor = HrmPageChrome.chipSoft.withValues(alpha: 0.08);
-        borderColor = HrmPageChrome.chipSoft;
-      }
-
-      // Override colors for quota violations
-      if (belowWarning) {
-        bgColor = const Color(0xFFEFF6FF);
-        borderColor = const Color(0xFF3B82F6);
-      } else if (aboveMax || nearMax) {
-        bgColor = const Color(0xFFFEF3C7);
-        borderColor = HrmPageChrome.chipLight;
+      bgColor = shiftColor.withValues(alpha: 0.12);
+      borderColor = shiftColor;
+      if (pendingCount + localCount > 0 &&
+          confirmedCount == 0 &&
+          approvedCount == 0) {
+        bgColor = shiftColor.withValues(alpha: 0.06);
+        borderColor = const Color(0xFFD97706);
       }
 
       content = Column(
@@ -5464,16 +5591,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 const Padding(
                     padding: EdgeInsets.only(right: 2),
                     child: Icon(Icons.arrow_upward,
-                        size: 10, color: HrmPageChrome.chipLight)),
+                        size: 10, color: Color(0xFFD97706))),
               Text(tr('$totalCount'),
                   style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 15,
-                      color: belowWarning
-                          ? const Color(0xFF3B82F6)
-                          : (aboveMax || nearMax
-                              ? HrmPageChrome.chipLight
-                              : borderColor))),
+                      color: shiftColor)),
               if (quota != null && maxForDay > 0)
                 Text(tr('/$maxForDay'),
                     style:
@@ -5484,10 +5607,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (confirmedCount > 0) _statusDot(HrmPageChrome.primaryNavy),
-              if (approvedCount > 0) _statusDot(HrmPageChrome.chip),
-              if (pendingCount > 0) _statusDot(HrmPageChrome.chipDark),
-              if (localCount > 0) _statusDot(HrmPageChrome.chipSoft),
+              if (confirmedCount + approvedCount > 0) _statusDot(shiftColor),
+              if (pendingCount > 0) _statusDot(const Color(0xFFD97706)),
+              if (localCount > 0) _statusDot(const Color(0xFF94A3B8)),
             ],
           ),
         ],
@@ -6449,51 +6571,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.schedule_send, color: Color(0xFF856404)),
-                  const SizedBox(width: 8),
-                  Text(tr('Danh sách đăng ký chờ gửi (${_pendingRegistrations.length})'),
-                    style: const TextStyle(
-                      color: Color(0xFF856404),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (_perm.canDelete('WorkSchedule'))
-                    OutlinedButton.icon(
-                      onPressed: _clearAllPendingRegistrations,
-                      icon: const Icon(Icons.delete_sweep, size: 18),
-                      label: Text(tr('Xóa tất cả')),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF856404),
-                        side: const BorderSide(color: Color(0xFF856404)),
-                      ),
-                    ),
-                  if (_perm.canCreate('WorkSchedule'))
-                    FilledButton.icon(
-                      onPressed: _submitAllRegistrations,
-                      icon: const Icon(Icons.send, size: 18),
-                      label: Text(tr('Gửi tất cả đăng ký')),
-                      style: FilledButton.styleFrom(
-                          backgroundColor: HrmPageChrome.primaryNavy),
-                    ),
-                ],
-              ),
-            ],
+          Text(
+            tr('Chưa gửi (${_pendingRegistrations.length}) — mở nút góc phải để gửi'),
+            style: const TextStyle(
+              color: Color(0xFF856404),
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -6516,7 +6600,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           createdAt: DateTime.now()))
                   : null;
               return Chip(
-                backgroundColor: const Color(0xFFFFE082),
+                backgroundColor: _colorForShift(shift).withValues(alpha: 0.16),
                 deleteIcon: const Icon(Icons.close, size: 16),
                 onDeleted: () {
                   setState(() {
@@ -6525,8 +6609,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 },
                 label: Text(
                   tr('${employee.firstName} - ${DateFormat('dd/MM').format(reg['date'])} - ${reg['isDayOff'] == true ? (reg['note'] ?? 'Nghỉ phép') : shift?.name ?? ''}'),
-                  style:
-                      const TextStyle(color: Color(0xFF856404), fontSize: 12),
+                  style: TextStyle(
+                      color: _colorForShift(shift), fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               );
             }).toList(),
@@ -7115,19 +7199,20 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             width: 8,
                             height: 8,
                             decoration: BoxDecoration(
-                                color: HrmPageChrome.primaryNavy,
+                                color: _colorForShift(s),
                                 borderRadius: BorderRadius.circular(4))),
                         const SizedBox(width: 4),
                         Text(
                             tr('${s.name}: ${_formatTime(s.startTime)}-${_formatTime(s.endTime)}'),
-                            style: const TextStyle(
-                                fontSize: 11, color: Color(0xFF71717A))),
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: _colorForShift(s),
+                                fontWeight: FontWeight.w600)),
                       ],
                     )),
-                _buildCompactLegendDot(HrmPageChrome.primaryNavy, 'Đã duyệt'),
-                _buildCompactLegendDot(HrmPageChrome.chipLight, 'Chờ duyệt'),
+                _buildCompactLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
                 _buildCompactLegendDot(const Color(0xFFEF4444), 'Từ chối'),
-                _buildCompactLegendDot(const Color(0xFFFFC107), 'Chờ gửi'),
+                _buildCompactLegendDot(const Color(0xFF94A3B8), 'Chờ gửi'),
               ],
             ),
           ),

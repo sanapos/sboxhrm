@@ -455,6 +455,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
             key: ValueKey('block_props_${i}_${sel.type.name}'),
             block: sel,
             paperSize: _tpl.paperSize,
+            documentType: _tpl.documentType,
             readOnly: widget.readOnly,
             onChanged: (b) => _updateBlock(i, b),
           ),
@@ -682,6 +683,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                                           'desk_props_${_selectedIndex}_${sel.type.name}'),
                                       block: sel,
                                       paperSize: _tpl.paperSize,
+                                      documentType: _tpl.documentType,
                                       readOnly: widget.readOnly,
                                       onChanged: (b) =>
                                           _updateBlock(_selectedIndex, b),
@@ -1005,6 +1007,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                   child: buildPosPrintTemplatePreview(
                     _tpl,
                     selectedBlockIndex: _selectedIndex,
+                    onSelectBlock: widget.readOnly ? null : _selectBlock,
                   ),
                 ),
               ),
@@ -1131,17 +1134,24 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
     _tpl = widget.initialTemplate;
   }
 
-  void _refreshFromParent() {
+  void _refreshFromParent({int? preferIndex}) {
     final synced = widget.syncTemplate();
     setState(() {
       _tpl = synced;
       if (_tpl.blocks.isEmpty) {
         _index = 0;
       } else {
-        final fromParent = widget.syncIndex?.call();
-        _index = (fromParent ?? _index).clamp(0, _tpl.blocks.length - 1);
+        final raw = preferIndex ?? widget.syncIndex?.call() ?? _index;
+        _index = raw.clamp(0, _tpl.blocks.length - 1);
       }
     });
+  }
+
+  void _goTo(int next) {
+    if (_tpl.blocks.isEmpty) return;
+    final i = next.clamp(0, _tpl.blocks.length - 1);
+    setState(() => _index = i);
+    widget.onIndexChanged(i);
   }
 
   @override
@@ -1160,6 +1170,7 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
       key: ValueKey('expanded_props_${i}_${sel.type.name}'),
       block: sel,
       paperSize: _tpl.paperSize,
+      documentType: _tpl.documentType,
       readOnly: widget.readOnly,
       onChanged: (b) {
         widget.onBlockChanged(i, b);
@@ -1178,6 +1189,7 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
       child: buildPosPrintTemplatePreview(
         _tpl,
         selectedBlockIndex: i,
+        onSelectBlock: widget.readOnly ? null : _goTo,
       ),
     );
 
@@ -1205,7 +1217,7 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
                         widget.onMoveBlock?.call(i, -1);
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (!mounted) return;
-                          _refreshFromParent();
+                          _refreshFromParent(preferIndex: i - 1);
                           widget.onIndexChanged(_index);
                         });
                       },
@@ -1219,7 +1231,7 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
                         widget.onMoveBlock?.call(i, 1);
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (!mounted) return;
-                          _refreshFromParent();
+                          _refreshFromParent(preferIndex: i + 1);
                           widget.onIndexChanged(_index);
                         });
                       },
@@ -1262,13 +1274,7 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
             ],
             IconButton(
               tooltip: tr('Khối trước'),
-              onPressed: i > 0
-                  ? () {
-                      setState(() => _index = i - 1);
-                      widget.onIndexChanged(_index);
-                      _refreshFromParent();
-                    }
-                  : null,
+              onPressed: i > 0 ? () => _goTo(i - 1) : null,
               icon: const Icon(Icons.chevron_left),
             ),
             Center(
@@ -1279,13 +1285,7 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
             ),
             IconButton(
               tooltip: tr('Khối sau'),
-              onPressed: i < blocks.length - 1
-                  ? () {
-                      setState(() => _index = i + 1);
-                      widget.onIndexChanged(_index);
-                      _refreshFromParent();
-                    }
-                  : null,
+              onPressed: i < blocks.length - 1 ? () => _goTo(i + 1) : null,
               icon: const Icon(Icons.chevron_right),
             ),
           ],
@@ -1331,10 +1331,12 @@ class _BlockPropertiesPanel extends StatefulWidget {
     required this.paperSize,
     required this.onChanged,
     required this.readOnly,
+    this.documentType,
   });
 
   final PosPrintBlock block;
   final String paperSize;
+  final String? documentType;
   final ValueChanged<PosPrintBlock> onChanged;
   final bool readOnly;
 
@@ -1504,6 +1506,21 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
       ),
       children: [
         Text(tr(_typeLabel(block.type)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        if (widget.documentType == PosPrintDocumentTypes.kitchenLabel &&
+            PosPrintTemplateCompiler.kitchenLabelHidesBlock(block)) ...[
+          const SizedBox(height: 8),
+          Material(
+            color: const Color(0xFFFFF3BF),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Text(
+                tr('Khối này không in trên tem — SL/ĐVT đã gộp cạnh tên món. Chọn khối «Tên hàng» để bật SL, hoặc xóa khối thừa.'),
+                style: TextStyle(fontSize: 12, color: Colors.brown.shade800),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         if (block.type == PosPrintBlockType.text)
           TextField(

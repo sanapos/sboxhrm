@@ -511,7 +511,6 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           icon: isTransferMode ? Icons.swap_horiz : Icons.add_circle_outline,
           label: isTransferMode ? 'Chuyển quỹ' : 'Thu/Chi',
           primary: true,
-          showLabel: true,
           onPressed: isTransferMode ? _showFundTransferForm : _showTransactionForm,
         ),
     ];
@@ -528,18 +527,6 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           : _viewMode == 'transfers'
               ? _buildFundTransfersTab()
               : _buildTransactionsTab(),
-      floatingActionButton: Responsive.isMobile(context) &&
-              Provider.of<PermissionProvider>(context, listen: false).canCreate('CashTransaction')
-          ? FloatingActionButton.extended(
-              onPressed: () => _viewMode == 'transfers'
-                  ? _showFundTransferForm()
-                  : _showTransactionForm(),
-              icon: Icon(_viewMode == 'transfers' ? Icons.swap_horiz : Icons.add),
-              label: Text(tr(_viewMode == 'transfers' ? 'Chuyển quỹ' : 'Thu/Chi')),
-              backgroundColor: Theme.of(context).primaryColor,
-              foregroundColor: Colors.white,
-            )
-          : null,
     ),
     );
   }
@@ -780,7 +767,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         .canCreate('CashTransaction');
     return HrmResponsiveListLayout(
       fabAware: isMobile && canCreate,
-      extendedFab: true,
+      extendedFab: false,
       headerSections: _cashTransactionsHeaderSections(isMobile),
       desktopBody: Column(
         children: [
@@ -821,7 +808,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         .canCreate('CashTransaction');
     return HrmResponsiveListLayout(
       fabAware: isMobile && canCreate,
-      extendedFab: true,
+      extendedFab: false,
       headerSections: [
         _buildViewModeBar(),
         _buildTransferFilterBar(),

@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
@@ -21,25 +22,21 @@ public class ApproveSwapHandler(
                 cancellationToken: cancellationToken);
 
             if (swapRequest == null)
-            {
                 return AppResponse<bool>.Error("Yêu cầu đổi ca không tồn tại");
-            }
 
-            // Check if target has accepted
             if (swapRequest.Status != ShiftSwapStatus.TargetAccepted)
-            {
                 return AppResponse<bool>.Error("Yêu cầu đổi ca chưa được đồng nghiệp chấp nhận");
-            }
 
             if (request.Approve)
             {
+                var swapped = await SwapWorkSchedules(swapRequest, cancellationToken);
+                if (!swapped.IsSuccess)
+                    return swapped;
+
                 swapRequest.Status = ShiftSwapStatus.Approved;
                 swapRequest.ApprovedByManagerId = request.ManagerId;
                 swapRequest.ManagerApprovalDate = DateTime.UtcNow;
                 swapRequest.Note = request.Note;
-
-                // Swap the work schedules
-                await SwapWorkSchedules(swapRequest, cancellationToken);
             }
             else
             {
@@ -68,7 +65,7 @@ public class ApproveSwapHandler(
                     relatedEntityId: swapRequest.Id, relatedEntityType: "ShiftSwap",
                     fromUserId: request.ManagerId, categoryCode: "approval", storeId: request.StoreId);
             }
-            catch { /* Notification failure should not affect main operation */ }
+            catch { }
 
             return AppResponse<bool>.Success(true);
         }
@@ -78,82 +75,51 @@ public class ApproveSwapHandler(
         }
     }
 
-    private async Task SwapWorkSchedules(ShiftSwapRequest swapRequest, CancellationToken cancellationToken)
+    private async Task<AppResponse<bool>> SwapWorkSchedules(
+        ShiftSwapRequest swapRequest,
+        CancellationToken cancellationToken)
     {
-        // Convert ApplicationUserId to Employee.Id (WorkSchedule.EmployeeId references Employee table, not ApplicationUser)
-        var requesterEmployee = await employeeRepository.GetSingleAsync(
-            filter: e => e.ApplicationUserId == swapRequest.RequesterUserId && e.StoreId == swapRequest.StoreId,
-            cancellationToken: cancellationToken);
-        var targetEmployee = await employeeRepository.GetSingleAsync(
-            filter: e => e.ApplicationUserId == swapRequest.TargetUserId && e.StoreId == swapRequest.StoreId,
-            cancellationToken: cancellationToken);
+        var requesterEmployee = await ShiftSwapScheduleHelper.FindEmployeeByUserAsync(
+            employeeRepository, swapRequest.StoreId, swapRequest.RequesterUserId, cancellationToken);
+        var targetEmployee = await ShiftSwapScheduleHelper.FindEmployeeByUserAsync(
+            employeeRepository, swapRequest.StoreId, swapRequest.TargetUserId, cancellationToken);
 
         if (requesterEmployee == null || targetEmployee == null)
-        {
-            return; // Cannot swap if employees not found
-        }
+            return AppResponse<bool>.Error("Không tìm thấy hồ sơ nhân viên để hoán đổi lịch");
 
-        var requesterSchedule = await workScheduleRepository.GetSingleAsync(
-            filter: ws => ws.StoreId == swapRequest.StoreId
-                && ws.EmployeeUserId == requesterEmployee.Id
-                && ws.Date.Date == swapRequest.RequesterDate.Date
-                && ws.ShiftId == swapRequest.RequesterShiftId
-                && !ws.IsDayOff,
-            cancellationToken: cancellationToken);
+        var requesterSchedule = await ShiftSwapScheduleHelper.FindAssignedShiftAsync(
+            workScheduleRepository, swapRequest.StoreId, requesterEmployee.Id,
+            swapRequest.RequesterDate, swapRequest.RequesterShiftId, cancellationToken);
+        var targetSchedule = await ShiftSwapScheduleHelper.FindAssignedShiftAsync(
+            workScheduleRepository, swapRequest.StoreId, targetEmployee.Id,
+            swapRequest.TargetDate, swapRequest.TargetShiftId, cancellationToken);
 
-        var targetSchedule = await workScheduleRepository.GetSingleAsync(
-            filter: ws => ws.StoreId == swapRequest.StoreId
-                && ws.EmployeeUserId == targetEmployee.Id
-                && ws.Date.Date == swapRequest.TargetDate.Date
-                && ws.ShiftId == swapRequest.TargetShiftId
-                && !ws.IsDayOff,
-            cancellationToken: cancellationToken);
+        if (requesterSchedule == null || targetSchedule == null)
+            return AppResponse<bool>.Error(
+                "Không hoán đổi được: một trong hai người không còn ca đã xếp trên lịch");
 
-        // Update schedules if they exist, or create new ones
-        if (requesterSchedule != null)
-        {
-            // Swap requester to target's shift/date
-            requesterSchedule.Date = swapRequest.TargetDate;
-            requesterSchedule.ShiftId = swapRequest.TargetShiftId;
-            requesterSchedule.UpdatedAt = DateTime.UtcNow;
-            await workScheduleRepository.UpdateAsync(requesterSchedule, cancellationToken);
-        }
-        else
-        {
-            // Create new schedule for requester
-            var newRequesterSchedule = new WorkSchedule
-            {
-                Id = Guid.NewGuid(),
-                StoreId = swapRequest.StoreId,
-                EmployeeUserId = requesterEmployee.Id,
-                Date = swapRequest.TargetDate,
-                ShiftId = swapRequest.TargetShiftId,
-                CreatedAt = DateTime.UtcNow
-            };
-            await workScheduleRepository.AddAsync(newRequesterSchedule, cancellationToken);
-        }
+        var requesterAlreadyHasTarget = await ShiftSwapScheduleHelper.FindAssignedShiftAsync(
+            workScheduleRepository, swapRequest.StoreId, requesterEmployee.Id,
+            swapRequest.TargetDate, swapRequest.TargetShiftId, cancellationToken);
+        if (requesterAlreadyHasTarget != null && requesterAlreadyHasTarget.Id != requesterSchedule.Id)
+            return AppResponse<bool>.Error("Người yêu cầu đã có ca đích trong ngày đó");
 
-        if (targetSchedule != null)
-        {
-            // Swap target to requester's shift/date
-            targetSchedule.Date = swapRequest.RequesterDate;
-            targetSchedule.ShiftId = swapRequest.RequesterShiftId;
-            targetSchedule.UpdatedAt = DateTime.UtcNow;
-            await workScheduleRepository.UpdateAsync(targetSchedule, cancellationToken);
-        }
-        else
-        {
-            // Create new schedule for target
-            var newTargetSchedule = new WorkSchedule
-            {
-                Id = Guid.NewGuid(),
-                StoreId = swapRequest.StoreId,
-                EmployeeUserId = targetEmployee.Id,
-                Date = swapRequest.RequesterDate,
-                ShiftId = swapRequest.RequesterShiftId,
-                CreatedAt = DateTime.UtcNow
-            };
-            await workScheduleRepository.AddAsync(newTargetSchedule, cancellationToken);
-        }
+        var targetAlreadyHasRequester = await ShiftSwapScheduleHelper.FindAssignedShiftAsync(
+            workScheduleRepository, swapRequest.StoreId, targetEmployee.Id,
+            swapRequest.RequesterDate, swapRequest.RequesterShiftId, cancellationToken);
+        if (targetAlreadyHasRequester != null && targetAlreadyHasRequester.Id != targetSchedule.Id)
+            return AppResponse<bool>.Error("Đồng nghiệp đã có ca của người yêu cầu trong ngày đó");
+
+        requesterSchedule.Date = swapRequest.TargetDate.Date;
+        requesterSchedule.ShiftId = swapRequest.TargetShiftId;
+        requesterSchedule.UpdatedAt = DateTime.UtcNow;
+        await workScheduleRepository.UpdateAsync(requesterSchedule, cancellationToken);
+
+        targetSchedule.Date = swapRequest.RequesterDate.Date;
+        targetSchedule.ShiftId = swapRequest.RequesterShiftId;
+        targetSchedule.UpdatedAt = DateTime.UtcNow;
+        await workScheduleRepository.UpdateAsync(targetSchedule, cancellationToken);
+
+        return AppResponse<bool>.Success(true);
     }
 }

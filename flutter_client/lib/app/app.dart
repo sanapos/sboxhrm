@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
@@ -24,10 +25,13 @@ import '../screens/pos/pos_customer_display_screen.dart';
 import '../screens/pos/pos_standalone_shell.dart';
 import '../config/sbox_app_variant.dart';
 import '../utils/media_query_safe_padding.dart';
+import '../utils/play_system_ui.dart';
+import '../utils/system_ui_inset_mode.dart';
 import '../utils/web_route_parser.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/app_boot_screen.dart';
 import '../widgets/web_static_home_redirect.dart';
+import '../widgets/pos/pos_form_keyboard.dart';
 
 class ZKTecoApp extends StatelessWidget {
   const ZKTecoApp({super.key});
@@ -91,16 +95,53 @@ class ZKTecoApp extends StatelessWidget {
           ],
           locale: themeProvider.locale,
           builder: (context, child) {
-            final mediaQuery =
-                mediaQueryWithSystemPadding(MediaQuery.of(context));
-            return MediaQuery(
-              data: mediaQuery.copyWith(
-                textScaler: AppTextScaler.resolve(context),
-              ),
-              child: DefaultTextStyle(
-                style: kDefaultVietnameseTextStyle,
-                child: child!,
-              ),
+            return ValueListenableBuilder<bool>(
+              valueListenable: SystemUiInsetMode.immersive,
+              builder: (context, immersive, _) {
+                var mediaQuery = mediaQueryWithSystemPadding(
+                  MediaQuery.of(context),
+                  rawView: MediaQueryData.fromView(View.of(context)),
+                  immersive: immersive,
+                );
+                // Web OSK overlay: đừng để viewInsets co/đẩy cả app (che dữ liệu phía trên).
+                if (kIsWeb && mediaQuery.viewInsets.bottom > 0) {
+                  mediaQuery = mediaQuery.copyWith(
+                    viewInsets: mediaQuery.viewInsets.copyWith(bottom: 0),
+                  );
+                }
+                // MaterialApp (_themeBuilder) luôn set OverlayStyle.dark (icon tối)
+                // trên theme sáng — ghi đè lại sau frame để giờ/Wi‑Fi hiện trên thanh đen.
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
+                });
+                SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
+                return AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: kPlayOverlayOnDarkBg,
+                  child: ColoredBox(
+                    color: const Color(0xFF000000),
+                    child: MediaQuery(
+                      data: mediaQuery.copyWith(
+                        textScaler: AppTextScaler.resolve(context),
+                      ),
+                      child: Builder(
+                        builder: (ctx) => padAwaySystemBars(
+                          ctx,
+                          ColoredBox(
+                            color: const Color(0xFF000000),
+                            child: PosTouchImeHost(
+                              child: DefaultTextStyle(
+                                style: kDefaultVietnameseTextStyle,
+                                child: child!,
+                              ),
+                            ),
+                          ),
+                          immersive: immersive,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             );
           },
           routes: {

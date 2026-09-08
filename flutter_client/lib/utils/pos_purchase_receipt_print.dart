@@ -58,25 +58,25 @@ Future<Uint8List> buildPosPurchaseReceiptPdfBytes({
   pw.Widget pageContent() => pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Center(child: pw.Text('PHIẾU NHẬP HÀNG', style: bold20)),
+          pw.Center(child: pw.Text(tr('PHIẾU NHẬP HÀNG'), style: bold20)),
           pw.SizedBox(height: 10),
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text('Mã phiếu: ${receiptNo.isEmpty ? '—' : receiptNo}', style: body10),
-              pw.Text('Ngày: ${dateFmt.format(importDate.toLocal())}', style: body10),
+              pw.Text(tr('Ngày: ${dateFmt.format(importDate.toLocal())}'), style: body10),
             ],
           ),
           pw.SizedBox(height: 6),
           if (branchName != null && branchName.isNotEmpty)
-            pw.Text('Chi nhánh nhập: $branchName', style: body10),
+            pw.Text(tr('Chi nhánh nhập: $branchName'), style: body10),
           if (createdBy != null && createdBy.isNotEmpty)
-            pw.Text('Người tạo: $createdBy', style: body10),
+            pw.Text(tr('Người tạo: $createdBy'), style: body10),
           pw.Text('Nhà cung cấp: ${supplierName ?? ''}', style: body10),
           if (supplierAddress != null && supplierAddress.isNotEmpty)
-            pw.Text('Địa chỉ: $supplierAddress', style: body10),
+            pw.Text(tr('Địa chỉ: $supplierAddress'), style: body10),
           if (inputInvoiceNo != null && inputInvoiceNo.isNotEmpty)
-            pw.Text('Số hóa đơn đầu vào: $inputInvoiceNo', style: body10),
+            pw.Text(tr('Số hóa đơn đầu vào: $inputInvoiceNo'), style: body10),
           pw.SizedBox(height: 12),
           pw.TableHelper.fromTextArray(
             headers: const [
@@ -111,16 +111,16 @@ Future<Uint8List> buildPosPurchaseReceiptPdfBytes({
             cellAlignment: pw.Alignment.centerLeft,
           ),
           pw.SizedBox(height: 10),
-          pw.Text('Tổng số lượng hàng: ${qtyFmt.format(totalQty)}', style: body10),
-          pw.Text('Tổng tiền hàng: ${money.format(linesTotal)}', style: body10),
-          pw.Text('Tổng VAT: ${money.format(totalVat)}', style: body10),
-          pw.Text('Chiết khấu hóa đơn: $discLabel', style: body10),
-          pw.Text('Tiền cần trả NCC: ${money.format(grandTotal)}', style: bold10),
-          pw.Text('Tiền trả NCC: ${money.format(paidAmount)} ($paymentMethod)', style: body10),
-          pw.Text('Tính vào công nợ: ${money.format(debt)}', style: body10),
+          pw.Text(tr('Tổng số lượng hàng: ${qtyFmt.format(totalQty)}'), style: body10),
+          pw.Text(tr('Tổng tiền hàng: ${money.format(linesTotal)}'), style: body10),
+          pw.Text(tr('Tổng VAT: ${money.format(totalVat)}'), style: body10),
+          pw.Text(tr('Chiết khấu hóa đơn: $discLabel'), style: body10),
+          pw.Text(tr('Tiền cần trả NCC: ${money.format(grandTotal)}'), style: bold10),
+          pw.Text(tr('Tiền trả NCC: ${money.format(paidAmount)} ($paymentMethod)'), style: body10),
+          pw.Text(tr('Tính vào công nợ: ${money.format(debt)}'), style: body10),
           if (note != null && note.isNotEmpty) ...[
             pw.SizedBox(height: 8),
-            pw.Text('Ghi chú: $note', style: body10),
+            pw.Text(tr('Ghi chú: $note'), style: body10),
           ],
           pw.Spacer(),
           pw.Row(
@@ -128,16 +128,16 @@ Future<Uint8List> buildPosPurchaseReceiptPdfBytes({
             children: [
               pw.Column(
                 children: [
-                  pw.Text('Nhà cung cấp', style: bold10),
+                  pw.Text(tr('Nhà cung cấp'), style: bold10),
                   pw.SizedBox(height: 48),
-                  pw.Text('(Ký, họ tên)', style: body10),
+                  pw.Text(tr('(Ký, họ tên)'), style: body10),
                 ],
               ),
               pw.Column(
                 children: [
-                  pw.Text('Người lập', style: bold10),
+                  pw.Text(tr('Người lập'), style: bold10),
                   pw.SizedBox(height: 48),
-                  pw.Text('(Ký, họ tên)', style: body10),
+                  pw.Text(tr('(Ký, họ tên)'), style: body10),
                 ],
               ),
             ],

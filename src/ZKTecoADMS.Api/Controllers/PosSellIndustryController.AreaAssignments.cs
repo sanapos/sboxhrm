@@ -20,12 +20,10 @@ public partial class PosSellIndustryController
     }
 
     /// <summary>
-    /// Admin/Manager/Cashier xem &amp; thao tác mọi khu. User khác: không có dòng gán → tất cả;
+    /// Admin/Manager xem &amp; thao tác mọi khu. Cashier/Order/nhân viên: không có dòng gán → tất cả;
     /// có ≥1 dòng → chỉ các khu đó (view theo CanView, thao tác theo CanOperate).
     /// </summary>
-    bool SeesAllPosServiceAreas() =>
-        IsManager
-        || CurrentUserRole.Equals(nameof(Roles.Cashier), StringComparison.OrdinalIgnoreCase);
+    bool SeesAllPosServiceAreas() => IsManager;
 
     /// <returns>null = không giới hạn; HashSet = chỉ các AreaId này (CanView).</returns>
     async Task<HashSet<Guid>?> GetRestrictedAreaIdsAsync(Guid storeId, CancellationToken ct = default)

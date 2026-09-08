@@ -10,6 +10,7 @@ import '../../utils/pos_category_tree.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos_barcode_scanner.dart';
+import 'pos_form_keyboard.dart';
 import 'pos_product_image.dart';
 import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
@@ -521,6 +522,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
                   ? const BoxConstraints(minWidth: 0, minHeight: 32)
                   : null,
             ),
+            onTap: posShowSoftKeyboardOnFieldTap,
             onSubmitted: (_) => _submitExact(),
           ),
         ),
@@ -1034,6 +1036,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
                 builder: (context, constraints) {
                   final searchField = TextField(
                     controller: _search,
+                    onTap: posShowSoftKeyboardOnFieldTap,
                     decoration: InputDecoration(
                       hintText: tr('Tìm mã, tên hàng hóa…'),
                       prefixIcon: const Icon(Icons.search, size: 20),

@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Authorization;
-using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Permissions;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Infrastructure;
@@ -16,7 +15,7 @@ namespace ZKTecoADMS.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/permission-management")]
-[Authorize(Policy = PolicyNames.AtLeastEmployee)]
+[Authorize]
 public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedControllerBase
 {
     /// <summary>

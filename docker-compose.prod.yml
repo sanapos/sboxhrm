@@ -98,6 +98,10 @@ services:
       - AllowedOrigins__9=http://www.sboxhrm.com
       - AllowedOrigins__10=https://sbox.sana.vn
       - AllowedOrigins__11=http://sbox.sana.vn
+      - AllowedOrigins__12=https://sboxpos.com
+      - AllowedOrigins__13=http://sboxpos.com
+      - AllowedOrigins__14=https://www.sboxpos.com
+      - AllowedOrigins__15=http://www.sboxpos.com
       - DefaultEmployeeAccountPassword=${DEFAULT_EMPLOYEE_PASSWORD:-Ti100600@}
       - Email__SmtpHost=${SMTP_HOST:-smtp.gmail.com}
       - Email__SmtpPort=${SMTP_PORT:-587}

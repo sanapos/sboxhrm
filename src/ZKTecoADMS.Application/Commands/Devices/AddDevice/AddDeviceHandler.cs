@@ -30,7 +30,8 @@ public class AddDeviceHandler(
             existingDevice.Description = request.Description;
             existingDevice.ManagerId = request.ManagerId;
             existingDevice.StoreId = request.StoreId;
-            existingDevice.DeviceStatus = "Active";
+            existingDevice.DeviceStatus =
+                DeviceConnectivity.IsOnline(existingDevice.LastOnline) ? "Online" : "Offline";
             existingDevice.IsActive = true;
             existingDevice.IsClaimed = true;
             existingDevice.OwnerId = request.ManagerId;
@@ -79,7 +80,7 @@ public class AddDeviceHandler(
         
         var deviceEntity = request.Adapt<Device>();
         deviceEntity.Id = Guid.NewGuid();
-        deviceEntity.DeviceStatus = "Active";
+        deviceEntity.DeviceStatus = "Offline";
         deviceEntity.IsActive = true;
         deviceEntity.IsClaimed = true;
         deviceEntity.OwnerId = request.ManagerId;

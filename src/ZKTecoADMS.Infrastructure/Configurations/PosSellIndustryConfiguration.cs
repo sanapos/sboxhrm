@@ -12,6 +12,9 @@ public class PosStoreSellSettingsConfiguration : IEntityTypeConfiguration<PosSto
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => x.StoreId).IsUnique();
         builder.Property(x => x.DefaultSellMode).HasMaxLength(20);
+        builder.Property(x => x.LoyaltyEarnPerAmount).HasPrecision(18, 2);
+        builder.Property(x => x.LoyaltyRedeemValue).HasPrecision(18, 2);
+        builder.Property(x => x.LoyaltyMaxRedeemPercent).HasPrecision(18, 2);
         builder.Property(x => x.ExtraJson).HasMaxLength(4000);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
     }

@@ -158,7 +158,18 @@ public static class DependencyInjectionExtensions
                     policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.Manager), nameof(Roles.SuperAdmin), nameof(Roles.Agent), nameof(Roles.DepartmentHead)));
             
             options.AddPolicy(PolicyNames.AtLeastEmployee,
-                policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.Manager), nameof(Roles.Employee), nameof(Roles.SuperAdmin), nameof(Roles.Agent), nameof(Roles.DepartmentHead), nameof(Roles.Accountant)));
+                policy => policy.RequireRole(
+                    nameof(Roles.Admin),
+                    nameof(Roles.Director),
+                    nameof(Roles.Manager),
+                    nameof(Roles.Employee),
+                    nameof(Roles.Cashier),
+                    nameof(Roles.Waiter),
+                    nameof(Roles.User),
+                    nameof(Roles.SuperAdmin),
+                    nameof(Roles.Agent),
+                    nameof(Roles.DepartmentHead),
+                    nameof(Roles.Accountant)));
 
             options.AddPolicy(PolicyNames.HourlyEmployeeOnly,
                 policy => policy.RequireAssertion(context =>

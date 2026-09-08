@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application android:label="DSK Smoke" android:allowBackup="false">
+    <activity android:name="vn.sana.dsk.SmokeActivity" android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity>
+    <receiver android:name="sunmi.ds.MsgReceiver" android:exported="true">
+      <intent-filter>
+        <action android:name="com.sunmi.hcservice"/>
+        <action android:name="com.sunmi.hcservice.status"/>
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>

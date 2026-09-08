@@ -11,6 +11,7 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/app_permission_service.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../utils/play_system_ui.dart';
 
 /// iphone-style circular face registration with ML Kit face detection.
 /// Only captures when a face is detected AND matches the required direction.
@@ -937,7 +938,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
     final circleTop = size.height * 0.35;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: kPlayOverlayOnDarkBg,
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(

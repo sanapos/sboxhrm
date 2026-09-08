@@ -52,18 +52,38 @@ public class GetRequestHandler(
 
         if (deviceCommands.Count > 0)
         {
-            var response = new StringBuilder();
-            foreach (var command in deviceCommands.OrderByDescending(c => c.Priority))
+            var hasStampMarker = deviceCommands.Any(c =>
+                AdmsEngineProfiles.ShouldSkipDeviceDelivery(c.CommandType, c.Command));
+            if (hasStampMarker)
             {
-                // PreferStampSync: keep Sync* pending for OPERLOG/ATTLOG Stamp=0 — never send to device.
-                if (AdmsEngineProfiles.ShouldSkipDeviceDelivery(command.CommandType, command.Command))
+                var stampFirst = await TryBuildManualSyncPushConfigAsync(device.Id, sn, cancellationToken);
+                if (stampFirst != null)
                 {
                     logger.LogInformation(
-                        "[GetRequest] Skipping stamp-sync marker for {SN}: Id={Id} Type={Type}",
-                        sn, command.Id, command.CommandType);
-                    continue;
+                        "[GetRequest] Device {SN}: OPERLOGStamp=0 before QUERY (faster FP upload)",
+                        sn);
+                    return stampFirst;
                 }
+            }
 
+            var deliverable = deviceCommands
+                .Where(c => !AdmsEngineProfiles.ShouldSkipDeviceDelivery(c.CommandType, c.Command))
+                .OrderByDescending(c => c.Priority)
+                .ThenBy(c => c.CreatedAt)
+                .ToList();
+
+            var serializePush = deliverable.Count > 0 && deliverable[0].CommandType is
+                DeviceCommandTypes.PushFingerprint
+                or DeviceCommandTypes.PushFace
+                or DeviceCommandTypes.PushUserPic
+                or DeviceCommandTypes.AddDeviceUser
+                or DeviceCommandTypes.UpdateDeviceUser;
+
+            var toSend = serializePush ? deliverable.Take(1) : deliverable.AsEnumerable();
+
+            var response = new StringBuilder();
+            foreach (var command in toSend)
+            {
                 var cmd = ClockCommandBuilder.FormatWireCommand(command.CommandId, command.Command, command.CommandType);
                 // Match agap.top wire: CRLF between command lines (AppendLine is LF-only on Linux).
                 response.Append(cmd).Append("\r\n");
@@ -111,11 +131,13 @@ public class GetRequestHandler(
 
         var syncAtt = pending.Any(c => c.CommandType == DeviceCommandTypes.SyncAttendances);
         var syncUsers = pending.Any(c => c.CommandType == DeviceCommandTypes.SyncDeviceUsers);
-        if (!syncAtt && !syncUsers)
+        var syncBio = pending.Any(c =>
+            c.CommandType is DeviceCommandTypes.SyncFingerprints or DeviceCommandTypes.SyncFaces);
+        if (!syncAtt && !syncUsers && !syncBio)
             return null;
 
         if (LastManualSyncConfigPushUtc.TryGetValue(sn, out var lastPush)
-            && DateTime.UtcNow - lastPush < TimeSpan.FromSeconds(20))
+            && DateTime.UtcNow - lastPush < TimeSpan.FromSeconds(8))
         {
             return null;
         }
@@ -126,13 +148,15 @@ public class GetRequestHandler(
             ? "0"
             : await AttendanceLogStampResolver.ResolveAsync(
                 attendanceRepository, deviceId, fullSyncRequested: false, cancellationToken);
-        var operStamp = syncUsers ? "0" : "9999";
+        var operStamp = (syncUsers || syncBio) ? "0" : "9999";
+        var bioStamp = syncBio ? "0" : "9999";
+        var photoStamp = syncBio ? "0" : "9999";
 
         logger.LogWarning(
-            "[GetRequest] Stamp config for {SN}: SyncUsers={Users} SyncAtt={Att} OPERLOGStamp={Op} ATTLOGStamp={AttStamp}",
-            sn, syncUsers, syncAtt, operStamp, attStamp);
+            "[GetRequest] Stamp config for {SN}: SyncUsers={Users} SyncAtt={Att} SyncBio={Bio} OPERLOGStamp={Op} ATTLOGStamp={AttStamp} BIODATAStamp={BioStamp} PhotoStamp={Photo}",
+            sn, syncUsers, syncAtt, syncBio, operStamp, attStamp, bioStamp, photoStamp);
 
-        return PushDeviceConfigBuilder.BuildGetOptionResponse(sn, attStamp, operStamp);
+        return PushDeviceConfigBuilder.BuildGetOptionResponse(sn, attStamp, operStamp, bioStamp, photoStamp);
     }
 
     /// <summary>
@@ -168,7 +192,13 @@ public class GetRequestHandler(
             if (!isMarker && !isStuckSentQuery)
                 continue;
 
-            await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, CommandStatus.Success);
+            // QUERY FINGERTMP/FACE: ACK ≠ đã có file trên server. Đánh Failed, không giả Success.
+            var done = isStuckSentQuery
+                && cmd.CommandType is DeviceCommandTypes.SyncFingerprints
+                    or DeviceCommandTypes.SyncFaces
+                ? CommandStatus.Failed
+                : CommandStatus.Success;
+            await deviceCmdService.UpdateCommandStatusAsync(cmd.Id, done);
             logger.LogInformation(
                 "[GetRequest] Auto-completed sync {Type} {CommandId} for {SN} (marker={Marker}, stuckSent={Stuck})",
                 cmd.CommandType, cmd.Id, sn, isMarker, isStuckSentQuery);

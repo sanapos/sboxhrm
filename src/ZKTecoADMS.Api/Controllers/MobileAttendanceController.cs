@@ -36,6 +36,7 @@ using ZKTecoADMS.Domain.Enums;
 
 
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 
 
 using ZKTecoADMS.Api.Services;
@@ -2793,6 +2794,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
         var storeId = RequiredStoreId;
 
+        // Store có bật chức năng "Bản đồ nhân sự" → app tự động báo vị trí (server chỉ
+        // lưu trong thời gian ca làm việc đã duyệt). Store không có chức năng → không theo dõi.
+        var trackLocation = await StorePackageHelper
+            .IsModuleAllowedAsync(_dbContext, storeId, "FieldCheckIn");
 
         var currentId = currentDeviceId?.Trim();
         var rawEmpId = employeeId ?? CurrentUserId.ToString();
@@ -2845,6 +2850,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
                 registeredOnOtherDevice = false,
 
+                trackLocation,
 
             }));
 
@@ -2953,6 +2959,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
             allowOutsideCheckIn = device.AllowOutsideCheckIn,
 
+            trackLocation,
 
             allowTravelCheckIn = device.AllowTravelCheckIn,
 

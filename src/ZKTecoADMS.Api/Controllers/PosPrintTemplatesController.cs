@@ -78,7 +78,10 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         // Không còn auto-seed 4 khổ vào store — cửa hàng chọn từ catalog.
         // Nếu store chưa có mẫu: clone sẵn mẫu recommended (1 lần) để in không bị trống.
         if (documentType.HasValue)
+        {
             await EnsureStoreHasAtLeastOneAsync(storeId, documentType.Value);
+            await EnsureStoreHasK58Async(storeId, documentType.Value);
+        }
 
         var query = dbContext.PosPrintTemplates.AsNoTracking()
             .Where(t => t.StoreId == storeId && t.Deleted == null);
@@ -302,6 +305,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         var storeId = RequiredStoreId;
         await EnsureCatalogSeededAsync(documentType);
         var adopted = await EnsureStoreHasAtLeastOneAsync(storeId, documentType);
+        await EnsureStoreHasK58Async(storeId, documentType);
         return Ok(AppResponse<object>.Success(new { created = adopted ? 1 : 0 }));
     }
 
@@ -442,6 +446,59 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         });
         await dbContext.SaveChangesAsync();
         return true;
+    }
+
+    /// <summary>Máy K58 không dùng mẫu K80 (vỡ chữ). Clone catalog K58, không đổi mặc định K80.</summary>
+    async Task EnsureStoreHasK58Async(Guid storeId, PosPrintDocumentType documentType)
+    {
+        if (documentType is not (PosPrintDocumentType.SaleInvoice
+            or PosPrintDocumentType.SaleReturn
+            or PosPrintDocumentType.KitchenSlip
+            or PosPrintDocumentType.KitchenVoid))
+            return;
+
+        var hasK58 = await dbContext.PosPrintTemplates.AsNoTracking().AnyAsync(t =>
+            t.StoreId == storeId &&
+            t.DocumentType == documentType &&
+            t.Deleted == null &&
+            t.IsActive &&
+            t.PaperSize == PosPrintPaperSize.K58);
+        if (hasK58) return;
+
+        await EnsureCatalogSeededAsync(documentType);
+        var catalog = await dbContext.PosPrintTemplateCatalogs.AsNoTracking()
+            .FirstOrDefaultAsync(t =>
+                t.DocumentType == documentType &&
+                t.Deleted == null &&
+                t.IsActive &&
+                t.PaperSize == PosPrintPaperSize.K58);
+        if (catalog == null) return;
+
+        var name = documentType switch
+        {
+            PosPrintDocumentType.SaleInvoice => "HĐ K58",
+            PosPrintDocumentType.SaleReturn => "Trả K58",
+            PosPrintDocumentType.KitchenSlip => "Bếp K58",
+            PosPrintDocumentType.KitchenVoid => "Hủy bếp K58",
+            _ => catalog.Name,
+        };
+
+        dbContext.PosPrintTemplates.Add(new PosPrintTemplate
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            Name = name,
+            DocumentType = catalog.DocumentType,
+            PaperSize = PosPrintPaperSize.K58,
+            HtmlContent = catalog.HtmlContent,
+            IsDefault = false,
+            IsActive = true,
+            SortOrder = catalog.SortOrder,
+            SourceCatalogId = catalog.Id,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "system",
+        });
+        await dbContext.SaveChangesAsync();
     }
 
     async Task ClearDefaultAsync(Guid storeId, PosPrintDocumentType docType, Guid? exceptId)

@@ -13,6 +13,7 @@ import 'pos_barcode_print.dart';
 import 'pos_label_printer_service.dart';
 import 'pos_label_renderer.dart';
 import 'pos_local_printers_store.dart';
+import 'pos_print_device_scope.dart';
 import 'pos_print_orchestrator.dart';
 import 'pos_print_template_compiler.dart';
 import 'pos_print_template_loader.dart';
@@ -53,13 +54,19 @@ bool _isKitchenReceiptPrinter(PosStorePrinter p) {
       has(PosLocalPrinterRoles.kitchenVoid);
 }
 
-bool _cloudLabelPrinterReady(PosStorePrinter p) {
-  if (!p.isActive || !p.isLabelPrinter) return false;
-  if (_isKitchenReceiptPrinter(p)) return false;
-  return p.isDeviceLocal || p.isOnline;
+/// Máy tem Agent (chip cloud). Không dùng IsDeviceLocal của máy khác —
+/// A7 gửi ID nội bộ A6 thì Agent không claim (chip là bản twin).
+Future<PosStorePrinter?> _agentFacingLabelPrinter(PosStorePrinter p) async {
+  if (!p.isActive) return null;
+  if (_isKitchenReceiptPrinter(p)) return null;
+  final facing = await PosPrintDeviceScope.agentFacingPrinter(p.id);
+  if (facing == null || !facing.isActive) return null;
+  if (!facing.isLabelPrinter) return null;
+  if (_isKitchenReceiptPrinter(facing)) return null;
+  return facing;
 }
 
-/// Máy tem nội bộ (USB/BT/LAN) hoặc máy tem cửa hàng đang kết nối (Agent online).
+/// Máy tem nội bộ trên máy này, hoặc máy tem Agent (A6) để A7/web in hộ.
 Future<bool> hasReadyCupLabelPrinter() async {
   if (!kIsWeb) {
     final all = await PosLocalPrintersStore.instance.loadAll();
@@ -71,7 +78,7 @@ Future<bool> hasReadyCupLabelPrinter() async {
   try {
     await PosPrintOrchestrator.instance.refreshConfig();
   } catch (_) {}
-  return PosPrintOrchestrator.instance.printers.any(_cloudLabelPrinterReady);
+  return await _resolveCupLabelCloudPrinter() != null;
 }
 
 /// In tem trà sữa / dán ly.
@@ -118,6 +125,21 @@ Future<bool> printCupLabels({
           .where((p) =>
               PosLocalPrintersStore.profileAllowsDirectLocal(p) && p.isLabel)
           .toList();
+    }
+
+    if (labelTargets.length > 1) {
+      final want =
+          ((await _resolveCupLabelCloudPrinter())?.id ?? '').trim().toLowerCase();
+      if (want.isNotEmpty) {
+        labelTargets.sort((a, b) {
+          final aHit =
+              (a.storePrinterId ?? '').trim().toLowerCase() == want;
+          final bHit =
+              (b.storePrinterId ?? '').trim().toLowerCase() == want;
+          if (aHit != bHit) return aHit ? -1 : 1;
+          return 0;
+        });
+      }
     }
 
     if (labelTargets.isNotEmpty) {
@@ -278,7 +300,7 @@ Future<bool> printCupLabels({
   );
 
   await PosPrintOrchestrator.instance.refreshConfig();
-  final cloudPrinter = _resolveCupLabelCloudPrinter();
+  final cloudPrinter = await _resolveCupLabelCloudPrinter();
   if (cloudPrinter != null && outputs.isNotEmpty) {
     try {
       // Máy tem (TSPL/Xprinter): phải gửi bitmap TSPL — EscPos ghi USB «OK»
@@ -398,34 +420,61 @@ Future<bool> printCupLabels({
 
   // Không fallback EscPos «Ban: …» lên máy phiếu chế biến / máy bất kỳ.
   debugPrint(
-    'Cup label: không in — cần máy tem (KitchenLabel), không đẩy Agent lên máy bếp',
+    'Cup label: không in — cần máy tem Agent (A6), không đẩy lên máy bếp',
   );
   if (showFeedback) {
     NotificationOverlayManager().showError(
       title: 'Chưa in tem ly',
       message: tr(
-        'Chưa có máy in tem. Vào Máy in nội bộ → thêm máy Tem, gán vai trò Tem bếp.',
+        'A7 không cài máy tem. Trên A6: cài máy tem USB và bật in qua Agent.',
       ),
     );
   }
   return false;
 }
 
-/// Máy tem thật (TSPL) đang kết nối — không gửi phiếu cloud khi Agent offline.
-PosStorePrinter? _resolveCupLabelCloudPrinter() {
+/// Máy tem Agent (chip cloud). A7 không cài tem — không lấy IsDeviceLocal A6.
+Future<PosStorePrinter?> _resolveCupLabelCloudPrinter() async {
   final orch = PosPrintOrchestrator.instance;
+
+  Future<PosStorePrinter?> pick(Iterable<PosStorePrinter> list) async {
+    PosStorePrinter? firstReady;
+    final sorted = [...list]
+      ..sort((a, b) {
+        if (a.isDefault != b.isDefault) return a.isDefault ? -1 : 1;
+        final ac = a.isDeviceLocal ? 1 : 0;
+        final bc = b.isDeviceLocal ? 1 : 0;
+        if (ac != bc) return ac.compareTo(bc);
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+    for (final p in sorted) {
+      final facing = await _agentFacingLabelPrinter(p);
+      if (facing == null) continue;
+      if (facing.isDefault) return facing;
+      firstReady ??= facing;
+    }
+    return firstReady;
+  }
+
   for (final doc in [
     PosCloudDocumentTypes.kitchenLabel,
     PosCloudDocumentTypes.barcodeLabel,
   ]) {
-    for (final p in orch.resolvePrinters(doc)) {
-      if (_cloudLabelPrinterReady(p)) return p;
+    final hit = await pick(orch.resolvePrinters(doc));
+    if (hit != null) {
+      debugPrint(
+        'Cup label: Agent ${hit.name} (${hit.id}) doc=$doc',
+      );
+      return hit;
     }
   }
-  for (final p in orch.printers) {
-    if (_cloudLabelPrinterReady(p)) return p;
+  final fallback = await pick(orch.printers);
+  if (fallback != null) {
+    debugPrint(
+      'Cup label: Agent fallback ${fallback.name} (${fallback.id})',
+    );
   }
-  return null;
+  return fallback;
 }
 
 List<PosPrintCompiledOutput> _compileCupOutputs({

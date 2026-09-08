@@ -119,10 +119,23 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      const spinner = Center(child: CircularProgressIndicator());
+      if (HrmPageChrome.hideOuterChrome(context)) return spinner;
+      return Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        appBar: HrmPageChrome.appBar(
+          context: context,
+          title: 'Thiết lập cửa hàng',
+        ),
+        body: spinner,
+      );
     }
     return Scaffold(
-          backgroundColor: HrmPageChrome.background,
+      backgroundColor: HrmPageChrome.background,
+      appBar: HrmPageChrome.appBar(
+        context: context,
+        title: 'Thiết lập cửa hàng',
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [

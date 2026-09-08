@@ -44,6 +44,7 @@ public static class ScheduleStaffingQuotaHelper
             return null;
 
         var workDate = registration.Date.Date;
+        var dayEnd = workDate.AddDays(1);
         var (minLimit, maxLimit) = StaffingQuotaResolver.ResolveLimitsForDate(quota, workDate);
         if (maxLimit <= 0)
             return null;
@@ -52,16 +53,15 @@ public static class ScheduleStaffingQuotaHelper
 
         var workSchedules = (await workScheduleRepository.GetAllAsync(
             ws => ws.StoreId == storeId
-                  && ws.Date.Date == workDate
+                  && ws.Date >= workDate && ws.Date < dayEnd
                   && ws.ShiftId == shiftId
-                  && !ws.IsDayOff
-                  && ws.Deleted == null,
+                  && !ws.IsDayOff,
             includeProperties: ["Employee"],
             cancellationToken: cancellationToken)).ToList();
 
         var pendingRegs = (await registrationRepository.GetAllAsync(
             r => r.StoreId == storeId
-                 && r.Date.Date == workDate
+                 && r.Date >= workDate && r.Date < dayEnd
                  && r.ShiftId == shiftId
                  && !r.IsDayOff
                  && r.Status == ScheduleRegistrationStatus.Pending

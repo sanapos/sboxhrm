@@ -51,7 +51,7 @@ class _PosAppSettingsScreenState extends State<PosAppSettingsScreen> {
           RadioListTile<String>(
             value: 'vi',
             groupValue: AppLocale.languageCode,
-            title: const Text('Tiếng Việt'),
+            title: Text(tr('Tiếng Việt')),
             onChanged: (v) => Navigator.pop(ctx, v),
           ),
           RadioListTile<String>(

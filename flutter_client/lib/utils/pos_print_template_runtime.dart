@@ -28,7 +28,16 @@ abstract final class PosPrintTemplateRuntime {
     required String printerProfile,
   }) {
     final parsed = parseTemplate(template);
-    if (parsed != null) return parsed;
+    if (parsed != null) {
+      final want = paperSize.trim();
+      final got = parsed.paperSize.trim();
+      final thermalMismatch = want.isNotEmpty &&
+          got.isNotEmpty &&
+          want != got &&
+          PosPrintPaperSizes.isThermal(want) &&
+          PosPrintPaperSizes.isThermal(got);
+      if (!thermalMismatch) return parsed;
+    }
     return PosPrintTemplateV2Presets.build(
       documentType: documentType,
       paperSize: paperSize,
@@ -74,7 +83,7 @@ abstract final class PosPrintTemplateRuntime {
     );
     final items = buildSaleOrderPrintLines(
       lines,
-      compactLineMoney: false,
+      compactLineMoney: template.paperSize == PosPrintPaperSizes.k58,
     );
     return PosPrintTemplateCompiler.compile(
       template: template,
@@ -130,6 +139,104 @@ abstract final class PosPrintTemplateRuntime {
       lineItems: items,
       kitchenLines: items,
     );
+  }
+
+  static String _kdsReadyItemNote(String? note) {
+    final cleaned = kitchenCallNote(note, DateTime.now());
+    if (cleaned.isEmpty) return '';
+    return cleaned
+        .split(RegExp(r'[\r\n]+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .where((s) => s.toLowerCase() != 'ra món')
+        .where((s) => !RegExp(r'^Gọi\s+.+\s·\s*Ra\s+').hasMatch(s))
+        .join('\n');
+  }
+
+  /// Phiếu KDS «Làm xong» — dòng in cứng, không lấy mẫu báo chế biến cửa hàng.
+  static PosPrintCompiledOutput compileKdsReadySlip({
+    required String paperSize,
+    required String printerProfile,
+    required String tableName,
+    String? areaName,
+    required String orderNo,
+    required DateTime calledAt,
+    required DateTime readyAt,
+    required List<({String name, String qty, String? unit, String? note})> lines,
+  }) {
+    final call = calledAt.toLocal();
+    final ready = readyAt.toLocal();
+    final stamp = DateFormat('dd/MM HH:mm');
+    final table = tableName.trim().isEmpty ? 'Bàn' : tableName.trim();
+    final area = (areaName ?? '').trim();
+    final place = area.isEmpty ? table : '$table · $area';
+    final code = orderNo.trim();
+    final orderLabel = code.isEmpty
+        ? '-'
+        : PosReceiptLayout.formatSaleInvoiceNo(code);
+    final titleSize = paperSize == PosPrintPaperSizes.k80 ? 40.0 : 36.0;
+    final bodySize = paperSize == PosPrintPaperSizes.k80 ? 26.0 : 22.0;
+    final itemSize = bodySize + 2;
+    final steps = <Object>[
+      const PosPrintCompiledLine(
+        text: 'PHIẾU RA MÓN',
+        fontSize: 40,
+        bold: true,
+        center: true,
+      ),
+      PosPrintCompiledLine(
+        text: place,
+        fontSize: titleSize - 6,
+        bold: true,
+        center: true,
+      ),
+      const PosPrintCompiledLine(text: '', isDivider: true),
+      PosPrintCompiledLine(
+        text: 'Mã đơn hàng: $orderLabel',
+        fontSize: bodySize,
+        bold: true,
+      ),
+      PosPrintCompiledLine(
+        text: 'Thời gian gọi: ${stamp.format(call)}',
+        fontSize: bodySize,
+        bold: true,
+      ),
+      PosPrintCompiledLine(
+        text: 'Thời gian ra: ${stamp.format(ready)}',
+        fontSize: bodySize,
+        bold: true,
+      ),
+      const PosPrintCompiledLine(text: '', isDivider: true),
+    ];
+    for (var i = 0; i < lines.length; i++) {
+      final l = lines[i];
+      final unit = (l.unit ?? '').trim();
+      final qty = unit.isEmpty ? l.qty : '${l.qty} $unit';
+      steps.add(PosPrintCompiledSaleRow(
+        name: '${i + 1}. ${l.name}',
+        qty: qty,
+        price: '',
+        total: '',
+        fontSize: itemSize,
+        bold: true,
+        showQty: true,
+        showPrice: false,
+        showTotal: false,
+      ));
+      final note = _kdsReadyItemNote(l.note);
+      if (note.isNotEmpty) {
+        for (final part in note.split(RegExp(r'[\r\n]+'))) {
+          final t = part.trim();
+          if (t.isEmpty) continue;
+          steps.add(PosPrintCompiledLine(
+            text: t.startsWith('+') ? '  $t' : '  * $t',
+            fontSize: bodySize - 4,
+            bold: false,
+          ));
+        }
+      }
+    }
+    return PosPrintCompiledOutput(steps: steps, html: '');
   }
 
   /// Phiếu xuất kho / báo kho — layout StockIssue (không tiền).

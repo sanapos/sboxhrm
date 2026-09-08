@@ -107,6 +107,11 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 PosTts.handle(this, call, result)
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PosApkInstaller.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                PosApkInstaller.handle(this, call, result)
+            }
     }
 
     private fun registerScannerReceiver() {

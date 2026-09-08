@@ -144,8 +144,7 @@ public class DevicesController(
         if (device == null)
             return NotFound(AppResponse<object>.Fail("Thiết bị không tồn tại"));
 
-        var isOnline = device.LastOnline != null && 
-                       DateTime.UtcNow.Subtract(device.LastOnline.Value).TotalSeconds <= 90;
+        var isOnline = DeviceConnectivity.IsOnline(device.LastOnline);
         
         // Update DeviceStatus in DB if inconsistent
         var expectedStatus = isOnline ? "Online" : "Offline";
@@ -273,7 +272,8 @@ public class DevicesController(
             request.SerialNumber, 
             request.DeviceName, 
             request.Description, 
-            request.Location);
+            request.Location,
+            GetCurrentStoreId());
         
         if (!result.IsSuccess)
         {

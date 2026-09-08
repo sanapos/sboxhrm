@@ -15,6 +15,7 @@ import '../services/face_embedding_service_stub.dart'
     if (dart.library.io) '../services/face_embedding_service.dart';
 import '../services/mlkit_face_signature_service.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../utils/play_system_ui.dart';
 
 /// Result of face verification: score + captured photo as base64.
 class FaceVerificationResult {
@@ -809,7 +810,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
     final circleTop = size.height * 0.38;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: kPlayOverlayOnDarkBg,
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(

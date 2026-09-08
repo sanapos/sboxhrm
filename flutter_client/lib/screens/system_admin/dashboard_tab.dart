@@ -778,9 +778,9 @@ class DashboardTabState extends State<DashboardTab> {
           value: _posStoreId,
           hint: Text(tr('Tất cả cửa hàng')),
           items: [
-            const DropdownMenuItem<String>(
+            DropdownMenuItem<String>(
               value: null,
-              child: Text('Tất cả cửa hàng'),
+              child: Text(tr('Tất cả cửa hàng')),
             ),
             for (final s in stores)
               DropdownMenuItem<String>(

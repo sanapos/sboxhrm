@@ -33,6 +33,7 @@ try {
     $define = @('--dart-define=API_BASE_URL=https://sbox.sana.vn')
     if ($Pos) { $define += '--dart-define=SBOX_POS_STANDALONE=true' }
     & $Flutter build appbundle --release --flavor $flavor @define
+    if ($LASTEXITCODE -ne 0) { throw "flutter build appbundle failed (exit $LASTEXITCODE)" }
 
     $src = Join-Path $client "build\app\outputs\bundle\$aabDir\$aabName"
     if (-not (Test-Path $src)) { throw "AAB not found: $src" }

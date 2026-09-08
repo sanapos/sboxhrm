@@ -208,7 +208,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
       if (!silent) {
         _toast(
           title: 'Đã lưu',
-          message: '${f.displayName}${f.useSandbox ? " · Sandbox BẬT" : " · Production"}',
+          message: tr('${f.displayName}${f.useSandbox ? " · Sandbox BẬT" : " · Production"}'),
           success: true,
         );
       }
@@ -266,7 +266,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
       final fee = data['fee'] ?? data['Fee'] ?? 0;
       NotificationOverlayManager().showSuccess(
         title: 'Kết nối OK',
-        message: 'Ước tính phí: $fee đ',
+        message: tr('Ước tính phí: $fee đ'),
       );
     } else {
       final msg = data is Map
@@ -458,8 +458,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                         size: 16, color: Colors.green.shade700),
                     const SizedBox(width: 6),
                     Expanded(
-                      child: Text(
-                        'Token đã lưu: ${f.apiTokenHint}',
+                      child: Text(tr('Token đã lưu: ${f.apiTokenHint}'),
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.green.shade800,
@@ -822,8 +821,7 @@ class _ViettelPostWebhookGuide extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Webhook — cập nhật trạng thái đơn tự động',
+          Text(tr('Webhook — cập nhật trạng thái đơn tự động'),
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 13,
@@ -834,7 +832,7 @@ class _ViettelPostWebhookGuide extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: _openVtpConfig,
             icon: const Icon(Icons.open_in_new, size: 16),
-            label: const Text('Mở trang cấu hình VTP'),
+            label: Text(tr('Mở trang cấu hình VTP')),
           ),
           const SizedBox(height: 8),
           _step(
@@ -859,8 +857,8 @@ class _ViettelPostWebhookGuide extends StatelessWidget {
             controller: webhookSecretCtrl,
             enabled: enabled,
             obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Webhook secret (lưu cùng cấu hình VTP)',
+            decoration: InputDecoration(
+              labelText: tr('Webhook secret (lưu cùng cấu hình VTP)'),
               border: OutlineInputBorder(),
               isDense: true,
             ),
@@ -975,8 +973,7 @@ class _GhtkWebhookGuide extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Webhook GHTK — cập nhật trạng thái realtime',
+          Text(tr('Webhook GHTK — cập nhật trạng thái realtime'),
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 13,
@@ -991,7 +988,7 @@ class _GhtkWebhookGuide extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: () => _open(ghtkApiConfigUrl),
                 icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('Cấu hình API / Token GHTK'),
+                label: Text(tr('Cấu hình API / Token GHTK')),
               ),
               OutlinedButton.icon(
                 onPressed: () => _open(ghtkDocsUrl),
@@ -1005,16 +1002,15 @@ class _GhtkWebhookGuide extends StatelessWidget {
             controller: webhookSecretCtrl,
             enabled: enabled,
             obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Hash webhook (chuỗi bí mật trên URL)',
+            decoration: InputDecoration(
+              labelText: tr('Hash webhook (chuỗi bí mật trên URL)'),
               border: OutlineInputBorder(),
               isDense: true,
-              helperText: 'GHTK gọi URL có ?hash=… — phải khớp chuỗi này',
+              helperText: tr('GHTK gọi URL có ?hash=… — phải khớp chuỗi này'),
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'URL dán vào GHTK (callback):',
+          Text(tr('URL dán vào GHTK (callback):'),
             style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
           ),
           const SizedBox(height: 4),

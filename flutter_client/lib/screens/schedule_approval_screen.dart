@@ -16,6 +16,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_fab_clearance.dart';
 import '../widgets/app_scroll_safe.dart';
+import '../widgets/page_top_actions.dart';
 import '../widgets/shift_swap_panel.dart';
 import '../widgets/shift_swap_ui.dart';
 import 'main_layout.dart';
@@ -117,30 +118,46 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         _loadRegistrations(),
         _loadStaffingQuotas(),
       ]);
+    } catch (e) {
+      debugPrint('ScheduleApproval loadInitialData: $e');
+      if (mounted) {
+        appNotification.showError(
+            title: 'Không tải được dữ liệu',
+            message: e.toString().replaceFirst('Exception: ', ''));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _loadShifts() async {
-    final shifts = await _apiService.getShifts();
-    if (!mounted) return;
-    setState(() {
-      _shifts = shifts.map((s) => Shift.fromJson(s)).toList();
-      _shifts.sort((a, b) {
-        final aTime = a.startTime.replaceAll(RegExp(r'[^0-9:]'), '');
-        final bTime = b.startTime.replaceAll(RegExp(r'[^0-9:]'), '');
-        return aTime.compareTo(bTime);
+    try {
+      final shifts = await _apiService.getShifts();
+      if (!mounted) return;
+      setState(() {
+        _shifts = shifts.map((s) => Shift.fromJson(s)).toList();
+        _shifts.sort((a, b) {
+          final aTime = a.startTime.replaceAll(RegExp(r'[^0-9:]'), '');
+          final bTime = b.startTime.replaceAll(RegExp(r'[^0-9:]'), '');
+          return aTime.compareTo(bTime);
+        });
       });
-    });
+    } catch (e) {
+      debugPrint('ScheduleApproval loadShifts: $e');
+    }
   }
 
   Future<void> _loadEmployees() async {
-    final employees = await _apiService.getEmployeesForSelect();
-    if (!mounted) return;
-    setState(() {
-      _employees = employees.map((e) => Employee.fromJson(e)).toList();
-    });
+    try {
+      final employees = await _apiService.getEmployeesForSelect();
+      if (!mounted) return;
+      setState(() {
+        _employees = employees.map((e) => Employee.fromJson(e)).toList();
+      });
+    } catch (e) {
+      debugPrint('ScheduleApproval loadEmployees: $e');
+      return;
+    }
     // Load branches after employees
     try {
       final br = await _apiService.getBranchesForSelect();
@@ -153,18 +170,25 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   }
 
   Future<void> _loadSchedules() async {
-    final fromDate = _selectedWeekStart;
-    final toDate = _selectedWeekStart.add(const Duration(days: 6));
-    final result =
-        await _apiService.getWorkSchedules(fromDate: fromDate, toDate: toDate);
-    if (!mounted) return;
-    if (result['isSuccess'] == true && result['data'] != null) {
-      final data = result['data'];
-      final items = data is List ? data : (data['items'] ?? []);
-      setState(() {
-        _schedules =
-            (items as List).map((s) => WorkSchedule.fromJson(s)).toList();
-      });
+    try {
+      final fromDate = _selectedWeekStart;
+      final toDate = _selectedWeekStart.add(const Duration(days: 6));
+      final result =
+          await _apiService.getWorkSchedules(
+              fromDate: fromDate, toDate: toDate, pageSize: 500);
+      if (!mounted) return;
+      if (result['isSuccess'] == true && result['data'] != null) {
+        final data = result['data'];
+        final items = data is List ? data : (data['items'] ?? []);
+        setState(() {
+          _schedules = (items as List)
+              .whereType<Map>()
+              .map((s) => WorkSchedule.fromJson(Map<String, dynamic>.from(s)))
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('ScheduleApproval loadSchedules: $e');
     }
   }
 
@@ -189,19 +213,34 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
 
   void _mergeRegistrationUpdate(dynamic data) {
     if (data is! Map) return;
-    final updated =
-        ScheduleRegistration.fromJson(Map<String, dynamic>.from(data));
-    final idx = _registrations.indexWhere((r) => r.id == updated.id);
-    if (idx >= 0) {
-      _registrations[idx] = updated;
-    } else {
-      _registrations.add(updated);
+    try {
+      final updated =
+          ScheduleRegistration.fromJson(Map<String, dynamic>.from(data));
+      final idx = _registrations.indexWhere((r) => r.id == updated.id);
+      if (idx >= 0) {
+        _registrations[idx] = updated;
+      } else {
+        _registrations.add(updated);
+      }
+    } catch (e) {
+      debugPrint('ScheduleApproval mergeRegistration: $e');
     }
+  }
+
+  int _toInt(dynamic value, [int fallback = 0]) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? fallback;
   }
 
   String _registrationApprovalMessage(Map<String, dynamic> data,
       {required bool approved}) {
-    final reg = ScheduleRegistration.fromJson(data);
+    final ScheduleRegistration reg;
+    try {
+      reg = ScheduleRegistration.fromJson(data);
+    } catch (_) {
+      return approved ? 'Đã duyệt đăng ký' : 'Đã từ chối đăng ký';
+    }
     if (!approved || reg.status == ScheduleRegistrationStatus.rejected) {
       return 'Đã từ chối đăng ký';
     }
@@ -218,22 +257,28 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   }
 
   Future<void> _loadRegistrations() async {
-    final fromDate = _selectedWeekStart;
-    final toDate = _selectedWeekStart.add(const Duration(days: 6));
-    final result = await _apiService.getScheduleRegistrations(
-      pageSize: 200,
-      fromDate: fromDate,
-      toDate: toDate,
-    );
-    if (!mounted) return;
-    if (result['isSuccess'] == true && result['data'] != null) {
-      final data = result['data'];
-      final items = data is List ? data : (data['items'] ?? []);
-      setState(() {
-        _registrations = (items as List)
-            .map((r) => ScheduleRegistration.fromJson(r))
-            .toList();
-      });
+    try {
+      final fromDate = _selectedWeekStart;
+      final toDate = _selectedWeekStart.add(const Duration(days: 6));
+      final result = await _apiService.getScheduleRegistrations(
+        pageSize: 200,
+        fromDate: fromDate,
+        toDate: toDate,
+      );
+      if (!mounted) return;
+      if (result['isSuccess'] == true && result['data'] != null) {
+        final data = result['data'];
+        final items = data is List ? data : (data['items'] ?? []);
+        setState(() {
+          _registrations = (items as List)
+              .whereType<Map>()
+              .map((r) => ScheduleRegistration.fromJson(
+                  Map<String, dynamic>.from(r)))
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('ScheduleApproval loadRegistrations: $e');
     }
   }
 
@@ -489,10 +534,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
-    final showSwapFab = isMobile &&
-        _tabController.index == 3 &&
+    final onSwapTab = _tabController.index == 3;
+    final canCreateSwap =
         Provider.of<PermissionProvider>(context, listen: false)
             .canCreate('ShiftSwap');
+    final showSwapFab = isMobile && onSwapTab;
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
@@ -583,7 +629,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           ? const LoadingWidget()
           : HrmFabClearance(
               fabVisible: showSwapFab,
-              extendedFab: true,
+              extendedFab: false,
               child: TabBarView(
                 controller: _tabController,
                 children: [
@@ -603,17 +649,37 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 ],
               ),
             ),
-      floatingActionButton: _tabController.index == 3 &&
-              Provider.of<PermissionProvider>(context, listen: false)
-                  .canCreate('ShiftSwap')
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                _swapPanelKey.currentState?.showCreateDialog();
-                _loadSwapPendingCount();
-              },
+      floatingActionButton: onSwapTab
+          ? FloatingActionButton(
+              heroTag: 'schedule_approval_swap_fab',
+              tooltip: tr('Thao tác'),
               backgroundColor: HrmPageChrome.primaryNavy,
-              icon: const Icon(Icons.add),
-              label: Text(tr('Yêu cầu đổi ca')),
+              foregroundColor: Colors.white,
+              onPressed: () {
+                final acts = <HrmTopBarAction>[
+                  if (canCreateSwap)
+                    HrmTopBarAction(
+                      icon: Icons.add,
+                      label: 'Yêu cầu đổi ca',
+                      primary: true,
+                      onPressed: () {
+                        _swapPanelKey.currentState?.showCreateDialog();
+                        _loadSwapPendingCount();
+                      },
+                    ),
+                  HrmTopBarAction(
+                    icon: Icons.help_outline,
+                    label: 'Hướng dẫn',
+                    onPressed: () => showShiftSwapFlowHelpDialog(context),
+                  ),
+                ];
+                if (acts.length == 1) {
+                  acts.first.onPressed?.call();
+                  return;
+                }
+                showPageTopActionsSheet(context, acts);
+              },
+              child: const Icon(Icons.apps_rounded, size: 26),
             )
           : null,
     );
@@ -1321,9 +1387,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   Widget _buildShiftPanel(Shift shift) {
     final isMobile = Responsive.isMobile(context);
     final quota = _getQuotaForShift(shift.id);
-    final maxEmp = (quota?['maxEmployees'] ?? 0) as int;
-    final minEmp = (quota?['minEmployees'] ?? 0) as int;
-    final warnThreshold = (quota?['warningThreshold'] ?? 2) as int;
+    final maxEmp = _toInt(quota?['maxEmployees']);
+    final minEmp = _toInt(quota?['minEmployees']);
+    final warnThreshold = _toInt(quota?['warningThreshold'], 2);
     final days =
         List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
     final visibleRegs = _filteredRegistrations;

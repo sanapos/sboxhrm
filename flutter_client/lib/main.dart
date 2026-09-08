@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'utils/play_system_ui.dart';
 import 'utils/web_route_parser.dart';
 import 'utils/vietnamese_font.dart';
 import 'utils/low_ram_tuning.dart';
@@ -22,14 +23,7 @@ void main() async {
 
   if (!kIsWeb) {
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarContrastEnforced: false,
-      ),
-    );
+    SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnLightBg);
   }
 
   // Tắt Widget Inspector overlay trong debug mode

@@ -1,4 +1,7 @@
 import 'api_service.dart';
+import '../utils/pos_device_product_printers.dart';
+import '../utils/pos_local_printers_store.dart';
+import '../utils/pos_print_device_scope.dart';
 
 /// Cache gán máy in theo sản phẩm (product → category fallback).
 class PosProductPrinterService {
@@ -15,7 +18,11 @@ class PosProductPrinterService {
     _cacheAt = null;
   }
 
-  Future<void> preload() async {
+  Future<void> preload({bool force = false}) async {
+    if (force) {
+      _cache = null;
+      _cacheAt = null;
+    }
     await _load();
   }
 
@@ -56,6 +63,24 @@ class PosProductPrinterService {
       return e.categoryPrinterId;
     }
     return null;
+  }
+
+  /// Local máy này trước; không in được thì Agent (bỏ gán máy gửi).
+  Future<KitchenPrintRoute> resolveKitchenRoute(
+    String productId, {
+    required String documentRole,
+  }) async {
+    if (productId.isEmpty) return const KitchenPrintRoute.none();
+    final deviceId = await PosDeviceProductPrinters.instance.printerIdForProduct(
+      productId,
+      label: documentRole == PosLocalPrinterRoles.kitchenLabel,
+    );
+    final storeId = await resolvePrinterId(productId);
+    return PosPrintDeviceScope.resolveKitchenRoute(
+      devicePrinterId: deviceId,
+      storePrinterId: storeId,
+      documentRole: documentRole,
+    );
   }
 }
 

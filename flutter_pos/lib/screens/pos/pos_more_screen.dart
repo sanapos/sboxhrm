@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/pos_sell_industry.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
+import '../../services/api_service.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
+import '../../utils/pos_sell_settings_helper.dart';
+import '../../utils/store_role_helper.dart';
+import '../main_layout.dart' show ScreenRefreshNotifier;
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -31,6 +36,9 @@ import 'pos_customer_display_settings_screen.dart';
 import 'pos_payment_gateway_settings_screen.dart';
 import 'pos_shipping_settings_screen.dart';
 import 'pos_store_printers_screen.dart';
+import 'pos_printer_settings_hub_screen.dart';
+import 'pos_einvoice_settings_screen.dart';
+import '../pos_print_templates_screen.dart';
 import 'pos_transfer_confirm_screen.dart';
 import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
@@ -44,8 +52,37 @@ import '../../widgets/pos_app_update_dialog.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Hub «Nhiều hơn» — module POS phụ kiểu KiotViet.
-class PosMoreScreen extends StatelessWidget {
+class PosMoreScreen extends StatefulWidget {
   const PosMoreScreen({super.key});
+
+  @override
+  State<PosMoreScreen> createState() => _PosMoreScreenState();
+}
+
+class _PosMoreScreenState extends State<PosMoreScreen> {
+  PosStoreSellSettingsDto? _sell;
+
+  bool get _shiftOn => _sell?.enableCashierShift == true;
+  bool get _qrOn => _sell?.enableQrTableOrder == true;
+
+  @override
+  void initState() {
+    super.initState();
+    ScreenRefreshNotifier.posSellIndustry.addListener(_reloadSell);
+    _reloadSell();
+  }
+
+  @override
+  void dispose() {
+    ScreenRefreshNotifier.posSellIndustry.removeListener(_reloadSell);
+    super.dispose();
+  }
+
+  Future<void> _reloadSell() async {
+    final r = await PosSellSettingsHelper(ApiService()).load();
+    if (!mounted) return;
+    setState(() => _sell = r.settings);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,16 +198,20 @@ class PosMoreScreen extends StatelessWidget {
                         altModules: const ['PosSalesReport']),
                     _Item('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift',
                         const PosCashierShiftScreen(),
-                        altModules: const ['PosSell']),
+                        altModules: const ['PosSell'],
+                        visible: _shiftOn),
                     _Item('QR order bàn', Icons.qr_code_2, 'PosQrOrder',
                         const PosQrTableOrderScreen(),
-                        altModules: const ['PosSell']),
+                        altModules: const ['PosSell'],
+                        visible: _qrOn),
                     _Item('Menu QR / Online', Icons.restaurant_menu, 'PosQrOrder',
                         const PosQrMenuScreen(),
-                        altModules: const ['PosSell']),
+                        altModules: const ['PosSell'],
+                        visible: _qrOn),
                     _Item('Đơn online', Icons.delivery_dining_outlined, 'PosQrOrder',
                         const PosQrOnlineOrdersScreen(),
-                        altModules: const ['PosSell']),
+                        altModules: const ['PosSell'],
+                        visible: _qrOn),
                     _Item('Xác nhận CK', Icons.payments_outlined, 'PosSell',
                         const PosTransferConfirmScreen(),
                         altModules: const ['PosSell']),
@@ -251,6 +292,14 @@ class PosMoreScreen extends StatelessWidget {
                       Icons.settings_outlined,
                       'SettingsHub',
                       const SettingsHubScreen(),
+                      altModules: const [
+                        'PosPrinters',
+                        'PosStorePrinters',
+                        'PosPrintTemplates',
+                        'PosEInvoice',
+                        'PosShipping',
+                        'PosCustomerDisplay',
+                      ],
                     ),
                     _Item(
                       'Ngành hàng',
@@ -263,7 +312,6 @@ class PosMoreScreen extends StatelessWidget {
                       Icons.tv_outlined,
                       'PosCustomerDisplay',
                       const PosCustomerDisplaySettingsScreen(),
-                      altModules: const ['SettingsHub'],
                     ),
                     _Item(
                       'Cổng thanh toán CK',
@@ -274,14 +322,32 @@ class PosMoreScreen extends StatelessWidget {
                     _Item(
                       'Đơn vị giao hàng',
                       Icons.local_shipping_outlined,
-                      'SettingsHub',
+                      'PosShipping',
                       const PosShippingSettingsScreen(),
+                    ),
+                    _Item(
+                      'Máy in (thiết bị)',
+                      Icons.print,
+                      'PosPrinters',
+                      const PosPrinterSettingsHubScreen(),
                     ),
                     _Item(
                       'Máy in cloud',
                       Icons.cloud_outlined,
                       'PosStorePrinters',
                       const PosStorePrintersScreen(),
+                    ),
+                    _Item(
+                      'Mẫu in',
+                      Icons.print_outlined,
+                      'PosPrintTemplates',
+                      const PosPrintTemplatesScreen(),
+                    ),
+                    _Item(
+                      'Hóa đơn điện tử',
+                      Icons.request_quote_outlined,
+                      'PosEInvoice',
+                      const PosEInvoiceSettingsScreen(),
                     ),
                     _Item(
                       'Thiết lập cửa hàng',
@@ -474,26 +540,51 @@ class PosMoreScreen extends StatelessWidget {
   }
 
   static bool _canSeeItem(PermissionProvider perm, _Item item, AuthProvider auth) {
+    if (!item.visible) return false;
+    bool inPackage(String code) => PermissionNavigation.isAllowedByPackageOrRole(
+          code,
+          allowedModules: auth.user?.allowedModules,
+          perm: perm,
+          bypassPackageFilter:
+              StoreRoleHelper.bypassesPackageFilter(auth.user?.role),
+        );
+    bool exact(String code) => perm.canViewExact(code) && inPackage(code);
     bool ok(String code) => PermissionNavigation.canAccessModule(
           code,
           allowedModules: auth.user?.allowedModules,
           perm: perm,
           role: auth.user?.role,
         );
-    if (ok(item.moduleCode)) return true;
-    for (final alt in item.altModules) {
-      if (ok(alt)) return true;
+    const setupExact = {
+      'SettingsHub',
+      'PosPrinters',
+      'PosStorePrinters',
+      'PosPrintTemplates',
+      'PosEInvoice',
+      'PosShipping',
+      'PosCustomerDisplay',
+    };
+    if (item.altModules.isNotEmpty) {
+      if (ok(item.moduleCode)) return true;
+      for (final alt in item.altModules) {
+        if (exact(alt) || ok(alt)) return true;
+      }
+      return false;
     }
-    return false;
+    if (setupExact.contains(item.moduleCode)) {
+      return exact(item.moduleCode);
+    }
+    return ok(item.moduleCode);
   }
 }
 
 class _Item {
   const _Item(this.label, this.icon, this.moduleCode, this.screen,
-      {this.altModules = const []});
+      {this.altModules = const [], this.visible = true});
   final String label;
   final IconData icon;
   final String moduleCode;
   final Widget screen;
   final List<String> altModules;
+  final bool visible;
 }

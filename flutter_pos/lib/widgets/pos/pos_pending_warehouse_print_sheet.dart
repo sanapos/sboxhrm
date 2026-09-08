@@ -196,10 +196,13 @@ class _PendingWarehousePrintSheetBodyState
             SimpleDialogOption(
               onPressed: () => Navigator.pop(dlgCtx, p),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 child: Text(
                   tr('${p.name} · ${_pickerKind(p)}'),
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -336,7 +339,7 @@ class _PendingWarehousePrintSheetBodyState
 
   @override
   Widget build(BuildContext context) {
-    final maxH = MediaQuery.sizeOf(context).height * 0.78;
+    final maxH = MediaQuery.sizeOf(context).height * 0.86;
     return SafeArea(
       child: SizedBox(
         height: maxH,
@@ -346,17 +349,17 @@ class _PendingWarehousePrintSheetBodyState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 4, 4),
+                padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
                 child: Row(
                   children: [
                     Icon(Icons.print_disabled_outlined,
-                        size: 18, color: Colors.orange.shade800),
-                    const SizedBox(width: 6),
+                        size: 22, color: Colors.orange.shade800),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         tr('Phiếu chưa in ($_totalCount)'),
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 17,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -364,8 +367,8 @@ class _PendingWarehousePrintSheetBodyState
                     if (widget.onDismissAll != null && _totalCount > 0)
                       TextButton(
                         style: TextButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(48, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
                         ),
                         onPressed: () {
                           widget.onDismissAll?.call();
@@ -378,25 +381,28 @@ class _PendingWarehousePrintSheetBodyState
                           if (mounted) Navigator.pop(context);
                         },
                         child: Text(tr('Bỏ hết'),
-                            style: const TextStyle(fontSize: 12)),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            )),
                       ),
                   ],
                 ),
               ),
               if (_statusMessage != null)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                   child: Text(
                     tr(_statusMessage!),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        color: Colors.orange.shade900, fontSize: 11.5),
+                        color: Colors.orange.shade900, fontSize: 13),
                   ),
                 ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(8, 2, 8, 12),
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
                   children: [
                     if (_localKitchenJobs.isNotEmpty) ...[
                       _sectionLabel('Bếp / hủy'),
@@ -426,12 +432,12 @@ class _PendingWarehousePrintSheetBodyState
   }
 
   Widget _sectionLabel(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
+        padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
         child: Text(
           tr(text),
           style: const TextStyle(
             fontWeight: FontWeight.w700,
-            fontSize: 11,
+            fontSize: 12,
             color: PosTheme.textSecondary,
           ),
         ),
@@ -447,77 +453,120 @@ class _PendingWarehousePrintSheetBodyState
     required VoidCallback? onDismiss,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: bg,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 2, 4),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr(title),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        height: 1.15,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          tr(title),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                            height: 1.2,
+                          ),
+                        ),
+                        if (subtitle.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            tr(subtitle),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: PosTheme.textSecondary,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                        if ((error ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            tr(error!),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.red.shade700,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (busy)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8, top: 2),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.2),
                       ),
                     ),
-                    if (subtitle.isNotEmpty)
-                      Text(
-                        tr(subtitle),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: PosTheme.textSecondary,
-                          height: 1.15,
-                        ),
-                      ),
-                    if ((error ?? '').isNotEmpty)
-                      Text(
-                        tr(error!),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: Colors.red.shade700,
-                          height: 1.15,
-                        ),
-                      ),
-                  ],
-                ),
+                ],
               ),
-              if (busy)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 10),
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              else
-                ...actions,
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                tooltip: tr('Bỏ qua'),
-                onPressed: busy ? null : onDismiss,
-                icon: const Icon(Icons.close, size: 16),
-              ),
+              if (!busy) ...[
+                const SizedBox(height: 8),
+                _actionBar([...actions, _pillBtn(
+                  icon: Icons.close,
+                  label: 'Bỏ',
+                  onPressed: onDismiss,
+                  fg: Colors.red.shade700,
+                  bg: Colors.white,
+                  border: Colors.red.shade200,
+                )]),
+              ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _actionBar(List<Widget> buttons) {
+    if (buttons.length <= 3) {
+      return Row(
+        children: [
+          for (var i = 0; i < buttons.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(child: buttons[i]),
+          ],
+        ],
+      );
+    }
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(child: buttons[0]),
+            const SizedBox(width: 8),
+            Expanded(child: buttons[1]),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            for (var i = 2; i < buttons.length; i++) ...[
+              if (i > 2) const SizedBox(width: 8),
+              Expanded(child: buttons[i]),
+            ],
+          ],
+        ),
+      ],
     );
   }
 
@@ -527,13 +576,59 @@ class _PendingWarehousePrintSheetBodyState
     required VoidCallback onPressed,
     Color? color,
   }) {
-    return IconButton(
-      visualDensity: VisualDensity.compact,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-      tooltip: tr(tip),
+    final c = color ?? PosTheme.kiotBlue;
+    return _pillBtn(
+      icon: icon,
+      label: tip,
       onPressed: onPressed,
-      icon: Icon(icon, size: 18, color: color ?? PosTheme.kiotBlue),
+      fg: c,
+      bg: c.withOpacity(0.12),
+    );
+  }
+
+  Widget _pillBtn({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onPressed,
+    required Color fg,
+    required Color bg,
+    Color? border,
+  }) {
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          height: 40,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: border == null ? null : Border.all(color: border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: fg),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  tr(label),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: fg,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -561,7 +656,7 @@ class _PendingWarehousePrintSheetBodyState
         ),
         _action(
           icon: Icons.print_outlined,
-          tip: 'Chọn máy khác',
+          tip: 'Máy khác',
           onPressed: () async {
             final p = await _pickPrinter(
               title: 'Chọn máy in phiếu bếp',
@@ -596,7 +691,7 @@ class _PendingWarehousePrintSheetBodyState
       actions: [
         _action(
           icon: Icons.refresh,
-          tip: 'In lại tem',
+          tip: 'In lại',
           onPressed: () => _retryCup(job),
         ),
       ],
@@ -619,12 +714,12 @@ class _PendingWarehousePrintSheetBodyState
       actions: [
         _action(
           icon: Icons.refresh,
-          tip: 'In lại hóa đơn',
+          tip: 'In lại',
           onPressed: () => _retrySale(job),
         ),
         _action(
           icon: Icons.print_outlined,
-          tip: 'Chọn máy khác',
+          tip: 'Máy khác',
           onPressed: () async {
             final p = await _pickPrinter(title: 'Chọn máy in hóa đơn');
             if (p == null || !mounted) return;
@@ -676,7 +771,7 @@ class _PendingWarehousePrintSheetBodyState
         ),
         _action(
           icon: Icons.settings_ethernet,
-          tip: 'In cục bộ',
+          tip: 'Cục bộ',
           onPressed: () =>
               _retry(job, WarehouseSlipPrintMethod.localThermal),
         ),

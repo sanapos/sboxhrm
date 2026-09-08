@@ -430,7 +430,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Không tạo được vận đơn'),
+            title: Text(tr('Không tạo được vận đơn')),
             content: Text(msg),
             actions: [
               FilledButton(
@@ -463,7 +463,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Chưa có mã vận đơn'),
+            title: Text(tr('Chưa có mã vận đơn')),
             content: Text(msg),
             actions: [
               FilledButton(
@@ -479,7 +479,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
         await showDialog<void>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Đã tạo vận đơn'),
+            title: Text(tr('Đã tạo vận đơn')),
             content: SelectableText(msg),
             actions: [
               FilledButton(
@@ -504,6 +504,14 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
     final p = partner.toLowerCase();
     return p.contains('viettel') || p == 'viettelpost' || p == 'vtp';
   }
+
+  bool _isAhamoveCarrier(String partner) {
+    final p = partner.toLowerCase();
+    return p.contains('aha');
+  }
+
+  bool _canManageCarrierShipment(String partner) =>
+      _isViettelCarrier(partner) || _isAhamoveCarrier(partner);
 
   Future<void> _openShipmentLabel(_OnlineOrder o) async {
     setState(() => _busy = true);
@@ -552,7 +560,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
       if (ok) {
         final name =
             (data['statusName'] ?? data['StatusName'] ?? '').toString();
-        _toastResult('Đã đồng bộ VTP', name.isEmpty ? o.orderNo : name);
+        _toastResult('Đã đồng bộ hành trình', name.isEmpty ? o.orderNo : name);
         await _load();
       } else {
         _toastResult(
@@ -573,11 +581,11 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Hủy vận đơn Viettel Post?')),
-        content: Text(tr('Mã ${o.trackingCode} — chỉ hủy khi VTP chưa nhận hàng (<200).')),
+        title: Text(tr('Hủy vận đơn?')),
+        content: Text(tr('Mã ${o.trackingCode}')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Hủy VTP'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Hủy vận đơn'))),
         ],
       ),
     );
@@ -592,7 +600,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
       final ok = res['isSuccess'] == true &&
           (data['success'] == true || data['Success'] == true);
       if (ok) {
-        _toastResult('Đã yêu cầu hủy VTP', o.trackingCode);
+        _toastResult('Đã hủy vận đơn', o.trackingCode);
         await _load();
       } else {
         _toastResult(
@@ -680,7 +688,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
             '${o.trackingCode.isNotEmpty ? ' · ${o.trackingCode}' : ''}',
             style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
           ),
-          if (o.trackingCode.isNotEmpty && _isViettelCarrier(o.deliveryPartner)) ...[
+          if (o.trackingCode.isNotEmpty && _canManageCarrierShipment(o.deliveryPartner)) ...[
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
@@ -693,8 +701,15 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                           onClose?.call();
                           _openShipmentLabel(o);
                         },
-                  icon: const Icon(Icons.print_outlined, size: 18),
-                  label: Text(tr('In vận đơn')),
+                  icon: Icon(
+                    _isAhamoveCarrier(o.deliveryPartner)
+                        ? Icons.location_on_outlined
+                        : Icons.print_outlined,
+                    size: 18,
+                  ),
+                  label: Text(tr(_isAhamoveCarrier(o.deliveryPartner)
+                      ? 'Theo dõi đơn'
+                      : 'In vận đơn')),
                 ),
                 OutlinedButton.icon(
                   onPressed: _busy
@@ -704,7 +719,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                           _syncShipmentTracking(o);
                         },
                   icon: const Icon(Icons.sync, size: 18),
-                  label: Text(tr('Đồng bộ VTP')),
+                  label: Text(tr('Đồng bộ hành trình')),
                 ),
                 if (o.status != 'cancelled' && o.status != 'delivered')
                   OutlinedButton.icon(
@@ -715,7 +730,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                             _cancelShipment(o);
                           },
                     icon: const Icon(Icons.cancel_outlined, size: 18),
-                    label: Text(tr('Hủy VTP')),
+                    label: Text(tr('Hủy vận đơn')),
                   ),
               ],
             ),
@@ -1029,8 +1044,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        '${_money.format(o.total)}₫ · ${o.lines.length} món · ${o.customerName}',
+                      Text(tr('${_money.format(o.total)}₫ · ${o.lines.length} món · ${o.customerName}'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -1603,8 +1617,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                                                     ),
                                                   ),
                                                   const SizedBox(height: 2),
-                                                  Text(
-                                                    '${_money.format(o.total)}₫ · ${o.lines.length} món',
+                                                  Text(tr('${_money.format(o.total)}₫ · ${o.lines.length} món'),
                                                     style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w800,

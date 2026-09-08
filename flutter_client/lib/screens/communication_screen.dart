@@ -16,6 +16,7 @@ import '../utils/image_source_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../widgets/app_scroll_safe.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -74,7 +75,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     _loadStats();
     _loadCommunications();
@@ -100,13 +101,73 @@ class _CommunicationScreenState extends State<CommunicationScreen>
 
   void _onTabChanged() {
     if (_tabController.indexIsChanging) return;
-    final tab = _tabs[_tabController.index];
     if (_tabController.index == 0) {
       _loadStats();
-      return;
+    } else {
+      _loadCommunications();
     }
+    if (mounted) setState(() {});
+  }
+
+  List<_TabDef> get _typeChips => _tabs.skip(1).toList();
+
+  String _filterSubtitle() {
+    final parts = <String>[];
+    if (_filterType != null) {
+      final type = _typeChips.where((t) => t.typeValue == _filterType);
+      if (type.isNotEmpty) parts.add(type.first.label);
+    }
+    if (_searchTerm.trim().isNotEmpty) parts.add(_searchTerm.trim());
+    switch (_filterPriority) {
+      case 0:
+        parts.add('Thấp');
+        break;
+      case 1:
+        parts.add('Bình thường');
+        break;
+      case 2:
+        parts.add('Cao');
+        break;
+      case 3:
+        parts.add('Khẩn cấp');
+        break;
+    }
+    switch (_filterStatus) {
+      case 0:
+        parts.add('Nháp');
+        break;
+      case 1:
+        parts.add('Chờ duyệt');
+        break;
+      case 2:
+        parts.add('Đã xuất bản');
+        break;
+      case 3:
+        parts.add('Lưu trữ');
+        break;
+      case 4:
+        parts.add('Từ chối');
+        break;
+    }
+    if (parts.isEmpty) return 'Loại bài, tìm kiếm, ưu tiên, trạng thái';
+    return parts.join(' · ');
+  }
+
+  bool get _hasActiveFilters =>
+      _searchTerm.trim().isNotEmpty ||
+      _filterPriority != null ||
+      _filterStatus != null ||
+      _filterType != null ||
+      _sortBy != 'newest';
+
+  void _clearCommFilters() {
     setState(() {
-      _filterType = tab.typeValue;
+      _searchTerm = '';
+      _searchCtrl.clear();
+      _filterType = null;
+      _filterPriority = null;
+      _filterStatus = null;
+      _sortBy = 'newest';
       _currentPage = 1;
     });
     _loadCommunications();
@@ -319,14 +380,31 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         .canCreate('Communication');
     return RegisterPageTopActions(
       actions: [
+        HrmTopBarAction(
+          icon: _hasActiveFilters
+              ? Icons.filter_alt
+              : Icons.filter_list_outlined,
+          label: 'Bộ lọc',
+          onPressed: _showFilterSheet,
+        ),
         if (canCreate)
           HrmTopBarAction(
             icon: Icons.add,
             label: 'Tạo bài mới',
             primary: true,
-            showLabel: true,
             onPressed: () => _openCreateDialog(),
           ),
+        HrmTopBarAction(
+          icon: Icons.refresh,
+          label: 'Tải lại',
+          onPressed: () {
+            if (_tabController.index == 0) {
+              _loadStats();
+            } else {
+              _loadCommunications();
+            }
+          },
+        ),
       ],
       child: Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
@@ -338,7 +416,10 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                 ? _buildDashboard()
                 : Responsive.isMobile(context)
                     ? HrmResponsiveListLayout(
-                        headerSections: [_buildFilterBar()],
+                        fabAware: true,
+                        headerSections: [
+                          if (_hasActiveFilters) _buildActiveFilterBanner(),
+                        ],
                         desktopBody: Column(
                           children: [
                             Expanded(child: _buildContent()),
@@ -354,7 +435,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                       )
                     : Column(
                         children: [
-                          _buildFilterBar(),
+                          if (_hasActiveFilters) _buildActiveFilterBanner(),
                           Expanded(child: _buildContent()),
                           if (_totalPages > 1) _buildPagination(),
                         ],
@@ -375,27 +456,36 @@ class _CommunicationScreenState extends State<CommunicationScreen>
       ),
       child: TabBar(
         controller: _tabController,
-        isScrollable: true,
         indicatorColor: HrmPageChrome.primaryNavy,
         indicatorWeight: 3,
         labelColor: HrmPageChrome.primaryNavy,
         unselectedLabelColor: const Color(0xFFA1A1AA),
-        tabAlignment: TabAlignment.start,
-        labelPadding: const EdgeInsets.symmetric(horizontal: 16),
-        tabs: _tabs
-            .map((t) => Tab(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(t.icon, size: 18),
-                      const SizedBox(width: 8),
-                      Text(tr(t.label),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 13)),
-                    ],
-                  ),
-                ))
-            .toList(),
+        tabs: [
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.dashboard_rounded, size: 18),
+                const SizedBox(width: 8),
+                Text(tr('Dashboard'),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 13)),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.article_outlined, size: 18),
+                const SizedBox(width: 8),
+                Text(tr('Bài viết'),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 13)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -892,13 +982,147 @@ class _CommunicationScreenState extends State<CommunicationScreen>
     );
   }
 
+  Widget _buildActiveFilterBanner() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Material(
+        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: _showFilterSheet,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+            child: Row(
+              children: [
+                Icon(Icons.filter_alt,
+                    size: 16, color: HrmPageChrome.primaryNavy),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr(_filterSubtitle()),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _clearCommFilters,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(tr('Xóa'), style: const TextStyle(fontSize: 12)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFilterSheet() {
+    if (_tabController.index != 1) {
+      _tabController.animateTo(1);
+    }
+    showAppSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheet) {
+            final inset = MediaQuery.viewInsetsOf(ctx).bottom;
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(8, 8, 8, 12 + inset),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD4D4D8),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
+                        child: Row(
+                          children: [
+                            Icon(Icons.filter_list,
+                                size: 20, color: HrmPageChrome.primaryNavy),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                tr('Bộ lọc bài viết'),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (_hasActiveFilters)
+                              TextButton(
+                                onPressed: () {
+                                  _clearCommFilters();
+                                  setSheet(() {});
+                                },
+                                child: Text(tr('Xóa lọc')),
+                              ),
+                            IconButton(
+                              tooltip: tr('Đóng'),
+                              onPressed: () => Navigator.pop(ctx),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                      ),
+                      _buildFilterBar(onFilterUiTick: () => setSheet(() {})),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // ─── FILTER BAR ──────────────────────────────────────────
-  Widget _buildFilterBar() {
+  Widget _buildFilterBar({VoidCallback? onFilterUiTick}) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        void apply(VoidCallback fn, {bool reload = true}) {
+          setState(() {
+            fn();
+            if (reload) _currentPage = 1;
+          });
+          onFilterUiTick?.call();
+          if (reload) _loadCommunications();
+        }
+
         final isNarrow = constraints.maxWidth < 600;
         final searchField = TextField(
           controller: _searchCtrl,
+          textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             hintText: tr('Tìm kiếm bài viết...'),
             hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
@@ -908,11 +1132,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                     icon: const Icon(Icons.clear, size: 18),
                     onPressed: () {
                       _searchCtrl.clear();
-                      setState(() {
-                        _searchTerm = '';
-                        _currentPage = 1;
-                      });
-                      _loadCommunications();
+                      apply(() => _searchTerm = '');
                     })
                 : null,
             filled: true,
@@ -926,13 +1146,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
-          onSubmitted: (v) {
-            setState(() {
-              _searchTerm = v;
-              _currentPage = 1;
-            });
-            _loadCommunications();
-          },
+          onSubmitted: (v) => apply(() => _searchTerm = v),
         );
         final priorityFilter = _filterDropdown<int?>(
           value: _filterPriority,
@@ -945,13 +1159,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             DropdownMenuItem(value: 2, child: Text(tr('🔥 Cao'))),
             DropdownMenuItem(value: 3, child: Text(tr('🚨 Khẩn cấp'))),
           ],
-          onChanged: (v) {
-            setState(() {
-              _filterPriority = v;
-              _currentPage = 1;
-            });
-            _loadCommunications();
-          },
+          onChanged: (v) => apply(() => _filterPriority = v),
         );
         final statusFilter = _filterDropdown<int?>(
           value: _filterStatus,
@@ -965,33 +1173,24 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             DropdownMenuItem(value: 3, child: Text(tr('Lưu trữ'))),
             DropdownMenuItem(value: 4, child: Text(tr('Từ chối'))),
           ],
-          onChanged: (v) {
-            setState(() {
-              _filterStatus = v;
-              _currentPage = 1;
-            });
-            _loadCommunications();
-          },
+          onChanged: (v) => apply(() => _filterStatus = v),
         );
+        List<DropdownMenuItem<String>> sortItems() => [
+              DropdownMenuItem(value: 'newest', child: Text(tr('Mới nhất'))),
+              DropdownMenuItem(value: 'oldest', child: Text(tr('Cũ nhất'))),
+              DropdownMenuItem(
+                  value: 'publishedat', child: Text(tr('Mới xuất bản'))),
+              DropdownMenuItem(
+                  value: 'most_viewed', child: Text(tr('Xem nhiều nhất'))),
+              DropdownMenuItem(
+                  value: 'most_liked', child: Text(tr('Thích nhiều nhất'))),
+            ];
         final sortFilter = _filterDropdown<String>(
           value: _sortBy,
           hint: 'Sắp xếp',
           icon: Icons.sort,
-          items: [
-            DropdownMenuItem(value: 'newest', child: Text(tr('Mới nhất'))),
-            DropdownMenuItem(value: 'oldest', child: Text(tr('Cũ nhất'))),
-            DropdownMenuItem(
-                value: 'most_viewed', child: Text(tr('Xem nhiều nhất'))),
-            DropdownMenuItem(
-                value: 'most_liked', child: Text(tr('Thích nhiều nhất'))),
-          ],
-          onChanged: (v) {
-            setState(() {
-              _sortBy = v ?? 'newest';
-              _currentPage = 1;
-            });
-            _loadCommunications();
-          },
+          items: sortItems(),
+          onChanged: (v) => apply(() => _sortBy = v ?? 'newest'),
         );
         final viewToggle = Container(
           decoration: BoxDecoration(
@@ -1002,29 +1201,90 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _viewModeBtn(Icons.grid_view_rounded, 'grid'),
-              _viewModeBtn(Icons.view_list_rounded, 'list'),
+              _viewModeBtn(Icons.grid_view_rounded, 'grid',
+                  onFilterUiTick: onFilterUiTick),
+              _viewModeBtn(Icons.view_list_rounded, 'list',
+                  onFilterUiTick: onFilterUiTick),
             ],
           ),
         );
 
+        final typeChipWrap = Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: _typeChips.map((t) {
+            final selected = _filterType == t.typeValue;
+            return FilterChip(
+              selected: selected,
+              label: Text(tr(t.label), style: const TextStyle(fontSize: 12)),
+              onSelected: (_) => apply(() => _filterType = t.typeValue),
+              selectedColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.14),
+              checkmarkColor: HrmPageChrome.primaryNavy,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            );
+          }).toList(),
+        );
+
         if (isNarrow) {
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFEEEEF0)),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                typeChipWrap,
+                const SizedBox(height: 10),
                 searchField,
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.spaceBetween,
+                const SizedBox(height: 10),
+                _filterDropdown<int?>(
+                  value: _filterPriority,
+                  hint: 'Ưu tiên',
+                  icon: Icons.flag_outlined,
+                  width: double.infinity,
+                  items: [
+                    DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                    DropdownMenuItem(value: 0, child: Text(tr('Thấp'))),
+                    DropdownMenuItem(value: 1, child: Text(tr('Bình thường'))),
+                    DropdownMenuItem(value: 2, child: Text(tr('🔥 Cao'))),
+                    DropdownMenuItem(value: 3, child: Text(tr('🚨 Khẩn cấp'))),
+                  ],
+                  onChanged: (v) => apply(() => _filterPriority = v),
+                ),
+                const SizedBox(height: 8),
+                _filterDropdown<int?>(
+                  value: _filterStatus,
+                  hint: 'Trạng thái',
+                  icon: Icons.circle_outlined,
+                  width: double.infinity,
+                  items: [
+                    DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                    DropdownMenuItem(value: 0, child: Text(tr('Nháp'))),
+                    DropdownMenuItem(value: 1, child: Text(tr('Chờ duyệt'))),
+                    DropdownMenuItem(value: 2, child: Text(tr('Đã xuất bản'))),
+                    DropdownMenuItem(value: 3, child: Text(tr('Lưu trữ'))),
+                    DropdownMenuItem(value: 4, child: Text(tr('Từ chối'))),
+                  ],
+                  onChanged: (v) => apply(() => _filterStatus = v),
+                ),
+                const SizedBox(height: 8),
+                Row(
                   children: [
-                    priorityFilter,
-                    statusFilter,
-                    sortFilter,
+                    Expanded(
+                      child: _filterDropdown<String>(
+                        value: _sortBy,
+                        hint: 'Sắp xếp',
+                        icon: Icons.sort,
+                        width: double.infinity,
+                        items: sortItems(),
+                        onChanged: (v) => apply(() => _sortBy = v ?? 'newest'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     viewToggle,
                   ],
                 ),
@@ -1034,19 +1294,30 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         }
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          color: Colors.white,
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFEEEEF0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(flex: 3, child: searchField),
-              const SizedBox(width: 12),
-              priorityFilter,
-              const SizedBox(width: 12),
-              statusFilter,
-              const SizedBox(width: 12),
-              sortFilter,
-              const SizedBox(width: 12),
-              viewToggle,
+              typeChipWrap,
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(flex: 3, child: searchField),
+                  const SizedBox(width: 12),
+                  priorityFilter,
+                  const SizedBox(width: 12),
+                  statusFilter,
+                  const SizedBox(width: 12),
+                  sortFilter,
+                  const SizedBox(width: 12),
+                  viewToggle,
+                ],
+              ),
             ],
           ),
         );
@@ -1059,10 +1330,12 @@ class _CommunicationScreenState extends State<CommunicationScreen>
       required String hint,
       required IconData icon,
       required List<DropdownMenuItem<T>> items,
-      required ValueChanged<T?> onChanged}) {
+      required ValueChanged<T?> onChanged,
+      double width = 160}) {
     return SizedBox(
-      width: 160,
+      width: width,
       child: DropdownButtonFormField<T>(
+        key: ValueKey('$hint-$value'),
         initialValue: value,
         decoration: InputDecoration(
           labelText: tr(hint),
@@ -1087,10 +1360,14 @@ class _CommunicationScreenState extends State<CommunicationScreen>
     );
   }
 
-  Widget _viewModeBtn(IconData icon, String mode) {
+  Widget _viewModeBtn(IconData icon, String mode,
+      {VoidCallback? onFilterUiTick}) {
     final sel = _viewMode == mode;
     return InkWell(
-      onTap: () => setState(() => _viewMode = mode),
+      onTap: () {
+        setState(() => _viewMode = mode);
+        onFilterUiTick?.call();
+      },
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.all(10),

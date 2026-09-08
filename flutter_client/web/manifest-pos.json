@@ -1,0 +1,22 @@
+{
+  "name": "SBOX POS – Phần mềm bán hàng",
+  "short_name": "SBOX POS",
+  "description": "Phần mềm POS bán hàng — quầy, sơ đồ bàn, in hóa đơn, kho và báo cáo doanh thu.",
+  "start_url": "/login-app",
+  "display": "standalone",
+  "background_color": "#1B5E20",
+  "theme_color": "#2E7D32",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

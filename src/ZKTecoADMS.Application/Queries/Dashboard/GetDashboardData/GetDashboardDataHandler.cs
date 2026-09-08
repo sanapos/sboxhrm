@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Dashboard;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
@@ -106,8 +107,8 @@ public class GetDashboardDataHandler(
             ? (double)usersCheckedInToday / users.Count(u => u.IsActive) * 100
             : 0;
 
-        // Tính Online/Offline dựa trên LastOnline (trong vòng 90 giây)
-        var onlineThreshold = DateTime.Now.AddSeconds(-90);
+        // Online nếu LastOnline trong 2 phút (UTC) — cùng cửa sổ monitor ADMS
+        var onlineThreshold = DateTime.UtcNow.Subtract(DeviceConnectivity.OnlineWindow);
         var onlineDevices = devices.Count(d => d.LastOnline != null && d.LastOnline > onlineThreshold);
 
         return new DashboardSummaryDto
@@ -341,14 +342,14 @@ public class GetDashboardDataHandler(
         List<Attendance> todayAttendances,
         List<DeviceUser> allUsers)
     {
-        var onlineThreshold = DateTime.Now.AddSeconds(-90);
+        var onlineThreshold = DateTime.UtcNow.Subtract(DeviceConnectivity.OnlineWindow);
         
         return devices.Select(device =>
         {
             var deviceUsers = allUsers.Count(u => u.DeviceId == device.Id);
             var todayDeviceAttendances = todayAttendances.Count(a => a.DeviceId == device.Id);
             
-            // Tính status dựa trên LastOnline (online nếu trong vòng 90 giây)
+            // Tính status dựa trên LastOnline (online nếu trong vòng 2 phút UTC)
             var isOnline = device.LastOnline != null && device.LastOnline > onlineThreshold;
 
             return new DeviceStatusDto

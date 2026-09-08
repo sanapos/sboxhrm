@@ -33,7 +33,8 @@ public class CDataPostHandler(
         var tableUpper = request.Table?.ToUpperInvariant() ?? "";
         if (string.IsNullOrWhiteSpace(request.Body))
         {
-            if (tableUpper is "OPERLOG" or "USERINFO" or "ATTLOG")
+            if (tableUpper is "OPERLOG" or "USERINFO" or "ATTLOG" or "BIOPHOTO" or "USERPIC" or "ATTPHOTO"
+                or "FINGERTMP" or "BIODATA")
             {
                 logger.LogWarning(
                     "[CDataPost] Empty {Table} body from {SN} — kết thúc phiên sync",
@@ -68,7 +69,8 @@ public class CDataPostHandler(
             var strategyContext = new PostStrategyContext(serviceProvider, tableUpper);
             await strategyContext.ExecuteAsync(device, request.Body);
         }
-        else if (tableUpper is "OPERLOG" or "USERINFO" or "ATTLOG")
+        else if (tableUpper is "OPERLOG" or "USERINFO" or "ATTLOG" or "BIOPHOTO" or "USERPIC" or "ATTPHOTO"
+                 or "FINGERTMP" or "BIODATA")
         {
             var strategyContext = new PostStrategyContext(serviceProvider, tableUpper);
             await strategyContext.ExecuteAsync(device, string.Empty);

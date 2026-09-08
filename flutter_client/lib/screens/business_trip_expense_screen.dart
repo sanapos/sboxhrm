@@ -8,10 +8,10 @@ import '../utils/navigation_notifier.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import 'business_trip_case_detail_screen.dart';
-import '../utils/responsive_helper.dart';
 import 'business_trip_categories_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -187,6 +187,37 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
       _categoryId != null ||
       _statusFilter != null;
 
+  String _filterSubtitle() {
+    final parts = <String>[];
+    if (_fromDate != null || _toDate != null) {
+      final f = _fromDate != null ? _dateFmt.format(_fromDate!) : '…';
+      final t = _toDate != null ? _dateFmt.format(_toDate!) : '…';
+      parts.add('$f–$t');
+    }
+    if (_employeeUserId != null) {
+      Map<String, dynamic>? emp;
+      for (final e in _employees) {
+        if (_employeeUserIdOf(e) == _employeeUserId) {
+          emp = e;
+          break;
+        }
+      }
+      if (emp != null) parts.add(_employeeLabel(emp));
+    }
+    if (_categoryId != null) {
+      final name = _categories
+          .where((c) => c['id']?.toString() == _categoryId)
+          .map((c) => c['name']?.toString() ?? '')
+          .firstWhere((n) => n.isNotEmpty, orElse: () => 'Loại chi phí');
+      parts.add(name);
+    }
+    if (_statusFilter != null) parts.add(tripStatusLabel(_statusFilter));
+    if (parts.isEmpty) {
+      return 'Thời gian, nhân viên, loại chi phí, trạng thái';
+    }
+    return '${parts.join(' · ')} · ${_cases.length} hồ sơ';
+  }
+
   bool _canCreate(BuildContext ctx) =>
       Provider.of<PermissionProvider>(ctx, listen: false)
           .canCreate('BusinessTripExpense');
@@ -210,6 +241,7 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
         _toDate = picked;
       }
     });
+    _load();
   }
 
   Future<void> _openCreate() async {
@@ -274,192 +306,160 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
   }
 
   Widget _filtersCard() {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.filter_list, color: _theme),
-            title: Text(tr('Bộ lọc'),
-                style: TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(
-              tr(_hasFilters
-                  ? 'Đang lọc · ${_cases.length} hồ sơ'
-                  : 'Theo thời gian, nhân viên, hạn mục, trạng thái'),
-              style: const TextStyle(fontSize: 12),
-            ),
-            trailing: Icon(
-                _filtersExpanded ? Icons.expand_less : Icons.expand_more),
-            onTap: () =>
-                setState(() => _filtersExpanded = !_filtersExpanded),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: HrmCollapsibleOverview(
+        expanded: _filtersExpanded,
+        onToggle: () =>
+            setState(() => _filtersExpanded = !_filtersExpanded),
+        subtitle: _filterSubtitle(),
+        trailing: _hasFilters
+            ? TextButton(
+                onPressed: _clearFilters,
+                style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(tr('Xóa lọc'),
+                    style: const TextStyle(fontSize: 12)),
+              )
+            : null,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFEEEEF0)),
           ),
-          if (_filtersExpanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Column(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickFilterDate(isFrom: true),
-                          icon: const Icon(Icons.calendar_today, size: 16),
-                          label: Text(tr(_fromDate == null
-                              ? 'Từ ngày'
-                              : _dateFmt.format(_fromDate!))),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickFilterDate(isFrom: false),
-                          icon: const Icon(Icons.event, size: 16),
-                          label: Text(tr(_toDate == null
-                              ? 'Đến ngày'
-                              : _dateFmt.format(_toDate!))),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (_employees.isNotEmpty)
-                    DropdownButtonFormField<String?>(
-                      value: _employeeUserId,
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: tr('Nhân viên'),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: [
-                        DropdownMenuItem<String?>(
-                            value: null, child: Text(tr('Tất cả nhân viên'))),
-                        ..._employees.map((e) {
-                          final uid = _employeeUserIdOf(e);
-                          return DropdownMenuItem<String?>(
-                            value: uid,
-                            child: Text(tr(_employeeLabel(e)),
-                                overflow: TextOverflow.ellipsis),
-                          );
-                        }),
-                      ],
-                      onChanged: (v) => setState(() => _employeeUserId = v),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickFilterDate(isFrom: true),
+                      icon: const Icon(Icons.calendar_today, size: 16),
+                      label: Text(tr(_fromDate == null
+                          ? 'Từ ngày'
+                          : _dateFmt.format(_fromDate!))),
                     ),
-                  if (_employees.isNotEmpty) const SizedBox(height: 8),
-                  DropdownButtonFormField<String?>(
-                    value: _categoryId,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: tr('Hạn mục chi phí'),
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: [
-                      DropdownMenuItem<String?>(
-                          value: null, child: Text(tr('Tất cả hạn mục'))),
-                      ..._categories.map((c) => DropdownMenuItem<String?>(
-                            value: c['id']?.toString(),
-                            child: Text(tr(c['name']?.toString() ?? '')),
-                          )),
-                    ],
-                    onChanged: (v) => setState(() => _categoryId = v),
                   ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<int?>(
-                    value: _statusFilter,
-                    isExpanded: true,
-                    decoration: InputDecoration(
-                      labelText: tr('Trạng thái'),
-                      border: OutlineInputBorder(),
-                      isDense: true,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickFilterDate(isFrom: false),
+                      icon: const Icon(Icons.event, size: 16),
+                      label: Text(tr(_toDate == null
+                          ? 'Đến ngày'
+                          : _dateFmt.format(_toDate!))),
                     ),
-                    items: [
-                      DropdownMenuItem<int?>(
-                          value: null, child: Text(tr('Tất cả trạng thái'))),
-                      for (var i = 0; i <= 9; i++)
-                        DropdownMenuItem<int?>(
-                          value: i,
-                          child: Text(tr(tripStatusLabel(i))),
-                        ),
-                    ],
-                    onChanged: (v) => setState(() => _statusFilter = v),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      if (_hasFilters)
-                        TextButton(
-                            onPressed: _clearFilters,
-                            child: Text(tr('Xóa lọc'))),
-                      const Spacer(),
-                      FilledButton(
-                        style:
-                            FilledButton.styleFrom(backgroundColor: _theme),
-                        onPressed: _load,
-                        child: Text(tr('Áp dụng')),
-                      ),
-                    ],
                   ),
                 ],
               ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _categoriesCard() {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: _theme.withValues(alpha: 0.25)),
-      ),
-      color: _theme.withValues(alpha: 0.06),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.category_outlined, color: _theme),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(tr('Loại chi phí'),
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              const SizedBox(height: 8),
+              if (_employees.isNotEmpty) ...[
+                DropdownButtonFormField<String?>(
+                  value: _employeeUserId,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: tr('Nhân viên'),
+                    border: OutlineInputBorder(),
+                    isDense: true,
                   ),
+                  items: [
+                    DropdownMenuItem<String?>(
+                        value: null, child: Text(tr('Tất cả nhân viên'))),
+                    ..._employees.map((e) {
+                      final uid = _employeeUserIdOf(e);
+                      return DropdownMenuItem<String?>(
+                        value: uid,
+                        child: Text(tr(_employeeLabel(e)),
+                            overflow: TextOverflow.ellipsis),
+                      );
+                    }),
+                  ],
+                  onChanged: (v) {
+                    setState(() => _employeeUserId = v);
+                    _load();
+                  },
                 ),
-                TextButton(
-                  onPressed: _openCategories,
-                  child: Text(tr(_canManageCategories(context)
-                      ? 'Thêm / Sửa / Xóa'
-                      : 'Xem danh mục')),
-                ),
+                const SizedBox(height: 8),
               ],
-            ),
-            Text(
-              tr(_categories.isEmpty
-                  ? 'Chưa có danh mục. Mở “Thêm / Sửa / Xóa” để khởi tạo mẫu.'
-                  : 'Quản lý tên loại chi phí tại đây. Nhân viên chọn khi nhập tiền & hóa đơn.'),
-              style:
-                  TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.35),
-            ),
-            if (_categories.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _categories
-                    .take(8)
-                    .map(
-                      (c) => ActionChip(
+              DropdownButtonFormField<int?>(
+                value: _statusFilter,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  labelText: tr('Trạng thái'),
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: [
+                  DropdownMenuItem<int?>(
+                      value: null, child: Text(tr('Tất cả trạng thái'))),
+                  for (var i = 0; i <= 9; i++)
+                    DropdownMenuItem<int?>(
+                      value: i,
+                      child: Text(tr(tripStatusLabel(i))),
+                    ),
+                ],
+                onChanged: (v) {
+                  setState(() => _statusFilter = v);
+                  _load();
+                },
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Icon(Icons.category_outlined, size: 18, color: _theme),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(tr('Loại chi phí'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 13)),
+                  ),
+                  TextButton(
+                    onPressed: _openCategories,
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    child: Text(tr(_canManageCategories(context)
+                        ? 'Quản lý'
+                        : 'Xem danh mục')),
+                  ),
+                ],
+              ),
+              if (_categories.isEmpty)
+                Text(
+                  tr('Chưa có danh mục. Bấm Quản lý để khởi tạo mẫu.'),
+                  style: TextStyle(
+                      fontSize: 12, color: Colors.grey[700], height: 1.35),
+                )
+              else
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    FilterChip(
+                      selected: _categoryId == null,
+                      label: Text(tr('Tất cả'),
+                          style: const TextStyle(fontSize: 12)),
+                      onSelected: (_) {
+                        setState(() => _categoryId = null);
+                        _load();
+                      },
+                      selectedColor: _theme.withValues(alpha: 0.14),
+                      checkmarkColor: _theme,
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    ..._categories.map((c) {
+                      final id = c['id']?.toString();
+                      return FilterChip(
+                        selected: _categoryId == id,
                         avatar: Icon(
                           c['requiresInvoice'] == true
                               ? Icons.receipt_long
@@ -467,20 +467,23 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                           size: 16,
                           color: _theme,
                         ),
-                        label: Text(tr(c['name']?.toString() ?? '')),
-                        onPressed: () {
-                          setState(() {
-                            _categoryId = c['id']?.toString();
-                            _filtersExpanded = true;
-                          });
+                        label: Text(tr(c['name']?.toString() ?? ''),
+                            style: const TextStyle(fontSize: 12)),
+                        onSelected: (_) {
+                          setState(() => _categoryId = id);
                           _load();
                         },
-                      ),
-                    )
-                    .toList(),
-              ),
+                        selectedColor: _theme.withValues(alpha: 0.14),
+                        checkmarkColor: _theme,
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                      );
+                    }),
+                  ],
+                ),
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -488,11 +491,17 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
     final canCreate = _canCreate(context);
 
     return RegisterPageTopActions(
       actions: [
+        if (canCreate)
+          HrmTopBarAction(
+            icon: Icons.add,
+            label: 'Hồ sơ mới',
+            primary: true,
+            onPressed: _openCreate,
+          ),
         HrmTopBarAction(
           icon: Icons.category_outlined,
           label: 'Loại chi phí',
@@ -503,25 +512,9 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
           label: 'Tải lại',
           onPressed: _loading ? null : _load,
         ),
-        if (canCreate && !isMobile)
-          HrmTopBarAction(
-            icon: Icons.add,
-            label: 'Hồ sơ mới',
-            primary: true,
-            showLabel: true,
-            onPressed: _openCreate,
-          ),
       ],
       child: Scaffold(
       backgroundColor: HrmPageChrome.background,
-      floatingActionButton: canCreate && isMobile
-          ? FloatingActionButton.extended(
-              backgroundColor: _theme,
-              onPressed: _openCreate,
-              icon: const Icon(Icons.add),
-              label: Text(tr('Hồ sơ mới')),
-            )
-          : null,
       body: _loading
           ? const LoadingWidget()
           : _loadError != null
@@ -548,7 +541,6 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
                       SliverToBoxAdapter(child: _filtersCard()),
-                      SliverToBoxAdapter(child: _categoriesCard()),
                       if (_cases.isEmpty)
                         SliverFillRemaining(
                           hasScrollBody: false,
