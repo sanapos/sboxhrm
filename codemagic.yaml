@@ -640,7 +640,7 @@ workflows:
   android-pos-release:
     name: Android POS AAB (sbox.sana.vn.pos)
     max_build_duration: 60
-    instance_type: linux_x2
+    instance_type: mac_mini_m2
     working_directory: flutter_client
 
     environment:
@@ -648,10 +648,8 @@ workflows:
       java: 17
       groups:
         - android_keystore
-        - google_play
       vars:
         PACKAGE_NAME: "sbox.sana.vn.pos"
-        GOOGLE_PLAY_TRACK: internal
         API_BASE_URL: "https://sboxpos.com"
 
     scripts:
@@ -697,9 +695,3 @@ workflows:
 
     artifacts:
       - build/app/outputs/bundle/posRelease/*.aab
-
-    publishing:
-      google_play:
-        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        track: $GOOGLE_PLAY_TRACK
-        submit_as_draft: false
