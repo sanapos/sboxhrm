@@ -1,6 +1,8 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:excel/excel.dart' as excel_lib;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
@@ -606,6 +608,7 @@ class ClientPngExport {
     double pixelRatio = 2.5,
   }) async {
     try {
+      await WidgetsBinding.instance.endOfFrame;
       final boundary =
           key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) {
@@ -614,7 +617,21 @@ class ClientPngExport {
             message: tr('Không tìm thấy nội dung báo cáo để chụp'));
         return false;
       }
-      final image = await boundary.toImage(pixelRatio: pixelRatio);
+      final size = boundary.size;
+      var ratio = pixelRatio;
+      final maxSide = math.max(size.width, size.height);
+      // Web/canvas: ảnh quá cao bị cắt hoặc toImage lỗi — hạ tỉ lệ.
+      final cap = kIsWeb ? 8192.0 : 16384.0;
+      if (maxSide > 0) {
+        ratio = math.min(pixelRatio, cap / maxSide);
+        if (ratio < 0.8) ratio = 0.8;
+      }
+      late final ui.Image image;
+      try {
+        image = await boundary.toImage(pixelRatio: ratio);
+      } catch (_) {
+        image = await boundary.toImage(pixelRatio: math.min(ratio, 1.0));
+      }
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
         NotificationOverlayManager().showError(

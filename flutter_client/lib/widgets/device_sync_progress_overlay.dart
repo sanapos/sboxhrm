@@ -6,6 +6,7 @@ import 'device_sync_types.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../utils/pos_kds_alert.dart';
 export 'device_sync_types.dart';
 export 'device_sync_progress_dialog.dart';
 
@@ -597,11 +598,13 @@ class _DeviceSyncProgressOverlayState extends State<DeviceSyncProgressOverlay> {
   void initState() {
     super.initState();
     _sub = _manager.stream.listen((_) => _updateOverlay());
+    PosKdsAlert.uiOpen.addListener(_updateOverlay);
     WidgetsBinding.instance.addPostFrameCallback((_) => _updateOverlay());
   }
 
   @override
   void dispose() {
+    PosKdsAlert.uiOpen.removeListener(_updateOverlay);
     _sub?.cancel();
     _overlayEntry?.remove();
     _overlayEntry = null;
@@ -620,7 +623,7 @@ class _DeviceSyncProgressOverlayState extends State<DeviceSyncProgressOverlay> {
     if (!mounted) return;
 
     final jobs = _manager.jobs;
-    if (jobs.isEmpty) {
+    if (jobs.isEmpty || PosKdsAlert.isOpen) {
       _overlayEntry?.remove();
       _overlayEntry = null;
       return;
@@ -635,7 +638,9 @@ class _DeviceSyncProgressOverlayState extends State<DeviceSyncProgressOverlay> {
       builder: (overlayContext) {
         final isMobile = MediaQuery.sizeOf(overlayContext).width < 600;
         final activeJobs = _manager.jobs;
-        if (activeJobs.isEmpty) return const SizedBox.shrink();
+        if (activeJobs.isEmpty || PosKdsAlert.isOpen) {
+          return const SizedBox.shrink();
+        }
 
         return Positioned(
           left: isMobile ? 8 : null,

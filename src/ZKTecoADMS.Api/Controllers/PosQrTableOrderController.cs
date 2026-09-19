@@ -9,6 +9,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
+using ZKTecoADMS.Api.Services.PaymentGateway;
 using ZKTecoADMS.Api.Services.Shipping;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Helpers;
@@ -36,7 +37,8 @@ public class PosQrTableOrderController(
     IConfiguration config,
     ISystemNotificationService notificationService,
     PosShippingService shipping,
-    PosQrMenuService qrMenu) : AuthenticatedControllerBase
+    PosQrMenuService qrMenu,
+    IPosTingeePaidOrderService tingeePaid) : AuthenticatedControllerBase
 {
     public class QrOrderItemDto
     {
@@ -512,6 +514,15 @@ public class PosQrTableOrderController(
         }
 
         var tableName = TableLabel(resource!);
+        var payAmt = order.PayableTotal > 0 ? order.PayableTotal : order.Total;
+        if (payAmt > 0)
+        {
+            try
+            {
+                await tingeePaid.UpsertWaitingIntentAsync(storeId, order, payAmt, tableName);
+            }
+            catch { /* QR vẫn dùng được — webhook khớp mã đơn */ }
+        }
         PosFloorRealtimeHelper.Notify(hub, storeId, "qrOrder",
             orderId: order.Id, resourceId: resource!.Id, sessionId: session.Id,
             tableName: tableName,
@@ -658,6 +669,53 @@ public class PosQrTableOrderController(
             orderNo = order.OrderNo,
             total = order.Total,
             message = "Đã báo thu ngân kiểm tra giao dịch QR",
+        }));
+    }
+
+    [HttpGet("{token}/pay/{orderId:guid}")]
+    [AllowAnonymous]
+    public async Task<ActionResult<AppResponse<object>>> GuestPayStatus(string token, Guid orderId)
+    {
+        var ctx = await ResolveAnyAsync(token);
+        if (ctx.Error != null) return ctx.Error;
+        var store = ctx.Ctx!.Store;
+        var order = await db.PosSaleOrders.AsNoTracking()
+            .FirstOrDefaultAsync(o => o.Id == orderId && o.StoreId == store.Id && o.Deleted == null);
+        if (order == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn"));
+        var online = PosOnlineOrderHelper.IsQrOnlineOrder(order);
+        if (ctx.Ctx.IsOnline != online && !(ctx.Ctx.IsOnline && online))
+        {
+            if (!ctx.Ctx.IsOnline && ctx.Ctx.Resource != null
+                && order.ServiceResourceId != ctx.Ctx.Resource.Id)
+                return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn"));
+            if (ctx.Ctx.IsOnline && !online)
+                return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn"));
+        }
+
+        var paid = order.Status == PosSaleOrderStatus.Completed;
+        var amount = order.PayableTotal > 0 ? order.PayableTotal : order.Total;
+        if (paid && order.PaidAmount > 0) amount = order.PaidAmount;
+        var table = ctx.Ctx.Resource != null ? TableLabel(ctx.Ctx.Resource) : "Online";
+        if (online) table = "Online";
+        if (!paid && amount > 0 && await tingeePaid.IsTingeeEnabledAsync(store.Id))
+        {
+            var tracked = await db.PosSaleOrders.AsTracking()
+                .FirstOrDefaultAsync(o => o.Id == order.Id);
+            if (tracked != null)
+                await tingeePaid.UpsertWaitingIntentAsync(store.Id, tracked, amount, table);
+        }
+        var payment = await tingeePaid.BuildGuestPaymentAsync(
+            store.Id, order, amount, table, paid);
+        return Ok(AppResponse<object>.Success(new
+        {
+            paid,
+            orderNo = order.OrderNo,
+            orderId = order.Id,
+            amount,
+            status = order.Status.ToString(),
+            deliveryStatus = QrOnlineOrderStatuses.Normalize(order.DeliveryStatus),
+            payment,
         }));
     }
 
@@ -969,7 +1027,7 @@ public class PosQrTableOrderController(
             productFilters,
             from = since,
             to = until,
-            orders = list.Select(MapOnlineOrder),
+            orders = list.Select(o => MapOnlineOrder(o)),
         }));
     }
 
@@ -1351,14 +1409,26 @@ public class PosQrTableOrderController(
             .Take(20)
             .ToListAsync();
 
+        var mapped = new List<object>();
+        foreach (var o in orders)
+        {
+            object? pay = null;
+            if (o.Status == PosSaleOrderStatus.Draft)
+            {
+                var amt = o.PayableTotal > 0 ? o.PayableTotal : o.Total;
+                pay = await tingeePaid.BuildGuestPaymentAsync(storeId, o, amt, "Online", paid: false);
+            }
+            mapped.Add(MapOnlineOrder(o, pay));
+        }
+
         return Ok(AppResponse<object>.Success(new
         {
             phone = digits,
-            orders = orders.Select(MapOnlineOrder),
+            orders = mapped,
         }));
     }
 
-    static object MapOnlineOrder(PosSaleOrder o)
+    static object MapOnlineOrder(PosSaleOrder o, object? payment = null)
     {
         var status = QrOnlineOrderStatuses.Normalize(o.DeliveryStatus);
         if (o.Status == PosSaleOrderStatus.Cancelled)
@@ -1374,7 +1444,7 @@ public class PosQrTableOrderController(
                 note = l.LineNote,
             })
             .ToList();
-        var isPaid = o.Status == PosSaleOrderStatus.Completed;
+        var isPaid = o.Status == PosSaleOrderStatus.Completed || o.PaidAmount > 0;
         return new
         {
             id = o.Id,
@@ -1397,6 +1467,7 @@ public class PosQrTableOrderController(
             trackingCode = o.DeliveryTrackingCode,
             deliveryPartner = o.DeliveryPartner,
             deliveryCarrierCode = o.DeliveryCarrierCode,
+            payment,
             lines,
         };
     }
@@ -1594,6 +1665,7 @@ public class PosQrTableOrderController(
             return Conflict(AppResponse<object>.Fail("Không tạo được đơn — gửi lại"));
 
         var printJobs = 0;
+        var tingeeOn = await tingeePaid.IsTingeeEnabledAsync(storeId);
         if (autoPrintKitchen && autoConfirm)
         {
             try
@@ -1606,7 +1678,7 @@ public class PosQrTableOrderController(
             }
         }
 
-        if (autoConfirm)
+        if (autoConfirm && !tingeeOn)
         {
             try
             {
@@ -1637,6 +1709,18 @@ public class PosQrTableOrderController(
             HttpContext.RequestAborted);
 
         var finalStatus = QrOnlineOrderStatuses.Normalize(order.DeliveryStatus);
+        var payAmt = order.PayableTotal > 0 ? order.PayableTotal : order.Total;
+        object? payment = null;
+        if (tingeeOn && payAmt > 0 && order.Status == PosSaleOrderStatus.Draft)
+        {
+            try
+            {
+                await tingeePaid.UpsertWaitingIntentAsync(storeId, order, payAmt, "Online");
+                payment = await tingeePaid.BuildGuestPaymentAsync(
+                    storeId, order, payAmt, "Online", paid: false);
+            }
+            catch { /* khách vẫn đặt được — thanh toán tại quầy */ }
+        }
         var payload = new
         {
             ok = true,
@@ -1644,12 +1728,15 @@ public class PosQrTableOrderController(
             addedLines = added.Count,
             printJobs,
             autoPrint = autoPrintKitchen && autoConfirm,
-            needsConfirm = !autoConfirm,
+            needsConfirm = !autoConfirm && !tingeeOn,
             channel = "online",
             orderId = order.Id,
             onlineStatus = finalStatus,
             onlineStatusLabel = QrOnlineOrderStatuses.Label(finalStatus),
-            message = autoConfirm
+            payment,
+            message = tingeeOn
+                ? "Đã gửi đơn. Quét QR để thanh toán — đơn tự xác nhận khi chuyển khoản xong."
+                : autoConfirm
                 ? (printJobs > 0
                     ? "Đã xác nhận đơn — phiếu bếp đã gửi in"
                     : autoPrintKitchen
@@ -1896,33 +1983,35 @@ public class PosQrTableOrderController(
         };
 
         object? payment = null;
+        var billPaid = false;
         if (!online && resource != null)
         {
-            var bank = await db.BankAccounts.AsNoTracking()
-                .Where(x => x.StoreId == store.Id && x.IsActive && x.Deleted == null)
-                .OrderByDescending(x => x.IsDefault)
-                .ThenBy(x => x.BankName)
-                .FirstOrDefaultAsync();
-            if (bank != null)
+            if (openOrder != null && billPayable > 0)
             {
-                var amount = billPayable;
-                var addInfo = QrAddInfo(resource.Code ?? resource.Name, openOrder?.OrderNo);
-                var qrUrl = VietQRBanks.GenerateVietQRUrl(
-                    bank.BankCode,
-                    bank.AccountNumber,
-                    amount > 0 ? amount : null,
-                    addInfo,
-                    string.IsNullOrWhiteSpace(bank.VietQRTemplate) ? "compact2" : bank.VietQRTemplate);
-                payment = new
+                payment = await tingeePaid.BuildGuestPaymentAsync(
+                    store.Id, openOrder, billPayable, TableLabel(resource), paid: false);
+                if (await tingeePaid.IsTingeeEnabledAsync(store.Id))
+                    await tingeePaid.UpsertWaitingIntentAsync(
+                        store.Id, openOrder, billPayable, TableLabel(resource));
+            }
+            else if (openOrder == null)
+            {
+                var since = DateTime.UtcNow.AddMinutes(-20);
+                var recent = await db.PosSaleOrders.AsNoTracking()
+                    .Where(o => o.StoreId == store.Id && o.Deleted == null
+                        && o.ServiceResourceId == resource.Id
+                        && o.Status == PosSaleOrderStatus.Completed
+                        && o.UpdatedAt >= since
+                        && o.PaymentMethod == "Tingee")
+                    .OrderByDescending(o => o.UpdatedAt)
+                    .FirstOrDefaultAsync();
+                if (recent != null)
                 {
-                    qrUrl,
-                    amount,
-                    addInfo,
-                    bankName = bank.BankShortName ?? bank.BankName,
-                    accountName = bank.AccountName,
-                    accountNumber = bank.AccountNumber,
-                    orderNo = openOrder?.OrderNo,
-                };
+                    billPaid = true;
+                    payment = await tingeePaid.BuildGuestPaymentAsync(
+                        store.Id, recent, recent.PaidAmount > 0 ? recent.PaidAmount : recent.PayableTotal,
+                        TableLabel(resource), paid: true);
+                }
             }
         }
 
@@ -2001,6 +2090,7 @@ public class PosQrTableOrderController(
             bill,
             orderId,
             payment,
+            paid = billPaid,
             orderLock = lockInfo,
         };
     }

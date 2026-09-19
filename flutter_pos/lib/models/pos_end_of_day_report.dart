@@ -131,8 +131,13 @@ class PosEndOfDayReport {
   final DateTime generatedAt;
   final int orderCount;
   final double orderDiscount;
+  final double voucherDiscount;
+  final double pointsDiscount;
   final double totalSales;
   final double vat;
+  final double surchargeTotal;
+  final double deliveryFeeTotal;
+  final double payableTotal;
   final double netSales;
   final double refundTotal;
   final double totalAfterRefund;
@@ -169,8 +174,13 @@ class PosEndOfDayReport {
     required this.generatedAt,
     required this.orderCount,
     required this.orderDiscount,
+    this.voucherDiscount = 0,
+    this.pointsDiscount = 0,
     required this.totalSales,
     required this.vat,
+    this.surchargeTotal = 0,
+    this.deliveryFeeTotal = 0,
+    this.payableTotal = 0,
     required this.netSales,
     required this.refundTotal,
     required this.totalAfterRefund,
@@ -214,8 +224,13 @@ class PosEndOfDayReport {
       generatedAt: DateTime.tryParse(json['generatedAt']?.toString() ?? '') ?? DateTime.now(),
       orderCount: (json['orderCount'] as num?)?.toInt() ?? 0,
       orderDiscount: _num(json['orderDiscount']),
+      voucherDiscount: _num(json['voucherDiscount']),
+      pointsDiscount: _num(json['pointsDiscount']),
       totalSales: _num(json['totalSales']),
       vat: _num(json['vat']),
+      surchargeTotal: _num(json['surchargeTotal']),
+      deliveryFeeTotal: _num(json['deliveryFeeTotal']),
+      payableTotal: _num(json['payableTotal']),
       netSales: _num(json['netSales']),
       refundTotal: _num(json['refundTotal']),
       totalAfterRefund: _num(json['totalAfterRefund']),

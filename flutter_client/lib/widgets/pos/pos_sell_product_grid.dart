@@ -88,6 +88,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   int _loadGen = 0;
   final Map<String, List<PosProductUnitView>> _unitViewsCache = {};
   final Map<String, Future<List<PosProductUnitView>>> _unitViewsLoading = {};
+  final Set<String> _unitViewsFullyLoaded = {};
+  /// ĐVT vừa chọn trên list mobile — tăng SL giữ đúng đơn vị, không về ĐVT mặc định.
+  final Map<String, String> _listUnitKeyByProduct = {};
   Map<String, double> _lastPriceOverrides = const {};
   Timer? _searchDebounce;
   Timer? _imagePrefetchDebounce;
@@ -124,6 +127,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   List<PosProductUnitView> _viewsForDisplay(PosProduct p) {
     if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
       _unitViewsCache.clear();
+      _unitViewsFullyLoaded.clear();
       _lastPriceOverrides = widget.priceOverrides;
     }
 
@@ -134,26 +138,30 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         ? buildPosSellUnitViewsFromProduct(p)
         : buildPosProductUnitViews(p, const [], extraUnits: const []);
     views = applyPosPriceListToViews(views, p, widget.priceOverrides);
-    _unitViewsCache[p.id] = views;
+    if (views.length > 1) {
+      _unitViewsCache[p.id] = views;
+      _unitViewsFullyLoaded.add(p.id);
+    }
     return views;
   }
 
   Future<List<PosProductUnitView>> _viewsFor(PosProduct p) {
-    if (posProductHasEmbeddedSellViews(p)) {
-      return Future.value(_viewsForDisplay(p));
-    }
     if (!identical(_lastPriceOverrides, widget.priceOverrides)) {
       _unitViewsCache.clear();
+      _unitViewsFullyLoaded.clear();
       _lastPriceOverrides = widget.priceOverrides;
     }
 
     final cached = _unitViewsCache[p.id];
-    if (cached != null) return Future.value(cached);
+    if (cached != null && _unitViewsFullyLoaded.contains(p.id)) {
+      return Future.value(cached);
+    }
 
     return _unitViewsLoading.putIfAbsent(p.id, () async {
       var views = await loadPosSellUnitViews(widget.api, p);
       views = applyPosPriceListToViews(views, p, widget.priceOverrides);
       _unitViewsCache[p.id] = views;
+      _unitViewsFullyLoaded.add(p.id);
       _unitViewsLoading.remove(p.id);
       return views;
     });
@@ -162,6 +170,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   void _prefetchPageUnitViews() {
     for (final p in _pageItems) {
       _viewsForDisplay(p);
+      unawaited(_viewsFor(p).then((views) {
+        if (!mounted || views.length < 2) return;
+        setState(() {});
+      }));
     }
     _imagePrefetchDebounce?.cancel();
     _imagePrefetchDebounce = Timer(const Duration(milliseconds: 350), () {
@@ -530,6 +542,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           _products = List<PosProduct>.from(_allProducts);
           _unitViewsCache.clear();
           _unitViewsLoading.clear();
+          _unitViewsFullyLoaded.clear();
         } else if (batch.isNotEmpty) {
           final seen = {for (final p in _allProducts) p.id.trim().toLowerCase()};
           for (final p in batch) {
@@ -866,12 +879,206 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       return;
     }
     final v = view ?? pickDefaultSellUnitView(p, views) ?? views.first;
+    _listUnitKeyByProduct[p.id] = v.viewKey;
     widget.onPick(PosPurchaseLookupPick(
       product: p,
       variantId: v.variantId,
       unitId: v.unitId,
       unitLabel: v.label,
     ));
+  }
+
+  PosProductUnitView? _listUnitFor(
+    PosProduct p,
+    List<PosProductUnitView> views,
+  ) {
+    if (views.isEmpty) return null;
+    final key = _listUnitKeyByProduct[p.id];
+    if (key != null) {
+      for (final v in views) {
+        if (v.viewKey == key) return v;
+      }
+    }
+    return pickDefaultSellUnitView(p, views) ?? views.first;
+  }
+
+  Future<void> _onListRowTap(PosProduct p, {bool increment = false}) async {
+    final views = await _viewsFor(p);
+    if (!mounted || views.isEmpty) return;
+    setState(() {});
+    if (views.length == 1) {
+      await _onProductTap(p, view: views.first);
+      return;
+    }
+    if (increment || _listUnitKeyByProduct.containsKey(p.id)) {
+      await _onProductTap(p, view: _listUnitFor(p, views));
+      return;
+    }
+    await _pickListUnitWithSheet(p, views);
+  }
+
+  Future<void> _pickListUnitWithSheet(
+    PosProduct p,
+    List<PosProductUnitView> views,
+  ) async {
+    final chosen = await _showUnitPickerSheet(p, views);
+    if (chosen == null || !mounted) return;
+    setState(() => _listUnitKeyByProduct[p.id] = chosen.viewKey);
+    await _onProductTap(p, view: chosen);
+  }
+
+  Future<PosProductUnitView?> _showUnitPickerSheet(
+    PosProduct p,
+    List<PosProductUnitView> views,
+  ) {
+    final selectedKey = _listUnitKeyByProduct[p.id];
+    return showModalBottomSheet<PosProductUnitView>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD0D5DD),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  tr(p.name),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _compactUnitChoices(ctx, p, views, selectedKey),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _compactUnitChoices(
+    BuildContext ctx,
+    PosProduct p,
+    List<PosProductUnitView> views,
+    String? selectedKey,
+  ) {
+    final cards = [
+      for (final v in views) _unitChoiceCard(ctx, p, v, selectedKey),
+    ];
+    if (views.length <= 3) {
+      return Row(
+        children: [
+          for (var i = 0; i < cards.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(child: cards[i]),
+          ],
+        ],
+      );
+    }
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2,
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 2.4,
+      children: cards,
+    );
+  }
+
+  Widget _unitChoiceCard(
+    BuildContext ctx,
+    PosProduct p,
+    PosProductUnitView v,
+    String? selectedKey,
+  ) {
+    final selected = v.viewKey == selectedKey;
+    final price = v.basePrice > 0
+        ? v.basePrice
+        : applyPosPriceListToProductBase(p, widget.priceOverrides);
+    final qty = resolvePosSellAvailableQty(p, v);
+    final stockHint = p.productType.tracksInventory &&
+            qty.isFinite &&
+            !qty.isNaN
+        ? _qtyFmt.format(qty)
+        : null;
+    return Material(
+      color: selected ? const Color(0xFFE8F0FE) : const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => Navigator.pop(ctx, v),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 52),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? _blue : const Color(0xFFE2E8F0),
+              width: selected ? 1.4 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                tr(v.label),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: selected ? _blue : const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _moneyFmt.format(price),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _blue,
+                ),
+              ),
+              if (stockHint != null) ...[
+                const SizedBox(height: 1),
+                Text(
+                  stockHint,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   List<Widget> _categoryButtons() {
@@ -1214,76 +1421,68 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   Widget _sellListRowContent(PosProduct p, List<PosProductUnitView>? views) {
     final selectedQty = _qtyInCart(p.id);
     final isSelected = selectedQty > 0;
-        final view = views != null && views.isNotEmpty
-            ? (pickDefaultSellUnitView(p, views) ?? views.first)
-            : null;
-        final price = view != null
-            ? (view.basePrice > 0
-                ? view.basePrice
-                : applyPosPriceListToProductBase(p, widget.priceOverrides))
-            : applyPosPriceListToProductBase(p, widget.priceOverrides);
-        final code = view?.displayCode ?? p.productCode;
-        final unit = view?.label ?? p.baseUnitName;
-        final qty = view != null
-            ? resolvePosSellListStockQty(p, views!)
-            : p.onHandQty;
-        final lowStock = p.productType.tracksInventory &&
-            qty > 0 &&
-            p.minStockQty > 0 &&
-            qty <= p.minStockQty;
-        final outOfStock = (p.productType != PosProductType.service || p.hasRecipe) &&
-            isPosSellOutOfStock(p, views ?? const []);
-        final name = view != null && views!.length > 1
-            ? '${p.name} (${view.label})'
-            : p.name;
+    final view = views != null && views.isNotEmpty
+        ? _listUnitFor(p, views)
+        : null;
+    final price = view != null
+        ? (view.basePrice > 0
+            ? view.basePrice
+            : applyPosPriceListToProductBase(p, widget.priceOverrides))
+        : applyPosPriceListToProductBase(p, widget.priceOverrides);
+    final code = view?.displayCode ?? p.productCode;
+    final unit = view?.label ?? p.baseUnitName;
+    final qty = view != null
+        ? resolvePosSellAvailableQty(p, view)
+        : p.onHandQty;
+    final lowStock = p.productType.tracksInventory &&
+        qty > 0 &&
+        p.minStockQty > 0 &&
+        qty <= p.minStockQty;
+    final outOfStock = (p.productType != PosProductType.service || p.hasRecipe) &&
+        isPosSellOutOfStock(p, views ?? const []);
+    final multi = views != null && views.length > 1;
+    final stockQtyText = lowStock
+        ? 'Sắp hết: ${_qtyFmt.format(qty)}'
+        : _qtyFmt.format(qty);
+    final stockText = p.isDailySoldOut
+        ? 'Đã hết / tạm khóa'
+        : outOfStock
+            ? 'Hết hàng'
+            : multi
+                ? stockQtyText
+                : '$stockQtyText $unit';
 
-        return PosMobileProductRow(
-          kiotSellStyle: true,
-          isSelected: isSelected,
-          selectedQty: isSelected ? selectedQty : null,
-          name: name,
-          code: code,
-          priceText: _moneyFmt.format(price),
-          stockText: p.isDailySoldOut
-              ? 'Đã hết / tạm khóa'
-              : outOfStock
-                  ? 'Hết hàng'
-                  : lowStock
-                      ? 'Sắp hết: ${_qtyFmt.format(qty)} $unit'
-                      : '${_qtyFmt.format(qty)} $unit',
-          orderReservedText: null,
-          image: PosProductImage(
-            productId: p.id,
-            imageUrl: p.imageUrl,
-            updatedAt: p.updatedAt,
-            size: 48,
-            borderRadius: 8,
-          ),
-          onTap: views == null
-              ? null
-              : () {
-                  if (views.length == 1) {
-                    unawaited(_onProductTap(p, view: views.first));
-                  } else {
-                    unawaited(_onProductTap(p));
-                  }
-                },
-          onIncrement: !isSelected || views == null
-              ? null
-              : () {
-                  if (views.length == 1) {
-                    unawaited(_onProductTap(p, view: views.first));
-                  } else {
-                    unawaited(_onProductTap(p));
-                  }
-                },
-          onDecrement: !isSelected || widget.onDecrement == null
-              ? null
-              : () => widget.onDecrement!(p),
-          onQtyTap: !isSelected || widget.onSetQty == null
-              ? null
-              : () => unawaited(_promptSellListQty(p)),
-        );
+    return PosMobileProductRow(
+      kiotSellStyle: true,
+      isSelected: isSelected,
+      selectedQty: isSelected ? selectedQty : null,
+      name: p.name,
+      code: code,
+      unitLabel: multi ? unit : null,
+      onUnitTap: multi
+          ? () => unawaited(_pickListUnitWithSheet(p, views!))
+          : null,
+      priceText: _moneyFmt.format(price),
+      stockText: stockText,
+      orderReservedText: null,
+      image: PosProductImage(
+        productId: p.id,
+        imageUrl: p.imageUrl,
+        updatedAt: p.updatedAt,
+        size: 48,
+        borderRadius: 8,
+      ),
+      onTap: views == null ? null : () => unawaited(_onListRowTap(p)),
+      onIncrement: !isSelected || views == null
+          ? null
+          : () => unawaited(_onListRowTap(p, increment: true)),
+      onDecrement: !isSelected || widget.onDecrement == null
+          ? null
+          : () => widget.onDecrement!(p),
+      onQtyTap: !isSelected || widget.onSetQty == null
+          ? null
+          : () => unawaited(_promptSellListQty(p)),
+    );
   }
 
   Widget _sellListRow(PosProduct p) {

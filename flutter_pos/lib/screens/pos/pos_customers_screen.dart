@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/pos_customer.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_customer_debt_collect_dialog.dart';
 import '../../widgets/pos/pos_customer_form_dialog.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'pos_session_redeem_sheet.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 class PosCustomersScreen extends StatefulWidget {
@@ -87,12 +90,23 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context);
+    if (!perm.canView('PosCustomers') && !perm.canView('PosProducts')) {
+      return Scaffold(
+        appBar: AppBar(title: Text(tr('Khách hàng'))),
+        body: Center(child: Text(tr('Không có quyền xem khách hàng'))),
+      );
+    }
+    final canCreate =
+        perm.canCreate('PosCustomers') || perm.canCreate('PosProducts');
     return Scaffold(
       backgroundColor: PosTheme.background,
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openAdd,
-        child: const Icon(Icons.person_add),
-      ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton(
+              onPressed: _openAdd,
+              child: const Icon(Icons.person_add),
+            )
+          : null,
       body: ColoredBox(
       color: PosTheme.background,
       child: Column(
@@ -246,6 +260,8 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
   bool _loading = true;
   List<Map<String, dynamic>> _payments = [];
   List<Map<String, dynamic>> _orders = [];
+  List<Map<String, dynamic>> _sessionBalances = [];
+  List<Map<String, dynamic>> _sessionTxns = [];
 
   @override
   void initState() {
@@ -266,6 +282,14 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
         _payments = (data['payments'] as List? ?? [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        _sessionBalances = (data['sessionBalances'] as List? ?? [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        _sessionTxns = (data['sessionTxns'] as List? ?? [])
             .whereType<Map>()
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
@@ -304,15 +328,19 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context);
+    final canEdit =
+        perm.canEdit('PosCustomers') || perm.canEdit('PosProducts');
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(_customer.name)),
         actions: [
-          IconButton(onPressed: _edit, icon: const Icon(Icons.edit_outlined)),
+          if (canEdit)
+            IconButton(onPressed: _edit, icon: const Icon(Icons.edit_outlined)),
         ],
       ),
-      floatingActionButton: _customer.currentDebt > 0
+      floatingActionButton: canEdit && _customer.currentDebt > 0
           ? FloatingActionButton.extended(
               onPressed: _collectDebt,
               icon: const Icon(Icons.payments_outlined),
@@ -339,6 +367,61 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+                Text(tr('Gói buổi'),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 8),
+                if (_sessionBalances.isEmpty)
+                  Text(tr('Chưa có gói buổi'),
+                      style: TextStyle(color: PosTheme.textSecondary))
+                else ...[
+                  ..._sessionBalances.map((b) {
+                    final total = (b['totalSessions'] as num?)?.toInt() ?? 0;
+                    final remain =
+                        (b['remainingSessions'] as num?)?.toInt() ?? 0;
+                    final used = (b['usedSessions'] as num?)?.toInt() ??
+                        (total - remain);
+                    return _historyTile(
+                      title: b['packageName']?.toString() ?? '—',
+                      subtitle: 'Còn $remain/$total · đã dùng $used',
+                      amount: remain.toDouble(),
+                      positive: remain > 0,
+                    );
+                  }),
+                  if (_sessionTxns.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    ..._sessionTxns.take(8).map((t) {
+                      final delta = (t['sessionDelta'] as num?)?.toInt() ?? 0;
+                      final name = t['employeeName']?.toString() ?? '';
+                      return _historyTile(
+                        title: t['packageName']?.toString() ?? '—',
+                        subtitle: [
+                          t['type']?.toString() ?? '',
+                          if (name.isNotEmpty) name,
+                          t['note']?.toString() ?? '',
+                        ].where((e) => e.isNotEmpty).join(' · '),
+                        amount: delta.toDouble(),
+                        positive: delta > 0,
+                      );
+                    }),
+                  ],
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () async {
+                        await showPosSessionRedeemSheet(
+                          context,
+                          customerId: _customer.id,
+                          customerName: _customer.name,
+                          enableRedeem: true,
+                          initialTab: 0,
+                        );
+                        _loadHistory();
+                      },
+                      child: Text(tr('Xem sổ buổi / trừ buổi')),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Text(tr('Lịch sử thu nợ'),
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),

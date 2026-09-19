@@ -11,6 +11,7 @@ import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_end_of_day_print.dart';
 import '../../utils/pos_report_export.dart';
+import '../../utils/pos_report_open.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../utils/media_query_safe_padding.dart';
@@ -278,31 +279,71 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   Future<void> _exportExcel() async {
     final r = _report;
     if (r == null) return;
+    final txRows = r.transactions.isEmpty
+        ? <List<dynamic>>[
+            ['Số HĐ', r.orderCount],
+            ['Doanh thu', r.totalSales],
+            if (r.lineDiscountTotal > 0) ['CK mặt hàng', r.lineDiscountTotal],
+            ['Chiết khấu đơn', r.orderDiscount],
+            if (r.voucherDiscount > 0) ['Voucher', r.voucherDiscount],
+            if (r.pointsDiscount > 0) ['CK điểm', r.pointsDiscount],
+            ['VAT', r.vat],
+            if (r.surchargeTotal > 0) ['Phụ thu', r.surchargeTotal],
+            if (r.deliveryFeeTotal > 0) ['Phí giao hàng', r.deliveryFeeTotal],
+            ['DT thuần', r.netSales],
+            ['Hoàn trả', r.refundTotal],
+            ['Tiền mặt', r.cashTotal],
+            ['Công nợ', r.debtTotal],
+            ['Thực thu HĐ', r.actualReceived],
+            ['Thu cọc', r.depositCollected],
+            ['Hoàn cọc', r.depositRefunded],
+            ['Mất cọc', r.depositForfeited],
+            ['Cọc đang giữ', r.depositHeld],
+            ['Tiền mặt két', r.drawerCash],
+            ['Quỹ vào hôm nay', r.fundInToday],
+            for (final p in r.payments)
+              ['PTTT · ${p.paymentMethod}', p.total],
+            for (final p in r.products)
+              ['SP · ${p.productName}', p.qty],
+          ]
+        : [
+            for (final t in r.transactions)
+              [
+                t.orderNo,
+                _dtFmt.format(t.createdAt.toLocal()),
+                t.paymentMethod,
+                t.qty,
+                t.revenue,
+                t.vat,
+                t.actualReceived,
+                t.closedOffDay ? 'Chốt ngày khác' : (t.note ?? ''),
+              ],
+          ];
     await PosReportExport.excel(
       context: context,
       title: 'Tổng kết cuối ngày',
-      sheetName: 'Cuoi ngay',
+      sheetName: r.transactions.isEmpty ? 'Cuoi ngay' : 'Hoa don',
       filePrefix: 'POS_CuoiNgay',
       periodLabel: _time.displayLabel,
       filterLabel: r.staffName,
-      headers: const ['Hạng mục', 'Giá trị'],
-      rows: [
-        ['Số HĐ', r.orderCount],
-        ['Doanh thu', r.totalSales],
-        ['VAT', r.vat],
-        ['DT thuần', r.netSales],
-        ['Hoàn trả', r.refundTotal],
-        ['Tiền mặt', r.cashTotal],
-        ['Công nợ', r.debtTotal],
-        ['Thực thu HĐ', r.actualReceived],
-        ['Thu cọc', r.depositCollected],
-        ['Hoàn cọc', r.depositRefunded],
-        ['Mất cọc', r.depositForfeited],
-        ['Cọc đang giữ', r.depositHeld],
-        ['Tiền mặt két', r.drawerCash],
-        ['Quỹ vào hôm nay', r.fundInToday],
-        for (final p in r.payments) [p.paymentMethod, p.total],
-        for (final p in r.products) [p.productName, p.qty],
+      headers: r.transactions.isEmpty
+          ? const ['Hạng mục', 'Giá trị']
+          : const [
+              'Mã HĐ',
+              'Giờ',
+              'PTTT',
+              'SL',
+              'DT',
+              'VAT',
+              'Thực thu',
+              'Ghi chú',
+            ],
+      rows: txRows,
+      summaryLines: [
+        'Số HĐ: ${r.orderCount}',
+        'Doanh thu: ${r.totalSales}',
+        'Thực thu: ${r.actualReceived}',
+        'Công nợ: ${r.debtTotal}',
       ],
     );
   }
@@ -359,9 +400,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       body: Column(
         children: [
           _buildToolbar(),
-          Expanded(
-            child: RepaintBoundary(key: _pngKey, child: _buildBody()),
-          ),
+          Expanded(child: _buildBody()),
           _buildBottomBar(),
         ],
       ),
@@ -390,6 +429,16 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               tooltip: tr('Xuất Excel'),
               onPressed: _report == null ? null : _exportExcel,
               icon: const Icon(Icons.file_download_outlined),
+            ),
+            IconButton(
+              tooltip: tr('Hóa đơn gốc'),
+              onPressed: () => unawaited(PosReportOpen.sales(
+                context,
+                from: _time.from,
+                to: _time.to,
+                soldBy: _report?.staffName,
+              )),
+              icon: const Icon(Icons.receipt_long_outlined),
             ),
             if (_canPickStaff) ...[
               SizedBox(
@@ -590,7 +639,11 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
-          child: Column(
+          child: RepaintBoundary(
+            key: _pngKey,
+            child: ColoredBox(
+              color: const Color(0xFFF3F4F6),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_cashierShiftEnabled) _buildCashierShiftsCard(),
@@ -611,6 +664,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 ),
               ),
             ],
+            ),
+            ),
           ),
         ),
       ),
@@ -765,14 +820,24 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 section('BÁN HÀNG'),
                 _summaryLine('', 'Số đơn', '${r.orderCount}'),
                 _summaryLine('', 'Doanh thu', _fmt(r.totalSales)),
-                _summaryLine('', 'Chiết khấu', _fmt(r.orderDiscount)),
+                if (r.lineDiscountTotal > 0)
+                  _summaryLine('', 'CK mặt hàng', _fmt(r.lineDiscountTotal)),
+                _summaryLine('', 'Chiết khấu đơn', _fmt(r.orderDiscount)),
+                if (r.voucherDiscount > 0)
+                  _summaryLine('', 'Voucher', _fmt(r.voucherDiscount)),
+                if (r.pointsDiscount > 0)
+                  _summaryLine('', 'CK điểm', _fmt(r.pointsDiscount)),
                 _summaryLine('', 'VAT', _fmt(r.vat)),
+                if (r.surchargeTotal > 0)
+                  _summaryLine('', 'Phụ thu', _fmt(r.surchargeTotal)),
+                if (r.deliveryFeeTotal > 0)
+                  _summaryLine('', 'Phí giao hàng', _fmt(r.deliveryFeeTotal)),
                 _summaryLine('', 'DT ròng', _fmt(r.netSales), bold: true),
                 if (r.closedOffDayOrders.isNotEmpty) ...[
                   const Divider(height: 16),
                   section('CHỐT NGÀY KHÁC'),
                   _summaryLine('', 'Số HĐ', '${r.closedOffDayCount}'),
-                  for (final o in r.closedOffDayOrders.take(k58 ? 8 : 15))
+                  for (final o in r.closedOffDayOrders)
                     _summaryLine(
                       '',
                       o.orderNo,
@@ -811,7 +876,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 const Divider(height: 18, thickness: 1.4),
                 if (_showProductDetail && r.products.isNotEmpty) ...[
                   section('HÀNG BÁN'),
-                  for (final p in r.products.take(k58 ? 15 : 30))
+                  for (final p in r.products)
                     _summaryLine(
                       '',
                       p.productName,
@@ -839,7 +904,20 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
         ),
         const SizedBox(height: 12),
         _summaryLine('', 'Số đơn', '${r.orderCount}'),
-        _summaryLine('', 'Doanh thu ròng', _fmt(r.netSales)),
+        _summaryLine('', 'Doanh thu', _fmt(r.totalSales)),
+        if (r.lineDiscountTotal > 0)
+          _summaryLine('', 'CK mặt hàng', _fmt(r.lineDiscountTotal)),
+        _summaryLine('', 'Chiết khấu đơn', _fmt(r.orderDiscount)),
+        if (r.voucherDiscount > 0)
+          _summaryLine('', 'Voucher', _fmt(r.voucherDiscount)),
+        if (r.pointsDiscount > 0)
+          _summaryLine('', 'CK điểm', _fmt(r.pointsDiscount)),
+        _summaryLine('', 'VAT', _fmt(r.vat)),
+        if (r.surchargeTotal > 0)
+          _summaryLine('', 'Phụ thu', _fmt(r.surchargeTotal)),
+        if (r.deliveryFeeTotal > 0)
+          _summaryLine('', 'Phí giao hàng', _fmt(r.deliveryFeeTotal)),
+        _summaryLine('', 'Doanh thu ròng', _fmt(r.netSales), bold: true),
         _summaryLine('', 'Thực thu HĐ', _fmt(r.actualReceived), bold: true),
         _summaryLine('', 'Thu cọc hôm nay', _fmt(r.depositCollected)),
         _summaryLine('', 'Hoàn cọc', _fmt(r.depositRefunded)),

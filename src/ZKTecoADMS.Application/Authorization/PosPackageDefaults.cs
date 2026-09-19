@@ -19,6 +19,7 @@ public static class PosPackageDefaults
         "PosReportExpense",
         "PosReportEndOfDay",
         "PosReportStaffRevenue",
+        "PosReportStaffCommission",
         "PosReportCashbook",
         "PosReportPnl",
         "PosReportVoucher",

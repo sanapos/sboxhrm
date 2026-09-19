@@ -34,6 +34,8 @@ import '../../utils/shift_records_calculator.dart';
 import '../../utils/paid_leave_schedule_utils.dart';
 import '../../utils/travel_hours_load_utils.dart';
 import '../../utils/travel_salary_utils.dart';
+import '../../utils/punch_location_utils.dart';
+import '../../utils/branch_filter_helper.dart';
 import '../../widgets/travel_day_slips_sheet.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
 import '../../widgets/synced_scroll_list_view.dart'
@@ -57,6 +59,8 @@ class AttendanceByShiftTab extends StatefulWidget {
   final double standardWorkHours;
   final List<dynamic> approvedLeaves;
   final List<Map<String, dynamic>>? employeesList;
+  /// Danh sách chi nhánh — dùng để gán GPS / vị trí máy vào tên chi nhánh.
+  final List<Map<String, dynamic>>? branches;
   final VoidCallback? onDataChanged;
   final List<Widget>? mobileLeadingSections;
   final void Function(String preset)? onDateRangeChanged;
@@ -95,6 +99,7 @@ class AttendanceByShiftTab extends StatefulWidget {
     this.standardWorkHours = 8,
     this.approvedLeaves = const [],
     this.employeesList,
+    this.branches,
     this.onDataChanged,
     this.mobileLeadingSections,
     this.onDateRangeChanged,
@@ -188,6 +193,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         storeSalarySettings: widget.storeSalarySettings,
         salaryProfiles: widget.salaryProfiles,
       );
+
+  bool get _showPunchBranchColumn =>
+      BranchFilterHelper.showBranchFilter(widget.branches);
+
+  int get _excelPunchStartCol => _showPunchBranchColumn ? 4 : 3;
 
   @override
   void initState() {
@@ -825,6 +835,34 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return result;
   }
 
+  static const String _punchBranchHeader = 'Chi nhánh chấm';
+
+  String _assignedBranchFor(_DailyShiftRecord r) {
+    final info = _employeeInfoFor(r);
+    return info?['branchName']?.toString() ?? '';
+  }
+
+  Widget _punchLocationCell(String location, {String assignedBranch = ''}) {
+    if (location.isEmpty) {
+      return Text(tr('—'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
+    }
+    final mismatch =
+        punchLocationDiffersFromAssigned(location, assignedBranch);
+    return Text(
+      tr(location),
+      textAlign: TextAlign.center,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: mismatch ? const Color(0xFFC2410C) : const Color(0xFF334155),
+      ),
+    );
+  }
+
   List<_DailyShiftRecord> get _shiftData {
     final fp = _shiftFp;
     if (_cachedShiftData != null && _cachedShiftFp == fp) {
@@ -852,6 +890,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       standardWorkHours: widget.standardWorkHours,
       scheduleDayOffKeys: _scheduleDayOffKeys,
     );
+    final attById = <String, Attendance>{
+      for (final a in widget.attendances)
+        if (a.id.isNotEmpty) a.id: a,
+    };
     final records = computed
         .map(
           (r) => _DailyShiftRecord(
@@ -873,6 +915,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             statusColor: r.statusColor,
             workCount: r.workCount,
             hoursByShiftName: Map<String, double>.from(r.hoursByShiftName),
+            punchLocation: punchLocationsForDay(
+              punches: r.attendanceIds
+                  .map((id) => attById[id])
+                  .whereType<Attendance>(),
+              devices: widget.devices,
+              branches: widget.branches,
+            ),
           ),
         )
         .toList();
@@ -2370,6 +2419,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 ),
                 const SizedBox(height: 10),
               ],
+              if (_showPunchBranchColumn && record.punchLocation.isNotEmpty) ...[
+                _detailRow(_punchBranchHeader, record.punchLocation),
+                const SizedBox(height: 10),
+              ],
               // Punch times
               _detailLabel('Giờ chấm công'),
               const SizedBox(height: 6),
@@ -2567,6 +2620,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               Text(
                   tr([
                     dateStr,
+                    if (_showPunchBranchColumn && record.punchLocation.isNotEmpty)
+                      record.punchLocation,
                     record.shiftNames.join(', '),
                     '${record.workHours.toStringAsFixed(1)}h'
                   ].where((s) => s.isNotEmpty).join(' \u00b7 ')),
@@ -3200,7 +3255,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   List<String> _shiftExcelDetailHeaders(int punchCols) {
-    final headers = <String>['STT', 'Thứ', 'Ngày'];
+    final headers = <String>[
+      'STT',
+      'Thứ',
+      'Ngày',
+      if (_showPunchBranchColumn) _punchBranchHeader,
+    ];
     for (var i = 1; i <= punchCols; i++) {
       headers.add('Lần $i');
     }
@@ -3290,7 +3350,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final sigHintStyle = _excelCenterStyle(fontSize: 10, italic: true);
 
     final lastCol = colCount - 1;
-    final punchStartCol = 3;
+    final punchStartCol = _excelPunchStartCol;
     final lateCol = punchStartCol + punchCols;
     final earlyCol = lateCol + 1;
     final otCol = earlyCol + 1;
@@ -3367,6 +3427,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         excel_lib.TextCellValue(DateFormat('dd/MM/yyyy').format(r.date)),
         style: dataStyle,
       );
+      if (_showPunchBranchColumn) {
+        _excelSetCell(
+          sheet,
+          row,
+          col++,
+          excel_lib.TextCellValue(r.punchLocation),
+          style: _excelLeftStyle(),
+        );
+      }
 
       for (var p = 0; p < punchCols; p++) {
         final punch = p < r.displayPunchTimes.length
@@ -3605,6 +3674,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       '$stt',
       r.dayOfWeek,
       DateFormat('dd/MM/yyyy').format(r.date),
+      if (_showPunchBranchColumn) r.punchLocation,
     ];
     for (var p = 0; p < punchCols; p++) {
       cells.add(p < r.displayPunchTimes.length
@@ -3630,7 +3700,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   List<String> _shiftPngTotalRowCells(
       _ShiftEmployeePeriodTotals totals, int punchCols) {
-    final cells = <String>['', 'TỔNG CỘNG', '${totals.presentDays} ngày'];
+    final cells = <String>[
+      '',
+      'TỔNG CỘNG',
+      '${totals.presentDays} ngày',
+      if (_showPunchBranchColumn) '',
+    ];
     for (var p = 0; p < punchCols; p++) {
       cells.add('');
     }
@@ -3691,7 +3766,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         }
       }
       // Cột trạng thái / tên ca cần rộng hơn để không đè chữ.
-      final maxW = c >= headers.length - 2 ? 180.0 : 130.0;
+      final maxW = (_showPunchBranchColumn && c == 3) || c >= headers.length - 2
+          ? 180.0
+          : 130.0;
       widths.add(w.clamp(52, maxW));
     }
     return widths;
@@ -3796,7 +3873,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     }
 
     final tableLeft = pad;
-    final shiftNameCol = 3 + punchCols + 6;
+    final punchStart = _excelPunchStartCol;
+    final shiftNameCol = punchStart + punchCols + (_showTravelColumns ? 7 : 6);
     const cellFont = '11px Arial, sans-serif';
     const cellFontBold = 'bold 11px Arial, sans-serif';
 
@@ -3859,10 +3937,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         }
         x = tableLeft;
         for (var c = 0; c < cells.length; c++) {
-          final punchCol = c >= 3 && c < 3 + punchCols;
+          final punchCol = c >= punchStart && c < punchStart + punchCols;
           String color = '#334155';
           if (punchCol && cells[c].isNotEmpty) {
-            color = (c - 2).isOdd ? '#059669' : '#DC2626';
+            color = (c - (punchStart - 1)).isOdd ? '#059669' : '#DC2626';
           } else if (c == cells.length - 4 && cells[c].isNotEmpty) {
             color = '#16A34A';
           } else if (c >= cells.length - 3 && cells[c].isNotEmpty) {
@@ -3953,7 +4031,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
     try {
       final punchCols = _shiftPunchColCount(records);
-      final colCount = 3 + punchCols + 9;
+      final colCount = _shiftExcelDetailHeaders(punchCols).length;
       final range = _selectedDateRange;
 
       final excelFile =
@@ -3963,8 +4041,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       sheet.setColumnWidth(0, 5);
       sheet.setColumnWidth(1, 10);
       sheet.setColumnWidth(2, 12);
-      for (var i = 3; i < colCount; i++) {
-        sheet.setColumnWidth(i, i < 3 + punchCols ? 9 : 11);
+      final punchStart = _excelPunchStartCol;
+      if (_showPunchBranchColumn) {
+        sheet.setColumnWidth(3, 22);
+      }
+      for (var i = punchStart; i < colCount; i++) {
+        sheet.setColumnWidth(i, i < punchStart + punchCols ? 9 : 11);
       }
 
       final empTotals = _employeeTotalsFrom(records);
@@ -4183,7 +4265,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   int _shiftTableColumnCount(int punchCols) =>
-      5 + punchCols + (_showTravelColumns ? 9 : 8);
+      5 +
+      (_showPunchBranchColumn ? 1 : 0) +
+      punchCols +
+      (_showTravelColumns ? 9 : 8);
 
   Map<int, TableColumnWidth> _shiftDesktopColumnWidths(int punchCols) {
     final widths = <int, TableColumnWidth>{
@@ -4193,15 +4278,19 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       3: const FixedColumnWidth(56),
       4: const FixedColumnWidth(96),
     };
-    for (var i = 0; i < punchCols; i++) {
-      widths[5 + i] = const FixedColumnWidth(64);
+    var idx = 5;
+    if (_showPunchBranchColumn) {
+      widths[idx++] = const FixedColumnWidth(132);
     }
-    final base = 5 + punchCols;
+    for (var i = 0; i < punchCols; i++) {
+      widths[idx++] = const FixedColumnWidth(64);
+    }
+    final base = idx;
     widths[base] = const FixedColumnWidth(64);
     widths[base + 1] = const FixedColumnWidth(64);
     widths[base + 2] = const FixedColumnWidth(64);
     widths[base + 3] = const FixedColumnWidth(72);
-    var idx = base + 4;
+    idx = base + 4;
     if (_showTravelColumns) {
       widths[idx++] = const FixedColumnWidth(68);
     }
@@ -4214,6 +4303,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   double _shiftDesktopTableMinWidth(int punchCols) {
     var w = 44.0 + 150 + 90 + 56 + 96 + punchCols * 64.0;
+    if (_showPunchBranchColumn) w += 132;
     w += 64 * 3 + 72 + 68 + 56 + 120 + 140;
     if (_showTravelColumns) w += 68;
     return w;
@@ -4257,7 +4347,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       );
 
   List<String> _shiftDetailHeaders(int punchCols) {
-    final headers = <String>['STT', 'Tên nhân viên', 'Mã nhân viên', 'Thứ', 'Ngày'];
+    final headers = <String>[
+      'STT',
+      'Tên nhân viên',
+      'Mã nhân viên',
+      'Thứ',
+      'Ngày',
+      if (_showPunchBranchColumn) _punchBranchHeader,
+    ];
     for (var i = 1; i <= punchCols; i++) {
       headers.add('Lần $i');
     }
@@ -4468,6 +4565,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       _shiftTableCell(Text(tr('${totals.presentDays} ngày'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+      if (_showPunchBranchColumn)
+        _shiftTableCell(Text(tr('—'),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))),
     ];
     for (var i = 0; i < punchCols; i++) {
       cells.add(_shiftTableCell(Text(tr('—'),
@@ -4562,6 +4663,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
         _shiftTableCell(Text(tr(DateFormat('dd/MM/yyyy').format(r.date)),
             textAlign: TextAlign.center, style: const TextStyle(fontSize: 12))),
+        if (_showPunchBranchColumn)
+          _shiftTableCell(_punchLocationCell(r.punchLocation,
+              assignedBranch: _assignedBranchFor(r))),
       ];
       for (var i = 0; i < punchCols; i++) {
         cells.add(_shiftTableCell(_buildShiftPunchCell(r, i)));
@@ -4897,6 +5001,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final lines = <String>['$inStr·$outStr'];
     if (r.shiftNames.isNotEmpty) {
       lines.add(r.shiftNames.join(' · '));
+    }
+    if (_showPunchBranchColumn && r.punchLocation.isNotEmpty) {
+      lines.add(r.punchLocation);
     }
     return lines.join('\n');
   }
@@ -6027,6 +6134,8 @@ class _DailyShiftRecord {
   final double workCount;
   final Map<String, double> hoursByShiftName;
   final List<_MissingPunchHint> missingPunchHints;
+  /// Chi nhánh / địa điểm thực tế chấm trong ngày (máy hoặc GPS).
+  final String punchLocation;
 
   _DailyShiftRecord({
     required this.employeeId,
@@ -6048,6 +6157,7 @@ class _DailyShiftRecord {
     required this.workCount,
     this.hoursByShiftName = const {},
     this.missingPunchHints = const [],
+    this.punchLocation = '',
   });
 }
 

@@ -101,14 +101,24 @@ class _EodThermalLayout {
       '>> BÁN HÀNG',
       _lr('Số đơn', '${r.orderCount}', chars),
       _lr('Doanh thu', _money(r.totalSales), chars),
-      _lr('Chiết khấu', _money(r.orderDiscount), chars),
+      if (r.lineDiscountTotal > 0)
+        _lr('CK mặt hàng', _money(r.lineDiscountTotal), chars),
+      _lr('Chiết khấu đơn', _money(r.orderDiscount), chars),
+      if (r.voucherDiscount > 0)
+        _lr('Voucher', _money(r.voucherDiscount), chars),
+      if (r.pointsDiscount > 0)
+        _lr('CK điểm', _money(r.pointsDiscount), chars),
       _lr('VAT', _money(r.vat), chars),
+      if (r.surchargeTotal > 0)
+        _lr('Phụ thu', _money(r.surchargeTotal), chars),
+      if (r.deliveryFeeTotal > 0)
+        _lr('Phí GH', _money(r.deliveryFeeTotal), chars),
       _lr('DT ròng', _money(r.netSales), chars),
       if (r.closedOffDayOrders.isNotEmpty) ...[
         _rule(chars),
         '>> CHỐT NGÀY KHÁC',
         _lr('Số HĐ', '${r.closedOffDayCount}', chars),
-        for (final o in r.closedOffDayOrders.take(chars <= 32 ? 8 : 15))
+        for (final o in r.closedOffDayOrders)
           _lr(o.orderNo, o.draftDayLabel, chars),
       ],
       _rule(chars),
@@ -149,15 +159,11 @@ class _EodThermalLayout {
     if (showProductDetail && r.products.isNotEmpty) {
       lines.add('>> HÀNG BÁN');
       lines.add(_rule(chars));
-      final take = chars <= 32 ? 15 : 25;
-      for (final p in r.products.take(take)) {
+      for (final p in r.products) {
         var name = p.productName.trim();
         if (name.length > chars) name = '${name.substring(0, chars - 1)}…';
         lines.add(name);
         lines.add(_lr('  SL ${_qty(p.qty)}', _money(p.revenue), chars));
-      }
-      if (r.products.length > take) {
-        lines.add('... +${r.products.length - take} mặt hàng');
       }
       if (r.lineDiscountTotal > 0) {
         lines.add(_lr('CK mặt hàng', _money(r.lineDiscountTotal), chars));
@@ -172,8 +178,18 @@ class _EodThermalLayout {
   List<({String left, String right, bool bold})> salesRows() => [
         (left: 'Số đơn', right: '${report.orderCount}', bold: false),
         (left: 'Doanh thu', right: _money(report.totalSales), bold: false),
-        (left: 'Chiết khấu', right: _money(report.orderDiscount), bold: false),
+        if (report.lineDiscountTotal > 0)
+          (left: 'CK mặt hàng', right: _money(report.lineDiscountTotal), bold: false),
+        (left: 'Chiết khấu đơn', right: _money(report.orderDiscount), bold: false),
+        if (report.voucherDiscount > 0)
+          (left: 'Voucher', right: _money(report.voucherDiscount), bold: false),
+        if (report.pointsDiscount > 0)
+          (left: 'CK điểm', right: _money(report.pointsDiscount), bold: false),
         (left: 'VAT', right: _money(report.vat), bold: false),
+        if (report.surchargeTotal > 0)
+          (left: 'Phụ thu', right: _money(report.surchargeTotal), bold: false),
+        if (report.deliveryFeeTotal > 0)
+          (left: 'Phí GH', right: _money(report.deliveryFeeTotal), bold: false),
         (left: 'DT ròng', right: _money(report.netSales), bold: true),
         if (report.closedOffDayOrders.isNotEmpty)
           (left: 'Chốt ngày khác', right: '${report.closedOffDayCount}', bold: false),
@@ -181,7 +197,6 @@ class _EodThermalLayout {
 
   List<({String left, String right, bool bold})> offDayRows() =>
       report.closedOffDayOrders
-          .take(15)
           .map((o) => (left: o.orderNo, right: o.draftDayLabel, bold: false))
           .toList();
 
@@ -220,9 +235,7 @@ class _EodThermalLayout {
 
   List<({String name, String qty, String amount})> productRows() {
     if (!showProductDetail) return const [];
-    final take = chars <= 32 ? 15 : 25;
     return report.products
-        .take(take)
         .map((p) => (
               name: p.productName,
               qty: _qty(p.qty),
@@ -257,14 +270,29 @@ String _buildBillHtml(
   final rows = StringBuffer()
     ..write(section('BÁN HÀNG'))
     ..write(row('Số đơn hàng', '${r.orderCount}'))
-    ..write(row('Tổng doanh thu', _money(r.totalSales)))
-    ..write(row('Chiết khấu', _money(r.orderDiscount)))
-    ..write(row('VAT', _money(r.vat)))
-    ..write(row('Doanh thu ròng', _money(r.netSales), bold: true));
+    ..write(row('Tổng doanh thu', _money(r.totalSales)));
+  if (r.lineDiscountTotal > 0) {
+    rows.write(row('CK mặt hàng', _money(r.lineDiscountTotal)));
+  }
+  rows.write(row('Chiết khấu đơn', _money(r.orderDiscount)));
+  if (r.voucherDiscount > 0) {
+    rows.write(row('Voucher', _money(r.voucherDiscount)));
+  }
+  if (r.pointsDiscount > 0) {
+    rows.write(row('CK điểm', _money(r.pointsDiscount)));
+  }
+  rows.write(row('VAT', _money(r.vat)));
+  if (r.surchargeTotal > 0) {
+    rows.write(row('Phụ thu', _money(r.surchargeTotal)));
+  }
+  if (r.deliveryFeeTotal > 0) {
+    rows.write(row('Phí giao hàng', _money(r.deliveryFeeTotal)));
+  }
+  rows.write(row('Doanh thu ròng', _money(r.netSales), bold: true));
   if (r.closedOffDayOrders.isNotEmpty) {
     rows.write(section('CHỐT NGÀY KHÁC'));
     rows.write(row('Số HĐ', '${r.closedOffDayCount}'));
-    for (final o in r.closedOffDayOrders.take(k58 ? 8 : 15)) {
+    for (final o in r.closedOffDayOrders) {
       rows.write(row(o.orderNo, o.draftDayLabel, sub: true));
     }
   }
@@ -298,7 +326,7 @@ String _buildBillHtml(
 
   if (showProductDetail && r.products.isNotEmpty) {
     rows.write(section('HÀNG BÁN'));
-    for (final p in r.products.take(k58 ? 15 : 30)) {
+    for (final p in r.products) {
       rows.write(row(p.productName, '${_qty(p.qty)} · ${_money(p.revenue)}', sub: true));
     }
     if (r.lineDiscountTotal > 0) {
@@ -338,9 +366,14 @@ String _buildA4(PosEndOfDayReport r, {required bool showProductDetail}) {
   final staff = r.staffName ?? r.staffEmail ?? 'Tất cả nhân viên';
   final summaryRows = '''
     <tr><td>Số đơn hàng</td><td class="r">${r.orderCount}</td></tr>
-    <tr><td>Chiết khấu đơn</td><td class="r">${_money(r.orderDiscount)}</td></tr>
     <tr><td>Tổng doanh thu</td><td class="r">${_money(r.totalSales)}</td></tr>
+    ${r.lineDiscountTotal > 0 ? '<tr><td>CK mặt hàng</td><td class="r">${_money(r.lineDiscountTotal)}</td></tr>' : ''}
+    <tr><td>Chiết khấu đơn</td><td class="r">${_money(r.orderDiscount)}</td></tr>
+    ${r.voucherDiscount > 0 ? '<tr><td>Voucher</td><td class="r">${_money(r.voucherDiscount)}</td></tr>' : ''}
+    ${r.pointsDiscount > 0 ? '<tr><td>CK điểm</td><td class="r">${_money(r.pointsDiscount)}</td></tr>' : ''}
     <tr><td>VAT</td><td class="r">${_money(r.vat)}</td></tr>
+    ${r.surchargeTotal > 0 ? '<tr><td>Phụ thu</td><td class="r">${_money(r.surchargeTotal)}</td></tr>' : ''}
+    ${r.deliveryFeeTotal > 0 ? '<tr><td>Phí giao hàng</td><td class="r">${_money(r.deliveryFeeTotal)}</td></tr>' : ''}
     <tr><td>Doanh thu ròng</td><td class="r">${_money(r.netSales)}</td></tr>
     ${r.closedOffDayOrders.isNotEmpty ? '<tr><td>Chốt ngày khác</td><td class="r">${r.closedOffDayCount}</td></tr>' : ''}
     <tr><td>Trả hàng</td><td class="r">${_money(r.refundTotal)}</td></tr>
@@ -522,7 +555,7 @@ Future<Uint8List> buildPosEndOfDayPdfBytes(
                 pw.SizedBox(height: 10),
                 pw.Text(tr('Hàng hóa bán ra'),
                     style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                ...r.products.take(40).map(
+                ...r.products.map(
                       (p) => pair(p.productName, '${_qty(p.qty)} · ${_money(p.revenue)}'),
                     ),
               ],
@@ -611,21 +644,94 @@ Future<void> printPosEndOfDayReport(
   PosEndOfDayPrintFormat format = PosEndOfDayPrintFormat.bill58,
   bool showProductDetail = true,
 }) async {
-  if (!kIsWeb && format.isThermalBill) {
-    await PosPrintOrchestrator.instance.refreshConfig();
-    final printers = PosPrintOrchestrator.instance
-        .resolvePrinters(PosCloudDocumentTypes.endOfDayReport);
-    final local = await PosThermalPrinterSettings.load();
-    final paperSize = format == PosEndOfDayPrintFormat.bill58 ? 'K58' : 'K80';
-    final layout = _EodThermalLayout(
+  if (format.isThermalBill) {
+    final printed = await _printEndOfDayThermal(
       report,
-      chars: format.thermalChars,
+      format: format,
       showProductDetail: showProductDetail,
     );
-    final lines = layout.buildLines();
-    final footer = 'In lúc ${_dt(report.generatedAt)} · SBOX POS';
-    final title = 'TỔNG KẾT CUỐI NGÀY';
+    if (printed) return;
+    if (kIsWeb) {
+      NotificationOverlayManager().showError(
+        title: 'Chưa in được',
+        message: tr(
+            'Chưa có máy in hóa đơn được chia sẻ (Print Agent). Không mở hộp thoại in trình duyệt.'),
+      );
+      return;
+    }
+  }
 
+  final bytes = await buildPosEndOfDayPdfBytes(
+    report,
+    format: format,
+    showProductDetail: showProductDetail,
+  );
+  final title = switch (format) {
+    PosEndOfDayPrintFormat.a4 => 'TongKetCuoiNgay_A4',
+    PosEndOfDayPrintFormat.bill58 => 'TongKetCuoiNgay_K58',
+    PosEndOfDayPrintFormat.bill80 => 'TongKetCuoiNgay_K80',
+  };
+
+  if (!context.mounted) return;
+
+  if (kIsWeb) {
+    final html = buildPosEndOfDayHtml(
+      report,
+      format: format,
+      showProductDetail: showProductDetail,
+    );
+    await showPosHtmlPrintDialog(context, title: title, htmlDocument: html);
+    return;
+  }
+
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(tr('In tổng kết · ${format.label}')),
+      content: Text(tr('Chọn cách in hoặc xuất PDF.')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
+        OutlinedButton(
+          onPressed: () async {
+            Navigator.pop(ctx);
+            await Printing.layoutPdf(
+              onLayout: (_) async => bytes,
+              name: title,
+            );
+          },
+          child: Text(tr('In')),
+        ),
+        FilledButton(
+          onPressed: () async {
+            Navigator.pop(ctx);
+            await Printing.sharePdf(bytes: bytes, filename: '$title.pdf');
+          },
+          child: Text(tr('Xuất PDF')),
+        ),
+      ],
+    ),
+  );
+}
+
+/// K58/K80: máy cục bộ (app) rồi cloud/Agent. Web luôn gửi máy hóa đơn, không in trình duyệt.
+Future<bool> _printEndOfDayThermal(
+  PosEndOfDayReport report, {
+  required PosEndOfDayPrintFormat format,
+  required bool showProductDetail,
+}) async {
+  await PosPrintOrchestrator.instance.refreshConfig();
+  final paperSize = format == PosEndOfDayPrintFormat.bill58 ? 'K58' : 'K80';
+  final layout = _EodThermalLayout(
+    report,
+    chars: format.thermalChars,
+    showProductDetail: showProductDetail,
+  );
+  final lines = layout.buildLines();
+  final footer = 'In lúc ${_dt(report.generatedAt)} · SBOX POS';
+  const title = 'TỔNG KẾT CUỐI NGÀY';
+
+  if (!kIsWeb) {
+    final local = await PosThermalPrinterSettings.load();
     if (local.enabled) {
       var settings = await PosPrinterTransport.prepareLocalSettings(local);
       settings = settings.copyWith(paperSize: paperSize);
@@ -681,79 +787,43 @@ Future<void> printPosEndOfDayReport(
           title: 'In cuối ngày',
           message: tr('Máy in cục bộ · ${format.label}'),
         );
-        return;
+        return true;
       }
     }
-
-    if (printers.isNotEmpty) {
-      final ok = await PosPrintOrchestrator.instance.dispatchEscPosToAll(
-        documentType: PosCloudDocumentTypes.endOfDayReport,
-        referenceNo: 'EOD-${_d(report.from)}',
-        showFeedback: true,
-        successTitle: 'In cuối ngày',
-        buildBytes: (printer) async {
-          var settings = toThermalSettings(printer);
-          settings = settings.copyWith(paperSize: paperSize);
-          return PosThermalPrinterService.buildTextEscPosBytes(
-            settings: settings,
-            title: title,
-            lines: lines,
-            footer: footer,
-          );
-        },
-      );
-      if (ok) return;
-    }
   }
 
-  final bytes = await buildPosEndOfDayPdfBytes(
-    report,
-    format: format,
-    showProductDetail: showProductDetail,
-  );
-  final title = switch (format) {
-    PosEndOfDayPrintFormat.a4 => 'TongKetCuoiNgay_A4',
-    PosEndOfDayPrintFormat.bill58 => 'TongKetCuoiNgay_K58',
-    PosEndOfDayPrintFormat.bill80 => 'TongKetCuoiNgay_K80',
-  };
-
-  if (!context.mounted) return;
-
-  if (kIsWeb) {
-    final html = buildPosEndOfDayHtml(
-      report,
-      format: format,
-      showProductDetail: showProductDetail,
+  Future<bool> dispatch(String documentType) {
+    return PosPrintOrchestrator.instance.dispatchEscPosToAll(
+      documentType: documentType,
+      referenceNo: 'EOD-${_d(report.from)}',
+      skipDedup: true,
+      showFeedback: true,
+      successTitle: 'In cuối ngày',
+      buildBytes: (printer) async {
+        var settings = toThermalSettings(printer);
+        settings = settings.copyWith(paperSize: paperSize);
+        return PosThermalPrinterService.buildTextEscPosBytes(
+          settings: settings,
+          title: title,
+          lines: lines,
+          footer: footer,
+        );
+      },
     );
-    await showPosHtmlPrintDialog(context, title: title, htmlDocument: html);
-    return;
   }
 
-  await showDialog<void>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(tr('In tổng kết · ${format.label}')),
-      content: Text(tr('Chọn cách in hoặc xuất PDF.')),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
-        OutlinedButton(
-          onPressed: () async {
-            Navigator.pop(ctx);
-            await Printing.layoutPdf(
-              onLayout: (_) async => bytes,
-              name: title,
-            );
-          },
-          child: Text(tr('In')),
-        ),
-        FilledButton(
-          onPressed: () async {
-            Navigator.pop(ctx);
-            await Printing.sharePdf(bytes: bytes, filename: '$title.pdf');
-          },
-          child: Text(tr('Xuất PDF')),
-        ),
-      ],
-    ),
-  );
+  final eodPrinters = PosPrintOrchestrator.instance
+      .resolvePrinters(PosCloudDocumentTypes.endOfDayReport);
+  if (eodPrinters.isNotEmpty &&
+      await dispatch(PosCloudDocumentTypes.endOfDayReport)) {
+    return true;
+  }
+
+  final invoicePrinters = PosPrintOrchestrator.instance
+      .resolvePrinters(PosCloudDocumentTypes.saleInvoice);
+  if (invoicePrinters.isNotEmpty &&
+      await dispatch(PosCloudDocumentTypes.saleInvoice)) {
+    return true;
+  }
+  return false;
 }

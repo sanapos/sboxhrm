@@ -354,6 +354,9 @@ CREATE TABLE IF NOT EXISTS "PosCustomerSessionTransactions" (
     "TransactionType" integer NOT NULL DEFAULT 0,
     "SessionDelta" integer NOT NULL DEFAULT 0,
     "RemainingAfter" integer NOT NULL DEFAULT 0,
+    "UsedAt" timestamp without time zone NULL,
+    "EmployeeId" uuid NULL,
+    "EmployeeName" text NULL,
     "Note" text NULL,
     CONSTRAINT "PK_PosCustomerSessionTransactions" PRIMARY KEY ("Id")
 );
@@ -763,6 +766,10 @@ ALTER TABLE "TaskDependencies" ADD COLUMN IF NOT EXISTS "CreatedBy" text NULL;
 -- TaskTemplates
 ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "LastModified" timestamp without time zone NULL;
 ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "LastModifiedBy" text NULL;
+
+ALTER TABLE "PosCustomerSessionTransactions" ADD COLUMN IF NOT EXISTS "EmployeeId" uuid NULL;
+ALTER TABLE "PosCustomerSessionTransactions" ADD COLUMN IF NOT EXISTS "EmployeeName" character varying(200) NULL;
+ALTER TABLE "PosCustomerSessionTransactions" ADD COLUMN IF NOT EXISTS "UsedAt" timestamp without time zone NULL;
 
 UPDATE "Payslips" p
 SET "EmployeeId" = e."Id"

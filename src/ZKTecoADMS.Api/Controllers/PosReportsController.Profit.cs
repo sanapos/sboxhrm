@@ -24,7 +24,7 @@ public partial class PosReportsController
         [FromQuery] int? dayStartHour = null)
     {
         var storeId = RequiredStoreId;
-        limit = Math.Clamp(limit, 1, 200);
+        limit = Math.Clamp(limit, 1, 1000);
         var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
         var (fromDt, toDt, fromVn, toVnEx) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
 

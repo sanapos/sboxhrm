@@ -64,6 +64,7 @@ class PermissionModuleLabels {
     'PosReportExpense': 'Chi phí',
     'PosReportEndOfDay': 'Tổng kết cuối ngày',
     'PosReportStaffRevenue': 'Doanh thu theo nhân viên',
+    'PosReportStaffCommission': 'Hoa hồng nhân viên',
     'PosReportCashbook': 'Sổ quỹ',
     'PosReportPnl': 'Kết quả kinh doanh',
     'PosReportVoucher': 'Báo cáo voucher',

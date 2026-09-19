@@ -45,7 +45,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
         DateTime? ReturnDate, DateTime CreatedAt, string? CreatedBy, string? ReturnedBy, int LineCount);
 
     [HttpGet]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPurchaseReturns", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> List(
         [FromQuery] string? search,
         [FromQuery] string? status,
@@ -108,7 +108,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     }
 
     [HttpGet("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPurchaseReturns", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<ReturnDto>>> Get(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -122,7 +122,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     }
 
     [HttpGet("from-receipt/{receiptId:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPurchaseReturns", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<ReturnDto>>> FromReceipt(Guid receiptId)
     {
         var storeId = RequiredStoreId;
@@ -145,7 +145,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     }
 
     [HttpPost]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReturns", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ReturnDto>>> Create([FromBody] SaveReturnDto dto)
     {
         var storeId = RequiredStoreId;
@@ -178,7 +178,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     }
 
     [HttpPut("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReturns", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ReturnDto>>> Update(Guid id, [FromBody] SaveReturnDto dto)
     {
         var storeId = RequiredStoreId;
@@ -248,7 +248,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     }
 
     [HttpPost("{id:guid}/copy")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReturns", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ReturnDto>>> Copy(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -267,7 +267,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     }
 
     [HttpPost("{id:guid}/complete")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReturns", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ReturnDto>>> Complete(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -324,7 +324,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     }
 
     [HttpPost("{id:guid}/cancel")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReturns", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ReturnDto>>> Cancel(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -377,7 +377,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReturns", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;

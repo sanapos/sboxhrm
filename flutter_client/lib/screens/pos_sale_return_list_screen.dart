@@ -78,6 +78,12 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
   }
 
   Future<void> _voidReturn(_ReturnRow row) async {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.canApprove('PosSaleReturns') &&
+        !perm.canApprove('PosSell') &&
+        !perm.canEdit('PosProducts')) {
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -116,8 +122,12 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    final canEdit = perm.canEdit('PosSell') || perm.canEdit('PosProducts');
-    if (!perm.canView('PosSell') && !perm.canView('PosProducts')) {
+    final canReturn = perm.canApprove('PosSaleReturns') ||
+        perm.canApprove('PosSell') ||
+        perm.canEdit('PosProducts');
+    if (!perm.canView('PosSaleReturns') &&
+        !perm.canView('PosSell') &&
+        !perm.canView('PosProducts')) {
       return Scaffold(
         body: Center(child: Text(tr('Không có quyền xem trả hàng'))),
       );
@@ -136,18 +146,20 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const PosSaleReturnScreen()),
-          );
-          if (mounted) await _load();
-        },
-        backgroundColor: PosTheme.kiotBlue,
-        icon: const Icon(Icons.add),
-        label: Text(tr('Trả hàng mới')),
-      ),
+      floatingActionButton: canReturn
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PosSaleReturnScreen()),
+                );
+                if (mounted) await _load();
+              },
+              backgroundColor: PosTheme.kiotBlue,
+              icon: const Icon(Icons.add),
+              label: Text(tr('Trả hàng mới')),
+            )
+          : null,
       body: Column(
         children: [
           Padding(
@@ -244,7 +256,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                                             child: Text(tr('Đã hủy'),
                                                 style: TextStyle(fontSize: 10)),
                                           )
-                                        else if (canEdit)
+                                        else if (canReturn)
                                           IconButton(
                                             visualDensity:
                                                 VisualDensity.compact,

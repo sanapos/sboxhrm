@@ -137,10 +137,14 @@ public class PosCustomerSessionTransactionConfiguration : IEntityTypeConfigurati
         builder.ToTable("PosCustomerSessionTransactions");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Note).HasMaxLength(500);
+        builder.Property(x => x.EmployeeName).HasMaxLength(200);
         builder.HasIndex(x => new { x.StoreId, x.BalanceId });
+        builder.HasIndex(x => new { x.StoreId, x.CustomerId, x.UsedAt });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Balance).WithMany(b => b.Transactions).HasForeignKey(x => x.BalanceId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
 

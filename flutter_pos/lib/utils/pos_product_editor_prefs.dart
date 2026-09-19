@@ -13,6 +13,7 @@ enum PosProductEditorSection {
   locationWeight('Vị trí & trọng lượng'),
   unitsVariants('Đơn vị / hàng cùng loại'),
   serviceBilling('Tính giờ / gói buổi (dịch vụ)'),
+  staffCommission('Hoa hồng nhân viên'),
   description('Tab Mô tả & ghi chú bán');
 
   const PosProductEditorSection(this.label);

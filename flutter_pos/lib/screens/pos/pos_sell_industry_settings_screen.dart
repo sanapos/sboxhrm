@@ -518,6 +518,29 @@ class _PosSellIndustrySettingsScreenState
           ],
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            title: Text(tr('Hoa hồng nhân viên')),
+            subtitle: Text(tr(
+                'Khi bán combo / dịch vụ: chọn NV làm từng phần (cắt, gội, massage, SP bán kèm) để tính hoa hồng')),
+            value: s.enableStaffCommission,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(enableStaffCommission: v)),
+          ),
+          if (s.enableStaffCommission)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Bắt buộc chọn NV trên dịch vụ')),
+              subtitle: Text(tr(
+                  'Không thanh toán nếu dịch vụ hoặc thành phần dịch vụ trong combo chưa có NV')),
+              value: s.requireStaffOnService,
+              onChanged: _saving
+                  ? null
+                  : (v) => _patchAndSave(
+                      (cur) => cur.copyWith(requireStaffOnService: v)),
+            ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
             title: Text(tr('Gói buổi / liệu trình / thẻ tập')),
             subtitle: Text(tr(
                 'Salon, spa, gym: bán gói cộng buổi, check-in trừ buổi, hạn dùng theo ngày')),

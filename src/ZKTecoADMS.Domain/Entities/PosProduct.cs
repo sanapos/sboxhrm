@@ -162,6 +162,15 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Khi bán combo: hiện danh sách thành phần dưới tên (kiểu topping). Tắt = chỉ hiện tên combo.</summary>
     public bool ShowComboComponentsOnSell { get; set; }
 
+    /// <summary>Cách tính hoa hồng khi gán nhân viên làm / bán mặt hàng này.</summary>
+    public PosCommissionMode CommissionMode { get; set; } = PosCommissionMode.None;
+
+    /// <summary>% hoa hồng (PercentOfLine / PercentOfCatalog).</summary>
+    public decimal CommissionPercent { get; set; }
+
+    /// <summary>Hoa hồng cố định / 1 đơn vị (FixedPerUnit).</summary>
+    public decimal CommissionFixed { get; set; }
+
     public virtual ICollection<PosProductUnit> Units { get; set; } = [];
     public virtual ICollection<PosProductAttributeValue> AttributeValues { get; set; } = [];
     public virtual ICollection<PosStockTransaction> StockTransactions { get; set; } = [];

@@ -94,14 +94,19 @@ public sealed class TingeePaymentWebhookProvider : IPaymentWebhookProvider
     private static string? ExtractOrderIdFromContent(string? content)
     {
         if (string.IsNullOrWhiteSpace(content)) return null;
-        // POS TMP123 / HD123 / POS 123
         var parts = content.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         foreach (var p in parts)
         {
             if (p.StartsWith("TMP", StringComparison.OrdinalIgnoreCase) ||
-                p.StartsWith("HD", StringComparison.OrdinalIgnoreCase))
+                p.StartsWith("HD", StringComparison.OrdinalIgnoreCase) ||
+                p.StartsWith("POS", StringComparison.OrdinalIgnoreCase) ||
+                p.StartsWith("DH", StringComparison.OrdinalIgnoreCase) ||
+                p.StartsWith("TV", StringComparison.OrdinalIgnoreCase))
                 return p;
         }
+        var compact = content.Trim();
+        if (compact.Length is >= 4 and <= 40 && !compact.Contains(' '))
+            return compact;
         return null;
     }
 

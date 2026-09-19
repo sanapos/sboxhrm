@@ -369,6 +369,8 @@ class PosStoreSellSettingsDto {
     this.loyaltyEarnPerAmount = 10000,
     this.loyaltyRedeemValue = 100,
     this.loyaltyMaxRedeemPercent = 100,
+    this.enableStaffCommission = false,
+    this.requireStaffOnService = false,
   });
 
   final String id;
@@ -439,6 +441,10 @@ class PosStoreSellSettingsDto {
   final double loyaltyRedeemValue;
   /// Tối đa % đơn (sau voucher) được trả bằng điểm.
   final double loyaltyMaxRedeemPercent;
+  /// Gán NV làm dịch vụ / thành phần combo để tính hoa hồng.
+  final bool enableStaffCommission;
+  /// Bắt buộc chọn NV trên dịch vụ khi thanh toán.
+  final bool requireStaffOnService;
 
   factory PosStoreSellSettingsDto.fromJson(Map<String, dynamic> json) =>
       PosStoreSellSettingsDto(
@@ -496,6 +502,10 @@ class PosStoreSellSettingsDto {
               100);
           return v.clamp(1, 100).toDouble();
         }(),
+        enableStaffCommission: json['enableStaffCommission'] == true ||
+            json['EnableStaffCommission'] == true,
+        requireStaffOnService: json['requireStaffOnService'] == true ||
+            json['RequireStaffOnService'] == true,
       );
 
   static double _loyaltyNum(dynamic v, double fallback) {
@@ -528,6 +538,8 @@ class PosStoreSellSettingsDto {
       'loyaltyEarnPerAmount': loyaltyEarnPerAmount,
       'loyaltyRedeemValue': loyaltyRedeemValue,
       'loyaltyMaxRedeemPercent': loyaltyMaxRedeemPercent.clamp(1, 100),
+      'enableStaffCommission': enableStaffCommission,
+      'requireStaffOnService': requireStaffOnService,
       'applyProfileDefaults': applyProfileDefaults,
     };
   }
@@ -558,6 +570,7 @@ class PosStoreSellSettingsDto {
           allowProvisionalBill: true,
           enableMultiDeviceDraftLock: true,
           promptGuestCountOnOpen: false,
+          enableStaffCommission: true,
         );
       case PosSellProfile.roomHourly:
         return copyWith(
@@ -634,6 +647,8 @@ class PosStoreSellSettingsDto {
     double? loyaltyEarnPerAmount,
     double? loyaltyRedeemValue,
     double? loyaltyMaxRedeemPercent,
+    bool? enableStaffCommission,
+    bool? requireStaffOnService,
   }) =>
       PosStoreSellSettingsDto(
         id: id,
@@ -666,6 +681,10 @@ class PosStoreSellSettingsDto {
         loyaltyRedeemValue: loyaltyRedeemValue ?? this.loyaltyRedeemValue,
         loyaltyMaxRedeemPercent:
             loyaltyMaxRedeemPercent ?? this.loyaltyMaxRedeemPercent,
+        enableStaffCommission:
+            enableStaffCommission ?? this.enableStaffCommission,
+        requireStaffOnService:
+            requireStaffOnService ?? this.requireStaffOnService,
       );
 }
 
@@ -1347,7 +1366,9 @@ class PosSessionBalanceDto {
     required this.packageName,
     required this.totalSessions,
     required this.remainingSessions,
+    this.usedSessions = 0,
     this.expiresAt,
+    this.createdAt,
   });
 
   final String id;
@@ -1357,27 +1378,143 @@ class PosSessionBalanceDto {
   final String packageName;
   final int totalSessions;
   final int remainingSessions;
+  final int usedSessions;
   final DateTime? expiresAt;
+  final DateTime? createdAt;
 
-  factory PosSessionBalanceDto.fromJson(Map<String, dynamic> json) =>
-      PosSessionBalanceDto(
-        id: (json['id'] ?? json['Id'] ?? '').toString(),
-        customerId: (json['customerId'] ?? json['CustomerId'] ?? '').toString(),
-        customerName:
-            (json['customerName'] ?? json['CustomerName'] ?? '').toString(),
-        productId: (json['productId'] ?? json['ProductId'])?.toString(),
-        packageName:
-            (json['packageName'] ?? json['PackageName'] ?? '').toString(),
-        totalSessions:
-            (json['totalSessions'] ?? json['TotalSessions'] as num?)?.toInt() ??
-                0,
-        remainingSessions: (json['remainingSessions'] ??
-                    json['RemainingSessions'] as num?)
-                ?.toInt() ??
-            0,
-        expiresAt: DateTime.tryParse(
-            (json['expiresAt'] ?? json['ExpiresAt'] ?? '').toString()),
-      );
+  factory PosSessionBalanceDto.fromJson(Map<String, dynamic> json) {
+    final total =
+        (json['totalSessions'] ?? json['TotalSessions'] as num?)?.toInt() ?? 0;
+    final remain = (json['remainingSessions'] ??
+                json['RemainingSessions'] as num?)
+            ?.toInt() ??
+        0;
+    return PosSessionBalanceDto(
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      customerId: (json['customerId'] ?? json['CustomerId'] ?? '').toString(),
+      customerName:
+          (json['customerName'] ?? json['CustomerName'] ?? '').toString(),
+      productId: (json['productId'] ?? json['ProductId'])?.toString(),
+      packageName:
+          (json['packageName'] ?? json['PackageName'] ?? '').toString(),
+      totalSessions: total,
+      remainingSessions: remain,
+      usedSessions: (json['usedSessions'] ?? json['UsedSessions'] as num?)
+              ?.toInt() ??
+          (total - remain),
+      expiresAt: DateTime.tryParse(
+          (json['expiresAt'] ?? json['ExpiresAt'] ?? '').toString()),
+      createdAt: DateTime.tryParse(
+          (json['createdAt'] ?? json['CreatedAt'] ?? '').toString()),
+    );
+  }
+}
+
+class PosSessionTxnDto {
+  PosSessionTxnDto({
+    required this.id,
+    required this.balanceId,
+    required this.packageName,
+    required this.transactionType,
+    required this.sessionDelta,
+    required this.remainingAfter,
+    required this.at,
+    this.usedAt,
+    this.employeeId,
+    this.employeeName,
+    this.note,
+    this.saleOrderId,
+    this.orderNo,
+  });
+
+  final String id;
+  final String balanceId;
+  final String packageName;
+  final String transactionType;
+  final int sessionDelta;
+  final int remainingAfter;
+  final DateTime at;
+  final DateTime? usedAt;
+  final String? employeeId;
+  final String? employeeName;
+  final String? note;
+  final String? saleOrderId;
+  final String? orderNo;
+
+  bool get isRedeem =>
+      transactionType.toLowerCase() == 'redeem' || sessionDelta < 0;
+  bool get isPurchase =>
+      transactionType.toLowerCase() == 'purchase' || sessionDelta > 0;
+
+  factory PosSessionTxnDto.fromJson(Map<String, dynamic> json) {
+    final atRaw = (json['usedAt'] ??
+            json['UsedAt'] ??
+            json['at'] ??
+            json['At'] ??
+            json['createdAt'] ??
+            json['CreatedAt'] ??
+            '')
+        .toString();
+    return PosSessionTxnDto(
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      balanceId: (json['balanceId'] ?? json['BalanceId'] ?? '').toString(),
+      packageName:
+          (json['packageName'] ?? json['PackageName'] ?? '').toString(),
+      transactionType:
+          (json['transactionType'] ?? json['TransactionType'] ?? json['type'] ?? '')
+              .toString(),
+      sessionDelta:
+          (json['sessionDelta'] ?? json['SessionDelta'] as num?)?.toInt() ?? 0,
+      remainingAfter:
+          (json['remainingAfter'] ?? json['RemainingAfter'] as num?)?.toInt() ??
+              0,
+      at: DateTime.tryParse(atRaw) ?? DateTime.now(),
+      usedAt: DateTime.tryParse(
+          (json['usedAt'] ?? json['UsedAt'] ?? '').toString()),
+      employeeId: (json['employeeId'] ?? json['EmployeeId'])?.toString(),
+      employeeName: (json['employeeName'] ?? json['EmployeeName'])?.toString(),
+      note: (json['note'] ?? json['Note'])?.toString(),
+      saleOrderId: (json['saleOrderId'] ?? json['SaleOrderId'])?.toString(),
+      orderNo: (json['orderNo'] ?? json['OrderNo'])?.toString(),
+    );
+  }
+}
+
+class PosSessionOrderDto {
+  PosSessionOrderDto({
+    required this.id,
+    required this.orderNo,
+    required this.status,
+    required this.total,
+    required this.paidAmount,
+    this.saleDate,
+    this.items = const [],
+  });
+
+  final String id;
+  final String orderNo;
+  final String status;
+  final double total;
+  final double paidAmount;
+  final DateTime? saleDate;
+  final List<String> items;
+
+  factory PosSessionOrderDto.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'] ?? json['Items'];
+    return PosSessionOrderDto(
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      orderNo: (json['orderNo'] ?? json['OrderNo'] ?? '').toString(),
+      status: (json['status'] ?? json['Status'] ?? '').toString(),
+      total: (json['total'] ?? json['Total'] as num?)?.toDouble() ?? 0,
+      paidAmount:
+          (json['paidAmount'] ?? json['PaidAmount'] as num?)?.toDouble() ?? 0,
+      saleDate: DateTime.tryParse(
+          (json['saleDate'] ?? json['SaleDate'] ?? '').toString()),
+      items: rawItems is List
+          ? rawItems.map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
+          : const [],
+    );
+  }
 }
 
 /// Parse timestamp API (UTC không kèm Z) thành DateTime UTC.
@@ -1397,45 +1534,46 @@ DateTime? parsePosApiUtc(String? raw) {
   );
 }
 
-/// Tính phút / qty phía client (đồng bộ helper server).
+/// Tính phút / qty phía client (đồng bộ PosServiceBillingMath server).
 class PosServiceBillingCalc {
+  static DateTime _asUtc(DateTime value) {
+    if (value.isUtc) return value;
+    return DateTime.utc(
+      value.year,
+      value.month,
+      value.day,
+      value.hour,
+      value.minute,
+      value.second,
+      value.millisecond,
+      value.microsecond,
+    );
+  }
+
+  static int _ceilingMinutes(Duration span) {
+    if (span <= Duration.zero) return 0;
+    final ms = span.inMilliseconds;
+    const msPerMinute = 60 * 1000;
+    final minutes = ms ~/ msPerMinute;
+    return ms % msPerMinute > 0 ? minutes + 1 : minutes;
+  }
+
   static int elapsedMinutes(
     DateTime startedAt,
     DateTime? endedAt, {
     int accumulatedPauseMinutes = 0,
     DateTime? pausedAt,
   }) {
-    final end = endedAt?.toUtc() ?? DateTime.now().toUtc();
-    // JSON không có Z → parse thành local; chuyển UTC trước khi trừ.
-    final start = startedAt.isUtc ? startedAt : startedAt.toUtc();
-    // Nếu server lưu UTC nhưng client parse local (VN +7), toUtc lùi 7h → giờ ảo.
-    // Heuristic: nếu start lệch quá xa so với now theo hướng quá khứ > 6h
-    // nhưng giá trị "cùng giờ đồng hồ" với now local → coi start là UTC wall-clock.
-    var startUtc = start;
-    final drift = end.difference(startUtc);
-    if (!startedAt.isUtc && drift.inHours >= 6 && drift.inHours <= 8) {
-      startUtc = DateTime.utc(
-        startedAt.year,
-        startedAt.month,
-        startedAt.day,
-        startedAt.hour,
-        startedAt.minute,
-        startedAt.second,
-        startedAt.millisecond,
-      );
-    }
-    if (end.isBefore(startUtc)) return 0;
-    var raw = end.difference(startUtc).inMinutes +
-        (end.difference(startUtc).inSeconds % 60 > 0 ? 1 : 0);
-    var pause = accumulatedPauseMinutes < 0 ? 0 : accumulatedPauseMinutes;
+    final start = _asUtc(startedAt);
+    final end = _asUtc(endedAt ?? DateTime.now().toUtc());
+    if (!end.isAfter(start)) return 0;
+    var pause = Duration(
+        minutes: accumulatedPauseMinutes < 0 ? 0 : accumulatedPauseMinutes);
     if (pausedAt != null) {
-      final p = pausedAt.isUtc ? pausedAt : pausedAt.toUtc();
-      if (!end.isBefore(p)) {
-        pause += end.difference(p).inMinutes;
-      }
+      final p = _asUtc(pausedAt);
+      if (p.isBefore(end)) pause += end.difference(p);
     }
-    final net = raw - pause;
-    return net < 0 ? 0 : net;
+    return _ceilingMinutes(end.difference(start) - pause);
   }
 
   static String formatDurationLabel(int minutes) {
@@ -1457,8 +1595,10 @@ class PosServiceBillingCalc {
   }) {
     if (!mode.isTimed) return elapsed.clamp(0, 999999);
     final raw = elapsed.clamp(0, 999999);
-    final grace = graceMinutes ?? 0;
-    var minutes = (raw - (grace > 0 ? grace : 0)).clamp(0, 999999);
+    if (raw <= 0) return 0;
+    final grace = (graceMinutes ?? 0) > 0 ? graceMinutes! : 0;
+    if (grace > 0 && raw <= grace) return 0;
+    var minutes = (raw - grace).clamp(0, 999999);
     final min = minBillMinutes ?? 0;
     if (min > 0 && minutes < min) minutes = min;
     var round = billRoundMinutes ?? 0;
@@ -1487,8 +1627,8 @@ class PosServiceBillingCalc {
         return billableMinutes.toDouble();
       case PosServiceBillingMode.perBlock:
         final block = (billRoundMinutes ?? 0) > 0 ? billRoundMinutes! : 5;
-        if (billableMinutes <= 0) return 0;
-        return double.parse((billableMinutes / block).toStringAsFixed(4));
+        if (billableMinutes <= 0 || block <= 0) return 0;
+        return (billableMinutes / block).ceil().toDouble();
       case PosServiceBillingMode.perDay:
         if (billableMinutes <= 0) return 1;
         return (billableMinutes / 1440).ceil().toDouble().clamp(1, 999999);
@@ -1532,8 +1672,10 @@ class PosServiceBillingCalc {
       billRoundMinutes: billRoundMinutes,
     );
     final fee = openingFee < 0 ? 0.0 : openingFee;
-    return fee + qty * (unitPrice + toppingExtraPerUnit);
+    return _roundMoney(fee + qty * (unitPrice + toppingExtraPerUnit));
   }
+
+  static double _roundMoney(double v) => double.parse(v.toStringAsFixed(4));
 
   static List<({int elapsed, int billable, double qty, double total})> preview({
     required PosServiceBillingMode mode,
@@ -1544,7 +1686,9 @@ class PosServiceBillingCalc {
     int? roundAfterMinutes,
     double openingFee = 0,
     int? openingMinutes,
-    List<int> elapsedSamples = const [1, 5, 6, 10, 12, 15, 30, 60],
+    List<int> elapsedSamples = const [
+      0, 1, 5, 6, 10, 15, 16, 30, 31, 45, 59, 60, 61, 90, 120, 180, 240, 420
+    ],
   }) {
     final fee = openingFee < 0 ? 0.0 : openingFee;
     final rows = <({int elapsed, int billable, double qty, double total})>[];
@@ -1567,7 +1711,7 @@ class PosServiceBillingCalc {
         elapsed: elapsed,
         billable: billable,
         qty: qty,
-        total: fee + qty * unitPrice,
+        total: _roundMoney(fee + qty * unitPrice),
       ));
     }
     return rows;

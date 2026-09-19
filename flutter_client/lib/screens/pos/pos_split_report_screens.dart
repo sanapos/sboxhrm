@@ -18,7 +18,12 @@ import '../../widgets/pos/reports/pos_goods_filter_sheet.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import '../pos_reports_screen.dart';
 import 'pos_end_of_day_screen.dart';
-import '../hkd_books_screen.dart';
+import 'pos_einvoice_report_screen.dart';
+import 'pos_profit_report_screen.dart';
+import 'pos_customer_sales_report_screen.dart';
+import 'pos_stock_health_report_screen.dart';
+import 'pos_hkd_books_screen.dart';
+import 'pos_staff_commission_report_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Hub 14 báo cáo — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
@@ -48,14 +53,18 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Phương thức thanh toán', subtitle: 'PTTT', icon: Icons.payments_outlined, module: 'PosReportPayment', screen: const PosPaymentMethodReportScreen()),
       (label: 'Công nợ', subtitle: 'Phải thu / trả', icon: Icons.account_balance_outlined, module: 'PosReportDebt', screen: const PosDebtCombinedReportScreen()),
       (label: 'Hàng sắp hết hạn', subtitle: 'Lô / HSD', icon: Icons.event_busy_outlined, module: 'PosReportExpiry', screen: const PosReportsScreen(initialTab: 2, lockTab: true)),
-      (label: 'Lợi nhuận', subtitle: 'Lãi gộp', icon: Icons.stacked_line_chart, module: 'PosReportProfit', screen: const PosProfitOnlyReportScreen()),
+      (label: 'Lợi nhuận', subtitle: 'Theo hàng / nhóm / kênh / NV', icon: Icons.stacked_line_chart, module: 'PosReportProfit', screen: const PosProfitReportScreen()),
       (label: 'Chi phí', subtitle: 'Thu / chi', icon: Icons.money_off_outlined, module: 'PosReportExpense', screen: const PosExpenseReportScreen()),
       (label: 'Tổng kết cuối ngày', subtitle: 'Cuối ngày', icon: Icons.nightlight_round, module: 'PosReportEndOfDay', screen: const PosEndOfDayScreen()),
       (label: 'Doanh thu theo nhân viên', subtitle: 'Thu ngân', icon: Icons.badge_outlined, module: 'PosReportStaffRevenue', screen: const PosStaffRevenueReportScreen()),
+      (label: 'Hoa hồng nhân viên', subtitle: 'DV / combo', icon: Icons.handshake_outlined, module: 'PosReportStaffCommission', screen: const PosStaffCommissionReportScreen()),
       (label: 'Sổ quỹ', subtitle: 'Tiền mặt', icon: Icons.menu_book_outlined, module: 'PosReportCashbook', screen: const PosCashbookReportScreen()),
       (label: 'Kết quả kinh doanh', subtitle: 'P&L', icon: Icons.account_balance, module: 'PosReportPnl', screen: const PosPnlReportScreen()),
       (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
-      (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const HkdBooksScreen()),
+      (label: 'Bán theo khách', subtitle: 'Doanh thu / nợ KH', icon: Icons.people_outline, module: 'PosReportRevenue', screen: const PosCustomerSalesReportScreen()),
+      (label: 'Sức khỏe kho', subtitle: 'Cháy / chậm / chết tồn', icon: Icons.inventory_2_outlined, module: 'PosReportStock', screen: const PosStockHealthReportScreen()),
+      (label: 'Hóa đơn điện tử', subtitle: 'Xuất / nháp / email / hủy / thay thế', icon: Icons.request_quote_outlined, module: 'PosEInvoice', screen: const PosEInvoiceReportScreen()),
+      (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const PosHkdBooksScreen()),
     ].where((item) => PermissionNavigation.canAccessModule(
           item.module,
           allowedModules: auth.user?.allowedModules,
@@ -382,6 +391,68 @@ String _fmtDt(dynamic v) {
   return DateFormat('dd/MM HH:mm').format(dt.toLocal());
 }
 
+const _invoiceExcelHeaders = [
+  'Mã HĐ',
+  'Ngày',
+  'Khách',
+  'PTTT',
+  'NV',
+  'Voucher',
+  'Tạm tính',
+  'CK',
+  'VAT',
+  'Tổng',
+  'Đã thu',
+];
+
+List<List<dynamic>> _invoiceExcelRows(List<Map<String, dynamic>> orders) => [
+      for (final e in orders)
+        [
+          e['orderNo'] ?? '',
+          _fmtDt(e['saleDate'] ?? e['createdAt']),
+          e['customerName'] ?? '',
+          e['paymentMethod'] ?? '',
+          e['soldBy'] ?? e['createdBy'] ?? '',
+          e['voucherCode'] ?? '',
+          _n(e['subTotal']),
+          _n(e['discount']),
+          _n(e['vatAmount']),
+          _n(e['total']),
+          _n(e['paidAmount']),
+        ],
+    ];
+
+Future<(int total, List<Map<String, dynamic>> items)> _fetchSalesOrders(
+  ApiService api, {
+  required DateTime? from,
+  required DateTime? to,
+  String? soldBy,
+  String? paymentMethod,
+  String? customerId,
+  String? productId,
+  String? voucherCode,
+  bool hasVoucher = false,
+  int pageSize = 40,
+}) async {
+  final or = await api.getPosSalesReportOrders(
+    from: from,
+    to: to,
+    page: 1,
+    pageSize: pageSize,
+    soldBy: soldBy,
+    paymentMethod: paymentMethod,
+    customerId: customerId,
+    productId: productId,
+    voucherCode: voucherCode,
+    hasVoucher: hasVoucher ? true : null,
+  );
+  if (or['isSuccess'] == true && or['data'] is Map) {
+    final d = Map<String, dynamic>.from(or['data'] as Map);
+    return (_n(d['total']).toInt(), _maps(d['items']));
+  }
+  return (0, <Map<String, dynamic>>[]);
+}
+
 /// Doanh thu — không gộp lợi nhuận / PTTT / nhân viên.
 class PosRevenueReportScreen extends StatefulWidget {
   const PosRevenueReportScreen({super.key});
@@ -397,7 +468,10 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
   PosKiotTimeFilterState _time =
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
+  bool _exporting = false;
   Map<String, dynamic>? _data;
+  List<Map<String, dynamic>> _orders = [];
+  int _orderTotal = 0;
 
   @override
   void initState() {
@@ -408,39 +482,78 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final res = await _api.getPosSalesReportSummary(from: _time.from, to: _time.to);
+    final or = await _api.getPosSalesReportOrders(
+      from: _time.from,
+      to: _time.to,
+      page: 1,
+      pageSize: 30,
+    );
     if (!mounted) return;
     setState(() {
       _loading = false;
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
+      if (or['isSuccess'] == true && or['data'] is Map) {
+        final d = Map<String, dynamic>.from(or['data'] as Map);
+        _orderTotal = _n(d['total']).toInt();
+        _orders = _maps(d['items']);
+      } else {
+        _orderTotal = 0;
+        _orders = [];
+      }
     });
   }
 
   Future<void> _exportExcel() async {
-    final d = _data;
-    if (d == null) return;
-    final byDay = _maps(d['byDay']);
-    await PosReportExport.excel(
-      context: context,
-      title: 'Báo cáo doanh thu',
-      sheetName: 'Doanh thu',
-      filePrefix: 'POS_DoanhThu',
-      periodLabel: _time.displayLabel,
-      headers: const ['Hạng mục', 'Giá trị'],
-      rows: [
-        ['DT chưa VAT', _n(d['totalRevenue'])],
-        ['VAT', _n(d['totalVat'])],
-        ['DT gồm VAT', _n(d['totalRevenueInclVat'])],
-        ['Hoàn trả', _n(d['totalRefund'])],
-        ['Đã thu', _n(d['totalPaid'])],
-        ['Giảm giá', _n(d['totalDiscount'])],
-        ['Số hóa đơn', _n(d['orderCount']).toInt()],
-        for (final e in byDay)
-          [_fmtDt(e['date']), _n(e['total'])],
-      ],
-      summaryLines: ['Cửa hàng: ${d['storeName'] ?? ''}'],
-    );
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    try {
+      final ok = await PosReportExport.serverExcel(
+        context: context,
+        filePrefix: 'POS_DoanhThu',
+        successMessage: 'Đã xuất Excel từng hóa đơn',
+        fetch: () => _api.exportPosSalesReportExcel(
+          from: _time.from,
+          to: _time.to,
+        ),
+      );
+      if (ok || !mounted) return;
+      final d = _data;
+      if (d == null) return;
+      await PosReportExport.excel(
+        context: context,
+        title: 'Báo cáo doanh thu',
+        sheetName: 'Doanh thu',
+        filePrefix: 'POS_DoanhThu',
+        periodLabel: _time.displayLabel,
+        headers: _invoiceExcelHeaders,
+        rows: _invoiceExcelRows(_orders),
+        summaryLines: [
+          'Cửa hàng: ${d['storeName'] ?? ''}',
+          'DT chưa VAT: ${_n(d['totalRevenue'])}',
+          'VAT: ${_n(d['totalVat'])}',
+          'Số HĐ: $_orderTotal',
+        ],
+      );
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  void _openSale(Map<String, dynamic> e) {
+    final id = '${e['id'] ?? e['Id'] ?? ''}';
+    unawaited(PosReportOpen.sale(context, id));
+  }
+
+  void _openAllSales({String? soldBy, String? paymentMethod}) {
+    unawaited(PosReportOpen.sales(
+      context,
+      from: _time.from,
+      to: _time.to,
+      soldBy: soldBy,
+      paymentMethod: paymentMethod,
+    ));
   }
 
   @override
@@ -454,12 +567,14 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
       final dt = _parseDate(d['date']) ?? DateTime.now();
       return (date: dt, value: _n(d['total']));
     }).toList();
+    final byPay = _maps(_data?['byPayment']);
+    final staff = _maps(_data?['topEmployees']);
 
     return PosReportMobileScaffold(
       title: 'Doanh thu',
       time: _time,
       pngKey: _pngKey,
-      onExportExcel: () => unawaited(_exportExcel()),
+      onExportExcel: _exporting ? null : () => unawaited(_exportExcel()),
       onExportPng: () => unawaited(PosReportExport.png(
         context: context,
         key: _pngKey,
@@ -477,6 +592,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
               children: [
                 PosReportCard(
                   title: 'Doanh thu bán hàng',
+                  subtitle: _time.displayLabel,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -484,11 +600,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                       const SizedBox(height: 12),
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
-                        onTileTap: (_) => PosReportOpen.sales(
-                          context,
-                          from: _time.from,
-                          to: _time.to,
-                        ),
+                        onTileTap: (_) => _openAllSales(),
                         tiles: [
                           (label: 'DT chưa VAT', value: revenue, color: PosTheme.kiotBlue),
                           (label: 'VAT', value: vat, color: const Color(0xFF7C3AED)),
@@ -502,11 +614,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                       const SizedBox(height: 8),
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
-                        onTileTap: (_) => PosReportOpen.sales(
-                          context,
-                          from: _time.from,
-                          to: _time.to,
-                        ),
+                        onTileTap: (_) => _openAllSales(),
                         tiles: [
                           (
                             label: 'Hoàn trả',
@@ -525,25 +633,52 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      InkWell(
-                        onTap: () => PosReportOpen.sales(
-                          context,
-                          from: _time.from,
-                          to: _time.to,
-                        ),
-                        child: Text(
-                          tr('${_n(_data?['orderCount']).toInt()} hóa đơn · xem chi tiết'),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: PosTheme.kiotBlue,
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 10),
                       PosReportBranchFooter(branchName: storeName),
                     ],
+                  ),
+                ),
+                if (byPay.isNotEmpty)
+                  PosReportCard(
+                    title: 'Theo phương thức',
+                    child: PosReportRankList(
+                      items: byPay,
+                      labelOf: (p) =>
+                          '${p['paymentMethod'] ?? p['method'] ?? 'Khác'} · ${ _n(p['count']).toInt()} HĐ',
+                      valueOf: (p) => _n(p['total']),
+                      moneyFmt: _moneyFmt,
+                      onItemTap: (p) => _openAllSales(
+                        paymentMethod: '${p['paymentMethod'] ?? p['method'] ?? ''}',
+                      ),
+                    ),
+                  ),
+                if (staff.isNotEmpty)
+                  PosReportCard(
+                    title: 'Theo nhân viên',
+                    child: PosReportRankList(
+                      items: staff,
+                      labelOf: (p) =>
+                          '${p['soldBy'] ?? '—'} · ${_n(p['orderCount']).toInt()} HĐ',
+                      valueOf: (p) => _n(p['revenue']),
+                      moneyFmt: _moneyFmt,
+                      onItemTap: (p) => _openAllSales(
+                        soldBy: '${p['soldBy'] ?? ''}',
+                      ),
+                    ),
+                  ),
+                PosReportCard(
+                  title: 'Hóa đơn gốc',
+                  subtitle: '$_orderTotal hóa đơn · bấm để mở phiếu',
+                  trailing: TextButton(
+                    onPressed: _openAllSales,
+                    child: Text(tr('Tất cả')),
+                  ),
+                  child: PosReportInvoiceList(
+                    items: _orders,
+                    moneyFmt: _moneyFmt,
+                    total: _orderTotal,
+                    onOpen: _openSale,
+                    onSeeAll: _openAllSales,
                   ),
                 ),
               ],
@@ -582,7 +717,7 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
     final res = await _api.getPosGoodsReportSummary(
       from: _time.from,
       to: _time.to,
-      limit: 50,
+      limit: 500,
       includeGoods: _filter.includeGoods,
       includeService: _filter.includeService,
       includeCombo: _filter.includeCombo,
@@ -621,13 +756,15 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
       sheetName: 'Hang hoa',
       filePrefix: 'POS_HangHoaBanRa',
       periodLabel: _time.displayLabel,
-      headers: const ['Hàng hóa', 'SL', 'Doanh thu'],
+      headers: const ['Mã SP', 'Hàng hóa', 'SL', 'Doanh thu', 'CK dòng'],
       rows: [
         for (final p in items)
           [
+            p['productCode'] ?? p['productId'] ?? '',
             p['productName'] ?? p['name'] ?? '',
             _n(p['qty']),
             _n(p['revenue']),
+            _n(p['lineDiscount'] ?? p['discount']),
           ],
       ],
     );
@@ -658,7 +795,8 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
                 PosReportCard(
-                  title: 'Top hàng theo doanh thu',
+                  title: 'Hàng bán trong kỳ',
+                  subtitle: 'Bấm món để mở hóa đơn gốc',
                   child: PosReportRankList(
                     items: items,
                     labelOf: (p) {
@@ -673,12 +811,14 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
                     valueOf: (p) => _n(p['revenue']),
                     moneyFmt: _moneyFmt,
                     allowNegative: true,
-                    onItemTap: (p) => PosReportOpen.product(
+                    onItemTap: (p) => PosReportOpen.sales(
                       context,
-                      id: '${p['productId'] ?? p['id'] ?? ''}',
-                      name: p['productName']?.toString() ?? p['name']?.toString(),
                       from: _time.from,
                       to: _time.to,
+                      productId: '${p['productId'] ?? p['id'] ?? ''}',
+                      search: '${p['productId'] ?? p['id'] ?? ''}'.isEmpty
+                          ? p['productName']?.toString() ?? p['name']?.toString()
+                          : null,
                     ),
                   ),
                 ),
@@ -932,6 +1072,9 @@ class _PosPaymentMethodReportScreenState
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _pay;
+  List<Map<String, dynamic>> _orders = [];
+  int _orderTotal = 0;
 
   @override
   void initState() {
@@ -942,13 +1085,34 @@ class _PosPaymentMethodReportScreenState
   Future<void> _load() async {
     setState(() => _loading = true);
     final res = await _api.getPosSalesReportSummary(from: _time.from, to: _time.to);
+    final orders = await _fetchSalesOrders(
+      _api,
+      from: _time.from,
+      to: _time.to,
+      paymentMethod: _pay,
+    );
     if (!mounted) return;
     setState(() {
       _loading = false;
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
+      _orderTotal = orders.$1;
+      _orders = orders.$2;
     });
+  }
+
+  void _openSale(Map<String, dynamic> e) {
+    unawaited(PosReportOpen.sale(context, '${e['id'] ?? e['Id'] ?? ''}'));
+  }
+
+  void _openAll() {
+    unawaited(PosReportOpen.sales(
+      context,
+      from: _time.from,
+      to: _time.to,
+      paymentMethod: _pay,
+    ));
   }
 
   @override
@@ -963,24 +1127,39 @@ class _PosPaymentMethodReportScreenState
         color: _payColors[i % _payColors.length],
       ));
     }
+    final payLabels = [
+      'Tất cả',
+      ...rows.map((e) => e['paymentMethod']?.toString() ?? 'Khác'),
+    ];
+    final paySelected = _pay == null
+        ? 0
+        : payLabels.indexWhere((l) => l == _pay).clamp(0, payLabels.length - 1);
     return PosReportMobileScaffold(
       title: 'Phương thức thanh toán',
       time: _time,
       pngKey: _pngKey,
+      filterBar: payLabels.length > 1
+          ? PosReportChipBar(
+              labels: payLabels.take(8).toList(),
+              selected: paySelected,
+              onSelected: (i) {
+                setState(() => _pay = i == 0 ? null : payLabels[i]);
+                _load();
+              },
+            )
+          : null,
       onExportExcel: () => unawaited(PosReportExport.excel(
         context: context,
         title: 'Phương thức thanh toán',
-        sheetName: 'PTTT',
+        sheetName: 'Hoa don',
         filePrefix: 'POS_PTTT',
         periodLabel: _time.displayLabel,
-        headers: const ['Phương thức', 'Số GD', 'Tổng'],
-        rows: [
+        filterLabel: _pay,
+        headers: _invoiceExcelHeaders,
+        rows: _invoiceExcelRows(_orders),
+        summaryLines: [
           for (final e in rows)
-            [
-              e['paymentMethod'] ?? 'Khác',
-              _n(e['count']).toInt(),
-              _n(e['total']),
-            ],
+            '${e['paymentMethod'] ?? 'Khác'}: ${_n(e['count']).toInt()} HĐ · ${_moneyFmt.format(_n(e['total']))}',
         ],
       )),
       onExportPng: () => unawaited(PosReportExport.png(
@@ -1000,6 +1179,7 @@ class _PosPaymentMethodReportScreenState
               children: [
                 PosReportCard(
                   title: 'Cơ cấu đã thu',
+                  subtitle: _time.displayLabel,
                   child: Column(
                     children: [
                       PosReportDonut(
@@ -1017,14 +1197,30 @@ class _PosPaymentMethodReportScreenState
                         },
                         valueOf: (e) => _n(e['total']),
                         moneyFmt: _moneyFmt,
-                        onItemTap: (e) => PosReportOpen.sales(
-                          context,
-                          from: _time.from,
-                          to: _time.to,
-                          paymentMethod: e['paymentMethod']?.toString(),
-                        ),
+                        onItemTap: (e) {
+                          setState(() =>
+                              _pay = e['paymentMethod']?.toString());
+                          unawaited(_load());
+                        },
                       ),
                     ],
+                  ),
+                ),
+                PosReportCard(
+                  title: _pay == null
+                      ? 'Hóa đơn gốc'
+                      : 'Hóa đơn · $_pay',
+                  subtitle: '$_orderTotal hóa đơn · bấm để mở phiếu',
+                  trailing: TextButton(
+                    onPressed: _openAll,
+                    child: Text(tr('Tất cả')),
+                  ),
+                  child: PosReportInvoiceList(
+                    items: _orders,
+                    moneyFmt: _moneyFmt,
+                    total: _orderTotal,
+                    onOpen: _openSale,
+                    onSeeAll: _openAll,
                   ),
                 ),
               ],
@@ -1100,36 +1296,64 @@ class _PosDebtCombinedReportScreenState
     return PosReportMobileScaffold(
       title: 'Báo cáo công nợ',
       time: _time,
-      showTimeFilter: false,
+      showTimeFilter: true,
       pngKey: _pngKey,
-      onTimeChanged: (_) {},
+      onTimeChanged: (s) async {
+        setState(() => _time = s);
+      },
       onRefresh: _load,
       onExportExcel: () => unawaited(PosReportExport.excel(
         context: context,
         title: 'Báo cáo công nợ',
         sheetName: 'Cong no',
         filePrefix: 'POS_CongNo',
+        periodLabel: _time.displayLabel,
         filterLabel: [
           'Tất cả',
           'Khách hàng',
           'NCC',
         ][_party] +
             (_includeZero ? ' · gồm dư 0' : ''),
-        headers: const ['Loại', 'Tên', 'Công nợ'],
+        headers: const [
+          'Loại',
+          'Mã',
+          'Tên',
+          'SĐT',
+          'Công nợ',
+          'HĐ mở',
+          '0–30',
+          '31–60',
+          '61–90',
+          '>90',
+        ],
         rows: [
           if (_party != 2)
             for (final e in kh)
               [
                 'KH',
+                e['customerCode'] ?? '',
                 e['name'] ?? e['customerName'] ?? '',
+                e['phone'] ?? '',
                 _n(e['currentDebt'] ?? e['debt']),
+                _n(e['openOrderCount']).toInt(),
+                _n(e['debt0To30']),
+                _n(e['debt31To60']),
+                _n(e['debt61To90']),
+                _n(e['debtOver90']),
               ],
           if (_party != 1)
             for (final e in ncc)
               [
                 'NCC',
+                e['supplierCode'] ?? '',
                 e['name'] ?? '',
+                e['phone'] ?? '',
                 _n(e['currentDebt']),
+                _n(e['openOrderCount']).toInt(),
+                _n(e['debt0To30']),
+                _n(e['debt31To60']),
+                _n(e['debt61To90']),
+                _n(e['debtOver90']),
               ],
         ],
       )),
@@ -1211,6 +1435,8 @@ class _PosDebtCombinedReportScreenState
                           moneyFmt: _moneyFmt,
                           onItemTap: (e) => PosReportOpen.sales(
                             context,
+                            from: _time.from,
+                            to: _time.to,
                             customerId: '${e['id'] ?? ''}',
                             customerName: e['name']?.toString(),
                           ),
@@ -1458,12 +1684,14 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
         filePrefix: 'POS_ChiPhi',
         periodLabel: _time.displayLabel,
         filterLabel: _category,
-        headers: const ['Mã', 'Danh mục', 'Ngày', 'Số tiền'],
+        headers: const ['Mã', 'Danh mục', 'Mô tả', 'PTTT', 'Ngày', 'Số tiền'],
         rows: [
           for (final e in items)
             [
               e['transactionCode'] ?? '',
               e['category'] ?? '',
+              e['description'] ?? '',
+              e['paymentMethod'] ?? '',
               _fmtDt(e['transactionDate']),
               _n(e['amount']),
             ],
@@ -1590,6 +1818,9 @@ class _PosStaffRevenueReportScreenState
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _staff;
+  List<Map<String, dynamic>> _orders = [];
+  int _orderTotal = 0;
 
   @override
   void initState() {
@@ -1600,13 +1831,34 @@ class _PosStaffRevenueReportScreenState
   Future<void> _load() async {
     setState(() => _loading = true);
     final res = await _api.getPosSalesReportSummary(from: _time.from, to: _time.to);
+    final orders = await _fetchSalesOrders(
+      _api,
+      from: _time.from,
+      to: _time.to,
+      soldBy: _staff,
+    );
     if (!mounted) return;
     setState(() {
       _loading = false;
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
+      _orderTotal = orders.$1;
+      _orders = orders.$2;
     });
+  }
+
+  void _openSale(Map<String, dynamic> e) {
+    unawaited(PosReportOpen.sale(context, '${e['id'] ?? e['Id'] ?? ''}'));
+  }
+
+  void _openAll() {
+    unawaited(PosReportOpen.sales(
+      context,
+      from: _time.from,
+      to: _time.to,
+      soldBy: _staff,
+    ));
   }
 
   @override
@@ -1619,17 +1871,15 @@ class _PosStaffRevenueReportScreenState
       onExportExcel: () => unawaited(PosReportExport.excel(
         context: context,
         title: 'Doanh thu theo nhân viên',
-        sheetName: 'Nhan vien',
+        sheetName: 'Hoa don',
         filePrefix: 'POS_DTNhanVien',
         periodLabel: _time.displayLabel,
-        headers: const ['Nhân viên', 'Số HĐ', 'Doanh thu'],
-        rows: [
+        filterLabel: _staff,
+        headers: _invoiceExcelHeaders,
+        rows: _invoiceExcelRows(_orders),
+        summaryLines: [
           for (final e in staff)
-            [
-              e['soldBy'] ?? '',
-              _n(e['orderCount']).toInt(),
-              _n(e['revenue']),
-            ],
+            '${e['soldBy'] ?? '—'}: ${_n(e['orderCount']).toInt()} HĐ · ${_moneyFmt.format(_n(e['revenue']))}',
         ],
       )),
       onExportPng: () => unawaited(PosReportExport.png(
@@ -1649,6 +1899,7 @@ class _PosStaffRevenueReportScreenState
               children: [
                 PosReportCard(
                   title: 'Theo người bán',
+                  subtitle: _time.displayLabel,
                   child: PosReportRankList(
                     items: staff,
                     labelOf: (e) {
@@ -1660,12 +1911,25 @@ class _PosStaffRevenueReportScreenState
                     },
                     valueOf: (e) => _n(e['revenue']),
                     moneyFmt: _moneyFmt,
-                    onItemTap: (e) => PosReportOpen.sales(
-                      context,
-                      from: _time.from,
-                      to: _time.to,
-                      soldBy: e['soldBy']?.toString(),
-                    ),
+                    onItemTap: (e) {
+                      setState(() => _staff = e['soldBy']?.toString());
+                      unawaited(_load());
+                    },
+                  ),
+                ),
+                PosReportCard(
+                  title: _staff == null ? 'Hóa đơn gốc' : 'Hóa đơn · $_staff',
+                  subtitle: '$_orderTotal hóa đơn · bấm để mở phiếu',
+                  trailing: TextButton(
+                    onPressed: _openAll,
+                    child: Text(tr('Tất cả')),
+                  ),
+                  child: PosReportInvoiceList(
+                    items: _orders,
+                    moneyFmt: _moneyFmt,
+                    total: _orderTotal,
+                    onOpen: _openSale,
+                    onSeeAll: _openAll,
                   ),
                 ),
               ],
@@ -1733,13 +1997,15 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
         filePrefix: 'POS_SoQuy',
         periodLabel: _time.displayLabel,
         filterLabel: const ['Tất cả', 'Thu', 'Chi'][_cashKind],
-        headers: const ['Mã', 'Loại', 'Danh mục', 'Ngày', 'Số tiền'],
+        headers: const ['Mã', 'Loại', 'Danh mục', 'Mô tả', 'PTTT', 'Ngày', 'Số tiền'],
         rows: [
           for (final e in items)
             [
               e['transactionCode'] ?? '',
               e['type'] ?? '',
               e['category'] ?? '',
+              e['description'] ?? '',
+              e['paymentMethod'] ?? '',
               _fmtDt(e['transactionDate']),
               _n(e['amount']),
             ],
@@ -1867,6 +2133,9 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  List<Map<String, dynamic>> _orders = [];
+  int _orderTotal = 0;
+  List<Map<String, dynamic>> _expenses = [];
 
   @override
   void initState() {
@@ -1877,13 +2146,30 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final res = await _api.getPosPnlReport(from: _time.from, to: _time.to);
+    final ordersF = _fetchSalesOrders(
+      _api,
+      from: _time.from,
+      to: _time.to,
+    );
+    final expF = _api.getPosExpenseReport(from: _time.from, to: _time.to);
+    final orders = await ordersF;
+    final exp = await expF;
     if (!mounted) return;
     setState(() {
       _loading = false;
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
+      _orderTotal = orders.$1;
+      _orders = orders.$2;
+      _expenses = exp['isSuccess'] == true && exp['data'] is Map
+          ? _maps((exp['data'] as Map)['items'])
+          : [];
     });
+  }
+
+  void _openSale(Map<String, dynamic> e) {
+    unawaited(PosReportOpen.sale(context, '${e['id'] ?? e['Id'] ?? ''}'));
   }
 
   @override
@@ -1896,19 +2182,22 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
       onExportExcel: () => unawaited(PosReportExport.excel(
         context: context,
         title: 'Kết quả kinh doanh',
-        sheetName: 'P&L',
+        sheetName: 'Hoa don',
         filePrefix: 'POS_KQKD',
         periodLabel: _time.displayLabel,
-        headers: const ['Chỉ tiêu', 'Giá trị'],
-        rows: [
-          ['Doanh thu', _n(_data?['revenue'])],
-          ['VAT', _n(_data?['vat'])],
-          ['Giảm giá', _n(_data?['discount'])],
-          ['Giá vốn', _n(_data?['cogs'])],
-          ['LN gộp', _n(_data?['grossProfit'])],
-          ['Chi phí', _n(_data?['expenses'])],
-          ['LN ròng', net],
-          ['Biên %', _n(_data?['marginPct'])],
+        headers: _invoiceExcelHeaders,
+        rows: _invoiceExcelRows(_orders),
+        summaryLines: [
+          'Doanh thu: ${_n(_data?['revenue'])}',
+          'VAT: ${_n(_data?['vat'])}',
+          'Giảm giá: ${_n(_data?['discount'])}',
+          'Giá vốn: ${_n(_data?['cogs'])}',
+          'LN gộp: ${_n(_data?['grossProfit'])}',
+          'Chi phí: ${_n(_data?['expenses'])}',
+          'LN ròng: $net',
+          'Biên %: ${_n(_data?['marginPct'])}',
+          'Số HĐ: $_orderTotal',
+          'Phiếu chi: ${_expenses.length}',
         ],
       )),
       onExportPng: () => unawaited(PosReportExport.png(
@@ -1928,6 +2217,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
               children: [
                 PosReportCard(
                   title: 'P&L kỳ',
+                  subtitle: _time.displayLabel,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -1993,6 +2283,60 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                     ],
                   ),
                 ),
+                PosReportCard(
+                  title: 'Hóa đơn gốc',
+                  subtitle: '$_orderTotal hóa đơn · bấm để mở phiếu',
+                  trailing: TextButton(
+                    onPressed: () => unawaited(PosReportOpen.sales(
+                      context,
+                      from: _time.from,
+                      to: _time.to,
+                    )),
+                    child: Text(tr('Tất cả')),
+                  ),
+                  child: PosReportInvoiceList(
+                    items: _orders,
+                    moneyFmt: _moneyFmt,
+                    total: _orderTotal,
+                    onOpen: _openSale,
+                    onSeeAll: () => unawaited(PosReportOpen.sales(
+                      context,
+                      from: _time.from,
+                      to: _time.to,
+                    )),
+                  ),
+                ),
+                if (_expenses.isNotEmpty)
+                  PosReportCard(
+                    title: 'Phiếu chi kỳ',
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < _expenses.take(20).length; i++) ...[
+                          if (i > 0) const Divider(height: 14),
+                          PosReportNavRow(
+                            onTap: () => PosReportOpen.cashTx(
+                                context, _expenses[i]),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${_expenses[i]['transactionCode'] ?? _expenses[i]['category'] ?? 'Chi'} · ${_fmtDt(_expenses[i]['transactionDate'])}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                PosReportMoneyLabel(
+                                  _n(_expenses[i]['amount']),
+                                  prefix: '-',
+                                  color: const Color(0xFFB42318),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
               ],
             ),
     );
@@ -2017,6 +2361,9 @@ class _PosVoucherUsageReportScreenState
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisMonth);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  String? _code;
+  List<Map<String, dynamic>> _orders = [];
+  int _orderTotal = 0;
 
   @override
   void initState() {
@@ -2027,13 +2374,36 @@ class _PosVoucherUsageReportScreenState
   Future<void> _load() async {
     setState(() => _loading = true);
     final res = await _api.getPosVoucherReport(from: _time.from, to: _time.to);
+    final orders = await _fetchSalesOrders(
+      _api,
+      from: _time.from,
+      to: _time.to,
+      voucherCode: _code,
+      hasVoucher: _code == null,
+    );
     if (!mounted) return;
     setState(() {
       _loading = false;
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
+      _orderTotal = orders.$1;
+      _orders = orders.$2;
     });
+  }
+
+  void _openSale(Map<String, dynamic> e) {
+    unawaited(PosReportOpen.sale(context, '${e['id'] ?? e['Id'] ?? ''}'));
+  }
+
+  void _openAll() {
+    unawaited(PosReportOpen.sales(
+      context,
+      from: _time.from,
+      to: _time.to,
+      voucherCode: _code,
+      hasVoucher: _code == null,
+    ));
   }
 
   @override
@@ -2046,21 +2416,17 @@ class _PosVoucherUsageReportScreenState
       onExportExcel: () => unawaited(PosReportExport.excel(
         context: context,
         title: 'Báo cáo voucher',
-        sheetName: 'Voucher',
+        sheetName: 'Hoa don',
         filePrefix: 'POS_Voucher',
         periodLabel: _time.displayLabel,
-        headers: const ['Mã', 'Lượt dùng', 'Giảm giá'],
-        rows: [
-          for (final e in items)
-            [
-              e['voucherCode'] ?? '',
-              _n(e['uses']).toInt(),
-              _n(e['discount']),
-            ],
-        ],
+        filterLabel: _code,
+        headers: _invoiceExcelHeaders,
+        rows: _invoiceExcelRows(_orders),
         summaryLines: [
           'Tổng giảm: ${_moneyFmt.format(_n(_data?['totalDiscount']))}',
           'DT kèm VC: ${_moneyFmt.format(_n(_data?['revenueWithVoucher']))}',
+          for (final e in items)
+            '${e['voucherCode']}: ${_n(e['uses']).toInt()} lượt · CK ${_moneyFmt.format(_n(e['discount']))} · DT ${_moneyFmt.format(_n(e['revenue']))}',
         ],
       )),
       onExportPng: () => unawaited(PosReportExport.png(
@@ -2080,6 +2446,7 @@ class _PosVoucherUsageReportScreenState
               children: [
                 PosReportCard(
                   title: 'Sử dụng voucher',
+                  subtitle: _time.displayLabel,
                   child: Column(
                     children: [
                       PosReportMetricTiles(
@@ -2112,14 +2479,30 @@ class _PosVoucherUsageReportScreenState
                         },
                         valueOf: (e) => _n(e['discount']),
                         moneyFmt: _moneyFmt,
-                        onItemTap: (e) => PosReportOpen.sales(
-                          context,
-                          from: _time.from,
-                          to: _time.to,
-                          search: e['voucherCode']?.toString(),
-                        ),
+                        onItemTap: (e) {
+                          setState(() =>
+                              _code = e['voucherCode']?.toString());
+                          unawaited(_load());
+                        },
                       ),
                     ],
+                  ),
+                ),
+                PosReportCard(
+                  title: _code == null
+                      ? 'Hóa đơn dùng voucher'
+                      : 'Hóa đơn · $_code',
+                  subtitle: '$_orderTotal hóa đơn · bấm để mở phiếu',
+                  trailing: TextButton(
+                    onPressed: _openAll,
+                    child: Text(tr('Tất cả')),
+                  ),
+                  child: PosReportInvoiceList(
+                    items: _orders,
+                    moneyFmt: _moneyFmt,
+                    total: _orderTotal,
+                    onOpen: _openSale,
+                    onSeeAll: _openAll,
                   ),
                 ),
               ],

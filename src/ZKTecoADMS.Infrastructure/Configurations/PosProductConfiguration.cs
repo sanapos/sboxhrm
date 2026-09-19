@@ -347,6 +347,10 @@ public class PosSaleOrderConfiguration : IEntityTypeConfiguration<PosSaleOrder>
         builder.Property(x => x.EInvoiceBuyerAddress).HasMaxLength(500);
         builder.Property(x => x.EInvoiceBuyerEmail).HasMaxLength(200);
         builder.Property(x => x.EInvoiceBuyerPhone).HasMaxLength(50);
+        builder.Property(x => x.EInvoiceKind).HasMaxLength(20);
+        builder.Property(x => x.EInvoiceOriginalNo).HasMaxLength(30);
+        builder.Property(x => x.EInvoiceCancelReason).HasMaxLength(400);
+        builder.Property(x => x.EInvoiceEmailTo).HasMaxLength(200);
         builder.HasIndex(x => new { x.StoreId, x.EInvoiceStatus });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Customer).WithMany(x => x.SaleOrders).HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.SetNull);

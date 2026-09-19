@@ -194,6 +194,7 @@ class PermissionRoleCatalog {
         'PosReportExpense',
         'PosReportEndOfDay',
         'PosReportStaffRevenue',
+        'PosReportStaffCommission',
         'PosReportCashbook',
         'PosReportPnl',
         'PosReportVoucher',

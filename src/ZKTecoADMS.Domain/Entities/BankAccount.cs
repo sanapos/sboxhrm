@@ -87,6 +87,18 @@ public class BankAccount : AuditableEntity<Guid>
 /// </summary>
 public static class VietQRBanks
 {
+    public static (string Code, string BIN, string Name, string ShortName, string Logo)? FindByBin(string? bin)
+    {
+        var needle = (bin ?? "").Trim();
+        if (needle.Length == 0) return null;
+        foreach (var kv in Banks)
+        {
+            if (string.Equals(kv.Value.BIN, needle, StringComparison.OrdinalIgnoreCase))
+                return (kv.Key, kv.Value.BIN, kv.Value.Name, kv.Value.ShortName, kv.Value.Logo);
+        }
+        return null;
+    }
+
     public static readonly Dictionary<string, (string BIN, string Name, string ShortName, string Logo)> Banks = new()
     {
         { "VCB", ("970436", "Ngân hàng TMCP Ngoại thương Việt Nam", "Vietcombank", "https://api.vietqr.io/img/VCB.png") },

@@ -6,9 +6,13 @@ import '../utils/notification_sound.dart';
 import '../utils/vietnamese_text_fix.dart';
 
 import './pos/pos_theme.dart';
+import '../utils/pos_kds_alert.dart';
 
 /// Nhóm toast in POS — luôn chỉ giữ 1 dòng trên màn thu ngân.
 const kPosPrintNotifyKind = 'pos_print';
+
+/// Toast nội bộ KDS (lỗi quyền / in) — vẫn hiện khi đang mở màn bếp.
+const kPosKdsNotifyKind = 'pos_kds';
 
 /// Global key để truy cập NotificationOverlay từ bất kỳ đâu
 class NotificationOverlayManager {
@@ -37,6 +41,9 @@ class NotificationOverlayManager {
     VoidCallback? onTap,
     bool playSound = true,
   }) {
+    if (PosKdsAlert.isOpen && relatedEntityType != kPosKdsNotifyKind) {
+      return;
+    }
     final id = DateTime.now().millisecondsSinceEpoch.toString();
     final item = NotificationOverlayItem(
       id: id,
@@ -204,13 +211,19 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
       fit: StackFit.expand,
       children: [
         widget.child,
-        StreamBuilder<List<NotificationOverlayItem>>(
+        ValueListenableBuilder<bool>(
+          valueListenable: PosKdsAlert.uiOpen,
+          builder: (context, kdsOpen, _) {
+            return StreamBuilder<List<NotificationOverlayItem>>(
           stream: _manager.stream,
           initialData: _manager.notifications,
           builder: (context, snapshot) {
             final items = snapshot.data ?? const <NotificationOverlayItem>[];
             if (items.isEmpty) return const SizedBox.shrink();
             final item = items.first;
+            if (kdsOpen && item.relatedEntityType != kPosKdsNotifyKind) {
+              return const SizedBox.shrink();
+            }
             final screenWidth = MediaQuery.sizeOf(context).width;
             final isMobile = screenWidth < 600;
             final top = MediaQuery.paddingOf(context).top +
@@ -232,6 +245,8 @@ class _NotificationOverlayState extends State<NotificationOverlay> {
                 ),
               ),
             );
+          },
+        );
           },
         ),
       ],
@@ -378,7 +393,7 @@ class _NotificationCardState extends State<_NotificationCard>
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: color.withOpacity(0.5), width: 1),
+                  border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
                 ),
                 child: Row(
                   children: [
@@ -399,7 +414,7 @@ class _NotificationCardState extends State<_NotificationCard>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
+                        color: color.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(_getIcon(), color: color, size: 20),

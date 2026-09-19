@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/pos_voucher.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
@@ -159,12 +161,16 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context);
+    final canEdit = perm.canEdit('PosProducts');
     return Scaffold(
       backgroundColor: PosTheme.background,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _openEditor(),
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: canEdit
+          ? FloatingActionButton(
+              onPressed: () => _openEditor(),
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -203,7 +209,7 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
                           child: ListTile(
-                            onTap: () => _openEditor(v),
+                            onTap: canEdit ? () => _openEditor(v) : null,
                             title: Text(tr(v.code),
                                 style: const TextStyle(fontWeight: FontWeight.bold)),
                             subtitle: Text(

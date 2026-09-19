@@ -18,6 +18,18 @@ public enum PosProductSampleKind
     Drink = 2,
 }
 
+/// <summary>Cách tính hoa hồng trên hàng hóa / dịch vụ (kể cả thành phần combo).</summary>
+public enum PosCommissionMode
+{
+    None = 0,
+    /// <summary>% trên doanh thu dòng (hoặc phần phân bổ trong combo).</summary>
+    PercentOfLine = 1,
+    /// <summary>Số tiền cố định / 1 đơn vị.</summary>
+    FixedPerUnit = 2,
+    /// <summary>% trên giá niêm yết (BasePrice × SL).</summary>
+    PercentOfCatalog = 3,
+}
+
 public static class PosProductTypeRules
 {
     public static bool TracksInventory(PosProductType t) =>
@@ -29,8 +41,9 @@ public static class PosProductTypeRules
     public static bool IsRecipeComponent(PosProductType t) =>
         t is PosProductType.Material or PosProductType.Goods;
 
+    /// <summary>Thành phần combo: hàng hóa, dịch vụ, NVL, topping — không lồng combo.</summary>
     public static bool IsComboComponent(PosProductType t) =>
-        t is not PosProductType.Combo and not PosProductType.Service;
+        t is not PosProductType.Combo;
 
     public static string CodePrefix(PosProductType t) => t switch
     {

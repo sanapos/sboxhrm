@@ -245,6 +245,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _allowToppings = false;
   bool _autoOpenToppingPopup = true;
   bool _showComboComponentsOnSell = false;
+  String _commissionMode = 'None';
+  late final TextEditingController _commissionPercentCtrl;
+  late final TextEditingController _commissionFixedCtrl;
   List<PosProductToppingOption> _toppingOptions = [];
   List<String> _toppingGroupIds = [];
   List<PosProductToppingGroup> _availableToppingGroups = [];
@@ -393,6 +396,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             _openingFeeCtrl.text.trim().isNotEmpty ||
             _openingMinutesCtrl.text.trim().isNotEmpty ||
             _sessionPackValidDaysCtrl.text.trim().isNotEmpty;
+      case PosProductEditorSection.staffCommission:
+        return _commissionMode != 'None';
       case PosProductEditorSection.description:
         return _descCtrl.text.trim().isNotEmpty || _saleQuickNotes.isNotEmpty;
     }
@@ -449,6 +454,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _allowToppings = p?.allowToppings ?? false;
     _autoOpenToppingPopup = p?.autoOpenToppingPopup ?? true;
     _showComboComponentsOnSell = p?.showComboComponentsOnSell ?? false;
+    _commissionMode = p?.commissionMode ?? 'None';
+    _commissionPercentCtrl = TextEditingController(
+        text: tr(_fmtInputMoney(p?.commissionPercent ?? 0)));
+    _commissionFixedCtrl = TextEditingController(
+        text: tr(_fmtInputMoney(p?.commissionFixed ?? 0)));
     _toppingOptions = List<PosProductToppingOption>.from(p?.toppingOptions ?? const []);
     _toppingGroupIds = List<String>.from(p?.toppingGroupIds ?? const []);
     unawaited(_loadToppingGroups());
@@ -655,6 +665,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _allowToppings = data.allowToppings;
       _autoOpenToppingPopup = data.autoOpenToppingPopup;
       _showComboComponentsOnSell = data.showComboComponentsOnSell;
+      _commissionMode = data.commissionMode;
+      _commissionPercentCtrl.text = _fmtInputMoney(data.commissionPercent);
+      _commissionFixedCtrl.text = _fmtInputMoney(data.commissionFixed);
       _toppingOptions =
           List<PosProductToppingOption>.from(data.toppingOptions);
       _toppingGroupIds = List<String>.from(data.toppingGroupIds);
@@ -863,6 +876,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _nameCtrl.dispose();
     _costCtrl.dispose();
     _priceCtrl.dispose();
+    _commissionPercentCtrl.dispose();
+    _commissionFixedCtrl.dispose();
     _stockCtrl.dispose();
     _minStockCtrl.dispose();
     _maxStockCtrl.dispose();
@@ -968,6 +983,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'allowToppings': _allowToppings && !_isTopping && !_isMaterial && !_isToppingType,
       'autoOpenToppingPopup': _autoOpenToppingPopup,
       'showComboComponentsOnSell': _isCombo && _showComboComponentsOnSell,
+      'commissionMode': _commissionMode,
+      'commissionPercent': _parseNum(_commissionPercentCtrl.text),
+      'commissionFixed': _parseNum(_commissionFixedCtrl.text),
       'toppings': (_allowToppings && !_isTopping)
           ? _toppingOptions
               .map((t) => {
@@ -1735,6 +1753,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
           _buildProductVatSection(),
+          if (_showSection(PosProductEditorSection.staffCommission))
+            _kvExpansion(
+              title: 'Hoa hồng nhân viên',
+              subtitle: 'Cách tính khi gán NV lúc bán (bán kèm, salon)',
+              child: _buildCommissionSection(),
+            ),
           if (_isGoods && _showSection(PosProductEditorSection.warranty))
             _buildProductWarrantySection(),
           _kvSection(
@@ -2138,6 +2162,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ],
             ),
           ),
+          if (_showSection(PosProductEditorSection.staffCommission))
+            _kvExpansion(
+              title: 'Hoa hồng nhân viên',
+              subtitle: 'Cách tính khi gán NV lúc bán (salon, combo, bán kèm)',
+              child: _buildCommissionSection(),
+            ),
           if (_showSection(PosProductEditorSection.serviceBilling))
             _kvExpansion(
               title: 'Tính giờ / gói buổi',
@@ -2307,6 +2337,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       hint: '0 = không hạn — liệu trình / thẻ tập',
                     ),
                   ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      tr('Combo 10 buổi: nhập 10 trên combo, hoặc đặt 1 buổi trên DV thành phần (massage) với SL 10.'),
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2465,7 +2502,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           _kvExpansion(
             title: 'Hàng thành phần — định lượng trừ kho',
             subtitle:
-                'Mỗi dòng = SL trừ kho khi bán 1 combo. Bấm cột SL để sửa (được phép lẻ).',
+                'Thêm hàng hóa, dịch vụ (cắt tóc, gội, massage…) hoặc SP bán kèm. Khi bán chọn NV từng phần để tính hoa hồng.',
             initiallyExpanded: true,
             child: _buildComboComponentsSection(),
           ),
@@ -2502,6 +2539,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
           _buildProductVatSection(),
+          if (_showSection(PosProductEditorSection.staffCommission))
+            _kvExpansion(
+              title: 'Hoa hồng nhân viên',
+              subtitle: 'Áp cho combo nếu bán cả gói 1 NV; thành phần dùng hoa hồng từng SP',
+              child: _buildCommissionSection(),
+            ),
           if (_showSection(PosProductEditorSection.locationWeight))
             _kvExpansion(
               title: 'Vị trí, trọng lượng',
@@ -2638,6 +2681,48 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           onCreate: _quickCreateCategory,
           manageKind: PosCatalogKind.category,
         ),
+      ],
+    );
+  }
+
+  Widget _buildCommissionSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String>(
+          value: _commissionMode,
+          decoration: PosTheme.inputDecoration(label: 'Cách tính hoa hồng'),
+          items: [
+            DropdownMenuItem(value: 'None', child: Text(tr('Không tính'))),
+            DropdownMenuItem(
+                value: 'PercentOfLine',
+                child: Text(tr('% trên doanh thu dòng / phần combo'))),
+            DropdownMenuItem(
+                value: 'FixedPerUnit', child: Text(tr('Số tiền cố định / 1 lần'))),
+            DropdownMenuItem(
+                value: 'PercentOfCatalog',
+                child: Text(tr('% trên giá niêm yết'))),
+          ],
+          onChanged: (v) => setState(() => _commissionMode = v ?? 'None'),
+        ),
+        if (_commissionMode == 'PercentOfLine' ||
+            _commissionMode == 'PercentOfCatalog') ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: _commissionPercentCtrl,
+            keyboardType: TextInputType.number,
+            decoration: PosTheme.inputDecoration(label: '% hoa hồng'),
+          ),
+        ],
+        if (_commissionMode == 'FixedPerUnit') ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: _commissionFixedCtrl,
+            keyboardType: TextInputType.number,
+            inputFormatters: [ThousandSeparatorFormatter()],
+            decoration: PosTheme.inputDecoration(label: 'Hoa hồng cố định (đ)'),
+          ),
+        ],
       ],
     );
   }
@@ -3029,6 +3114,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'allowToppings': _allowToppings && !_isTopping && !_isMaterial && !_isToppingType,
         'autoOpenToppingPopup': _autoOpenToppingPopup,
         'showComboComponentsOnSell': _isCombo && _showComboComponentsOnSell,
+      'commissionMode': _commissionMode,
+      'commissionPercent': _parseNum(_commissionPercentCtrl.text),
+      'commissionFixed': _parseNum(_commissionFixedCtrl.text),
         'toppings': (_allowToppings && !_isTopping)
             ? _toppingOptions
                 .map((t) => {
@@ -4951,6 +5039,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         componentOnHandQty: prod.onHandQty,
         componentBasePrice: prod.basePrice,
         componentUnitName: prod.baseUnitName,
+        componentProductType: prod.productType.name,
+        commissionMode: prod.commissionMode,
+        commissionPercent: prod.commissionPercent,
+        commissionFixed: prod.commissionFixed,
       ));
     });
   }

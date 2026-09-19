@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/pos_price_list.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
@@ -230,12 +232,16 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canEdit =
+        Provider.of<PermissionProvider>(context).canEdit('PosProducts');
     return Scaffold(
       backgroundColor: PosTheme.background,
-      floatingActionButton: FloatingActionButton(
-        onPressed: _createList,
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: canEdit
+          ? FloatingActionButton(
+              onPressed: _createList,
+              child: const Icon(Icons.add),
+            )
+          : null,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -267,7 +273,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                               );
                               _load();
                             },
-                            onLongPress: () => _editList(pl),
+                            onLongPress: canEdit ? () => _editList(pl) : null,
                             child: Padding(
                               padding: const EdgeInsets.all(14),
                               child: Row(
@@ -305,15 +311,16 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                                       ],
                                     ),
                                   ),
-                                  IconButton(
-                                    tooltip: tr('Cài mặc định / ngày'),
-                                    onPressed: () => _editList(pl),
-                                    icon: const Icon(
-                                      Icons.settings_outlined,
-                                      size: 20,
-                                      color: PosTheme.textSecondary,
+                                  if (canEdit)
+                                    IconButton(
+                                      tooltip: tr('Cài mặc định / ngày'),
+                                      onPressed: () => _editList(pl),
+                                      icon: const Icon(
+                                        Icons.settings_outlined,
+                                        size: 20,
+                                        color: PosTheme.textSecondary,
+                                      ),
                                     ),
-                                  ),
                                   const Icon(
                                     Icons.chevron_right,
                                     color: PosTheme.textSecondary,

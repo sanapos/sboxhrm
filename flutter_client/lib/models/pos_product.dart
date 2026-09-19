@@ -158,6 +158,16 @@ String posProductTypeLabel(PosProductType t) {
   };
 }
 
+bool _posJsonFlag(dynamic value, {required bool fallback}) {
+  if (value == null) return fallback;
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  final s = '$value'.trim().toLowerCase();
+  if (s == 'true' || s == '1' || s == 't' || s == 'yes') return true;
+  if (s == 'false' || s == '0' || s == 'f' || s == 'no') return false;
+  return fallback;
+}
+
 class PosProductUnit {
   final String id;
   final String unitName;
@@ -183,9 +193,12 @@ class PosProductUnit {
       unitName: (json['unitName'] ?? json['UnitName'] ?? '').toString(),
       conversionRate: n(json['conversionRate'] ?? json['ConversionRate']),
       basePrice: n(json['basePrice'] ?? json['BasePrice']),
-      isDirectSale:
-          json['isDirectSale'] == true || json['IsDirectSale'] == true,
-      isBaseUnit: json['isBaseUnit'] == true || json['IsBaseUnit'] == true,
+      isDirectSale: _posJsonFlag(
+          json['isDirectSale'] ?? json['IsDirectSale'],
+          fallback: true),
+      isBaseUnit: _posJsonFlag(
+          json['isBaseUnit'] ?? json['IsBaseUnit'],
+          fallback: false),
     );
   }
 
@@ -451,8 +464,12 @@ class PosProduct {
   final bool allowToppings;
   /// Tự mở popup topping (nhóm) khi thêm món vào giỏ.
   final bool autoOpenToppingPopup;
-  /// Khi b�n combo: hi?n th�nh ph?n du?i t�n (ki?u topping).
+  /// Khi bán combo: hiện thành phần dưới tên (kiểu topping).
   final bool showComboComponentsOnSell;
+  /// None | PercentOfLine | FixedPerUnit | PercentOfCatalog
+  final String commissionMode;
+  final double commissionPercent;
+  final double commissionFixed;
   /// Tùy chọn thêm gắn trực tiếp (giống ghi chú nhanh + giá).
   final List<PosProductToppingOption> toppingOptions;
   final List<String> toppingGroupIds;
@@ -525,6 +542,9 @@ class PosProduct {
     this.allowToppings = false,
     this.autoOpenToppingPopup = true,
     this.showComboComponentsOnSell = false,
+    this.commissionMode = 'None',
+    this.commissionPercent = 0,
+    this.commissionFixed = 0,
     this.toppingOptions = const [],
     this.toppingGroupIds = const [],
     this.toppingGroups = const [],
@@ -561,6 +581,12 @@ class PosProduct {
   }
 
   bool get isSessionPack => sessionPackCount > 0;
+
+  bool get hasCommission {
+    final m = commissionMode.toLowerCase();
+    if (m == 'none' || m.isEmpty) return false;
+    return commissionPercent > 0 || commissionFixed > 0 || m != 'none';
+  }
 
   factory PosProduct.fromJson(Map<String, dynamic> json) {
     DateTime? dt(dynamic v) => parseApiUtcDateTime(v);
@@ -703,6 +729,13 @@ class PosProduct {
       showComboComponentsOnSell:
           json['showComboComponentsOnSell'] == true ||
               json['ShowComboComponentsOnSell'] == true,
+      commissionMode:
+          (json['commissionMode'] ?? json['CommissionMode'] ?? 'None')
+              .toString(),
+      commissionPercent:
+          numVal(json['commissionPercent'] ?? json['CommissionPercent']),
+      commissionFixed:
+          numVal(json['commissionFixed'] ?? json['CommissionFixed']),
       toppingOptions: () {
         final raw = json['toppingOptions'] ?? json['ToppingOptions'];
         if (raw is! List) return const <PosProductToppingOption>[];
@@ -788,6 +821,9 @@ class PosProduct {
       'allowToppings': allowToppings && !isTopping,
       'autoOpenToppingPopup': autoOpenToppingPopup,
         'showComboComponentsOnSell': showComboComponentsOnSell,
+      'commissionMode': commissionMode,
+      'commissionPercent': commissionPercent,
+      'commissionFixed': commissionFixed,
       if (allowToppings && !isTopping)
         'toppings': toppingOptions.map((t) => t.toInputJson()).toList(),
       'toppingGroupIds': toppingGroupIds,
@@ -898,6 +934,9 @@ class PosProduct {
       allowToppings: this.allowToppings,
       autoOpenToppingPopup: this.autoOpenToppingPopup,
       showComboComponentsOnSell: this.showComboComponentsOnSell,
+      commissionMode: this.commissionMode,
+      commissionPercent: this.commissionPercent,
+      commissionFixed: this.commissionFixed,
       toppingOptions: this.toppingOptions,
       toppingGroupIds: this.toppingGroupIds,
       toppingGroups: this.toppingGroups,
@@ -1009,6 +1048,10 @@ class PosComboLine {
   final double componentOnHandQty;
   final double componentBasePrice;
   final String componentUnitName;
+  final String componentProductType;
+  final String commissionMode;
+  final double commissionPercent;
+  final double commissionFixed;
 
   PosComboLine({
     required this.id,
@@ -1019,6 +1062,10 @@ class PosComboLine {
     this.componentOnHandQty = 0,
     this.componentBasePrice = 0,
     this.componentUnitName = '',
+    this.componentProductType = '',
+    this.commissionMode = 'None',
+    this.commissionPercent = 0,
+    this.commissionFixed = 0,
   });
 
   factory PosComboLine.fromJson(Map<String, dynamic> json) {
@@ -1043,6 +1090,15 @@ class PosComboLine {
       componentUnitName:
           (json['componentUnitName'] ?? json['ComponentUnitName'] ?? '')
               .toString(),
+      componentProductType:
+          (json['componentProductType'] ?? json['ComponentProductType'] ?? '')
+              .toString(),
+      commissionMode:
+          (json['commissionMode'] ?? json['CommissionMode'] ?? 'None')
+              .toString(),
+      commissionPercent:
+          n(json['commissionPercent'] ?? json['CommissionPercent']),
+      commissionFixed: n(json['commissionFixed'] ?? json['CommissionFixed']),
     );
   }
 
@@ -1055,6 +1111,10 @@ class PosComboLine {
         componentOnHandQty: componentOnHandQty,
         componentBasePrice: componentBasePrice,
         componentUnitName: componentUnitName,
+        componentProductType: componentProductType,
+        commissionMode: commissionMode,
+        commissionPercent: commissionPercent,
+        commissionFixed: commissionFixed,
       );
 }
 

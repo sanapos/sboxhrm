@@ -74,6 +74,8 @@ public partial class PosSalesController
             }
 
             dbContext.PosSaleOrderLines.RemoveRange(order.Lines);
+            var clearComm = dbContext.PosSaleCommissionLines.Where(x => x.SaleOrderId == order.Id);
+            dbContext.PosSaleCommissionLines.RemoveRange(clearComm);
             order.SubTotal = 0;
             order.Discount = dto.Discount;
             order.Total = 0;
@@ -1505,7 +1507,9 @@ public partial class PosSalesController
                 BillableMinutes = billableMinutes,
                 ServiceStartedAt = lineStarted,
                 ServiceEndedAt = lineEnded,
-                AssignedEmployeeId = line.AssignedEmployeeId,
+                AssignedEmployeeId = line.AssignedEmployeeId
+                    ?? line.StaffAssignments?.FirstOrDefault(a => a.ComponentProductId == null)?.AssignedEmployeeId,
+                StaffAssignmentsJson = PosStaffCommissionHelper.SerializeAssignments(line.StaffAssignments),
                 KitchenSentQty = kitchenSent,
                 KitchenSentAt = kitchenSent > 0 ? DateTime.UtcNow : null,
                 IsActive = true,
@@ -1716,6 +1720,15 @@ public partial class PosSalesController
             await PosNotificationHelper.NotifyLowStockAsync(
                 notificationService, dbContext, storeId, lowStockItems, CurrentUserId);
         }
+
+        if (complete && sellSettings?.RequireStaffOnService == true)
+        {
+            var staffErr = await PosStaffCommissionHelper.ValidateRequiredStaffAsync(
+                dbContext, storeId, lines, products, true);
+            if (staffErr != null) return (null, null, staffErr);
+        }
+        await PosStaffCommissionHelper.ReplaceLinesAsync(
+            dbContext, storeId, order, lines, products, CurrentUserEmail);
 
         return (order, lines, null);
     }

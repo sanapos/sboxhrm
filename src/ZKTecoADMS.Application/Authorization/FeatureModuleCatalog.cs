@@ -118,6 +118,7 @@ public static class FeatureModuleCatalog
         new("PosReportExpense", "Chi phí", "Phiếu chi theo nhóm", "POS / Báo cáo", 81),
         new("PosReportEndOfDay", "Tổng kết cuối ngày", "Báo cáo cuối ngày theo nhân viên", "POS / Báo cáo", 82),
         new("PosReportStaffRevenue", "Doanh thu theo nhân viên", "Doanh thu theo người bán", "POS / Báo cáo", 83),
+        new("PosReportStaffCommission", "Hoa hồng nhân viên", "Hoa hồng theo hàng/DV và combo", "POS / Báo cáo", 88),
         new("PosReportCashbook", "Sổ quỹ", "Thu / chi / chênh lệch quỹ", "POS / Báo cáo", 84),
         new("PosReportPnl", "Kết quả kinh doanh", "P&L: DT, giá vốn, chi phí, LN ròng", "POS / Báo cáo", 85),
         new("PosReportVoucher", "Báo cáo voucher", "Voucher đã dùng trên hóa đơn", "POS / Báo cáo", 86),

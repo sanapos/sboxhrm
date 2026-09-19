@@ -61,7 +61,7 @@ public class GetAttsByDevicesHandler(
                 a.MobileAttendanceRecordId,
                 null,
                 null,
-                null,
+                a.Device.Location,
                 null,
                 a.DeviceId
             ),
@@ -92,7 +92,9 @@ public class GetAttsByDevicesHandler(
                     {
                         Latitude = mob.Latitude,
                         Longitude = mob.Longitude,
-                        LocationName = mob.LocationName,
+                        LocationName = string.IsNullOrWhiteSpace(mob.LocationName)
+                            ? dto.LocationName
+                            : mob.LocationName,
                         SitePhotoUrl = string.Equals(mob.Status, "pending", StringComparison.OrdinalIgnoreCase)
                             ? NormalizeSitePhotoUrl(mob.SitePhotoUrl)
                             : null

@@ -31,6 +31,12 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     (code: 'PosCashierShift', label: 'Ca thu ngân', group: 'Menu bán hàng'),
     (code: 'PosKds', label: 'Màn hình bếp (KDS)', group: 'Menu bán hàng'),
     (code: 'PosQrOrder', label: 'QR order bàn', group: 'Menu bán hàng'),
+    (code: 'PosCustomers', label: 'Khách hàng', group: 'Menu bán hàng'),
+    (code: 'PosPurchaseReceipts', label: 'Nhập hàng', group: 'Kho'),
+    (code: 'PosPurchaseReturns', label: 'Trả hàng nhập', group: 'Kho'),
+    (code: 'PosStockCounts', label: 'Kiểm kho', group: 'Kho'),
+    (code: 'PosDamageIssues', label: 'Xuất hủy', group: 'Kho'),
+    (code: 'PosInternalUseIssues', label: 'Dùng nội bộ', group: 'Kho'),
     (code: 'CashTransaction', label: 'Phiếu thu / phiếu chi', group: 'Menu bán hàng'),
     (code: 'PosSalesReport', label: 'Báo cáo POS / cuối ngày', group: 'Menu bán hàng'),
     (code: 'SettingsHub', label: 'Trung tâm (ngành hàng, cửa hàng, sơ đồ bàn, cổng CK)', group: 'Thiết lập POS'),
@@ -53,6 +59,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     (code: 'PosReportExpense', label: 'Chi phí', group: 'Báo cáo'),
     (code: 'PosReportEndOfDay', label: 'Cuối ngày', group: 'Báo cáo'),
     (code: 'PosReportStaffRevenue', label: 'Doanh thu theo NV', group: 'Báo cáo'),
+    (code: 'PosReportStaffCommission', label: 'Hoa hồng nhân viên', group: 'Báo cáo'),
     (code: 'PosReportCashbook', label: 'Sổ quỹ', group: 'Báo cáo'),
     (code: 'PosReportPnl', label: 'Kết quả KD', group: 'Báo cáo'),
     (code: 'PosReportVoucher', label: 'Voucher', group: 'Báo cáo'),
@@ -129,29 +136,57 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     return null;
   }
 
-  bool _view(String code) {
-    final p = _perm(code);
-    if (p == null) return false;
-    return p['canView'] == true || p['CanView'] == true;
+  static const _caps = <String, Set<String>>{
+    'PosSell': {'canView', 'canCreate', 'canEdit', 'canApprove'},
+    'PosSaleOrders': {'canView', 'canEdit', 'canDelete'},
+    'PosProducts': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'PosSaleReturns': {'canView', 'canApprove'},
+    'PosCashierShift': {'canView', 'canCreate'},
+    'PosKds': {'canView', 'canCreate'},
+    'PosQrOrder': {'canView', 'canEdit', 'canApprove'},
+    'PosCustomers': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'PosPurchaseReceipts': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'PosPurchaseReturns': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'PosStockCounts': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'PosDamageIssues': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'PosInternalUseIssues': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'CashTransaction': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canApprove'},
+    'SettingsHub': {'canView', 'canEdit'},
+    'PosPrinters': {'canView', 'canEdit'},
+    'PosStorePrinters': {'canView', 'canEdit'},
+    'PosPrintTemplates': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'PosEInvoice': {'canView', 'canEdit', 'canApprove'},
+    'PosShipping': {'canView', 'canCreate', 'canEdit'},
+    'PosCustomerDisplay': {'canView', 'canCreate', 'canEdit'},
+    'UserManagement': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Role': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+  };
+
+  static const _colActions = <(String key, String label)>[
+    ('canView', 'Xem'),
+    ('canCreate', 'Order'),
+    ('canEdit', 'Sửa'),
+    ('canDelete', 'Xóa'),
+    ('canApprove', 'Duyệt'),
+  ];
+
+  bool _supports(String code, String action) {
+    if (code.startsWith('PosReport') ||
+        code == 'PosSalesReport' ||
+        code == 'HkdBooks') {
+      return action == 'canView';
+    }
+    return _caps[code]?.contains(action) ?? action == 'canView';
   }
 
-  bool _edit(String code) {
+  bool _flag(String code, String action) {
     final p = _perm(code);
     if (p == null) return false;
-    if (code == 'PosSaleReturns') {
-      return p['canApprove'] == true || p['CanApprove'] == true;
-    }
-    if (code == 'PosCashierShift' || code == 'PosKds') {
-      return p['canCreate'] == true ||
-          p['CanCreate'] == true ||
-          p['canEdit'] == true ||
-          p['CanEdit'] == true;
-    }
-    return p['canEdit'] == true || p['CanEdit'] == true;
+    final pascal = action[0].toUpperCase() + action.substring(1);
+    return p[action] == true || p[pascal] == true;
   }
 
-  bool _showEdit(String code) =>
-      !code.startsWith('PosReport') && code != 'PosSalesReport' && code != 'HkdBooks';
+  bool _view(String code) => _flag(code, 'canView');
 
   Map<String, dynamic> _ensurePerm(String code) {
     var p = _perm(code);
@@ -169,56 +204,30 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     return p;
   }
 
-  void _setView(String code, bool on) {
+  void _setFlag(String code, String action, bool on) {
     setState(() {
       final p = _ensurePerm(code);
-      p['canView'] = on;
-      p['CanView'] = on;
-      if (code.startsWith('PosReport') || code == 'PosSalesReport') {
-        p['canExport'] = on;
+      void write(String key, bool v) {
+        p[key] = v;
+        p[key[0].toUpperCase() + key.substring(1)] = v;
       }
-      if (code == 'PosSell' && on) {
-        p['canCreate'] = true;
-        p['canApprove'] = true;
-      }
-      if (!on) {
-        p['canEdit'] = false;
-        p['CanEdit'] = false;
-        p['canCreate'] = false;
-        p['canApprove'] = false;
-        p['canExport'] = false;
-      }
-    });
-  }
 
-  void _setEdit(String code, bool on) {
-    setState(() {
-      final p = _ensurePerm(code);
-      if (on) {
-        p['canView'] = true;
-        p['CanView'] = true;
+      if (action == 'canView' && !on) {
+        write('canView', false);
+        write('canCreate', false);
+        write('canEdit', false);
+        write('canDelete', false);
+        write('canApprove', false);
+        write('canExport', false);
+        return;
       }
-      p['canEdit'] = on;
-      p['CanEdit'] = on;
-      if (code == 'PosSell' && on) {
-        p['canCreate'] = true;
-        p['canApprove'] = true;
+      if (on) write('canView', true);
+      write(action, on);
+      if (code.startsWith('PosReport') || code == 'PosSalesReport') {
+        write('canExport', on);
       }
-      if (code == 'PosSaleReturns') {
-        p['canApprove'] = on;
-      }
-      if (code == 'PosCashierShift' || code == 'PosKds' || code == 'PosProducts') {
-        p['canCreate'] = on;
-      }
-      if (code == 'SettingsHub' ||
-          code == 'PosPrinters' ||
-          code == 'PosStorePrinters' ||
-          code == 'PosPrintTemplates' ||
-          code == 'PosEInvoice' ||
-          code == 'PosShipping' ||
-          code == 'PosCustomerDisplay' ||
-          code == 'Role') {
-        p['canCreate'] = on;
+      if (code == 'PosSaleOrders' && action == 'canEdit') {
+        write('canDelete', on);
       }
     });
   }
@@ -278,19 +287,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     for (final m in _posModules) {
       groups.putIfAbsent(m.group, () => []).add(m);
     }
-    return Scaffold(
-      backgroundColor: PosTheme.background,
-      appBar: AppBar(
-        title: Text(tr('Phân quyền')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: tr('Quay lại'),
-          onPressed: () => Navigator.maybePop(context),
-        ),
-      ),
-      body: ColoredBox(
+    return ColoredBox(
       color: PosTheme.background,
       child: Row(
         children: [
@@ -385,7 +382,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Text(
-                                  tr('Xem = mở menu. Sửa = đổi cấu hình / gán món / tách bill. Thu ngân chỉ cần Xem bán hàng — không tick Sửa thiết lập POS.'),
+                                  tr('Xem = mở menu. Order = gọi món / mở ca / bump bếp. Sửa = sửa đơn / cấu hình. Xóa = xóa đơn / phiếu. Duyệt = thanh toán / trả hàng / HĐĐT / đơn online. Thu ngân: Xem + Order + Duyệt bán hàng — không tick Sửa thiết lập POS.'),
                                   style: const TextStyle(
                                     color: PosTheme.textSecondary,
                                     fontSize: 12,
@@ -398,28 +395,18 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                               child: Row(
                                 children: [
                                   const Spacer(),
-                                  SizedBox(
-                                    width: 52,
-                                    child: Text(
-                                      tr('Xem'),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
+                                  for (final col in _colActions)
+                                    SizedBox(
+                                      width: 44,
+                                      child: Text(
+                                        tr(col.$2),
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  SizedBox(
-                                    width: 52,
-                                    child: Text(
-                                      tr('Sửa'),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -445,27 +432,22 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                                           style: const TextStyle(fontSize: 13),
                                         ),
                                       ),
-                                      SizedBox(
-                                        width: 52,
-                                        child: Checkbox(
-                                          value: _view(m.code),
-                                          onChanged: _roleLocked
-                                              ? null
-                                              : (v) => _setView(m.code, v ?? false),
+                                      for (final col in _colActions)
+                                        SizedBox(
+                                          width: 44,
+                                          child: _supports(m.code, col.$1)
+                                              ? Checkbox(
+                                                  value: _flag(m.code, col.$1),
+                                                  onChanged: _roleLocked
+                                                      ? null
+                                                      : (v) => _setFlag(
+                                                            m.code,
+                                                            col.$1,
+                                                            v ?? false,
+                                                          ),
+                                                )
+                                              : const SizedBox.shrink(),
                                         ),
-                                      ),
-                                      SizedBox(
-                                        width: 52,
-                                        child: _showEdit(m.code)
-                                            ? Checkbox(
-                                                value: _edit(m.code),
-                                                onChanged: _roleLocked
-                                                    ? null
-                                                    : (v) =>
-                                                        _setEdit(m.code, v ?? false),
-                                              )
-                                            : const SizedBox.shrink(),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -478,7 +460,6 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
             ),
           ),
         ],
-      ),
       ),
     );
   }

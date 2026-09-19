@@ -36,6 +36,9 @@ class PosReportOpen {
     String? paymentMethod,
     String? customerId,
     String? customerName,
+    String? productId,
+    String? voucherCode,
+    bool hasVoucher = false,
   }) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -49,6 +52,9 @@ class PosReportOpen {
             initialSoldBy: soldBy,
             initialPaymentMethod: paymentMethod,
             initialCustomerId: customerId,
+            initialProductId: productId,
+            initialVoucherCode: voucherCode,
+            initialHasVoucher: hasVoucher,
           ),
         ),
       ),
@@ -94,7 +100,18 @@ class PosReportOpen {
     String? name,
     DateTime? from,
     DateTime? to,
+    bool preferSales = false,
   }) async {
+    if (preferSales) {
+      await sales(
+        context,
+        from: from,
+        to: to,
+        productId: (id ?? '').trim().isEmpty ? null : id,
+        search: (id ?? '').trim().isEmpty ? name : null,
+      );
+      return;
+    }
     if (id != null && id.isNotEmpty) {
       final res = await _api.getPosProduct(id);
       if (!context.mounted) return;

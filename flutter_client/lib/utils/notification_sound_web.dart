@@ -42,4 +42,29 @@ class NotificationSound {
       debugPrint('Notification sound error: $e');
     }
   }
+
+  void playPaymentSuccess() {
+    if (!kIsWeb) return;
+    try {
+      final ctx = web.AudioContext();
+      final now = ctx.currentTime;
+      void beep(double start, double freq, double dur) {
+        final osc = ctx.createOscillator();
+        final gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.22, now + start);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + start + dur);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + start);
+        osc.stop(now + start + dur);
+      }
+
+      beep(0, 880, 0.16);
+      beep(0.16, 1175, 0.22);
+    } catch (e) {
+      debugPrint('Payment success sound error: $e');
+    }
+  }
 }

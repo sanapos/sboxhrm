@@ -13,6 +13,7 @@ import '../models/pos_print_template.dart';
 import '../models/pos_print_template_v2.dart';
 import '../utils/pos_device_identity.dart';
 import '../utils/pos_local_printers_store.dart';
+import '../utils/pos_kds_alert.dart';
 import '../utils/pos_print_agent_settings.dart';
 import '../utils/pos_print_config_session.dart';
 import '../utils/pos_print_role.dart';
@@ -598,6 +599,12 @@ class PosPrintAgentService {
       _notifiedReceiveJobIds.remove(_notifiedReceiveJobIds.first);
     }
     // M?y Agent: 1 d?ng g?n ? kh?ng ch?ng toast v?i m?y g?i.
+    final format =
+        (job['payloadFormat'] ?? job['PayloadFormat'] ?? '').toString();
+    final doc =
+        (job['documentType'] ?? job['DocumentType'] ?? '').toString().toLowerCase();
+    final kitchen = format == 'KitchenSlipJson' || doc.contains('kitchen');
+    if (kitchen) unawaited(_tingKitchenIfEnabled());
     final ref = job['referenceNo']?.toString() ?? '';
     NotificationOverlayManager().show(
       title: 'Đã nhận lệnh in',
@@ -605,6 +612,11 @@ class PosPrintAgentService {
       duration: const Duration(seconds: 2),
       relatedEntityType: kPosPrintNotifyKind,
     );
+  }
+
+  Future<void> _tingKitchenIfEnabled() async {
+    if (!await PosKdsAlert.printTingEnabled()) return;
+    await PosKdsAlert.playTing();
   }
 
   /// TSPL thu?ng b?t d?u b?ng SIZE / CLS / BITMAP ? EscPos b?t d?u ESC (@?).

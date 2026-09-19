@@ -25,9 +25,10 @@ List<PosProductUnitView> buildPosSellUnitViewsFromProduct(PosProduct product) {
 
 
 bool posProductHasEmbeddedSellViews(PosProduct product) {
-  if (product.units != null && product.units!.isNotEmpty) return true;
-  if (product.variants != null && product.variants!.isNotEmpty) return true;
-  return false;
+  final saleUnits = product.units?.where((u) => u.isDirectSale).length ?? 0;
+  if (saleUnits > 1) return true;
+  final variants = product.variants?.where((v) => v.isActive).length ?? 0;
+  return variants > 1;
 }
 
 

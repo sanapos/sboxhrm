@@ -41,6 +41,8 @@ import '../models/attendance.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/device_sync_progress_overlay.dart';
 import '../utils/navigation_notifier.dart';
+import '../utils/system_ui_inset_mode.dart';
+import '../utils/pos_kds_alert.dart';
 import 'notification_settings_screen.dart';
 import 'employees_screen.dart';
 import 'device_users_screen.dart';
@@ -395,6 +397,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ScreenRefreshNotifier.notifications.addListener(_loadNotificationCount);
     SettingsHubScreen.chromeEpoch.addListener(_onEmbeddedChromeChanged);
     TaskManagementScreen.chromeEpoch.addListener(_onEmbeddedChromeChanged);
+    PosKdsAlert.uiOpen.addListener(_onKdsUiChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _reportCurrentScreen();
@@ -844,6 +847,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _attendanceSubscription?.cancel();
     _deviceStatusSubscription?.cancel();
     _communicationSubscription?.cancel();
+    PosKdsAlert.uiOpen.removeListener(_onKdsUiChanged);
     _currentPopupEntry?.remove();
     _currentPopupEntry = null;
     NavigationNotifier.navigateTo.removeListener(_onNavigationRequested);
@@ -859,12 +863,29 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   /// Enqueue a popup and show it if no other popup is active
   void _enqueuePopup(Widget Function(VoidCallback onDismiss) builder) {
+    if (PosKdsAlert.isOpen) return;
     _popupQueue.add(builder);
     _showNextPopup();
   }
 
+  void _onKdsUiChanged() {
+    if (!PosKdsAlert.isOpen) return;
+    _notificationManager.clear();
+    _popupQueue.clear();
+    _currentPopupEntry?.remove();
+    _currentPopupEntry = null;
+    _isShowingPopup = false;
+    if (mounted) {
+      ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
+    }
+  }
+
   void _showNextPopup() {
     if (_isShowingPopup || _popupQueue.isEmpty || !mounted) return;
+    if (PosKdsAlert.isOpen) {
+      _popupQueue.clear();
+      return;
+    }
     _isShowingPopup = true;
 
     final builder = _popupQueue.removeAt(0);
@@ -2137,13 +2158,20 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     );
   }
 
+  bool _hideShellForModule(String? moduleCode, {required bool immersive}) {
+    if (moduleCode == 'PosSell') return true;
+    if (moduleCode == 'PosKds' && immersive) return true;
+    return false;
+  }
+
   // Desktop Layout với Navigation Rail mở rộng
   Widget _buildDesktopLayout() {
     final moduleCode = _navItems[_selectedIndex].moduleCode;
-    final posFullscreen = moduleCode == 'PosSell';
-
-    if (posFullscreen) {
-      // POS desktop fullscreen — ẩn sidebar + top bar HRM.
+    return ValueListenableBuilder<bool>(
+      valueListenable: SystemUiInsetMode.immersive,
+      builder: (context, immersive, _) {
+        if (_hideShellForModule(moduleCode, immersive: immersive)) {
+      // POS / KDS fullscreen — ẩn sidebar + top bar HRM.
       return PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, _) async {
@@ -2157,7 +2185,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           shellChromeVisible: false,
         ),
       );
-    }
+        }
 
     return PopScope(
       canPop: false,
@@ -2192,12 +2220,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       ),
       ),
     );
+      },
+    );
   }
 
   // Tablet Layout với Navigation Rail thu gọn
   Widget _buildTabletLayout() {
     final moduleCode = _navItems[_selectedIndex].moduleCode;
-    if (moduleCode == 'PosSell') {
+    return ValueListenableBuilder<bool>(
+      valueListenable: SystemUiInsetMode.immersive,
+      builder: (context, immersive, _) {
+        if (_hideShellForModule(moduleCode, immersive: immersive)) {
       return PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, _) async {
@@ -2209,7 +2242,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           shellChromeVisible: false,
         ),
       );
-    }
+        }
 
     return PopScope(
       canPop: false,
@@ -2273,6 +2306,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         ),
       ),
       ),
+    );
+      },
     );
   }
 
@@ -2377,6 +2412,23 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   Widget _buildMobileLayout() {
     final l = AppLocalizations.of(context);
     final moduleCode = _navItems[_selectedIndex].moduleCode;
+    return ValueListenableBuilder<bool>(
+      valueListenable: SystemUiInsetMode.immersive,
+      builder: (context, immersive, _) {
+        if (_hideShellForModule(moduleCode, immersive: immersive)) {
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) async {
+              if (didPop) return;
+              await _handleSystemBackAlignedWithUi();
+            },
+            child: _wrapAppShell(
+              Scaffold(body: _buildMobileBody()),
+              shellChromeVisible: false,
+            ),
+          );
+        }
+
     final posHubFullscreen =
         Responsive.isMobile(context) && PosHubModules.isPrimary(moduleCode);
 
@@ -2477,6 +2529,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         await _handleSystemBackAlignedWithUi();
       },
       child: _wrapAppShell(scaffold),
+    );
+      },
     );
   }
 

@@ -113,6 +113,7 @@ public class StorePackageModuleMiddleware
         ("/api/pos/reports/cashbook", "PosReportCashbook"),
         ("/api/pos/reports/pnl", "PosReportPnl"),
         ("/api/pos/reports/vouchers", "PosReportVoucher"),
+        ("/api/pos/reports/staff-commission", "PosReportStaffCommission"),
         ("/api/pos/reports/end-of-day", "PosReportEndOfDay"),
         ("/api/pos/reports/profit", "PosReportProfit"),
         ("/api/pos/reports/analysis", "PosSalesReport"),

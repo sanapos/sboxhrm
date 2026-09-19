@@ -571,7 +571,12 @@
         noQr: 'Quán chưa cấu hình tài khoản nhận QR',
         staffOk: 'Đã gọi phục vụ',
         staffFail: 'Không gọi được phục vụ',
-        qrHint: 'Quét mã để chuyển khoản. Sau khi chuyển, bấm xác nhận để thu ngân kiểm tra.',
+        qrHint: 'Quét mã để chuyển khoản. Đơn tự xác nhận khi tiền vào — không cần bấm thêm.',
+        paidOk: 'Đã thanh toán',
+        paidTitle: 'Thanh toán thành công',
+        paidHint: 'Quán đã nhận tiền. Đơn được xác nhận tự động.',
+        waitingPay: 'Đang chờ chuyển khoản… QR tự tắt khi thành công.',
+        payNow: 'Thanh toán QR',
         transfer: 'Nội dung CK',
         acc: 'STK',
         emptyBill: 'Chưa đặt món nào',
@@ -680,7 +685,12 @@
         noQr: 'This store has no bank account for QR',
         staffOk: 'Waiter has been called',
         staffFail: 'Could not call the waiter',
-        qrHint: 'Scan to transfer. After paying, tap confirm so the cashier can check.',
+        qrHint: 'Scan to pay. The order confirms automatically when the transfer arrives.',
+        paidOk: 'Paid',
+        paidTitle: 'Payment received',
+        paidHint: 'The shop has the money. Your order is confirmed.',
+        waitingPay: 'Waiting for transfer… this QR closes when paid.',
+        payNow: 'Pay with QR',
         transfer: 'Transfer note',
         acc: 'Account',
         emptyBill: 'Nothing ordered yet',
@@ -784,7 +794,12 @@
         noQr: '本店未配置收款账户',
         staffOk: '已呼叫服务员',
         staffFail: '无法呼叫服务员',
-        qrHint: '扫码转账。付款后请点确认，以便收银核对。',
+        qrHint: '扫码支付。到账后订单自动确认。',
+        paidOk: '已支付',
+        paidTitle: '支付成功',
+        paidHint: '商家已收款，订单已自动确认。',
+        waitingPay: '等待转账… 成功后二维码会关闭。',
+        payNow: '扫码支付',
         transfer: '转账备注',
         acc: '账号',
         emptyBill: '尚未点餐',
@@ -879,7 +894,12 @@
         noQr: '매장에 입금 계좌가 없습니다',
         staffOk: '직원을 호출했습니다',
         staffFail: '직원을 호출할 수 없습니다',
-        qrHint: '스캔하여 이체하세요. 결제 후 확인을 눌러 캐셔가 확인하게 하세요.',
+        qrHint: '스캔하여 결제하세요. 입금되면 주문이 자동 확정됩니다.',
+        paidOk: '결제 완료',
+        paidTitle: '결제 성공',
+        paidHint: '매장이 입금을 확인했고 주문이 확정되었습니다.',
+        waitingPay: '이체 대기 중… 성공하면 QR이 닫힙니다.',
+        payNow: 'QR 결제',
         transfer: '이체 메모',
         acc: '계좌',
         emptyBill: '아직 주문 없음',
@@ -974,7 +994,12 @@
         noQr: '店舗に振込口座がありません',
         staffOk: 'スタッフを呼びました',
         staffFail: 'スタッフを呼べませんでした',
-        qrHint: 'スキャンして振込。支払い後に確認を押し、レジが確認できるようにしてください。',
+        qrHint: 'スキャンして支払い。入金後に注文が自動確定します。',
+        paidOk: '支払済み',
+        paidTitle: '支払い完了',
+        paidHint: '店舗が入金を確認し、注文が確定しました。',
+        waitingPay: '振込待ち… 成功するとQRが閉じます。',
+        payNow: 'QRで支払う',
         transfer: '振込メモ',
         acc: '口座',
         emptyBill: 'まだ注文がありません',
@@ -1077,6 +1102,8 @@
     let cartOpen = false;
     let billOpen = false;
     let payOpen = false;
+    let payPoll = 0;
+    let pendingOnlinePayId = '';
     let fabOpen = false;
     let activeCat = 'all';
     let query = '';
@@ -1445,7 +1472,9 @@
           const code = o.status || o.Status || '';
           html += '<div class="track-card"><div class="row"><strong>'+esc(t('orderNo'))+' '+(o.orderNo||o.OrderNo||'')+'</strong>';
           html += '<span class="st'+statusClass(code)+'">'+esc(st)+'</span></div>';
-          html += '<div class="meta">'+esc(o.address||o.Address||'')+' · '+money(o.total||o.Total||0)+'</div>';
+          html += '<div class="meta">'+esc(o.address||o.Address||'')+' · '+money(o.total||o.Total||0);
+          if (o.isPaid || o.IsPaid) html += ' · '+esc(t('paidOk'));
+          html += '</div>';
           const lines = o.lines || o.Lines || [];
           if (lines.length) {
             html += '<div class="track-lines">';
@@ -1453,6 +1482,10 @@
               html += '<div><span>'+esc(l.name||l.Name)+' × '+(l.qty||l.Qty)+'</span><span>'+money(l.lineTotal||l.LineTotal||0)+'</span></div>';
             });
             html += '</div>';
+          }
+          const pay = o.payment || o.Payment;
+          if (!o.isPaid && !o.IsPaid && pay && (pay.qrUrl || pay.QrUrl)) {
+            html += '<button class="go" type="button" data-pay-id="'+(o.id||o.Id||'')+'">'+esc(t('payNow'))+'</button>';
           }
           html += '</div>';
         });
@@ -1465,6 +1498,21 @@
         if (ov) ov.onclick = e => { if (e.target === ov) { trackOpen = false; render(); } };
         const x = document.getElementById('track-x'); if (x) x.onclick = () => { trackOpen = false; render(); };
         const go = document.getElementById('track-go'); if (go) go.onclick = lookupOrders;
+        document.querySelectorAll('#track-ov [data-pay-id]').forEach(btn => {
+          btn.onclick = () => {
+            const id = btn.getAttribute('data-pay-id') || '';
+            const hit = (trackOrders || []).find(o => String(o.id||o.Id||'') === id);
+            const pay = hit && (hit.payment || hit.Payment);
+            if (!pay) return;
+            menu = menu || {};
+            menu.payment = pay;
+            pendingOnlinePayId = id;
+            trackOpen = false;
+            payOpen = true;
+            startPayPoll();
+            render();
+          };
+        });
       }, 0);
       return html;
     }
@@ -1712,7 +1760,9 @@
         if (addr) html += '<div class="addr">DC: '+esc(addr)+'</div>';
         if (phone) html += '<div class="addr">SDT: '+esc(phone)+'</div>';
         html += '<div class="btitle">'+esc(bill.title || bill.Title || t('billTitle'))+'</div>';
-        html += '<div class="warn">'+esc(t('unpaid'))+'</div><hr class="dash"/>';
+        const pay = menu && (menu.payment || menu.Payment);
+        const paid = !!(menu && (menu.paid || menu.Paid)) || !!(pay && (pay.paid || pay.Paid));
+        html += '<div class="warn">'+esc(paid ? t('paidOk') : t('unpaid'))+'</div><hr class="dash"/>';
         if (bill.orderNo || bill.OrderNo) html += '<div class="meta-row"><span>'+esc(t('billNo'))+'</span><b>'+esc(bill.orderNo || bill.OrderNo)+'</b></div>';
         if (bill.dateText || bill.DateText) html += '<div class="meta-row"><span>'+esc(t('billDate'))+'</span><b>'+esc(bill.dateText || bill.DateText)+'</b></div>';
         if (bill.timeText || bill.TimeText) html += '<div class="meta-row"><span>'+esc(t('billIn'))+'</span><b>'+esc(bill.timeText || bill.TimeText)+'</b></div>';
@@ -1745,8 +1795,8 @@
           html += '<div class="tot"><span>'+esc(vatLabel)+'</span><span>'+money(vat)+'</span></div>';
         }
         html += '<div class="tot grand"><span>'+esc(t('billTotal'))+'</span><span>'+money(tot)+'</span></div>';
-        html += '<div class="warn" style="margin-top:10px">'+esc(t('unpaid'))+'</div>';
-        html += '<div class="foot">'+esc(t('billPayHint'))+'</div></div>';
+        html += '<div class="warn" style="margin-top:10px">'+esc(paid ? t('paidOk') : t('unpaid'))+'</div>';
+        html += '<div class="foot">'+esc(paid ? t('paidHint') : t('billPayHint'))+'</div></div>';
       }
       html += '<div class="sheet-bar"><button class="x" type="button" id="bill-x">'+esc(t('close'))+'</button>';
       html += '<button class="go" type="button" id="bill-qr">'+esc(t('payQr'))+'</button></div></div></div>';
@@ -1754,29 +1804,75 @@
         const ov = document.getElementById('bill-ov');
         if (ov) ov.onclick = e => { if (e.target === ov) { billOpen = false; render(); } };
         const x = document.getElementById('bill-x'); if (x) x.onclick = () => { billOpen = false; render(); };
-        const q = document.getElementById('bill-qr'); if (q) q.onclick = () => { billOpen = false; payOpen = true; render(); };
+        const q = document.getElementById('bill-qr');
+        if (q) q.onclick = () => { billOpen = false; payOpen = true; render(); startPayPoll(); };
       }, 0);
       return html;
     }
+    function payPaid(pay) {
+      return !!(pay && (pay.paid === true || pay.Paid === true))
+        || !!(menu && (menu.paid === true || menu.Paid === true));
+    }
+    function startPayPoll() {
+      if (payPoll) return;
+      payPoll = setInterval(async () => {
+        if (!payOpen) { stopPayPoll(); return; }
+        try {
+          if (pendingOnlinePayId) {
+            const res = await fetch(apiBase() + '/api/pos/qr-order/' + encodeURIComponent(T) + '/pay/' + encodeURIComponent(pendingOnlinePayId), { cache: 'no-store' });
+            const json = await res.json();
+            const d = json.data || json.Data || {};
+            if (d.payment || d.Payment) {
+              menu = menu || {};
+              menu.payment = d.payment || d.Payment;
+            }
+            if (d.paid || d.Paid) {
+              menu.paid = true;
+              if (menu.payment) menu.payment.paid = true;
+              stopPayPoll();
+              toast(t('paidOk'));
+              render();
+              return;
+            }
+          } else {
+            await load();
+            if (payPaid(menu && (menu.payment || menu.Payment))) {
+              stopPayPoll();
+              toast(t('paidOk'));
+            }
+          }
+        } catch (e) {}
+      }, 3000);
+    }
+    function stopPayPoll() {
+      if (payPoll) { clearInterval(payPoll); payPoll = 0; }
+    }
     function renderPay() {
-      const pay = menu && menu.payment;
-      const bill = menu && menu.bill;
-      let html = '<div class="ov" id="pay-ov"><div class="sheet"><div class="grab"></div><h2>'+esc(t('payQr'))+'</h2>';
-      if (!pay || !pay.qrUrl) {
+      const pay = menu && (menu.payment || menu.Payment);
+      const bill = menu && (menu.bill || menu.Bill);
+      const paid = payPaid(pay);
+      let html = '<div class="ov" id="pay-ov"><div class="sheet"><div class="grab"></div><h2>'+esc(paid ? t('paidTitle') : t('payQr'))+'</h2>';
+      if (paid) {
+        html += '<p class="qr-meta">'+esc(t('paidHint'))+'</p>';
+        if (pay && (pay.orderNo || pay.OrderNo)) html += '<p class="qr-meta">'+esc(t('orderNo'))+' '+esc(pay.orderNo || pay.OrderNo)+'</p>';
+      } else if (!pay || !(pay.qrUrl || pay.QrUrl)) {
         html += '<p class="qr-meta">'+esc(t('noQr'))+'</p>';
       } else {
-        html += '<div class="qr-box"><img src="'+esc(pay.qrUrl)+'" alt="VietQR" />';
-        html += '<div class="sp" style="margin-top:10px">'+money(pay.amount || (bill && bill.total) || 0)+'</div>';
-        html += '<div class="qr-meta">'+esc(pay.bankName || '')+' · '+esc(t('acc'))+' '+esc(pay.accountNumber || '')+'<br/>'+esc(pay.accountName || '');
-        if (pay.addInfo) html += '<br/>'+esc(t('transfer'))+': '+esc(pay.addInfo);
-        html += '</div><p class="qr-meta">'+esc(t('qrHint'))+'</p></div>';
-        html += '<button class="confirm-pay" type="button" id="confirm-paid">'+esc(t('confirmPaid'))+'</button>';
+        html += '<div class="qr-box"><img src="'+esc(pay.qrUrl || pay.QrUrl)+'" alt="VietQR" />';
+        html += '<div class="sp" style="margin-top:10px">'+money(pay.amount || pay.Amount || (bill && (bill.total || bill.Total)) || 0)+'</div>';
+        html += '<div class="qr-meta">'+esc(pay.bankName || pay.BankName || '')+' · '+esc(t('acc'))+' '+esc(pay.accountNumber || pay.AccountNumber || '')+'<br/>'+esc(pay.accountName || pay.AccountName || '');
+        if (pay.addInfo || pay.AddInfo) html += '<br/>'+esc(t('transfer'))+': '+esc(pay.addInfo || pay.AddInfo);
+        html += '</div><p class="qr-meta">'+esc((pay.tingee || pay.Tingee) ? t('waitingPay') : t('qrHint'))+'</p></div>';
+        if (!(pay.tingee || pay.Tingee)) {
+          html += '<button class="confirm-pay" type="button" id="confirm-paid">'+esc(t('confirmPaid'))+'</button>';
+        }
+        startPayPoll();
       }
       html += '<div class="sheet-bar"><button class="x" type="button" id="pay-x">'+esc(t('close'))+'</button></div></div></div>';
       setTimeout(() => {
         const ov = document.getElementById('pay-ov');
-        if (ov) ov.onclick = e => { if (e.target === ov) { payOpen = false; render(); } };
-        const x = document.getElementById('pay-x'); if (x) x.onclick = () => { payOpen = false; render(); };
+        if (ov) ov.onclick = e => { if (e.target === ov) { payOpen = false; stopPayPoll(); render(); } };
+        const x = document.getElementById('pay-x'); if (x) x.onclick = () => { payOpen = false; stopPayPoll(); render(); };
         const c = document.getElementById('confirm-paid'); if (c) c.onclick = confirmQrPaid;
       }, 0);
       return html;
@@ -1888,6 +1984,17 @@
           msg = t('orderNo') + ' ' + (d.orderNo || d.OrderNo) + '. ' + msg;
           trackOrders = null;
         }
+        const pay = d.payment || d.Payment;
+        if (pay && (pay.qrUrl || pay.QrUrl)) {
+          menu = menu || {};
+          menu.payment = pay;
+          pendingOnlinePayId = String(d.orderId || d.OrderId || pay.orderId || pay.OrderId || '');
+          payOpen = true;
+          cartOpen = false;
+          billOpen = false;
+          startPayPoll();
+          render();
+        }
         showSuccess(msg);
       } catch (e) {
         toast(t('sendAgain'), true);
@@ -1945,7 +2052,7 @@
       const bill = document.getElementById('fab-bill');
       if (bill) bill.onclick = () => { closeFab(); billOpen = true; payOpen = false; cartOpen = false; render(); };
       const qr = document.getElementById('fab-qr');
-      if (qr) qr.onclick = () => { closeFab(); payOpen = true; billOpen = false; cartOpen = false; render(); };
+      if (qr) qr.onclick = () => { closeFab(); payOpen = true; billOpen = false; cartOpen = false; render(); startPayPoll(); };
     }
     document.getElementById('q').addEventListener('input', e => {
       query = e.target.value || '';

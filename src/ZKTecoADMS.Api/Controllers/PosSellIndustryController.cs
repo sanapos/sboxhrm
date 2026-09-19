@@ -68,7 +68,9 @@ public partial class PosSellIndustryController(
         bool LoyaltyEnabled = true,
         decimal LoyaltyEarnPerAmount = 10000,
         decimal LoyaltyRedeemValue = 100,
-        decimal LoyaltyMaxRedeemPercent = 100);
+        decimal LoyaltyMaxRedeemPercent = 100,
+        bool EnableStaffCommission = false,
+        bool RequireStaffOnService = false);
 
     public record SellSettingsSaveDto(
         string? SellProfile = null,
@@ -93,7 +95,9 @@ public partial class PosSellIndustryController(
         bool? LoyaltyEnabled = null,
         decimal? LoyaltyEarnPerAmount = null,
         decimal? LoyaltyRedeemValue = null,
-        decimal? LoyaltyMaxRedeemPercent = null);
+        decimal? LoyaltyMaxRedeemPercent = null,
+        bool? EnableStaffCommission = null,
+        bool? RequireStaffOnService = null);
 
     [HttpGet("sell-settings")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
@@ -258,6 +262,10 @@ public partial class PosSellIndustryController(
             s.LoyaltyRedeemValue = Math.Max(0, dto.LoyaltyRedeemValue.Value);
         if (dto.LoyaltyMaxRedeemPercent.HasValue)
             s.LoyaltyMaxRedeemPercent = Math.Clamp(dto.LoyaltyMaxRedeemPercent.Value, 1, 100);
+        if (dto.EnableStaffCommission.HasValue)
+            s.EnableStaffCommission = dto.EnableStaffCommission.Value;
+        if (dto.RequireStaffOnService.HasValue)
+            s.RequireStaffOnService = dto.RequireStaffOnService.Value;
     }
 
     async Task<int> CountLiveResourceSessionsAsync(Guid storeId) =>
@@ -326,7 +334,8 @@ public partial class PosSellIndustryController(
         s.EnableQrOrderAutoPrint,
         Math.Clamp(s.ReportDayStartHour, 0, 23),
         s.DefaultHourlyProductId, s.ExtraJson,
-        s.LoyaltyEnabled, s.LoyaltyEarnPerAmount, s.LoyaltyRedeemValue, s.LoyaltyMaxRedeemPercent);
+        s.LoyaltyEnabled, s.LoyaltyEarnPerAmount, s.LoyaltyRedeemValue, s.LoyaltyMaxRedeemPercent,
+        s.EnableStaffCommission, s.RequireStaffOnService);
 
     // ── Areas / resources ─────────────────────────────────────────────────────
 
@@ -1804,28 +1813,115 @@ public partial class PosSellIndustryController(
 
     public record SessionBalanceDto(
         Guid Id, Guid CustomerId, string CustomerName, Guid? ProductId, string PackageName,
-        int TotalSessions, int RemainingSessions, DateTime? ExpiresAt);
+        int TotalSessions, int RemainingSessions, int UsedSessions, DateTime? ExpiresAt,
+        DateTime CreatedAt);
 
-    public record RedeemSessionDto(Guid BalanceId, int Sessions = 1, string? Note = null, Guid? SaleOrderId = null);
+    public record SessionTxnDto(
+        Guid Id, Guid BalanceId, string PackageName, string TransactionType,
+        int SessionDelta, int RemainingAfter, DateTime At, DateTime? UsedAt,
+        Guid? EmployeeId, string? EmployeeName, string? Note, Guid? SaleOrderId, string? OrderNo);
+
+    public record SessionOrderDto(
+        Guid Id, string OrderNo, string Status, decimal Total, decimal PaidAmount,
+        DateTime? SaleDate, IReadOnlyList<string> Items);
+
+    public record RedeemSessionDto(
+        Guid BalanceId,
+        int Sessions = 1,
+        string? Note = null,
+        Guid? SaleOrderId = null,
+        Guid? EmployeeId = null,
+        DateTime? UsedAt = null);
 
     [HttpGet("session-balances")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<SessionBalanceDto>>>> GetSessionBalances(
-        [FromQuery] Guid? customerId = null)
+        [FromQuery] Guid? customerId = null,
+        [FromQuery] bool activeOnly = true)
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<List<SessionBalanceDto>>.Fail("Thiếu cửa hàng"));
         var q = db.PosCustomerSessionBalances.AsNoTracking()
             .Include(b => b.Customer)
-            .Where(b => b.StoreId == storeId && b.Deleted == null && b.RemainingSessions > 0);
+            .Where(b => b.StoreId == storeId && b.Deleted == null);
         if (customerId.HasValue) q = q.Where(b => b.CustomerId == customerId);
+        if (activeOnly) q = q.Where(b => b.RemainingSessions > 0);
 
         var list = await q.OrderByDescending(b => b.CreatedAt)
             .Select(b => new SessionBalanceDto(
                 b.Id, b.CustomerId, b.Customer != null ? b.Customer.Name : "",
-                b.ProductId, b.PackageName, b.TotalSessions, b.RemainingSessions, b.ExpiresAt))
+                b.ProductId, b.PackageName, b.TotalSessions, b.RemainingSessions,
+                b.TotalSessions - b.RemainingSessions, b.ExpiresAt, b.CreatedAt))
             .ToListAsync();
         return Ok(AppResponse<List<SessionBalanceDto>>.Success(list));
+    }
+
+    /// <summary>Lịch sử mua + sổ buổi của khách — dùng lúc bán hàng.</summary>
+    [HttpGet("session-balances/history")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetCustomerSessionHistory(
+        [FromQuery] Guid customerId)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        if (customerId == Guid.Empty)
+            return BadRequest(AppResponse<object>.Fail("Thiếu khách hàng"));
+
+        var balances = await db.PosCustomerSessionBalances.AsNoTracking()
+            .Where(b => b.StoreId == storeId && b.CustomerId == customerId && b.Deleted == null)
+            .OrderByDescending(b => b.CreatedAt)
+            .Select(b => new SessionBalanceDto(
+                b.Id, b.CustomerId, "",
+                b.ProductId, b.PackageName, b.TotalSessions, b.RemainingSessions,
+                b.TotalSessions - b.RemainingSessions, b.ExpiresAt, b.CreatedAt))
+            .ToListAsync();
+
+        var txnRows = await (
+            from t in db.PosCustomerSessionTransactions.AsNoTracking()
+            join b in db.PosCustomerSessionBalances.AsNoTracking() on t.BalanceId equals b.Id
+            join o in db.PosSaleOrders.AsNoTracking() on t.SaleOrderId equals o.Id into og
+            from o in og.DefaultIfEmpty()
+            where t.StoreId == storeId && t.CustomerId == customerId && t.Deleted == null
+            orderby (t.UsedAt ?? t.CreatedAt) descending
+            select new
+            {
+                t.Id, t.BalanceId, b.PackageName, t.TransactionType,
+                t.SessionDelta, t.RemainingAfter, t.CreatedAt, t.UsedAt,
+                t.EmployeeId, t.EmployeeName, t.Note, t.SaleOrderId,
+                OrderNo = o != null ? o.OrderNo : null,
+            }
+        ).Take(80).ToListAsync();
+        var txns = txnRows.Select(t => new SessionTxnDto(
+            t.Id, t.BalanceId, t.PackageName, t.TransactionType.ToString(),
+            t.SessionDelta, t.RemainingAfter, t.CreatedAt, t.UsedAt,
+            t.EmployeeId, t.EmployeeName, t.Note, t.SaleOrderId, t.OrderNo)).ToList();
+
+        var rawOrders = await db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.CustomerId == customerId && o.Deleted == null)
+            .OrderByDescending(o => o.SaleDate ?? o.CreatedAt)
+            .Take(20)
+            .Select(o => new { o.Id, o.OrderNo, o.Status, o.Total, o.PaidAmount, o.SaleDate, o.CreatedAt })
+            .ToListAsync();
+        var orderIds = rawOrders.Select(o => o.Id).ToList();
+        var lineMap = await db.PosSaleOrderLines.AsNoTracking()
+            .Where(l => orderIds.Contains(l.SaleOrderId) && l.Deleted == null)
+            .Select(l => new { l.SaleOrderId, l.ProductName, l.Qty })
+            .ToListAsync();
+        var orders = rawOrders.Select(o => new SessionOrderDto(
+            o.Id, o.OrderNo, o.Status.ToString(), o.Total, o.PaidAmount,
+            o.SaleDate ?? o.CreatedAt,
+            lineMap.Where(l => l.SaleOrderId == o.Id)
+                .Select(l => $"{l.ProductName} × {l.Qty:0.##}")
+                .ToList())).ToList();
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            remainingSessions = balances.Sum(b => b.RemainingSessions),
+            usedSessions = balances.Sum(b => b.UsedSessions),
+            balances,
+            transactions = txns,
+            orders,
+        }));
     }
 
     public record BillingPreviewDto(
@@ -1848,7 +1944,7 @@ public partial class PosSellIndustryController(
             mode = PosServiceBillingMode.PerBlock;
         var samples = dto.ElapsedMinutes is { Length: > 0 }
             ? dto.ElapsedMinutes
-            : [0, 1, 5, 6, 10, 12, 15, 30, 60, 90, 120, 1440];
+            : PosServiceBillingMath.DefaultPreviewSamples;
         var rows = PosServiceBillingHelper.Preview(
             mode, dto.UnitPrice, dto.MinBillMinutes, dto.BillRoundMinutes,
             dto.GraceMinutes, dto.RoundAfterMinutes, dto.OpeningFee, dto.OpeningMinutes, samples);
@@ -1882,6 +1978,25 @@ public partial class PosSellIndustryController(
         if (balance.RemainingSessions < sessions)
             return BadRequest(AppResponse<object>.Fail($"Chỉ còn {balance.RemainingSessions} buổi"));
 
+        string? employeeName = null;
+        if (dto.EmployeeId is Guid empId)
+        {
+            var emp = await db.Employees.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == empId && e.Deleted == null);
+            if (emp == null)
+                return BadRequest(AppResponse<object>.Fail("Không tìm thấy nhân viên"));
+            employeeName = $"{emp.LastName} {emp.FirstName}".Trim();
+        }
+        else
+        {
+            var settings = await db.PosStoreSellSettings.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null);
+            if (settings is { RequireStaffOnService: true })
+                return BadRequest(AppResponse<object>.Fail("Chọn nhân viên làm buổi này"));
+        }
+
+        var usedAt = dto.UsedAt?.ToUniversalTime() ?? DateTime.UtcNow;
+
         balance.RemainingSessions -= sessions;
         balance.UpdatedAt = DateTime.UtcNow;
         balance.UpdatedBy = CurrentUserEmail;
@@ -1896,6 +2011,9 @@ public partial class PosSellIndustryController(
             TransactionType = PosSessionTxnType.Redeem,
             SessionDelta = -sessions,
             RemainingAfter = balance.RemainingSessions,
+            UsedAt = usedAt,
+            EmployeeId = dto.EmployeeId,
+            EmployeeName = employeeName,
             Note = dto.Note?.Trim(),
             IsActive = true,
             CreatedBy = CurrentUserEmail,
@@ -1905,6 +2023,8 @@ public partial class PosSellIndustryController(
         {
             balanceId = balance.Id,
             remaining = balance.RemainingSessions,
+            usedAt,
+            employeeName,
         }));
     }
 
@@ -1923,47 +2043,90 @@ public partial class PosSellIndustryController(
         if (settings == null || !settings.EnableSessionPacks) return;
 
         var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
-        var packs = await dbContext.PosProducts.AsNoTracking()
-            .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId
-                && p.Deleted == null && p.SessionPackCount > 0)
+        var products = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
             .ToDictionaryAsync(p => p.Id);
+
+        var comboIds = products.Values
+            .Where(p => p.ProductType == PosProductType.Combo)
+            .Select(p => p.Id)
+            .ToList();
+        var comboComps = comboIds.Count == 0
+            ? []
+            : await dbContext.PosProductComboLines.AsNoTracking()
+                .Include(c => c.ComponentProduct)
+                .Where(c => comboIds.Contains(c.ComboProductId) && c.Deleted == null
+                    && c.ComponentProduct != null
+                    && c.ComponentProduct.Deleted == null
+                    && c.ComponentProduct.SessionPackCount > 0)
+                .ToListAsync();
 
         foreach (var line in lines)
         {
-            if (!packs.TryGetValue(line.ProductId, out var product)) continue;
-            var grant = product.SessionPackCount * (int)Math.Max(1, Math.Round(line.Qty));
-            if (grant <= 0) continue;
+            if (!products.TryGetValue(line.ProductId, out var product)) continue;
+            var lineQty = (int)Math.Max(1, Math.Round(line.Qty));
 
-            var balance = new PosCustomerSessionBalance
+            if (product.SessionPackCount > 0)
             {
-                Id = Guid.NewGuid(),
-                StoreId = storeId,
-                CustomerId = order.CustomerId.Value,
-                ProductId = product.Id,
-                PackageName = product.Name,
-                TotalSessions = grant,
-                RemainingSessions = grant,
-                ExpiresAt = product.SessionPackValidDays > 0
-                    ? DateTime.UtcNow.AddDays(product.SessionPackValidDays)
-                    : null,
-                IsActive = true,
-                CreatedBy = actorEmail,
-            };
-            dbContext.PosCustomerSessionBalances.Add(balance);
-            dbContext.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
+                AddGrantedPack(dbContext, storeId, order, product, product.Name,
+                    product.SessionPackCount * lineQty, product.SessionPackValidDays, actorEmail);
+                continue;
+            }
+
+            if (product.ProductType != PosProductType.Combo) continue;
+            foreach (var comp in comboComps.Where(c => c.ComboProductId == product.Id))
             {
-                Id = Guid.NewGuid(),
-                StoreId = storeId,
-                BalanceId = balance.Id,
-                CustomerId = order.CustomerId.Value,
-                SaleOrderId = order.Id,
-                TransactionType = PosSessionTxnType.Purchase,
-                SessionDelta = grant,
-                RemainingAfter = grant,
-                Note = $"Mua gói {product.Name}",
-                IsActive = true,
-                CreatedBy = actorEmail,
-            });
+                var child = comp.ComponentProduct;
+                if (child == null || child.SessionPackCount <= 0) continue;
+                var grant = child.SessionPackCount
+                    * (int)Math.Max(1, Math.Round(comp.Qty))
+                    * lineQty;
+                if (grant <= 0) continue;
+                AddGrantedPack(dbContext, storeId, order, child,
+                    $"{child.Name} · {product.Name}",
+                    grant, child.SessionPackValidDays, actorEmail);
+            }
         }
+    }
+
+    static void AddGrantedPack(
+        ZKTecoDbContext dbContext,
+        Guid storeId,
+        PosSaleOrder order,
+        PosProduct product,
+        string packageName,
+        int grant,
+        int validDays,
+        string? actorEmail)
+    {
+        if (grant <= 0 || !order.CustomerId.HasValue) return;
+        var balance = new PosCustomerSessionBalance
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            CustomerId = order.CustomerId.Value,
+            ProductId = product.Id,
+            PackageName = packageName,
+            TotalSessions = grant,
+            RemainingSessions = grant,
+            ExpiresAt = validDays > 0 ? DateTime.UtcNow.AddDays(validDays) : null,
+            IsActive = true,
+            CreatedBy = actorEmail,
+        };
+        dbContext.PosCustomerSessionBalances.Add(balance);
+        dbContext.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            BalanceId = balance.Id,
+            CustomerId = order.CustomerId.Value,
+            SaleOrderId = order.Id,
+            TransactionType = PosSessionTxnType.Purchase,
+            SessionDelta = grant,
+            RemainingAfter = grant,
+            Note = $"Mua gói {packageName}",
+            IsActive = true,
+            CreatedBy = actorEmail,
+        });
     }
 }

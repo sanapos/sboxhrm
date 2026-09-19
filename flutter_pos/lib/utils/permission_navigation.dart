@@ -184,6 +184,8 @@ class PermissionNavigation {
         return 'Tổng kết cuối ngày';
       case 'PosReportStaffRevenue':
         return 'Doanh thu theo nhân viên';
+      case 'PosReportStaffCommission':
+        return 'Hoa hồng nhân viên';
       case 'PosReportCashbook':
         return 'Sổ quỹ';
       case 'PosReportPnl':

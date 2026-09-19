@@ -89,6 +89,7 @@ public static class PosSellProfileDefaults
                 s.AllowProvisionalBill = true;
                 s.EnableMultiDeviceDraftLock = true;
                 s.PromptGuestCountOnOpen = false;
+                s.EnableStaffCommission = true;
                 break;
             case PosSellProfile.RoomHourly:
                 s.EnableResources = true;

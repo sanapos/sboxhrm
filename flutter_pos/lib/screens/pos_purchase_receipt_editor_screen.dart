@@ -1254,7 +1254,7 @@ class _PosPurchaseReceiptEditorScreenState
   }
 
   Widget? _buildReceiptActionBar(PermissionProvider perm) {
-    if (!_readOnly && perm.canEdit('PosProducts')) {
+    if (!_readOnly && (perm.canEdit('PosPurchaseReceipts') || perm.canEdit('PosProducts'))) {
       return Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1304,7 +1304,7 @@ class _PosPurchaseReceiptEditorScreenState
     }
     if (_status == 'Completed' &&
         _receiptId != null &&
-        perm.canEdit('PosProducts')) {
+        (perm.canEdit('PosPurchaseReceipts') || perm.canEdit('PosProducts'))) {
       return Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1325,7 +1325,7 @@ class _PosPurchaseReceiptEditorScreenState
     }
     if (_status == 'Cancelled' &&
         _receiptId != null &&
-        perm.canEdit('PosProducts')) {
+        (perm.canEdit('PosPurchaseReceipts') || perm.canEdit('PosProducts'))) {
       return Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -1398,7 +1398,7 @@ class _PosPurchaseReceiptEditorScreenState
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     final actionBar = _buildReceiptActionBar(perm);
-    if (!perm.canEdit('PosProducts')) {
+    if (!perm.canView('PosPurchaseReceipts') && !perm.canView('PosProducts')) {
       return Scaffold(body: Center(child: Text(tr('Không có quyền nhập hàng'))));
     }
 

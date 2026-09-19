@@ -466,7 +466,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    if (!perm.canView('PosProducts')) {
+    if (!perm.canView('PosPurchaseReturns') && !perm.canView('PosProducts')) {
       return Scaffold(
           body: Center(child: Text(tr('Không có quyền xem trả hàng nhập'))));
     }

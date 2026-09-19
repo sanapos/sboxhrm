@@ -50,8 +50,11 @@ public class PosSaleOrderLine : AuditableEntity<Guid>
     public DateTime? ServiceStartedAt { get; set; }
     public DateTime? ServiceEndedAt { get; set; }
 
-    /// <summary>NV phụ trách dòng (stylist / PT).</summary>
+    /// <summary>NV phụ trách dòng (stylist / PT) — dòng đơn hoặc fallback combo.</summary>
     public Guid? AssignedEmployeeId { get; set; }
+
+    /// <summary>JSON gán NV từng thành phần combo: [{componentProductId, assignedEmployeeId, assignedEmployeeName}].</summary>
+    public string? StaffAssignmentsJson { get; set; }
 
     /// <summary>Số lượng đã báo chế biến / gửi bếp.</summary>
     public decimal KitchenSentQty { get; set; }

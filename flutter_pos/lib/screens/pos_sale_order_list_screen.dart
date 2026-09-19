@@ -10,6 +10,7 @@ import '../models/pos_sale_order.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import 'pos/pos_einvoice_report_screen.dart';
 import '../widgets/pos/pos_cancel_return_reason_dialog.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../utils/pos_kiot_time_range.dart';
@@ -73,6 +74,9 @@ class PosSaleOrderListScreen extends StatefulWidget {
     this.initialSoldBy,
     this.initialPaymentMethod,
     this.initialCustomerId,
+    this.initialProductId,
+    this.initialVoucherCode,
+    this.initialHasVoucher = false,
   });
 
   final DateTime? initialFrom;
@@ -81,6 +85,9 @@ class PosSaleOrderListScreen extends StatefulWidget {
   final String? initialSoldBy;
   final String? initialPaymentMethod;
   final String? initialCustomerId;
+  final String? initialProductId;
+  final String? initialVoucherCode;
+  final bool initialHasVoucher;
 
   @override
   State<PosSaleOrderListScreen> createState() => _PosSaleOrderListScreenState();
@@ -103,6 +110,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   String? _paymentMethod;
   String? _soldBy;
   String? _customerId;
+  String? _productId;
+  String? _voucherCode;
+  bool _hasVoucher = false;
   bool? _isDeliveryFilter;
   PosKiotTimeFilterState _timeFilter = PosKiotTimeFilterState.thisMonth();
   Set<_ListColumn> _visibleColumns = _defaultListColumns();
@@ -139,6 +149,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     if (w.initialCustomerId != null && w.initialCustomerId!.trim().isNotEmpty) {
       _customerId = w.initialCustomerId!.trim();
     }
+    if (w.initialProductId != null && w.initialProductId!.trim().isNotEmpty) {
+      _productId = w.initialProductId!.trim();
+    }
+    if (w.initialVoucherCode != null && w.initialVoucherCode!.trim().isNotEmpty) {
+      _voucherCode = w.initialVoucherCode!.trim();
+    }
+    _hasVoucher = w.initialHasVoucher;
     if (w.initialFrom != null || w.initialTo != null) {
       _timeFilter = PosKiotTimeFilterState(
         isCustom: true,
@@ -180,6 +197,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       paymentMethod: _paymentMethod,
       soldBy: _soldBy,
       customerId: _customerId,
+      productId: _productId,
+      voucherCode: _voucherCode,
+      hasVoucher: _hasVoucher ? true : null,
       isDelivery: _isDeliveryFilter,
       from: _timeFilter.from,
       to: _timeFilter.to,
@@ -419,6 +439,10 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   }
 
   Future<void> _deleteOrder(PosSaleOrder o) async {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.canDelete('PosSaleOrders') && !perm.canDelete('PosProducts')) {
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -510,6 +534,76 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     );
   }
 
+  Future<void> _eInvoiceApi(
+    PosSaleOrder o,
+    String title,
+    Future<Map<String, dynamic>> Function() action,
+  ) async {
+    final res = await action();
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      final data = res['data'];
+      final st = data is Map
+          ? (data['eInvoiceStatus'] ?? data['EInvoiceStatus'])?.toString()
+          : null;
+      if (st == 'Failed') {
+        NotificationOverlayManager().showError(
+          title: '$title thất bại',
+          message: data is Map
+              ? (data['eInvoiceError'] ??
+                      data['EInvoiceError'] ??
+                      'Nhà cung cấp từ chối')
+                  .toString()
+              : 'Nhà cung cấp từ chối',
+        );
+      } else {
+        NotificationOverlayManager().showSuccess(
+          title: title,
+          message: tr(res['data'] is Map
+              ? (res['data']['eInvoiceNo'] ??
+                      res['data']['EInvoiceNo'] ??
+                      o.orderNo)
+                  .toString()
+              : o.orderNo),
+        );
+      }
+    } else {
+      NotificationOverlayManager().showError(
+        title: '$title thất bại',
+        message: res['message']?.toString() ?? 'Nhà cung cấp từ chối hóa đơn',
+      );
+    }
+    await _load(page: _page);
+  }
+
+  Future<String?> _promptEInvoice(String title, String hint) async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr(title)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(hintText: tr(hint)),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('Hủy'))),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
+            child: Text(tr('OK')),
+          ),
+        ],
+      ),
+    );
+    final text = ctrl.text.trim();
+    ctrl.dispose();
+    return ok == true ? text : null;
+  }
+
   Future<void> _issueEInvoice(PosSaleOrder o) async {
     if (o.status != 'Completed') return;
     final ok = await showDialog<bool>(
@@ -531,28 +625,109 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    final res = await _api.issuePosEInvoice(o.id);
-    if (!mounted) return;
-    if (res['isSuccess'] == true) {
-      NotificationOverlayManager().showSuccess(
-        title: 'Đã xuất HĐĐT',
-        message: tr(res['data'] is Map
-            ? (res['data']['eInvoiceNo'] ?? res['data']['EInvoiceNo'] ?? o.orderNo)
-                .toString()
-            : o.orderNo),
-      );
-      await _load(page: _page);
-    } else {
-      NotificationOverlayManager().showError(
-        title: 'Xuất HĐĐT thất bại',
-        message: res['message']?.toString() ?? 'Nhà cung cấp từ chối hóa đơn',
-      );
-      await _load(page: _page);
+    await _eInvoiceApi(o, 'Đã xuất HĐĐT', () => _api.issuePosEInvoice(o.id));
+  }
+
+  Future<void> _showEInvoiceActions(PosSaleOrder o) async {
+    if (o.status != 'Completed') return;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.canApprove('PosEInvoice') &&
+        !perm.canEdit('PosEInvoice') &&
+        !perm.canEdit('PosProducts')) {
+      return;
     }
+    final st = o.eInvoiceStatus;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (ctx) {
+        Widget tile(IconData icon, String label, VoidCallback onTap,
+            {Color? color}) {
+          return ListTile(
+            leading: Icon(icon, color: color ?? PosTheme.kiotBlue),
+            title: Text(tr(label)),
+            onTap: () {
+              Navigator.pop(ctx);
+              onTap();
+            },
+          );
+        }
+
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text(tr('HĐĐT · ${o.orderNo}')),
+                subtitle: Text(tr(posEInvoiceChipLabel(
+                  st,
+                  provider: o.eInvoiceProvider,
+                  invoiceNo: o.eInvoiceNo,
+                ))),
+              ),
+              if (posEInvoiceCanIssue(st))
+                tile(Icons.send_outlined, 'Phát hành / xuất lại',
+                    () => _issueEInvoice(o)),
+              if (posEInvoiceCanDraft(st))
+                tile(Icons.note_add_outlined, 'Xuất nháp (chưa ký)', () {
+                  _eInvoiceApi(
+                      o, 'Đã lưu nháp HĐĐT', () => _api.draftPosEInvoice(o.id));
+                }),
+              if (posEInvoiceCanEmail(st))
+                tile(Icons.email_outlined, 'Gửi email cho khách', () async {
+                  final mail = await _promptEInvoice(
+                      'Gửi hóa đơn qua email', 'Email khách hàng');
+                  if (mail == null || mail.isEmpty || !mounted) return;
+                  await _eInvoiceApi(o, 'Đã gửi email HĐĐT',
+                      () => _api.emailPosEInvoice(o.id, email: mail));
+                }),
+              if (posEInvoiceCanReplace(st))
+                tile(Icons.find_replace, 'Thay thế hóa đơn', () async {
+                  final reason = await _promptEInvoice(
+                      'Thay thế hóa đơn', 'Lý do thay thế');
+                  if (reason == null || !mounted) return;
+                  await _eInvoiceApi(o, 'Đã thay thế HĐĐT',
+                      () => _api.replacePosEInvoice(o.id, reason: reason));
+                }),
+              if (posEInvoiceCanCancel(st))
+                tile(Icons.cancel_outlined, 'Hủy hóa đơn', () async {
+                  final reason = await _promptEInvoice(
+                      'Hủy hóa đơn', 'Lý do hủy');
+                  if (reason == null || !mounted) return;
+                  await _eInvoiceApi(
+                    o,
+                    'Đã hủy HĐĐT',
+                    () => _api.cancelPosEInvoice(o.id,
+                        reason: reason, agreementDesc: reason),
+                  );
+                }, color: Colors.red.shade700),
+              if (posEInvoiceCanSync(st))
+                tile(Icons.sync, 'Đồng bộ từ nhà cung cấp', () {
+                  _eInvoiceApi(
+                      o, 'Đã đồng bộ HĐĐT', () => _api.syncPosEInvoice(o.id));
+                }),
+              tile(Icons.list_alt_outlined, 'Mở quản lý HĐĐT', () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const PosEInvoiceReportScreen(),
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _completeOrder(PosSaleOrder o) async {
     if (_completingId != null) return;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.canPosPay()) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -696,6 +871,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   }
 
   Future<void> _copyOrder(PosSaleOrder o) async {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.canPosOrder()) return;
     final res = await _api.copyPosSale(o.id);
     if (!mounted) return;
     if (res['isSuccess'] == true && res['data'] != null) {
@@ -874,7 +1051,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    if (!perm.canView('PosProducts')) {
+    if (!perm.canView('PosSaleOrders') && !perm.canView('PosProducts')) {
       return Scaffold(
           appBar: AppBar(title: Text(tr('Hoá đơn'))),
           body: Center(child: Text(tr('Không có quyền xem đơn hàng'))));
@@ -1347,6 +1524,18 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       fn();
     }
 
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final canDelete =
+        perm.canDelete('PosSaleOrders') || perm.canDelete('PosProducts');
+    final canPay = perm.canPosPay();
+    final canReturn = perm.canApprove('PosSaleReturns') ||
+        perm.canApprove('PosSell') ||
+        perm.canEdit('PosProducts');
+    final canEInvoice = perm.canApprove('PosEInvoice') ||
+        perm.canEdit('PosEInvoice') ||
+        perm.canEdit('PosProducts');
+    final canOrder = perm.canPosOrder();
+
     final btns = <Widget>[];
     if (o.status == 'Completed') {
       btns.add(_compactOrderBtn(
@@ -1361,7 +1550,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         filled: true,
         onPressed: () => run(() => _openEditor(orderId: o.id)),
       ));
-      if (desktopExtras) {
+      if (desktopExtras && canPay) {
         btns.add(_compactOrderBtn(
           label: _completingId == o.id ? '…' : 'Hoàn thành',
           enabled: _completingId == null,
@@ -1387,7 +1576,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         onPressed: () => run(() => _createShipmentFromList(o)),
       ));
     }
-    if (canEdit && o.status == 'Completed' && !o.isFullyReturned) {
+    if (canReturn && o.status == 'Completed' && !o.isFullyReturned) {
       btns.add(_compactOrderBtn(
         label: 'Trả hàng',
         onPressed: () async {
@@ -1401,24 +1590,19 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         },
       ));
     }
-    if (desktopExtras && canEdit && o.status == 'Completed') {
-      if ((o.eInvoiceStatus ?? 'None') != 'Issued') {
-        btns.add(_compactOrderBtn(
-          label: 'HĐĐT',
-          onPressed: () => _issueEInvoice(o),
-        ));
-      } else {
-        btns.add(_compactOrderBtn(
-          label: 'HĐĐT',
-          onPressed: () {},
-        ));
-      }
+    if (canEInvoice && o.status == 'Completed') {
+      btns.add(_compactOrderBtn(
+        label: 'HĐĐT',
+        onPressed: () => _showEInvoiceActions(o),
+      ));
+    }
+    if (canOrder && desktopExtras && o.status == 'Completed') {
       btns.add(_compactOrderBtn(
         label: 'Sao chép',
         onPressed: () => _copyOrder(o),
       ));
     }
-    if (canEdit && o.canDeleteFromList) {
+    if (canDelete && o.canDeleteFromList) {
       btns.add(_compactOrderBtn(
         label: 'Xóa',
         color: Colors.red,

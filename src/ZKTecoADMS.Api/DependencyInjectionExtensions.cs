@@ -163,6 +163,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ITingeeOpenApiClient, TingeeOpenApiClient>();
         services.AddScoped<ITingeeMerchantProvisioningService, TingeeMerchantProvisioningService>();
         services.AddScoped<IPosPaymentGatewayService, PosPaymentGatewayService>();
+        services.AddScoped<IPosTingeePaidOrderService, PosTingeePaidOrderService>();
         services.AddHttpClient("tingee-open-api", (sp, client) =>
         {
             var cfg = sp.GetRequiredService<IConfiguration>();

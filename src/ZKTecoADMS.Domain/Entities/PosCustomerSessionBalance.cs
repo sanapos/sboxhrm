@@ -51,6 +51,15 @@ public class PosCustomerSessionTransaction : AuditableEntity<Guid>
 
     public int RemainingAfter { get; set; }
 
+    /// <summary>Ngày giờ sử dụng buổi (trừ buổi). Mua gói thì null.</summary>
+    public DateTime? UsedAt { get; set; }
+
+    public Guid? EmployeeId { get; set; }
+    public virtual Employee? Employee { get; set; }
+
+    [MaxLength(200)]
+    public string? EmployeeName { get; set; }
+
     [MaxLength(500)]
     public string? Note { get; set; }
 }

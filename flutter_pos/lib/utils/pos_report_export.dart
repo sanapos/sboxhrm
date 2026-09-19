@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:excel/excel.dart' as excel_lib;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
@@ -87,6 +90,38 @@ class PosReportExport {
     }
   }
 
+  /// Tải file Excel từ API (bytes) rồi lưu máy / trình duyệt.
+  static Future<bool> serverExcel({
+    required BuildContext context,
+    required Future<Map<String, dynamic>> Function() fetch,
+    required String filePrefix,
+    String successMessage = 'Đã xuất Excel',
+  }) async {
+    final res = await fetch();
+    if (!context.mounted) return false;
+    if (res['isSuccess'] != true || res['data'] == null) {
+      NotificationOverlayManager().showError(
+        title: tr('Xuất file'),
+        message: tr('${res['message'] ?? 'Không xuất được Excel'}'),
+      );
+      return false;
+    }
+    final bytes = Uint8List.fromList(List<int>.from(res['data'] as List));
+    final name =
+        '${filePrefix}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
+    await file_saver.saveFileBytes(
+      bytes,
+      name,
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    if (!context.mounted) return true;
+    NotificationOverlayManager().showSuccess(
+      title: tr('Xuất file'),
+      message: tr(successMessage),
+    );
+    return true;
+  }
+
   static Future<bool> png({
     required BuildContext context,
     required GlobalKey key,
@@ -94,6 +129,7 @@ class PosReportExport {
     double pixelRatio = 2.5,
   }) async {
     try {
+      await WidgetsBinding.instance.endOfFrame;
       final boundary =
           key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) {
@@ -103,7 +139,20 @@ class PosReportExport {
         );
         return false;
       }
-      final image = await boundary.toImage(pixelRatio: pixelRatio);
+      final size = boundary.size;
+      var ratio = pixelRatio;
+      final maxSide = math.max(size.width, size.height);
+      final cap = kIsWeb ? 8192.0 : 16384.0;
+      if (maxSide > 0) {
+        ratio = math.min(pixelRatio, cap / maxSide);
+        if (ratio < 0.8) ratio = 0.8;
+      }
+      late final ui.Image image;
+      try {
+        image = await boundary.toImage(pixelRatio: ratio);
+      } catch (_) {
+        image = await boundary.toImage(pixelRatio: math.min(ratio, 1.0));
+      }
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
         NotificationOverlayManager()

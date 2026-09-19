@@ -40,6 +40,7 @@ class PermissionModules {
     'PosReportExpense',
     'PosReportEndOfDay',
     'PosReportStaffRevenue',
+    'PosReportStaffCommission',
     'PosReportCashbook',
     'PosReportPnl',
     'PosReportVoucher',

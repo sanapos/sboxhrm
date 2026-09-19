@@ -673,7 +673,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    if (!perm.canEdit('PosProducts')) {
+    if (!perm.canEdit('PosStockCounts') && !perm.canEdit('PosProducts')) {
       return Scaffold(body: Center(child: Text(tr('Không có quyền kiểm kê kho'))));
     }
 

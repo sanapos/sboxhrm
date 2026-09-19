@@ -6,20 +6,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../models/hrm.dart';
 import '../../services/api_service.dart';
+import '../../utils/tingee_supported_banks.dart';
 import '../../widgets/notification_overlay.dart';
-
-const _tingeeBanks = <(String, String)>[
-  ('970436', 'Vietcombank'),
-  ('970415', 'VietinBank'),
-  ('970418', 'BIDV'),
-  ('970422', 'MB Bank'),
-  ('970416', 'ACB'),
-  ('970432', 'VPBank'),
-  ('970403', 'Sacombank'),
-  ('970441', 'VIB'),
-  ('970423', 'TPBank'),
-  ('970426', 'MSB'),
-];
 
 /// SuperAdmin — tạo merchant/shop Tingee cho cửa hàng và gắn STK.
 class TingeeStoreSetupCard extends StatefulWidget {
@@ -51,6 +39,7 @@ class _TingeeStoreSetupCardState extends State<TingeeStoreSetupCard> {
   String? _va;
   String? _statusMsg;
   List<Map<String, dynamic>> _accounts = const [];
+  List<TingeeSupportedBank> _banks = kTingeeFallbackBanks;
 
   @override
   void initState() {
@@ -59,6 +48,15 @@ class _TingeeStoreSetupCardState extends State<TingeeStoreSetupCard> {
       _storeId = _idOf(widget.stores.first);
       _fillFromStore(widget.stores.first);
     }
+    loadTingeeSupportedBanks(admin: true).then((banks) {
+      if (!mounted || banks.isEmpty) return;
+      setState(() {
+        _banks = banks;
+        if (!_banks.any((b) => b.bin == _bankBin)) {
+          _bankBin = _banks.first.bin;
+        }
+      });
+    });
   }
 
   @override
@@ -246,16 +244,23 @@ class _TingeeStoreSetupCardState extends State<TingeeStoreSetupCard> {
             const Divider(height: 28),
             Text(tr('Gắn số tài khoản'),
                 style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(
+              tr('Tingee hỗ trợ ${_banks.length} ngân hàng cho từng cửa hàng.'),
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _bankBin,
+              value: _banks.any((b) => b.bin == _bankBin)
+                  ? _bankBin
+                  : _banks.first.bin,
               decoration: InputDecoration(
                 labelText: tr('Ngân hàng'),
                 border: const OutlineInputBorder(),
               ),
-              items: _tingeeBanks
+              items: _banks
                   .map((b) => DropdownMenuItem(
-                      value: b.$1, child: Text('${b.$2} (${b.$1})')))
+                      value: b.bin, child: Text(b.label)))
                   .toList(),
               onChanged: (v) => setState(() => _bankBin = v ?? _bankBin),
             ),

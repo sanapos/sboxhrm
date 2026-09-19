@@ -48,7 +48,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         decimal QtyIncrease, decimal QtyDecrease);
 
     [HttpPost]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<StockCountDto>>> CreateCount([FromBody] CreateStockCountDto dto)
     {
         var storeId = RequiredStoreId;
@@ -78,7 +78,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     [HttpGet]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> ListCounts(
         [FromQuery] string? search,
         [FromQuery] string? status,
@@ -132,7 +132,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     [HttpGet("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<StockCountDto>>> GetCount(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -146,7 +146,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     [HttpPut("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<StockCountDto>>> UpdateCount(
         Guid id, [FromBody] UpdateStockCountDto dto)
     {
@@ -167,7 +167,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     [HttpPost("{id:guid}/lines/add")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<StockCountDto>>> AddLines(
         Guid id, [FromBody] List<AddCountLineInput> inputs)
     {
@@ -208,7 +208,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     [HttpDelete("{id:guid}/lines/{lineId:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<StockCountDto>>> RemoveLine(Guid id, Guid lineId)
     {
         var storeId = RequiredStoreId;
@@ -230,7 +230,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     [HttpPut("{id:guid}/lines")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<StockCountDto>>> UpdateLines(
         Guid id, [FromBody] UpdateCountLinesDto dto)
     {
@@ -279,7 +279,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     [HttpPost("{id:guid}/complete")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<StockCountDto>>> CompleteCount(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -479,7 +479,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     [HttpPost("{id:guid}/copy")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<StockCountDto>>> CopyCount(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -517,7 +517,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     [HttpPost("{id:guid}/cancel")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<StockCountDto>>> CancelCount(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -569,7 +569,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> DeleteCount(Guid id)
     {
         var storeId = RequiredStoreId;

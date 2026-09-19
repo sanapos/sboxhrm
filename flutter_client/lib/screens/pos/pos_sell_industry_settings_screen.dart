@@ -291,11 +291,6 @@ class _PosSellIndustrySettingsScreenState
         title: Text(tr(_title)),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: tr('Quay lại'),
-          onPressed: () => Navigator.maybePop(context),
-        ),
         actions: [
           if (_saving)
             const Padding(
@@ -521,6 +516,29 @@ class _PosSellIndustrySettingsScreenState
             ),
             const SizedBox(height: 8),
           ],
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Hoa hồng nhân viên')),
+            subtitle: Text(tr(
+                'Khi bán combo / dịch vụ: chọn NV làm từng phần (cắt, gội, massage, SP bán kèm) để tính hoa hồng')),
+            value: s.enableStaffCommission,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave(
+                    (cur) => cur.copyWith(enableStaffCommission: v)),
+          ),
+          if (s.enableStaffCommission)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Bắt buộc chọn NV trên dịch vụ')),
+              subtitle: Text(tr(
+                  'Không thanh toán nếu dịch vụ hoặc thành phần dịch vụ trong combo chưa có NV')),
+              value: s.requireStaffOnService,
+              onChanged: _saving
+                  ? null
+                  : (v) => _patchAndSave(
+                      (cur) => cur.copyWith(requireStaffOnService: v)),
+            ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(tr('Gói buổi / liệu trình / thẻ tập')),

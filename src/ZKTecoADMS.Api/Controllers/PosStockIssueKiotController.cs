@@ -92,7 +92,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
     [HttpPost]
 
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequirePosStockIssueKind(ModulePermissionAction.Edit)]
 
     public async Task<ActionResult<AppResponse<StockIssueKiotDto>>> CreateIssue(string kind)
 
@@ -142,7 +142,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
     [HttpGet]
 
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequirePosStockIssueKind(ModulePermissionAction.View)]
 
     public async Task<ActionResult<AppResponse<object>>> ListIssues(
 
@@ -270,7 +270,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
     [HttpGet("{id:guid}")]
 
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequirePosStockIssueKind(ModulePermissionAction.View)]
 
     public async Task<ActionResult<AppResponse<StockIssueKiotDto>>> GetIssue(string kind, Guid id)
 
@@ -306,7 +306,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
     [HttpPut("{id:guid}")]
 
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequirePosStockIssueKind(ModulePermissionAction.Edit)]
 
     public async Task<ActionResult<AppResponse<StockIssueKiotDto>>> UpdateIssue(
 
@@ -365,7 +365,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
     [HttpPost("{id:guid}/lines/add")]
 
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequirePosStockIssueKind(ModulePermissionAction.Edit)]
 
     public async Task<ActionResult<AppResponse<StockIssueKiotDto>>> AddLines(
 
@@ -467,7 +467,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
     [HttpDelete("{id:guid}/lines/{lineId:guid}")]
 
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequirePosStockIssueKind(ModulePermissionAction.Edit)]
 
     public async Task<ActionResult<AppResponse<StockIssueKiotDto>>> RemoveLine(string kind, Guid id, Guid lineId)
 
@@ -529,7 +529,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
     [HttpPut("{id:guid}/lines")]
 
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequirePosStockIssueKind(ModulePermissionAction.Edit)]
 
     public async Task<ActionResult<AppResponse<StockIssueKiotDto>>> UpdateLines(
 
@@ -614,7 +614,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
 
         [HttpPost("{id:guid}/complete")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequirePosStockIssueKind(ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<StockIssueKiotDto>>> CompleteIssue(string kind, Guid id)
     {
         if (!TryParseKind(kind, out var issueKind, out _, out var noteFallback))
@@ -697,7 +697,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
     [HttpPost("{id:guid}/cancel")]
 
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequirePosStockIssueKind(ModulePermissionAction.Edit)]
 
     public async Task<ActionResult<AppResponse<StockIssueKiotDto>>> CancelIssue(string kind, Guid id)
 
@@ -813,7 +813,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
     [HttpDelete("{id:guid}")]
 
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequirePosStockIssueKind(ModulePermissionAction.Edit)]
 
     public async Task<ActionResult<AppResponse<object>>> DeleteIssue(string kind, Guid id)
 
@@ -863,7 +863,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
     [HttpPost("{id:guid}/copy")]
 
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequirePosStockIssueKind(ModulePermissionAction.Edit)]
 
     public async Task<ActionResult<AppResponse<StockIssueKiotDto>>> CopyIssue(string kind, Guid id)
 

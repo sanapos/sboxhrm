@@ -157,7 +157,7 @@ public class PosSaleOrder : AuditableEntity<Guid>
     /// </summary>
     public int? InvoiceSlot { get; set; }
 
-    /// <summary>None | Skipped | Pending | Issued | Failed</summary>
+    /// <summary>None | Skipped | Pending | Draft | Issued | Failed | Cancelled</summary>
     [MaxLength(20)]
     public string EInvoiceStatus { get; set; } = "None";
 
@@ -202,6 +202,24 @@ public class PosSaleOrder : AuditableEntity<Guid>
 
     [MaxLength(50)]
     public string? EInvoiceBuyerPhone { get; set; }
+
+    /// <summary>Original | Replacement</summary>
+    [MaxLength(20)]
+    public string? EInvoiceKind { get; set; }
+
+    /// <summary>Số HĐ gốc khi hóa đơn hiện tại là hóa đơn thay thế.</summary>
+    [MaxLength(30)]
+    public string? EInvoiceOriginalNo { get; set; }
+
+    public DateTime? EInvoiceCancelledAt { get; set; }
+
+    [MaxLength(400)]
+    public string? EInvoiceCancelReason { get; set; }
+
+    public DateTime? EInvoiceEmailSentAt { get; set; }
+
+    [MaxLength(200)]
+    public string? EInvoiceEmailTo { get; set; }
 
     public virtual ICollection<PosSaleOrderLine> Lines { get; set; } = [];
 }

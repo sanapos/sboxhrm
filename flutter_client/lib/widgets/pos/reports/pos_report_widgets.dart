@@ -984,3 +984,113 @@ class PosReportNavRow extends StatelessWidget {
     );
   }
 }
+
+/// Danh sách hóa đơn gốc trong báo cáo — bấm dòng mở phiếu.
+class PosReportInvoiceList extends StatelessWidget {
+  const PosReportInvoiceList({
+    super.key,
+    required this.items,
+    required this.moneyFmt,
+    required this.onOpen,
+    this.total,
+    this.onSeeAll,
+    this.emptyLabel = 'Chưa có hóa đơn trong kỳ',
+  });
+
+  final List<Map<String, dynamic>> items;
+  final NumberFormat moneyFmt;
+  final void Function(Map<String, dynamic> row) onOpen;
+  final int? total;
+  final VoidCallback? onSeeAll;
+  final String emptyLabel;
+
+  static final _dt = DateFormat('dd/MM HH:mm', 'vi_VN');
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return PosReportEmpty(message: emptyLabel);
+    }
+    final shown = total != null && total! > items.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          if (i > 0) const Divider(height: 12),
+          _row(context, items[i]),
+        ],
+        if (shown && onSeeAll != null) ...[
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: onSeeAll,
+            child: Text(tr('Xem tất cả $total hóa đơn')),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _row(BuildContext context, Map<String, dynamic> e) {
+    final no = (e['orderNo'] ?? e['OrderNo'] ?? '').toString();
+    final name = (e['customerName'] ?? e['CustomerName'] ?? '').toString();
+    final pay = (e['paymentMethod'] ?? e['PaymentMethod'] ?? '').toString();
+    final sold = (e['soldBy'] ?? e['SoldBy'] ?? e['createdBy'] ?? '').toString();
+    final totalAmt = _num(e['total'] ?? e['Total']);
+    final paid = _num(e['paidAmount'] ?? e['PaidAmount']);
+    final dt = DateTime.tryParse(
+          '${e['saleDate'] ?? e['SaleDate'] ?? e['createdAt'] ?? e['CreatedAt'] ?? ''}',
+        )?.toLocal();
+    return InkWell(
+      onTap: () => onOpen(e),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    no.isEmpty ? '—' : no,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: _ink,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      if (dt != null) _dt.format(dt),
+                      if (name.isNotEmpty) name,
+                      if (pay.isNotEmpty) pay,
+                      if (sold.isNotEmpty) sold,
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: _muted),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                PosReportMoneyLabel(totalAmt, format: moneyFmt, maxWidth: 110),
+                if (paid > 0 && paid != totalAmt)
+                  Text(
+                    'thu ${posReportMoneyOf(paid, moneyFmt)}',
+                    style: const TextStyle(fontSize: 11, color: _muted),
+                  ),
+              ],
+            ),
+            const Icon(Icons.chevron_right, size: 18, color: _hint),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static double _num(dynamic v) =>
+      v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+}

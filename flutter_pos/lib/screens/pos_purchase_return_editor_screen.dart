@@ -792,7 +792,7 @@ class _PosPurchaseReturnEditorScreenState
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    if (!perm.canEdit('PosProducts')) {
+    if (!perm.canEdit('PosPurchaseReturns') && !perm.canEdit('PosProducts')) {
       return Scaffold(body: Center(child: Text(tr('Không có quyền trả hàng nhập'))));
     }
 

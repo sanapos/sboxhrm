@@ -23,7 +23,11 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
         decimal Qty,
         decimal ComponentOnHandQty,
         decimal ComponentBasePrice,
-        string ComponentUnitName);
+        string ComponentUnitName,
+        string? ComponentProductType = null,
+        string CommissionMode = "None",
+        decimal CommissionPercent = 0,
+        decimal CommissionFixed = 0);
 
     public record ComboLineInput(Guid ComponentProductId, decimal Qty);
 
@@ -50,7 +54,11 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
                 x.Qty,
                 x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0,
                 x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0,
-                x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : ""))
+                x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : "",
+                x.ComponentProduct != null ? x.ComponentProduct.ProductType.ToString() : null,
+                x.ComponentProduct != null ? x.ComponentProduct.CommissionMode.ToString() : "None",
+                x.ComponentProduct != null ? x.ComponentProduct.CommissionPercent : 0,
+                x.ComponentProduct != null ? x.ComponentProduct.CommissionFixed : 0))
             .ToListAsync();
 
         return Ok(AppResponse<List<ComboLineDto>>.Success(items));
@@ -93,9 +101,9 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
             var comp = componentMap[cid];
             if (comp.ProductType == Domain.Enums.PosProductType.Combo)
                 return BadRequest(AppResponse<List<ComboLineDto>>.Fail("Combo không thể chứa combo khác"));
-            if (comp.ProductType == Domain.Enums.PosProductType.Service)
+            if (!Domain.Enums.PosProductTypeRules.IsComboComponent(comp.ProductType))
                 return BadRequest(AppResponse<List<ComboLineDto>>.Fail(
-                    $"«{comp.Name}» là dịch vụ — không thể làm thành phần combo"));
+                    $"«{comp.Name}» không thể làm thành phần combo"));
         }
 
         await PosProductComboLinePersistHelper.ReplaceLinesAsync(

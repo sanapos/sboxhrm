@@ -420,7 +420,7 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    if (!perm.canView('PosProducts')) {
+    if (!perm.canView(_config.moduleCode) && !perm.canView('PosProducts')) {
       return Scaffold(
           body: Center(child: Text(tr('Không có quyền xem ${_config.title}'))));
     }

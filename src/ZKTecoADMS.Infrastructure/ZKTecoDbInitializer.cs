@@ -159,6 +159,16 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WidthCm"" numeric(18,2) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""HeightCm"" numeric(18,2) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DailySoldOutOn"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionMode"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionPercent"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionFixed"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""EnableStaffCommission"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""RequireStaffOnService"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""AssignedEmployeeId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""StaffAssignmentsJson"" text NULL;
+                    ALTER TABLE ""PosCustomerSessionTransactions"" ADD COLUMN IF NOT EXISTS ""EmployeeId"" uuid NULL;
+                    ALTER TABLE ""PosCustomerSessionTransactions"" ADD COLUMN IF NOT EXISTS ""EmployeeName"" character varying(200) NULL;
+                    ALTER TABLE ""PosCustomerSessionTransactions"" ADD COLUMN IF NOT EXISTS ""UsedAt"" timestamp without time zone NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SaleDate"" timestamp without time zone NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SoldBy"" character varying(200) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""SoldByEmployeeId"" uuid NULL;
@@ -1098,6 +1108,41 @@ public class ZKTecoDbInitializer(
                             FOREIGN KEY (""ProductId"") REFERENCES ""PosProducts""(""Id"") ON DELETE RESTRICT
                     );
 
+                    CREATE TABLE IF NOT EXISTS ""PosSaleCommissionLines"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""SaleOrderId"" uuid NOT NULL,
+                        ""SaleOrderLineId"" uuid NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""ProductName"" character varying(500) NOT NULL DEFAULT '',
+                        ""ParentComboProductId"" uuid NULL,
+                        ""EmployeeId"" uuid NOT NULL,
+                        ""EmployeeName"" character varying(200) NOT NULL DEFAULT '',
+                        ""Qty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""RevenueAmount"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""CommissionMode"" integer NOT NULL DEFAULT 0,
+                        ""CommissionPercent"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""CommissionFixed"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""CommissionAmount"" numeric(18,2) NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone,
+                        ""UpdatedBy"" text,
+                        ""CreatedBy"" text,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone,
+                        ""LastModifiedBy"" text,
+                        ""Deleted"" timestamp without time zone,
+                        ""DeletedBy"" text,
+                        CONSTRAINT ""FK_PosSaleCommissionLines_Stores_StoreId""
+                            FOREIGN KEY (""StoreId"") REFERENCES ""Stores""(""Id"") ON DELETE CASCADE,
+                        CONSTRAINT ""FK_PosSaleCommissionLines_SaleOrder""
+                            FOREIGN KEY (""SaleOrderId"") REFERENCES ""PosSaleOrders""(""Id"") ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosSaleCommissionLines_Store_Employee""
+                        ON ""PosSaleCommissionLines"" (""StoreId"", ""EmployeeId"", ""CreatedAt"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosSaleCommissionLines_SaleOrder""
+                        ON ""PosSaleCommissionLines"" (""SaleOrderId"");
+
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SaleQuickNotesJson"" character varying(4000);
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""VatRate"" numeric(5,2) NOT NULL DEFAULT 8;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""VatExempt"" boolean NOT NULL DEFAULT false;
@@ -1455,6 +1500,16 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ShowComboComponentsOnSell"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowDecimalQty"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DailySoldOutOn"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionMode"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionPercent"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionFixed"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""EnableStaffCommission"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""RequireStaffOnService"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""AssignedEmployeeId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""StaffAssignmentsJson"" text NULL;
+                    ALTER TABLE ""PosCustomerSessionTransactions"" ADD COLUMN IF NOT EXISTS ""EmployeeId"" uuid NULL;
+                    ALTER TABLE ""PosCustomerSessionTransactions"" ADD COLUMN IF NOT EXISTS ""EmployeeName"" character varying(200) NULL;
+                    ALTER TABLE ""PosCustomerSessionTransactions"" ADD COLUMN IF NOT EXISTS ""UsedAt"" timestamp without time zone NULL;
                     CREATE TABLE IF NOT EXISTS ""PosPrintTemplates"" (
                         ""Id"" uuid PRIMARY KEY,
                         ""StoreId"" uuid NOT NULL,
@@ -1641,6 +1696,12 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerAddress"" character varying(500) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerEmail"" character varying(200) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceBuyerPhone"" character varying(50) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceKind"" character varying(20) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceOriginalNo"" character varying(30) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceCancelledAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceCancelReason"" character varying(400) NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceEmailSentAt"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""EInvoiceEmailTo"" character varying(200) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryTrackingCode"" character varying(80) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryCarrierOrderId"" character varying(120) NULL;
                     ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""DeliveryCarrierCode"" character varying(30) NULL;
@@ -2337,6 +2398,16 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WidthCm"" numeric(18,2) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""HeightCm"" numeric(18,2) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DailySoldOutOn"" timestamp without time zone NULL;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionMode"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionPercent"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionFixed"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""EnableStaffCommission"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""RequireStaffOnService"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""AssignedEmployeeId"" uuid NULL;
+                    ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""StaffAssignmentsJson"" text NULL;
+                    ALTER TABLE ""PosCustomerSessionTransactions"" ADD COLUMN IF NOT EXISTS ""EmployeeId"" uuid NULL;
+                    ALTER TABLE ""PosCustomerSessionTransactions"" ADD COLUMN IF NOT EXISTS ""EmployeeName"" character varying(200) NULL;
+                    ALTER TABLE ""PosCustomerSessionTransactions"" ADD COLUMN IF NOT EXISTS ""UsedAt"" timestamp without time zone NULL;
                 ");
                 }
                 catch (Exception posBootstrapEx)
@@ -3300,6 +3371,7 @@ public class ZKTecoDbInitializer(
         ["PosReportExpense"] = Guid.Parse("11111111-1111-1111-1111-111111111116"),
         ["PosReportEndOfDay"] = Guid.Parse("11111111-1111-1111-1111-111111111117"),
         ["PosReportStaffRevenue"] = Guid.Parse("11111111-1111-1111-1111-111111111118"),
+        ["PosReportStaffCommission"] = Guid.Parse("11111111-1111-1111-1111-111111111124"),
         ["PosReportCashbook"] = Guid.Parse("11111111-1111-1111-1111-111111111119"),
         ["PosReportPnl"] = Guid.Parse("11111111-1111-1111-1111-111111111120"),
         ["PosReportVoucher"] = Guid.Parse("11111111-1111-1111-1111-111111111121"),

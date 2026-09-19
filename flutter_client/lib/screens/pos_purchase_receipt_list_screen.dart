@@ -570,7 +570,7 @@ class _PosPurchaseReceiptListScreenState
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    if (!perm.canView('PosProducts')) {
+    if (!perm.canView('PosPurchaseReceipts') && !perm.canView('PosProducts')) {
       return Scaffold(
           body: Center(child: Text(tr('Không có quyền xem nhập hàng'))));
     }

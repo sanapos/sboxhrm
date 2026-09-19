@@ -15637,6 +15637,124 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getPosEInvoiceInvoices({
+    DateTime? from,
+    DateTime? to,
+    String? status,
+    String? q,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final qp = <String, String>{
+        'page': '$page',
+        'pageSize': '$pageSize',
+      };
+      if (from != null) qp['from'] = from.toIso8601String();
+      if (to != null) qp['to'] = to.toIso8601String();
+      if (status != null && status.isNotEmpty) qp['status'] = status;
+      if (q != null && q.trim().isNotEmpty) qp['q'] = q.trim();
+      final uri = Uri.parse('$baseUrl/api/pos/einvoice/invoices')
+          .replace(queryParameters: qp);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> draftPosEInvoice(
+    String orderId, {
+    Map<String, dynamic>? buyer,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/einvoice/draft/$orderId'),
+            headers: _headers,
+            body: jsonEncode(buyer ?? {}),
+          )
+          .timeout(const Duration(seconds: 120));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosEInvoice(
+    String orderId, {
+    String? reason,
+    String? agreementDesc,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/einvoice/cancel/$orderId'),
+            headers: _headers,
+            body: jsonEncode({
+              if (reason != null) 'reason': reason,
+              if (agreementDesc != null) 'agreementDesc': agreementDesc,
+            }),
+          )
+          .timeout(const Duration(seconds: 90));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> replacePosEInvoice(
+    String orderId, {
+    String? reason,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/einvoice/replace/$orderId'),
+            headers: _headers,
+            body: jsonEncode({if (reason != null) 'reason': reason}),
+          )
+          .timeout(const Duration(seconds: 120));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> emailPosEInvoice(
+    String orderId, {
+    String? email,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/einvoice/email/$orderId'),
+            headers: _headers,
+            body: jsonEncode({if (email != null) 'email': email}),
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> syncPosEInvoice(String orderId) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/einvoice/sync/$orderId'),
+            headers: _headers,
+            body: jsonEncode({}),
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createPosSale(Map<String, dynamic> body) async {
     try {
       final response = await http
@@ -15862,6 +15980,32 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getPosStaffCommissionReport({
+    DateTime? from,
+    DateTime? to,
+    String? employeeId,
+    String? productId,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
+      if (employeeId != null && employeeId.isNotEmpty) {
+        q['employeeId'] = employeeId;
+      }
+      if (productId != null && productId.isNotEmpty) {
+        q['productId'] = productId;
+      }
+      final uri = Uri.parse('$baseUrl/api/pos/reports/staff-commission')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosSalesReportSummary({
     DateTime? from,
     DateTime? to,
@@ -15874,6 +16018,47 @@ class ApiService {
           .replace(queryParameters: q.isEmpty ? null : q);
       final response =
           await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosSalesReportOrders({
+    DateTime? from,
+    DateTime? to,
+    int page = 1,
+    int pageSize = 50,
+    String? productId,
+    String? soldBy,
+    String? paymentMethod,
+    String? customerId,
+    String? voucherCode,
+    bool? hasVoucher,
+  }) async {
+    try {
+      final q = <String, String>{
+        'page': '$page',
+        'pageSize': '$pageSize',
+      };
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
+      if (productId != null && productId.isNotEmpty) q['productId'] = productId;
+      if (soldBy != null && soldBy.trim().isNotEmpty) q['soldBy'] = soldBy.trim();
+      if (paymentMethod != null && paymentMethod.trim().isNotEmpty) {
+        q['paymentMethod'] = paymentMethod.trim();
+      }
+      if (customerId != null && customerId.isNotEmpty) {
+        q['customerId'] = customerId;
+      }
+      if (voucherCode != null && voucherCode.trim().isNotEmpty) {
+        q['voucherCode'] = voucherCode.trim();
+      }
+      if (hasVoucher == true) q['hasVoucher'] = 'true';
+      final uri = Uri.parse('$baseUrl/api/pos/reports/sales/orders')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -17341,6 +17526,9 @@ class ApiService {
     bool? isDelivery,
     String? deliveryStatus,
     String? customerId,
+    String? productId,
+    String? voucherCode,
+    bool? hasVoucher,
     DateTime? from,
     DateTime? to,
     int page = 1,
@@ -17371,6 +17559,11 @@ class ApiService {
         q['deliveryStatus'] = deliveryStatus.trim();
       }
       if (customerId != null && customerId.isNotEmpty) q['customerId'] = customerId;
+      if (productId != null && productId.isNotEmpty) q['productId'] = productId;
+      if (voucherCode != null && voucherCode.trim().isNotEmpty) {
+        q['voucherCode'] = voucherCode.trim();
+      }
+      if (hasVoucher == true) q['hasVoucher'] = 'true';
       if (from != null) q['from'] = from.toIso8601String();
       if (to != null) q['to'] = to.toIso8601String();
       final uri =
@@ -19393,6 +19586,34 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> posTingeeBanks() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/tingee/banks'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> adminTingeeBanks() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/pos/payment-gateway/admin/tingee-banks'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> posTingeeStatus() async {
     try {
       final response = await http
@@ -20701,9 +20922,26 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> getPosSessionBalances({String? customerId}) async {
+  Future<Map<String, dynamic>> getPosCustomerSessionHistory(String customerId) async {
     try {
-      final q = <String, String>{};
+      final uri = Uri.parse('$baseUrl/api/pos/session-balances/history')
+          .replace(queryParameters: {'customerId': customerId});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosSessionBalances({
+    String? customerId,
+    bool activeOnly = true,
+  }) async {
+    try {
+      final q = <String, String>{
+        'activeOnly': activeOnly ? 'true' : 'false',
+      };
       if (customerId != null && customerId.isNotEmpty) q['customerId'] = customerId;
       final uri = Uri.parse('$baseUrl/api/pos/session-balances')
           .replace(queryParameters: q.isEmpty ? null : q);

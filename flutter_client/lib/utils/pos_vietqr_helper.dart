@@ -6,28 +6,63 @@ import 'pos_sell_store_settings.dart';
 
 /// Tiện ích tạo VietQR cho màn bán hàng POS.
 class PosVietQrHelper {
-  /// QR Tingee: VA chữ (vd. `96499085BOX`) là TK thu hộ BIDV — quét VietQR thường
-  /// báo lỗi 025 «không có hóa đơn». Dùng STK số (settlement) để sinh QR.
+  static bool isVirtualAccount(String? number) {
+    final n = (number ?? '').trim();
+    return n.isNotEmpty && RegExp(r'[A-Za-z]').hasMatch(n);
+  }
+
+  /// QR Tingee: ưu tiên số VA (TGE…) — đúng tài khoản Tingee nhận webhook.
   static BankAccount? resolveTingeeQrAccount(
     List<BankAccount> accounts, {
     required String vaAccountNumber,
+    String? preferredId,
   }) {
+    if (accounts.isEmpty) return null;
     final va = vaAccountNumber.trim();
-    if (va.isEmpty || accounts.isEmpty) return null;
-    BankAccount? exact;
-    BankAccount? bidvDigits;
-    final vaIsDigits = RegExp(r'^[0-9]+$').hasMatch(va);
-    for (final a in accounts) {
-      final n = a.accountNumber.trim();
-      if (n == va) exact = a;
-      final digits = RegExp(r'^[0-9]{6,}$').hasMatch(n);
-      final blob =
-          '${a.bankCode} ${a.bankShortName ?? ''} ${a.bankName}'.toUpperCase();
-      final bidv = a.bankCode.trim() == '970418' || blob.contains('BIDV');
-      if (digits && bidv) bidvDigits ??= a;
+    if (va.isNotEmpty) {
+      for (final a in accounts) {
+        if (a.accountNumber.trim().toLowerCase() == va.toLowerCase()) {
+          return a;
+        }
+      }
+      final template = resolveAccount(accounts, preferredId: preferredId);
+      if (template != null) {
+        return BankAccount(
+          id: 'tingee-va:$va',
+          accountName: template.accountName,
+          accountNumber: va,
+          bankCode: template.bankCode,
+          bankName: template.bankName,
+          bankShortName: template.bankShortName,
+          branchName: template.branchName,
+          bankLogoUrl: template.bankLogoUrl,
+          isDefault: false,
+          note: 'Tingee VA',
+          vietQRTemplate: template.vietQRTemplate,
+        );
+      }
     }
-    if (vaIsDigits) return exact ?? bidvDigits;
-    return bidvDigits ?? exact;
+    return resolveAccount(accounts, preferredId: preferredId);
+  }
+
+  /// Đưa VA vào list để panel VietQR resolve đúng (không rơi về STK mặc định).
+  static List<BankAccount> withTingeeVaAccount(
+    List<BankAccount> accounts, {
+    required String vaAccountNumber,
+    String? preferredId,
+  }) {
+    final acc = resolveTingeeQrAccount(
+      accounts,
+      vaAccountNumber: vaAccountNumber,
+      preferredId: preferredId,
+    );
+    if (acc == null) return accounts;
+    if (accounts.any((a) =>
+        a.accountNumber.trim().toLowerCase() ==
+        acc.accountNumber.trim().toLowerCase())) {
+      return accounts;
+    }
+    return [acc, ...accounts];
   }
 
   static BankAccount? resolveAccount(

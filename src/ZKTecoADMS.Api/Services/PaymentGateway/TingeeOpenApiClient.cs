@@ -16,6 +16,7 @@ public sealed record TingeeOpenApiResult(
 public interface ITingeeOpenApiClient
 {
     Task<TingeeOpenApiResult> PostAsync(JsonObject body, string path, CancellationToken ct = default);
+    Task<TingeeOpenApiResult> GetAsync(string path, CancellationToken ct = default);
 }
 
 public sealed class TingeeOpenApiClient(
@@ -33,12 +34,27 @@ public sealed class TingeeOpenApiClient(
     {
         var auth = await platform.RequireOpenApiAuthAsync(ct);
         var json = body.ToJsonString(JsonOpts);
+        return await SendAsync(HttpMethod.Post, path, json, auth, ct);
+    }
+
+    public async Task<TingeeOpenApiResult> GetAsync(string path, CancellationToken ct = default)
+    {
+        var auth = await platform.RequireOpenApiAuthAsync(ct);
+        // Tingee ký GET với body rỗng `{}`.
+        return await SendAsync(HttpMethod.Get, path, "{}", auth, ct);
+    }
+
+    async Task<TingeeOpenApiResult> SendAsync(
+        HttpMethod method, string path, string json, TingeeOpenApiAuth auth,
+        CancellationToken ct)
+    {
         var ts = DateTime.UtcNow.AddHours(7).ToString("yyyyMMddHHmmssfff", CultureInfo.InvariantCulture);
         var sig = HmacSha512Hex($"{ts}:{json}", auth.Secret);
         var url = $"{auth.BaseUrl.TrimEnd('/')}/{path.TrimStart('/')}";
 
-        using var req = new HttpRequestMessage(HttpMethod.Post, url);
-        req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        using var req = new HttpRequestMessage(method, url);
+        if (method != HttpMethod.Get)
+            req.Content = new StringContent(json, Encoding.UTF8, "application/json");
         req.Headers.TryAddWithoutValidation("x-client-id", auth.ClientId);
         req.Headers.TryAddWithoutValidation("x-request-timestamp", ts);
         req.Headers.TryAddWithoutValidation("x-signature", sig);

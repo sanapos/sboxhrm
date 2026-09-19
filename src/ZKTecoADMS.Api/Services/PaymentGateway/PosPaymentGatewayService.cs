@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Hubs;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -62,12 +63,25 @@ public sealed class PosPaymentGatewayService(
     IPaymentWebhookProviderRegistry providerRegistry,
     IPosNotificationCreditService creditService,
     IPosPlatformNotificationCreditService platformCreditService,
-    IPosPlatformTingeeSettingService platformTingeeService) : IPosPaymentGatewayService
+    IPosPlatformTingeeSettingService platformTingeeService,
+    ITingeeMerchantProvisioningService tingeeProvision,
+    IPosTingeePaidOrderService tingeePaidOrders,
+    ISystemNotificationService notifications) : IPosPaymentGatewayService
 {
     public async Task<PaymentGatewaySettingDto?> GetSettingsAsync(Guid storeId, CancellationToken ct = default)
     {
         var s = await db.PosPaymentGatewaySettings.AsNoTracking()
             .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null, ct);
+        if (s != null && s.TingeeEnabled && !string.IsNullOrWhiteSpace(s.TingeeMerchantId))
+        {
+            var va = (s.TingeeVaAccountNumber ?? "").Trim();
+            if (va.Length == 0 || va.All(char.IsDigit))
+            {
+                await tingeeProvision.SyncVaQrDestinationAsync(storeId, ct);
+                s = await db.PosPaymentGatewaySettings.AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null, ct);
+            }
+        }
         var platform = await platformTingeeService.GetSettingsAsync(ct);
         return s == null ? null : MapSetting(s, platform);
     }
@@ -93,12 +107,32 @@ public sealed class PosPaymentGatewayService(
             Enum.TryParse<PosPaymentNotifyProvider>(req.DefaultTransferProvider, true, out var prov))
             row.DefaultTransferProvider = prov;
         if (req.TingeeEnabled.HasValue) row.TingeeEnabled = req.TingeeEnabled.Value;
-        if (req.TingeeVaAccountNumber != null) row.TingeeVaAccountNumber = req.TingeeVaAccountNumber.Trim();
+        if (req.TingeeVaAccountNumber != null)
+        {
+            var incoming = req.TingeeVaAccountNumber.Trim();
+            var current = (row.TingeeVaAccountNumber ?? "").Trim();
+            var keepVa = current.Any(char.IsLetter)
+                && incoming.All(char.IsDigit)
+                && !string.Equals(current, incoming, StringComparison.OrdinalIgnoreCase);
+            if (!keepVa)
+                row.TingeeVaAccountNumber = incoming;
+        }
         if (req.TingeeMerchantId != null) row.TingeeMerchantId = req.TingeeMerchantId.Trim();
         if (req.TingeeShopId != null) row.TingeeShopId = req.TingeeShopId.Trim();
+        if (string.IsNullOrWhiteSpace(row.TingeeVaAccountNumber))
+        {
+            var defaultBank = await db.BankAccounts.AsNoTracking()
+                .Where(x => x.StoreId == storeId && x.IsDefault && x.IsActive && x.Deleted == null)
+                .Select(x => x.AccountNumber)
+                .FirstOrDefaultAsync(ct);
+            if (!string.IsNullOrWhiteSpace(defaultBank))
+                row.TingeeVaAccountNumber = defaultBank.Trim();
+        }
         row.UpdatedAt = DateTime.UtcNow;
         row.UpdatedBy = actor;
         await db.SaveChangesAsync(ct);
+        if (row.TingeeEnabled)
+            await tingeeProvision.SyncVaQrDestinationAsync(storeId, ct);
         var platform = await platformTingeeService.GetSettingsAsync(ct);
         return MapSetting(row, platform);
     }
@@ -289,6 +323,8 @@ public sealed class PosPaymentGatewayService(
             settings = await db.PosPaymentGatewaySettings.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.TingeeClientId == payload.ClientId && x.Deleted == null, ct);
         }
+        if (settings == null)
+            settings = await FindTingeeSettingsByIntentAsync(payload, ct);
 
         if (settings == null || !settings.TingeeEnabled)
         {
@@ -396,11 +432,26 @@ public sealed class PosPaymentGatewayService(
             {
                 intent = await db.PosTransferPaymentIntents.AsTracking()
                     .FirstOrDefaultAsync(x => x.StoreId == settings.StoreId
-                        && x.ExternalOrderId == token
                         && x.Status == PosTransferPaymentIntentStatus.Waiting
-                        && x.Deleted == null, ct);
+                        && x.Deleted == null
+                        && (x.ExternalOrderId == token || x.OrderNo == token), ct);
                 if (intent != null) break;
             }
+        }
+        if (intent == null && payload.Amount is decimal paid && paid > 0)
+        {
+            var since = DateTime.UtcNow.AddHours(-2);
+            var sameAmount = await db.PosTransferPaymentIntents.AsTracking()
+                .Where(x => x.StoreId == settings.StoreId
+                    && x.Status == PosTransferPaymentIntentStatus.Waiting
+                    && x.Deleted == null
+                    && x.CreatedAt >= since
+                    && x.AmountExpected == paid)
+                .OrderByDescending(x => x.CreatedAt)
+                .Take(2)
+                .ToListAsync(ct);
+            if (sameAmount.Count == 1)
+                intent = sameAmount[0];
         }
 
         if (intent == null)
@@ -440,11 +491,18 @@ public sealed class PosPaymentGatewayService(
         db.PosPaymentWebhookEvents.Add(audit);
         await db.SaveChangesAsync(ct);
 
+        await tingeePaidOrders.TryFulfillConfirmedIntentAsync(
+            intent, payload.Amount, hub, notifications, ct);
+
         var orderLabel = intent.OrderNo ?? intent.ExternalOrderId;
         var amountText = payload.Amount.HasValue ? $"{payload.Amount.Value:0}đ" : "";
-        var spoken = string.IsNullOrEmpty(amountText)
-            ? $"Đã nhận chuyển khoản đơn {orderLabel}"
-            : $"Đã nhận chuyển khoản {amountText}, đơn {orderLabel}";
+        var spoken = intent.Status == PosTransferPaymentIntentStatus.Completed
+            ? (string.IsNullOrEmpty(amountText)
+                ? $"Đã thanh toán đơn {orderLabel}"
+                : $"Đã thanh toán {amountText}, đơn {orderLabel}")
+            : (string.IsNullOrEmpty(amountText)
+                ? $"Đã nhận chuyển khoản đơn {orderLabel}"
+                : $"Đã nhận chuyển khoản {amountText}, đơn {orderLabel}");
 
         PosFloorRealtimeHelper.Notify(
             hub,
@@ -454,7 +512,8 @@ public sealed class PosPaymentGatewayService(
             tableName: intent.TableName,
             message: spoken,
             orderNo: intent.OrderNo ?? intent.ExternalOrderId,
-            externalOrderId: intent.ExternalOrderId);
+            externalOrderId: intent.ExternalOrderId,
+            amount: payload.Amount ?? intent.AmountExpected);
 
         return new WebhookProcessResult("00", "Success", false, settings.StoreId, intent.Id,
             intent.OrderNo, intent.AmountExpected);
@@ -473,12 +532,39 @@ public sealed class PosPaymentGatewayService(
         if (byVa != null) return byVa;
 
         var storeId = await db.BankAccounts.AsNoTracking()
-            .Where(b => b.IsActive && b.AccountNumber == needle)
+            .Where(b => b.IsActive && b.Deleted == null && b.AccountNumber.ToLower() == lower)
             .Select(b => b.StoreId)
             .FirstOrDefaultAsync(ct);
         if (storeId == null || storeId == Guid.Empty) return null;
         return await db.PosPaymentGatewaySettings.AsNoTracking()
             .FirstOrDefaultAsync(x => x.StoreId == storeId && x.TingeeEnabled && x.Deleted == null, ct);
+    }
+
+    async Task<PosPaymentGatewaySetting?> FindTingeeSettingsByIntentAsync(
+        PaymentWebhookPayload payload, CancellationToken ct)
+    {
+        var tokens = new List<string>();
+        if (!string.IsNullOrWhiteSpace(payload.ExternalOrderId))
+            tokens.Add(payload.ExternalOrderId.Trim());
+        if (!string.IsNullOrWhiteSpace(payload.TransferContent))
+        {
+            tokens.AddRange(payload.TransferContent.Split(
+                ' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        }
+        foreach (var token in tokens.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var intent = await db.PosTransferPaymentIntents.AsNoTracking()
+                .Where(x => x.Deleted == null
+                    && x.Status == PosTransferPaymentIntentStatus.Waiting
+                    && (x.ExternalOrderId == token || x.OrderNo == token))
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefaultAsync(ct);
+            if (intent == null) continue;
+            var settings = await db.PosPaymentGatewaySettings.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.StoreId == intent.StoreId && x.TingeeEnabled && x.Deleted == null, ct);
+            if (settings != null) return settings;
+        }
+        return null;
     }
 
     private static PaymentGatewaySettingDto MapSetting(

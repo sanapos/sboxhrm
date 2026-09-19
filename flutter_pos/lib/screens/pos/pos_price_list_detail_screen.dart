@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/pos_price_list.dart';
 import '../../models/pos_product.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_price_list_resolver.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
@@ -264,6 +266,10 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
 
   Future<void> _saveAll() async {
     if (_saving) return;
+    if (!Provider.of<PermissionProvider>(context, listen: false)
+        .canEdit('PosProducts')) {
+      return;
+    }
     setState(() => _saving = true);
     final items = _rows
         .map((r) => {
@@ -553,6 +559,8 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canEdit =
+        Provider.of<PermissionProvider>(context).canEdit('PosProducts');
     final selectedCount = _rows.where((r) => r.selected).length;
     return Scaffold(
       backgroundColor: PosTheme.background,
@@ -562,7 +570,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
         foregroundColor: Colors.black87,
         elevation: 0.5,
         actions: [
-          if (selectedCount > 0)
+          if (canEdit && selectedCount > 0)
             IconButton(
               tooltip: tr('Xoá dòng đã chọn'),
               onPressed: _removeSelected,
@@ -673,7 +681,8 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: canEdit
+          ? FloatingActionButton.extended(
               onPressed: _saving ? null : _saveAll,
               backgroundColor: PosTheme.kiotBlue,
               icon: _saving
@@ -687,7 +696,8 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                     )
                   : const Icon(Icons.save_outlined),
               label: Text(tr(_saving ? 'Đang lưu…' : 'Lưu bảng giá')),
-            ),
+            )
+          : null,
     );
   }
 

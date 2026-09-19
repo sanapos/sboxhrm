@@ -1013,6 +1013,7 @@ const Map<String, String> kEnUiMap = <String, String>{
   'Chi nhánh': 'Branches',
   'Chi nhánh "': 'Branch "',
   'Chi nhánh cha': 'Father branch',
+  'Chi nhánh chấm': 'Punch branch',
   'Chi nhánh không thể là cha của chính nó': 'A branch cannot be its own parent',
   'Chi nhánh kiểm': 'Inspection branch',
   'Chi nhánh mới đã được tạo.': 'New branch has been created.',

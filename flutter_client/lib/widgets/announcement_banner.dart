@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
 import '../screens/system_admin/system_admin_helpers.dart';
 import '../utils/vietnamese_font.dart';
+import '../utils/pos_kds_alert.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Top banner that polls active SuperAdmin announcements and lets the user
@@ -72,10 +73,15 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
 
   @override
   Widget build(BuildContext context) {
-    final visible = _visible;
-    if (visible.isEmpty) return const SizedBox.shrink();
-    // Show only the top one — others remain queued, will appear when dismissed
-    return _buildBanner(visible.first);
+    return ValueListenableBuilder<bool>(
+      valueListenable: PosKdsAlert.uiOpen,
+      builder: (context, kdsOpen, _) {
+        if (kdsOpen) return const SizedBox.shrink();
+        final visible = _visible;
+        if (visible.isEmpty) return const SizedBox.shrink();
+        return _buildBanner(visible.first);
+      },
+    );
   }
 
   Color _color(int severity) => switch (severity) {

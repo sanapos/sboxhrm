@@ -61,6 +61,109 @@ public class EasyInvoiceClient(IHttpClientFactory httpFactory, ILogger<EasyInvoi
         return (false, ping.Error ?? "Không xác thực được Easy Invoice");
     }
 
+    public async Task<EasyInvoiceResult> ImportDraftAsync(
+        string baseUrl,
+        string username,
+        string password,
+        string taxCode,
+        string xmlData,
+        string pattern,
+        string serial,
+        CancellationToken ct = default)
+    {
+        return await PostPublishAsync(
+            baseUrl, username, password, taxCode,
+            "/api/publish/importInvoice",
+            new { XmlData = xmlData, Pattern = pattern, Serial = serial },
+            ct);
+    }
+
+    public async Task<EasyInvoiceResult> IssueByIkeysAsync(
+        string baseUrl,
+        string username,
+        string password,
+        string taxCode,
+        IReadOnlyList<string> ikeys,
+        CancellationToken ct = default)
+    {
+        return await PostPublishAsync(
+            baseUrl, username, password, taxCode,
+            "/api/publish/issueInvoice",
+            new { Ikeys = ikeys },
+            ct);
+    }
+
+    public async Task<EasyInvoiceResult> CancelAsync(
+        string baseUrl,
+        string username,
+        string password,
+        string taxCode,
+        string ikey,
+        string pattern,
+        string serial,
+        CancellationToken ct = default)
+    {
+        var body = new { Ikey = ikey, Fkey = ikey, Pattern = pattern, Serial = serial };
+        var first = await PostPublishAsync(
+            baseUrl, username, password, taxCode, "/api/publish/cancelInvoice", body, ct);
+        if (first.Ok) return first;
+        return await PostPublishAsync(
+            baseUrl, username, password, taxCode, "/api/business/cancelInvoice", body, ct);
+    }
+
+    public async Task<EasyInvoiceResult> SendMailAsync(
+        string baseUrl,
+        string username,
+        string password,
+        string taxCode,
+        string ikey,
+        string email,
+        CancellationToken ct = default)
+    {
+        var mails = new[] { email.Trim() };
+        var payload = new { Ikeys = new[] { ikey }, Mails = mails, Emails = mails };
+        var first = await PostPublishAsync(
+            baseUrl, username, password, taxCode, "/api/publish/sendInvoiceByMail", payload, ct);
+        if (first.Ok) return first;
+        return await PostPublishAsync(
+            baseUrl, username, password, taxCode, "/api/publish/sendMail", payload, ct);
+    }
+
+    async Task<EasyInvoiceResult> PostPublishAsync(
+        string baseUrl,
+        string username,
+        string password,
+        string taxCode,
+        string path,
+        object payload,
+        CancellationToken ct)
+    {
+        var root = NormalizeBaseUrl(baseUrl);
+        var client = httpFactory.CreateClient("easy-invoice");
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{root}{path}");
+        ApplyAuth(req, username, password, taxCode);
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(payload, JsonOpts),
+            Encoding.UTF8,
+            "application/json");
+        try
+        {
+            using var res = await client.SendAsync(req, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+            return ParseIssueResponse(res.IsSuccessStatusCode, body);
+        }
+        catch (TaskCanceledException)
+        {
+            return new(false, null, null, null, null, null, "TIMEOUT",
+                "Hết thời gian chờ Easy Invoice.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Easy Invoice POST {Path} failed", path);
+            return new(false, null, null, null, null, null, "EXCEPTION", ex.Message);
+        }
+    }
+
     public async Task<EasyInvoiceResult> ImportAndIssueAsync(
         string baseUrl,
         string username,

@@ -63,7 +63,7 @@ public class PosPurchaseReceiptsController(
     public record CreatePaymentDto(decimal Amount, string PaymentMethod, DateTime? PaidAt, string? Note);
 
     [HttpGet]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> List(
         [FromQuery] string? search,
         [FromQuery] string? status,
@@ -131,7 +131,7 @@ public class PosPurchaseReceiptsController(
     }
 
     [HttpGet("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<ReceiptDto>>> Get(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -144,7 +144,7 @@ public class PosPurchaseReceiptsController(
     }
 
     [HttpPost]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ReceiptDto>>> Create([FromBody] SaveReceiptDto dto)
     {
         var storeId = RequiredStoreId;
@@ -201,7 +201,7 @@ public class PosPurchaseReceiptsController(
     }
 
     [HttpPut("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ReceiptDto>>> Update(Guid id, [FromBody] SaveReceiptDto dto)
     {
         var storeId = RequiredStoreId;
@@ -271,7 +271,7 @@ public class PosPurchaseReceiptsController(
     }
 
     [HttpPost("{id:guid}/complete")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ReceiptDto>>> Complete(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -336,7 +336,7 @@ public class PosPurchaseReceiptsController(
     }
 
     [HttpPost("{id:guid}/cancel")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ReceiptDto>>> Cancel(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -391,7 +391,7 @@ public class PosPurchaseReceiptsController(
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -411,7 +411,7 @@ public class PosPurchaseReceiptsController(
     }
 
     [HttpPost("{id:guid}/copy")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ReceiptDto>>> Copy(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -433,7 +433,7 @@ public class PosPurchaseReceiptsController(
     }
 
     [HttpGet("{id:guid}/payments")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PaymentDto>>>> GetPayments(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -446,7 +446,7 @@ public class PosPurchaseReceiptsController(
     }
 
     [HttpPost("{id:guid}/payments")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<PaymentDto>>> AddPayment(Guid id, [FromBody] CreatePaymentDto dto)
     {
         var storeId = RequiredStoreId;

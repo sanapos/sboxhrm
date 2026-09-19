@@ -100,7 +100,8 @@ public partial class PosSalesController(
         DateTime? ServiceStartedAt = null, DateTime? ServiceEndedAt = null,
         Guid? AssignedEmployeeId = null,
         decimal? KitchenSentQty = null,
-        string? ToppingsJson = null);
+        string? ToppingsJson = null,
+        List<PosStaffCommissionHelper.StaffAssignDto>? StaffAssignments = null);
 
     public record SalePaymentInputDto(
         decimal Amount,
@@ -269,6 +270,12 @@ public partial class PosSalesController(
         string? EInvoiceError = null,
         string? EInvoiceBuyerName = null,
         string? EInvoiceBuyerTaxCode = null,
+        string? EInvoiceBuyerEmail = null,
+        DateTime? EInvoiceEmailSentAt = null,
+        string? EInvoiceKind = null,
+        string? EInvoiceOriginalNo = null,
+        DateTime? EInvoiceCancelledAt = null,
+        string? EInvoiceCancelReason = null,
         Guid? SplitFromOrderId = null,
         decimal SurchargeAmount = 0,
         decimal DeliveryFee = 0,
@@ -312,7 +319,9 @@ public partial class PosSalesController(
         string? EInvoiceStatus = null,
         string? EInvoiceProvider = null,
         string? EInvoiceNo = null,
-        string? EInvoiceError = null);
+        string? EInvoiceError = null,
+        DateTime? EInvoiceEmailSentAt = null,
+        string? EInvoiceKind = null);
 
     public record SalePaymentDto(
         string PaymentNo, decimal Amount, string PaymentMethod,
@@ -355,7 +364,9 @@ public partial class PosSalesController(
         DateTime? ServiceEndedAt = null,
         decimal KitchenSentQty = 0,
         DateTime? KitchenSentAt = null,
-        string? ToppingsJson = null);
+        string? ToppingsJson = null,
+        Guid? AssignedEmployeeId = null,
+        string? StaffAssignmentsJson = null);
 
     [HttpGet("return-history")]
     [RequireModulePermission("PosSaleReturns", ModulePermissionAction.View)]
@@ -542,6 +553,9 @@ public partial class PosSalesController(
                 p.AllowToppings,
                 p.AutoOpenToppingPopup,
                 p.ShowComboComponentsOnSell,
+                CommissionMode = p.CommissionMode.ToString(),
+                p.CommissionPercent,
+                p.CommissionFixed,
                 VariantCount = p.Variants.Count(v => v.Deleted == null && v.IsActive),
                 p.DailySoldOutOn,
             })
@@ -608,6 +622,10 @@ public partial class PosSalesController(
                     x.Qty,
                     ComponentOnHandQty = x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
                     ComponentBasePrice = x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0m,
+                    ComponentProductType = x.ComponentProduct != null ? x.ComponentProduct.ProductType.ToString() : "",
+                    CommissionMode = x.ComponentProduct != null ? x.ComponentProduct.CommissionMode.ToString() : "None",
+                    CommissionPercent = x.ComponentProduct != null ? x.ComponentProduct.CommissionPercent : 0m,
+                    CommissionFixed = x.ComponentProduct != null ? x.ComponentProduct.CommissionFixed : 0m,
                 })
                 .ToListAsync();
         var comboLinesByProduct = comboLinesFlat
@@ -767,6 +785,9 @@ public partial class PosSalesController(
                 p.AllowToppings,
                 p.AutoOpenToppingPopup,
                 p.ShowComboComponentsOnSell,
+                p.CommissionMode,
+                p.CommissionPercent,
+                p.CommissionFixed,
                 p.VariantCount,
                 IsDailySoldOut = PosDailySoldOutHelper.IsLockedToday(p.DailySoldOutOn, sellBizDate),
                 ToppingOptions = toppingMap.GetValueOrDefault(p.Id),
@@ -781,6 +802,10 @@ public partial class PosSalesController(
                     cl.Qty,
                     cl.ComponentOnHandQty,
                     cl.ComponentBasePrice,
+                    cl.ComponentProductType,
+                    cl.CommissionMode,
+                    cl.CommissionPercent,
+                    cl.CommissionFixed,
                 }).ToList(),
                 RecipeLines = recipeLines.Select(cl => new
                 {
@@ -1228,6 +1253,9 @@ public partial class PosSalesController(
         [FromQuery] bool? isDelivery,
         [FromQuery] string? deliveryStatus,
         [FromQuery] Guid? customerId,
+        [FromQuery] Guid? productId,
+        [FromQuery] string? voucherCode,
+        [FromQuery] bool? hasVoucher,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
         [FromQuery] int page = 1,
@@ -1245,7 +1273,8 @@ public partial class PosSalesController(
         {
             var s = search.Trim().ToLower();
             query = query.Where(o => o.OrderNo.ToLower().Contains(s) ||
-                                     (o.CustomerName != null && o.CustomerName.ToLower().Contains(s)));
+                                     (o.CustomerName != null && o.CustomerName.ToLower().Contains(s)) ||
+                                     (o.VoucherCode != null && o.VoucherCode.ToLower().Contains(s)));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {
@@ -1273,6 +1302,19 @@ public partial class PosSalesController(
             query = query.Where(o => o.DeliveryStatus != null && o.DeliveryStatus.Contains(deliveryStatus.Trim()));
         if (customerId.HasValue)
             query = query.Where(o => o.CustomerId == customerId);
+        if (productId.HasValue)
+        {
+            var saleIds = dbContext.PosSaleOrderLines.AsNoTracking()
+                .Where(l => l.StoreId == storeId && l.Deleted == null &&
+                            l.ProductId == productId.Value)
+                .Select(l => l.SaleOrderId);
+            query = query.Where(o => saleIds.Contains(o.Id));
+        }
+        if (!string.IsNullOrWhiteSpace(voucherCode))
+            query = query.Where(o => o.VoucherCode != null &&
+                                     o.VoucherCode.Contains(voucherCode.Trim()));
+        if (hasVoucher == true)
+            query = query.Where(o => o.VoucherCode != null && o.VoucherCode != "");
         if (from.HasValue || to.HasValue)
         {
             // UTC+7 (+ giờ cắt ngày qua đêm từ sell-settings).
@@ -1506,7 +1548,7 @@ public partial class PosSalesController(
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireModulePermission("PosSaleOrders", ModulePermissionAction.Edit)]
+    [RequireAnyActionOnModule("PosSaleOrders", ModulePermissionAction.Delete, ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> DeleteSale(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -2338,7 +2380,8 @@ public partial class PosSalesController(
                 returnedQtyByLine.GetValueOrDefault((l.ProductId, l.VariantId)),
                 serialsByLine.GetValueOrDefault(l.Id),
                 l.DurationMinutes, l.BillableMinutes, l.ServiceStartedAt, l.ServiceEndedAt,
-                l.KitchenSentQty, l.KitchenSentAt, l.ToppingsJson)).ToList(),
+                l.KitchenSentQty, l.KitchenSentAt, l.ToppingsJson,
+                l.AssignedEmployeeId, l.StaffAssignmentsJson)).ToList(),
             order.ServiceResourceId, order.ResourceSessionId,
             order.ServiceStartedAt, order.ServiceEndedAt,
             serviceResourceCode, serviceResourceName, serviceAreaName,
@@ -2358,6 +2401,12 @@ public partial class PosSalesController(
             order.EInvoiceError,
             order.EInvoiceBuyerName,
             order.EInvoiceBuyerTaxCode,
+            order.EInvoiceBuyerEmail,
+            order.EInvoiceEmailSentAt,
+            order.EInvoiceKind,
+            order.EInvoiceOriginalNo,
+            order.EInvoiceCancelledAt,
+            order.EInvoiceCancelReason,
             order.SplitFromOrderId,
             order.SurchargeAmount,
             order.DeliveryFee,
@@ -2394,7 +2443,9 @@ public partial class PosSalesController(
             o.EInvoiceStatus,
             o.EInvoiceProvider,
             o.EInvoiceNo,
-            o.EInvoiceError);
+            o.EInvoiceError,
+            o.EInvoiceEmailSentAt,
+            o.EInvoiceKind);
     }
 
     static EInvoiceBuyerInput? ToEInvoiceBuyer(EInvoiceBuyerDto? dto)

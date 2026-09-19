@@ -492,7 +492,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canEdit',
       'canDelete',
     },
-    'PosSaleOrders': {'canView', 'canEdit'},
+    'PosSaleOrders': {'canView', 'canEdit', 'canDelete'},
     'PosSaleReturns': {
       // Xem = menu/danh sách; Duyệt = thực hiện trả / hủy phiếu trả
       'canView',
@@ -540,18 +540,19 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'PosReportExpense': {'canView', 'canExport'},
     'PosReportEndOfDay': {'canView', 'canExport'},
     'PosReportStaffRevenue': {'canView', 'canExport'},
+    'PosReportStaffCommission': {'canView', 'canExport'},
     'PosReportCashbook': {'canView', 'canExport'},
     'PosReportPnl': {'canView', 'canExport'},
     'PosReportVoucher': {'canView', 'canExport'},
     'PosEInvoice': {'canView', 'canEdit', 'canApprove'},
     'PosKds': {'canView', 'canCreate'},
-    'PosQrOrder': {'canView', 'canEdit'},
+    'PosQrOrder': {'canView', 'canEdit', 'canApprove'},
     'PosCashierShift': {'canView', 'canCreate'},
     'PosPrinters': {'canView', 'canEdit'},
     'PosStorePrinters': {'canView', 'canEdit'},
     'PosShipping': {'canView', 'canCreate', 'canEdit'},
     'PosBooking': {'canView', 'canCreate', 'canEdit'},
-    'PosCustomers': {'canView', 'canCreate', 'canEdit'},
+    'PosCustomers': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'PosWarranty': {'canView'},
     'PosCustomerDisplay': {'canView', 'canCreate', 'canEdit'},
     'Settings': {'canView', 'canEdit'},
@@ -2671,12 +2672,36 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           return 'Bump món';
       }
     }
+    if (module == 'PosSaleOrders') {
+      switch (action) {
+        case 'canView':
+          return 'Xem hóa đơn';
+        case 'canEdit':
+          return 'Sửa đơn';
+        case 'canDelete':
+          return 'Xóa đơn';
+      }
+    }
     if (module == 'PosQrOrder') {
       switch (action) {
         case 'canView':
           return 'Xem QR';
         case 'canEdit':
           return 'In / bật QR';
+        case 'canApprove':
+          return 'Duyệt đơn online';
+      }
+    }
+    if (module == 'PosCustomers') {
+      switch (action) {
+        case 'canView':
+          return 'Xem khách';
+        case 'canCreate':
+          return 'Thêm khách';
+        case 'canEdit':
+          return 'Sửa khách';
+        case 'canDelete':
+          return 'Xóa khách';
       }
     }
     if (module == 'PosCashierShift') {

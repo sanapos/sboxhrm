@@ -157,7 +157,7 @@ public partial class PosReportsController(
                 orderCount = g.Count(),
             })
             .OrderByDescending(x => x.revenue)
-            .Take(10)
+            .Take(200)
             .ToListAsync();
 
         var storeName = await dbContext.Stores.AsNoTracking()
@@ -252,7 +252,13 @@ public partial class PosReportsController(
         [FromQuery] DateTime? to,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
-        [FromQuery] int? dayStartHour = null)
+        [FromQuery] int? dayStartHour = null,
+        [FromQuery] Guid? productId = null,
+        [FromQuery] string? soldBy = null,
+        [FromQuery] string? paymentMethod = null,
+        [FromQuery] Guid? customerId = null,
+        [FromQuery] string? voucherCode = null,
+        [FromQuery] bool? hasVoucher = null)
     {
         var storeId = RequiredStoreId;
         page = Math.Max(page, 1);
@@ -268,9 +274,30 @@ public partial class PosReportsController(
         }
 
         var query = ScopeOrdersForViewer(dbContext.PosSaleOrders.AsNoTracking()
-            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive));
+            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive
+                        && o.Status == PosSaleOrderStatus.Completed));
         if (fromDt.HasValue) query = query.Where(o => (o.SaleDate ?? o.CreatedAt) >= fromDt);
         if (toDt.HasValue) query = query.Where(o => (o.SaleDate ?? o.CreatedAt) < toDt);
+        if (productId.HasValue)
+        {
+            var saleIds = dbContext.PosSaleOrderLines.AsNoTracking()
+                .Where(l => l.StoreId == storeId && l.Deleted == null &&
+                            l.ProductId == productId.Value)
+                .Select(l => l.SaleOrderId);
+            query = query.Where(o => saleIds.Contains(o.Id));
+        }
+        if (!string.IsNullOrWhiteSpace(soldBy))
+            query = query.Where(o => o.SoldBy != null && o.SoldBy.Contains(soldBy.Trim()));
+        if (!string.IsNullOrWhiteSpace(paymentMethod))
+            query = query.Where(o => o.PaymentMethod != null &&
+                                     o.PaymentMethod.Contains(paymentMethod.Trim()));
+        if (customerId.HasValue)
+            query = query.Where(o => o.CustomerId == customerId);
+        if (!string.IsNullOrWhiteSpace(voucherCode))
+            query = query.Where(o => o.VoucherCode != null &&
+                                     o.VoucherCode.Contains(voucherCode.Trim()));
+        if (hasVoucher == true)
+            query = query.Where(o => o.VoucherCode != null && o.VoucherCode != "");
 
         var total = await query.CountAsync();
         var rawItems = await query
@@ -285,12 +312,15 @@ public partial class PosReportsController(
                 o.SubTotal,
                 o.Discount,
                 o.Total,
+                o.VatAmount,
                 o.PaidAmount,
                 o.PaymentMethod,
                 o.CustomerName,
                 o.CreatedAt,
                 o.SaleDate,
                 o.CreatedBy,
+                o.SoldBy,
+                o.VoucherCode,
                 LineCount = o.Lines.Count,
             })
             .ToListAsync();
@@ -308,12 +338,15 @@ public partial class PosReportsController(
                 o.SubTotal,
                 o.Discount,
                 o.Total,
+                o.VatAmount,
                 o.PaidAmount,
                 o.PaymentMethod,
                 o.CustomerName,
                 o.CreatedAt,
                 o.SaleDate,
                 o.CreatedBy,
+                o.SoldBy,
+                o.VoucherCode,
                 o.LineCount,
                 closedOffDay = closedOff,
             };
@@ -346,8 +379,8 @@ public partial class PosReportsController(
         var headers = new[]
         {
             "STT", "Mã đơn", "Ngày", "Khách hàng", "Tạm tính", "Giảm giá",
-            "Tổng (chưa VAT)", "VAT", "Tổng gồm VAT", "Đã thu", "Thanh toán", "Trạng thái", "Người tạo",
-            "Ghi chú"
+            "Tổng (chưa VAT)", "VAT", "Tổng gồm VAT", "Đã thu", "Thanh toán", "Trạng thái",
+            "Người bán", "Người tạo", "Voucher", "Ghi chú"
         };
 
         var meta = ReportExcelMeta.FromUser(
@@ -375,9 +408,11 @@ public partial class PosReportsController(
             ws.Cell(row, 10).Value = o.PaidAmount;
             ws.Cell(row, 11).Value = o.PaymentMethod;
             ws.Cell(row, 12).Value = o.Status.ToString();
-            ws.Cell(row, 13).Value = o.CreatedBy ?? "";
+            ws.Cell(row, 13).Value = o.SoldBy ?? "";
+            ws.Cell(row, 14).Value = o.CreatedBy ?? "";
+            ws.Cell(row, 15).Value = o.VoucherCode ?? "";
             var saleAt = o.SaleDate ?? o.CreatedAt;
-            ws.Cell(row, 14).Value = o.Status == PosSaleOrderStatus.Completed
+            ws.Cell(row, 16).Value = o.Status == PosSaleOrderStatus.Completed
                 && PosSaleStockHelper.IsClosedOffDay(o.OrderNo, o.CreatedAt, saleAt)
                 ? "Chốt ngày khác"
                 : "";
@@ -385,6 +420,47 @@ public partial class PosReportsController(
         }
 
         ws.Columns(1, headers.Length).AdjustToContents();
+
+        var payWs = workbook.Worksheets.Add("Theo PTTT");
+        var payHeaders = new[] { "Phương thức", "Số HĐ", "Tổng", "Đã thu" };
+        var payMeta = ReportExcelMeta.FromUser(
+            User, "DOANH THU THEO PHƯƠNG THỨC",
+            $"{fromVn:dd/MM/yyyy} - {toVnEx.AddDays(-1):dd/MM/yyyy}",
+            null, Array.Empty<string>(), orders.Count);
+        var (payHeaderRow, payDataStart) = ReportExcelLayout.ApplyMeta(payWs, payMeta, payHeaders.Length);
+        ReportExcelLayout.ApplyHeaderRow(payWs, payHeaderRow, payHeaders);
+        var payRow = payDataStart;
+        foreach (var g in orders.GroupBy(o => string.IsNullOrWhiteSpace(o.PaymentMethod) ? "Khác" : o.PaymentMethod!)
+                     .OrderByDescending(g => g.Sum(x => x.Total)))
+        {
+            payWs.Cell(payRow, 1).Value = g.Key;
+            payWs.Cell(payRow, 2).Value = g.Count();
+            payWs.Cell(payRow, 3).Value = g.Sum(x => x.Total);
+            payWs.Cell(payRow, 4).Value = g.Sum(x => x.PaidAmount);
+            payRow++;
+        }
+        payWs.Columns(1, payHeaders.Length).AdjustToContents();
+
+        var staffWs = workbook.Worksheets.Add("Theo NV");
+        var staffHeaders = new[] { "Người bán", "Số HĐ", "Doanh thu", "Đã thu" };
+        var staffMeta = ReportExcelMeta.FromUser(
+            User, "DOANH THU THEO NHÂN VIÊN",
+            $"{fromVn:dd/MM/yyyy} - {toVnEx.AddDays(-1):dd/MM/yyyy}",
+            null, Array.Empty<string>(), orders.Count);
+        var (staffHeaderRow, staffDataStart) = ReportExcelLayout.ApplyMeta(staffWs, staffMeta, staffHeaders.Length);
+        ReportExcelLayout.ApplyHeaderRow(staffWs, staffHeaderRow, staffHeaders);
+        var staffRow = staffDataStart;
+        foreach (var g in orders.GroupBy(o => string.IsNullOrWhiteSpace(o.SoldBy) ? "(trống)" : o.SoldBy!)
+                     .OrderByDescending(g => g.Sum(x => x.Total)))
+        {
+            staffWs.Cell(staffRow, 1).Value = g.Key;
+            staffWs.Cell(staffRow, 2).Value = g.Count();
+            staffWs.Cell(staffRow, 3).Value = g.Sum(x => x.Total);
+            staffWs.Cell(staffRow, 4).Value = g.Sum(x => x.PaidAmount);
+            staffRow++;
+        }
+        staffWs.Columns(1, staffHeaders.Length).AdjustToContents();
+
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return File(stream.ToArray(),
@@ -408,7 +484,7 @@ public partial class PosReportsController(
         [FromQuery] string? inventoryStatus = null)
     {
         var storeId = RequiredStoreId;
-        limit = Math.Clamp(limit, 1, 50);
+        limit = Math.Clamp(limit, 1, 1000);
         var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
         var (fromDt, toDt, _, _) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
 
@@ -991,10 +1067,16 @@ public partial class PosReportsController(
         var orderCount = await completedQuery.CountAsync();
         var subTotal = await completedQuery.SumAsync(o => (decimal?)o.SubTotal) ?? 0;
         var orderDiscount = await completedQuery.SumAsync(o => (decimal?)o.Discount) ?? 0;
+        var voucherDiscount = await completedQuery.SumAsync(o => (decimal?)o.VoucherDiscount) ?? 0;
+        var pointsDiscount = await completedQuery.SumAsync(o => (decimal?)o.PointsDiscount) ?? 0;
         var netSales = await completedQuery.SumAsync(o => (decimal?)o.Total) ?? 0;
         var vat = await completedQuery.SumAsync(o => (decimal?)o.VatAmount) ?? 0;
+        var surchargeTotal = await completedQuery.SumAsync(o => (decimal?)o.SurchargeAmount) ?? 0;
+        var deliveryFeeTotal = await completedQuery.SumAsync(o => (decimal?)o.DeliveryFee) ?? 0;
         var actualReceived = await completedQuery.SumAsync(o => (decimal?)o.PaidAmount) ?? 0;
-        var debtTotal = await completedQuery.SumAsync(o => (decimal?)(o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee - o.PaidAmount)) ?? 0;
+        // Phải thu = Total + VAT + phụ thu + phí GH (Total không gồm VAT khi giá chưa thuế).
+        var payableTotal = netSales + vat + surchargeTotal + deliveryFeeTotal;
+        var debtTotal = payableTotal - actualReceived;
         if (debtTotal < 0) debtTotal = 0;
 
         var canceledCount = await canceledQuery.CountAsync();
@@ -1203,8 +1285,13 @@ public partial class PosReportsController(
             generatedAt = DateTime.UtcNow,
             orderCount,
             orderDiscount,
+            voucherDiscount,
+            pointsDiscount,
             totalSales = subTotal,
             vat,
+            surchargeTotal,
+            deliveryFeeTotal,
+            payableTotal,
             netSales,
             refundTotal,
             totalAfterRefund = Math.Max(0, netSales - refundTotal),

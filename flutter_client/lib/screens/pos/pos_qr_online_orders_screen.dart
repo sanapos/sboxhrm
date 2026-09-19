@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/pos_sale_order.dart';
 import '../../models/qr_order_lock_config.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/signalr_service.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/pos_sale_order_print.dart';
 import '../../utils/pos_sell_print_settings.dart';
@@ -46,6 +49,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
   List<_StatusOpt> _statuses = const [];
   List<_ProductFilter> _productFilters = const [];
   String? _highlightId;
+  StreamSubscription<Map<String, dynamic>>? _floorSub;
   QrOrderLockConfig _onlineCfg = const QrOrderLockConfig();
   List<MapEntry<String, String>> _shippingCarriers = const [];
   PosSellPrintSettings _printSettings = PosSellPrintSettings();
@@ -62,6 +66,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _floorSub?.cancel();
     super.dispose();
   }
 
@@ -71,6 +76,17 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
     _highlightId = widget.highlightOrderId ??
         NavigationNotifier.notificationHighlightId.value;
     NavigationNotifier.notificationHighlightId.value = null;
+    _floorSub = SignalRService().onPosFloorChanged.listen((event) {
+      final reason =
+          (event['reason'] ?? event['Reason'] ?? '').toString().toLowerCase();
+      if (reason == 'qronlineorder' ||
+          reason == 'qronlinestatus' ||
+          reason == 'qronlinedeleted' ||
+          reason == 'tingeepaymentconfirmed' ||
+          reason == 'salecompleted') {
+        unawaited(_load());
+      }
+    });
     _load();
   }
 
@@ -245,8 +261,22 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
     return out;
   }
 
+  bool _canQrMutate() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    return perm.canEdit('PosQrOrder') ||
+        perm.canApprove('PosQrOrder') ||
+        perm.canEdit('PosProducts');
+  }
+
   Future<void> _setStatus(_OnlineOrder order, String status,
       {bool internalDelivery = false}) async {
+    if (!_canQrMutate()) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không có quyền',
+        message: tr('Tài khoản không được đổi trạng thái đơn online'),
+      );
+      return;
+    }
     setState(() => _busy = true);
     final res = await _api.setPosQrOnlineOrderStatus(
       order.id,
@@ -741,6 +771,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
   }
 
   Widget _quickStatusActions(_OnlineOrder o) {
+    if (!_canQrMutate()) return const SizedBox.shrink();
     final actions = _forwardActions(o.status);
     if (actions.isEmpty) return const SizedBox.shrink();
     return Column(

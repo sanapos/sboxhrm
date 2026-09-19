@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZKTecoADMS.Infrastructure",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZKTecoADMS.Application", "src\ZKTecoADMS.Application\ZKTecoADMS.Application.csproj", "{5FBC72A8-23A3-486D-A676-2759F48C1337}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZKTecoADMS.Tests", "src\ZKTecoADMS.Tests\ZKTecoADMS.Tests.csproj", "{1FAC8341-D083-4A06-BF09-28803D926A32}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +37,10 @@ Global
 		{5FBC72A8-23A3-486D-A676-2759F48C1337}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5FBC72A8-23A3-486D-A676-2759F48C1337}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5FBC72A8-23A3-486D-A676-2759F48C1337}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FAC8341-D083-4A06-BF09-28803D926A32}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FAC8341-D083-4A06-BF09-28803D926A32}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FAC8341-D083-4A06-BF09-28803D926A32}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FAC8341-D083-4A06-BF09-28803D926A32}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -44,6 +50,7 @@ Global
 		{F704B83F-F445-4E58-8CEB-3A67CC1E7AF9} = {5BF844D2-A827-4FC4-8F3E-D3D7F068DD02}
 		{68023A24-01FB-4B90-A146-2ACF4D1410B5} = {5BF844D2-A827-4FC4-8F3E-D3D7F068DD02}
 		{5FBC72A8-23A3-486D-A676-2759F48C1337} = {5BF844D2-A827-4FC4-8F3E-D3D7F068DD02}
+		{1FAC8341-D083-4A06-BF09-28803D926A32} = {5BF844D2-A827-4FC4-8F3E-D3D7F068DD02}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5C6B9D0F-833D-4614-BC02-C1CF6F56EABC}

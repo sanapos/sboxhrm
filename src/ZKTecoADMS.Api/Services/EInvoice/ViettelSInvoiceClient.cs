@@ -16,6 +16,8 @@ public record ViettelCreateResult(
     string? ErrorCode,
     string? Error);
 
+public record ViettelActionResult(bool Ok, string? ErrorCode, string? Error);
+
 /// <summary>Client Viettel SInvoice v2.46 — login token + createInvoice + tra cứu UUID.</summary>
 public class ViettelSInvoiceClient(IHttpClientFactory httpFactory, IMemoryCache cache, ILogger<ViettelSInvoiceClient> logger)
 {
@@ -173,6 +175,116 @@ public class ViettelSInvoiceClient(IHttpClientFactory httpFactory, IMemoryCache 
         }
         catch { /* ignore */ }
         return false;
+    }
+
+    public async Task<ViettelActionResult> CancelInvoiceAsync(
+        string baseUrl,
+        string accessToken,
+        string supplierTaxCode,
+        string invoiceNo,
+        DateTime issuedAtUtc,
+        string agreementDesc,
+        DateTime agreementDateUtc,
+        string? reason,
+        string? templateCode = null,
+        CancellationToken ct = default)
+    {
+        var root = NormalizeBaseUrl(baseUrl);
+        var url = $"{root}/services/einvoiceapplication/api/InvoiceAPI/InvoiceWS/cancelTransactionInvoice";
+        var issueMs = new DateTimeOffset(DateTime.SpecifyKind(issuedAtUtc, DateTimeKind.Utc))
+            .ToUnixTimeMilliseconds()
+            .ToString();
+        var agree = DateTime.SpecifyKind(agreementDateUtc, DateTimeKind.Utc)
+            .AddHours(7)
+            .ToString("yyyyMMddHHmmss");
+        var form = new Dictionary<string, string>
+        {
+            ["supplierTaxCode"] = supplierTaxCode.Trim(),
+            ["invoiceNo"] = invoiceNo.Trim(),
+            ["strIssueDate"] = issueMs,
+            ["additionalReferenceDesc"] = string.IsNullOrWhiteSpace(agreementDesc)
+                ? "Hủy hóa đơn theo thỏa thuận"
+                : agreementDesc.Trim(),
+            ["additionalReferenceDate"] = agree,
+        };
+        if (!string.IsNullOrWhiteSpace(templateCode))
+            form["templateCode"] = templateCode.Trim();
+        if (!string.IsNullOrWhiteSpace(reason))
+            form["reasonDelete"] = reason.Trim();
+
+        var client = httpFactory.CreateClient("viettel-sinvoice");
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.TryAddWithoutValidation("Cookie", $"access_token={accessToken}");
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        req.Content = new FormUrlEncodedContent(form);
+        try
+        {
+            using var res = await client.SendAsync(req, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+            return ParseActionResponse(res.IsSuccessStatusCode, body);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Viettel cancelTransactionInvoice failed");
+            return new(false, "EXCEPTION", ex.Message);
+        }
+    }
+
+    public async Task<ViettelActionResult> SendHtmlMailAsync(
+        string baseUrl,
+        string accessToken,
+        string supplierTaxCode,
+        string transactionUuid,
+        CancellationToken ct = default)
+    {
+        var root = NormalizeBaseUrl(baseUrl);
+        var url = $"{root}/services/einvoiceapplication/api/InvoiceAPI/InvoiceUtilsWS/sendHtmlMailProcess";
+        var client = httpFactory.CreateClient("viettel-sinvoice");
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.TryAddWithoutValidation("Cookie", $"access_token={accessToken}");
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(new
+            {
+                supplierTaxCode = supplierTaxCode.Trim(),
+                lstTransactionUuid = transactionUuid.Trim(),
+            }, JsonOpts),
+            Encoding.UTF8,
+            "application/json");
+        try
+        {
+            using var res = await client.SendAsync(req, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+            return ParseActionResponse(res.IsSuccessStatusCode, body);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Viettel sendHtmlMailProcess failed");
+            return new(false, "EXCEPTION", ex.Message);
+        }
+    }
+
+    static ViettelActionResult ParseActionResponse(bool httpOk, string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return new(httpOk, httpOk ? null : "EMPTY", httpOk ? null : "Viettel không trả dữ liệu");
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            var errorCode = Str(root, "errorCode");
+            var description = Str(root, "description") ?? Str(root, "message");
+            var ok = string.IsNullOrWhiteSpace(errorCode) &&
+                     (httpOk ||
+                      (description?.Contains("SUCCESS", StringComparison.OrdinalIgnoreCase) ?? false));
+            if (!ok)
+                return new(false, errorCode, TrimErr(description ?? body));
+            return new(true, null, description);
+        }
+        catch
+        {
+            return new(false, "PARSE", TrimErr(body));
+        }
     }
 
     public async Task<ViettelCreateResult> SearchByTransactionUuidAsync(

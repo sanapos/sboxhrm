@@ -459,6 +459,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
                     holidays: _holidays,
                     approvedLeaves: _approvedLeaves,
                     employeesList: _orgEmployees,
+                    branches: _branchFilter.branches,
                     dayEndHour: _dayEndHour,
                     dayEndMinute: _dayEndMinute,
                     minHoursForWorkDay: _minHoursForWorkDay,

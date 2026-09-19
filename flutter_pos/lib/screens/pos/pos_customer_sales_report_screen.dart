@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
 import '../../utils/pos_kiot_time_range.dart';
+import '../../utils/pos_report_export.dart';
+import '../../utils/pos_report_open.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -65,6 +69,25 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
     return PosReportMobileScaffold(
       title: 'Bán theo khách',
       time: _time,
+      onExportExcel: () => unawaited(PosReportExport.excel(
+        context: context,
+        title: 'Bán theo khách',
+        sheetName: 'Khach hang',
+        filePrefix: 'POS_BanTheoKhach',
+        periodLabel: _time.displayLabel,
+        headers: const ['Khách', 'SĐT', 'Số HĐ', 'DT', 'LN', 'Nợ'],
+        rows: [
+          for (final r in items)
+            [
+              r['name'] ?? '',
+              r['phone'] ?? r['customerCode'] ?? '',
+              r['orderCount'] ?? 0,
+              _n(r['revenue']),
+              _n(r['profit']),
+              _n(r['currentDebt']),
+            ],
+        ],
+      )),
       onTimeChanged: (s) async {
         setState(() => _time = s);
         await _load();
@@ -127,7 +150,16 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
   Widget _row(Map<String, dynamic> r) {
     final last = DateTime.tryParse('${r['lastPurchaseAt'] ?? ''}');
     final isNew = r['isNew'] == true;
-    return Column(
+    final cid = '${r['customerId'] ?? r['id'] ?? ''}';
+    return InkWell(
+      onTap: () => unawaited(PosReportOpen.sales(
+        context,
+        from: _time.from,
+        to: _time.to,
+        customerId: cid.isEmpty ? null : cid,
+        customerName: r['name']?.toString(),
+      )),
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -157,6 +189,7 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
           style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
         ),
       ],
+      ),
     );
   }
 }

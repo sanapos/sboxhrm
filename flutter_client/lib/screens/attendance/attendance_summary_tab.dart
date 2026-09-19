@@ -34,6 +34,8 @@ import '../../widgets/synced_scroll_list_view.dart'
     show SyncedScrollListView, linkHorizontalScrollControllers;
 import '../../widgets/pinned_box_header_delegate.dart';
 import '../../utils/excel_report_builder.dart';
+import '../../utils/branch_filter_helper.dart';
+import '../../utils/punch_location_utils.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Model cho yêu cầu chỉnh sửa chấm công
@@ -183,6 +185,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         storeSalarySettings: widget.storeSalarySettings,
         salaryProfiles: widget.salaryProfiles,
       );
+
+  bool get _showPunchBranchColumn =>
+      BranchFilterHelper.showBranchFilter(widget.branches);
 
   // Sorting
   String _sortColumn = 'name';
@@ -1010,6 +1015,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         isHoliday: isHoliday,
         isRestDay: isRestDay,
         branchName: _codeTobranchName[empCode] ?? '',
+        punchLocation: punchLocationsForDay(
+          punches: attendances,
+          devices: widget.devices,
+          branches: widget.branches,
+        ),
       ));
 
       processed++;
@@ -1536,8 +1546,37 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     color: Color(0xFF71717A),
   );
 
+  static const String _punchBranchHeader = 'Chi nhánh chấm';
+
+  int get _excelPunchStartCol => _showPunchBranchColumn ? 4 : 3;
+
   int _summaryColumnCount(int maxPunches, int maxShifts) =>
-      5 + maxPunches + maxShifts + (_showTravelColumns ? 4 : 3);
+      5 +
+      (_showPunchBranchColumn ? 1 : 0) +
+      maxPunches +
+      maxShifts +
+      (_showTravelColumns ? 4 : 3);
+
+  Widget _punchLocationCell(String location, {String assignedBranch = ''}) {
+    if (location.isEmpty) {
+      return Text(tr('—'),
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
+    }
+    final mismatch =
+        punchLocationDiffersFromAssigned(location, assignedBranch);
+    return Text(
+      tr(location),
+      textAlign: TextAlign.center,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        color: mismatch ? const Color(0xFFC2410C) : const Color(0xFF334155),
+      ),
+    );
+  }
 
   Map<int, TableColumnWidth> _summaryDesktopColumnWidths(
       int maxPunches, int maxShifts) {
@@ -1549,6 +1588,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       4: const FixedColumnWidth(108),
     };
     var idx = 5;
+    if (_showPunchBranchColumn) {
+      widths[idx++] = const FixedColumnWidth(132);
+    }
     for (var i = 0; i < maxPunches; i++) {
       widths[idx++] = const FixedColumnWidth(78);
     }
@@ -1693,6 +1735,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           ),
         ),
       ),
+      if (_showPunchBranchColumn)
+        _summaryTableCell(
+          Text(tr('—'),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+        ),
     ];
     for (var i = 0; i < maxPunches; i++) {
       cells.add(_summaryTableCell(
@@ -1801,6 +1849,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       _summaryTableCell(_summarySortableHeader('Mã nhân viên', 'code')),
       _summaryTableCell(_summaryHeaderText('Thứ')),
       _summaryTableCell(_summarySortableHeader('Ngày', 'date')),
+      if (_showPunchBranchColumn)
+        _summaryTableCell(_summaryHeaderText(_punchBranchHeader)),
     ];
     for (var i = 1; i <= maxPunches; i++) {
       cells.add(_summaryTableCell(_summaryHeaderText('Lần $i')));
@@ -2416,7 +2466,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   }
 
   List<String> _excelDetailHeaders(int maxPunches, int maxShifts) {
-    final headers = <String>['STT', 'Thứ', 'Ngày'];
+    final headers = <String>[
+      'STT',
+      'Thứ',
+      'Ngày',
+      if (_showPunchBranchColumn) _punchBranchHeader,
+    ];
     for (var i = 1; i <= maxPunches; i++) {
       headers.add('Lần $i');
     }
@@ -2545,7 +2600,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     final sigHintStyle = _excelCenterStyle(fontSize: 10, italic: true);
 
     final lastCol = colCount - 1;
-    final punchStartCol = 3;
+    final punchStartCol = _excelPunchStartCol;
     final shiftStartCol = punchStartCol + maxPunches;
     final totalHoursCol = shiftStartCol + maxShifts;
     final travelCol = _showTravelColumns ? totalHoursCol + 1 : -1;
@@ -2619,6 +2674,15 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         excel_lib.TextCellValue(DateFormat('dd/MM/yyyy').format(s.date)),
         style: dataStyle,
       );
+      if (_showPunchBranchColumn) {
+        _excelSetCell(
+          sheet,
+          row,
+          col++,
+          excel_lib.TextCellValue(s.punchLocation),
+          style: _excelLeftStyle(),
+        );
+      }
 
       for (var p = 1; p <= maxPunches; p++) {
         final punch = s.getPunch(p);
@@ -2852,8 +2916,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       sheet.setColumnWidth(0, 5);
       sheet.setColumnWidth(1, 10);
       sheet.setColumnWidth(2, 12);
-      for (var i = 3; i < colCount; i++) {
-        sheet.setColumnWidth(i, i < 3 + maxPunches ? 9 : 11);
+      final punchStart = _excelPunchStartCol;
+      if (_showPunchBranchColumn) {
+        sheet.setColumnWidth(3, 22);
+      }
+      for (var i = punchStart; i < colCount; i++) {
+        sheet.setColumnWidth(i, i < punchStart + maxPunches ? 9 : 11);
       }
 
       final empTotals = _employeeTotalsFrom(summaries);
@@ -2925,6 +2993,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       '$stt',
       _getDayOfWeekVN(s.date.weekday),
       DateFormat('dd/MM/yyyy').format(s.date),
+      if (_showPunchBranchColumn) s.punchLocation,
     ];
     for (var p = 1; p <= maxPunches; p++) {
       final punch = s.getPunch(p);
@@ -2952,6 +3021,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       '',
       'TỔNG CỘNG',
       '${totals.presentDays} ngày',
+      if (_showPunchBranchColumn) '',
     ];
     for (var p = 0; p < maxPunches; p++) {
       cells.add('');
@@ -3077,7 +3147,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       }
     }
     final tableWidth =
-        _pngEstimateColWidths(headers, allSampleRows, 48, 120).clamp(600, 1400);
+        _pngEstimateColWidths(headers, allSampleRows, 48, 180).clamp(600, 1600);
     final colWidths = <double>[];
     for (var c = 0; c < headers.length; c++) {
       var w = headers[c].length * 8.0 + 20;
@@ -3087,7 +3157,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           if (cw > w) w = cw;
         }
       }
-      colWidths.add(w.clamp(48, 120));
+      colWidths.add(w.clamp(
+          48, (_showPunchBranchColumn && c == 3) ? 180.0 : 120.0));
     }
     final scale = tableWidth / colWidths.fold(0.0, (s, w) => s + w);
     for (var i = 0; i < colWidths.length; i++) {
@@ -3165,11 +3236,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         }
         x = tableLeft;
         for (var c = 0; c < cells.length; c++) {
-          final punchCol = c >= 3 && c < 3 + maxPunches;
+          final punchStart = _excelPunchStartCol;
+          final punchCol = c >= punchStart && c < punchStart + maxPunches;
           String color = '#334155';
           if (punchCol && cells[c].isNotEmpty) {
-            color = (c - 2).isOdd ? '#059669' : '#DC2626';
-          } else if (c >= 3 + maxPunches && c < 3 + maxPunches + maxShifts) {
+            color = (c - (punchStart - 1)).isOdd ? '#059669' : '#DC2626';
+          } else if (c >= punchStart + maxPunches &&
+              c < punchStart + maxPunches + maxShifts) {
             color = cells[c].isNotEmpty ? '#0D9488' : '#334155';
           } else if (c == cells.length - 3 && cells[c].isNotEmpty) {
             color = '#16A34A';
@@ -3638,6 +3711,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       final inStr = pin != null ? DateFormat('HH:mm').format(pin) : '—';
       final outStr = pout != null ? DateFormat('HH:mm').format(pout) : '—';
       parts.add(maxShifts > 1 ? 'C${si + 1} $inStr·$outStr' : '$inStr·$outStr');
+    }
+    if (_showPunchBranchColumn && s.punchLocation.isNotEmpty) {
+      parts.add(s.punchLocation);
     }
     return parts.isEmpty ? '—' : parts.join('\n');
   }
@@ -4513,6 +4589,16 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             icon: Icons.fingerprint,
             iconColor: Colors.purple,
           ),
+          if (_showPunchBranchColumn && s.punchLocation.isNotEmpty)
+            _buildDetailRow(
+              _punchBranchHeader,
+              s.punchLocation,
+              icon: Icons.location_on_outlined,
+              iconColor: punchLocationDiffersFromAssigned(
+                      s.punchLocation, s.branchName)
+                  ? Colors.orange.shade800
+                  : Colors.teal,
+            ),
         ],
       );
     }
@@ -4916,6 +5002,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             style: const TextStyle(fontSize: 12),
           ),
         ),
+        if (_showPunchBranchColumn)
+          _summaryTableCell(
+            _punchLocationCell(summary.punchLocation,
+                assignedBranch: summary.branchName),
+          ),
       ];
 
       for (int i = 1; i <= maxPunches; i++) {
@@ -6030,6 +6121,8 @@ class _DailySummary {
   final bool isHoliday;
   final bool isRestDay;
   final String branchName; // Tên chi nhánh (lookup từ employeesList)
+  /// Chi nhánh / địa điểm thực tế chấm trong ngày (máy hoặc GPS).
+  final String punchLocation;
 
   _DailySummary({
     required this.employeeId,
@@ -6071,6 +6164,7 @@ class _DailySummary {
     this.isHoliday = false,
     this.isRestDay = false,
     this.branchName = '',
+    this.punchLocation = '',
   });
 
   // Lấy punch time theo index (1-10)

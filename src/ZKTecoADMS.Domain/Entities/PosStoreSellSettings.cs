@@ -79,6 +79,12 @@ public class PosStoreSellSettings : AuditableEntity<Guid>
     /// <summary>Tối đa % giá trị đơn (sau voucher) được trả bằng điểm. 1–100, mặc định 100.</summary>
     public decimal LoyaltyMaxRedeemPercent { get; set; } = 100m;
 
+    /// <summary>Bật gán nhân viên làm dịch vụ / thành phần combo để tính hoa hồng.</summary>
+    public bool EnableStaffCommission { get; set; }
+
+    /// <summary>Bắt buộc chọn NV trên dịch vụ (và thành phần dịch vụ trong combo) khi thanh toán.</summary>
+    public bool RequireStaffOnService { get; set; }
+
     /// <summary>JSON flags mở rộng (tùy ngành).</summary>
     [MaxLength(4000)]
     public string? ExtraJson { get; set; }

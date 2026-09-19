@@ -23,7 +23,7 @@ public partial class PosCustomersController
         Guid? BankAccountId = null);
 
     [HttpGet("{id:guid}/payments")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<CustomerPaymentDto>>>> GetPayments(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -37,7 +37,7 @@ public partial class PosCustomersController
     }
 
     [HttpPost("{id:guid}/payments")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<CustomerPaymentDto>>> AddPayment(
         Guid id, [FromBody] CreateCustomerPaymentDto dto)
     {
@@ -60,7 +60,7 @@ public partial class PosCustomersController
     }
 
     [HttpGet("{id:guid}/points")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetPointHistory(
         Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
     {
@@ -99,7 +99,7 @@ public partial class PosCustomersController
     }
 
     [HttpGet("{id:guid}/history")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetHistory(Guid id, [FromQuery] int take = 30)
     {
         var storeId = RequiredStoreId;
@@ -135,6 +135,49 @@ public partial class PosCustomersController
                 p.SaleOrderId,
             })
             .ToListAsync();
-        return Ok(AppResponse<object>.Success(new { orders, payments }));
+        var sessionBalances = await dbContext.PosCustomerSessionBalances.AsNoTracking()
+            .Where(b => b.CustomerId == id && b.StoreId == storeId && b.Deleted == null)
+            .OrderByDescending(b => b.CreatedAt)
+            .Select(b => new
+            {
+                b.Id,
+                b.PackageName,
+                b.TotalSessions,
+                b.RemainingSessions,
+                UsedSessions = b.TotalSessions - b.RemainingSessions,
+                b.ExpiresAt,
+                b.CreatedAt,
+            })
+            .ToListAsync();
+        var sessionTxnRows = await (
+            from t in dbContext.PosCustomerSessionTransactions.AsNoTracking()
+            join b in dbContext.PosCustomerSessionBalances.AsNoTracking() on t.BalanceId equals b.Id
+            where t.CustomerId == id && t.StoreId == storeId && t.Deleted == null
+            orderby (t.UsedAt ?? t.CreatedAt) descending
+            select new
+            {
+                t.Id,
+                t.BalanceId,
+                b.PackageName,
+                t.TransactionType,
+                t.SessionDelta,
+                t.RemainingAfter,
+                At = t.UsedAt ?? t.CreatedAt,
+                t.EmployeeName,
+                t.Note,
+            }).Take(take).ToListAsync();
+        var sessionTxns = sessionTxnRows.Select(t => new
+        {
+            t.Id,
+            t.BalanceId,
+            t.PackageName,
+            Type = t.TransactionType.ToString(),
+            t.SessionDelta,
+            t.RemainingAfter,
+            t.At,
+            t.EmployeeName,
+            t.Note,
+        }).ToList();
+        return Ok(AppResponse<object>.Success(new { orders, payments, sessionBalances, sessionTxns }));
     }
 }

@@ -468,12 +468,12 @@ class PosQrOrderVoiceAlert {
         break;
       case 'tingeepaymentconfirmed':
         playAlertSound = true;
-        title = 'Đã nhận chuyển khoản';
+        title = 'Đã thanh toán';
         spoken = extra.isNotEmpty
             ? extra
             : (table.isEmpty
-                ? 'Đã nhận chuyển khoản thành công'
-                : 'Đã nhận chuyển khoản $table');
+                ? 'Đã thanh toán chuyển khoản thành công'
+                : 'Đã thanh toán chuyển khoản $table');
         break;
       default:
         return;
@@ -488,16 +488,22 @@ class PosQrOrderVoiceAlert {
     _lastKey = key;
     _lastAt = now;
     unawaited(speak(spoken));
-    final isOnlineOrder = reason == 'qronlineorder';
+    final isOnlineOrder = reason == 'qronlineorder' ||
+        reason == 'qronlinestatus' ||
+        table.toLowerCase() == 'online';
     NotificationOverlayManager().show(
       title: title,
       message: spoken,
-      type: NotificationType.info,
+      type: reason == 'tingeepaymentconfirmed'
+          ? NotificationType.success
+          : NotificationType.info,
       duration: const Duration(seconds: 5),
       playSound: playAlertSound,
-      onTap: isOnlineOrder
+      onTap: isOnlineOrder || reason == 'tingeepaymentconfirmed'
           ? () {
-              NavigationNotifier.pendingOpenQrOnlineOrders.value = true;
+              if (isOnlineOrder) {
+                NavigationNotifier.pendingOpenQrOnlineOrders.value = true;
+              }
               NavigationNotifier.posHubTab.value = 2;
               NavigationNotifier.goToModule('PosSell');
             }

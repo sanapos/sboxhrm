@@ -40,6 +40,7 @@ import 'pos_shipping_settings_screen.dart';
 import 'pos_store_printers_screen.dart';
 import 'pos_printer_settings_hub_screen.dart';
 import 'pos_einvoice_settings_screen.dart';
+import 'pos_einvoice_report_screen.dart';
 import '../pos_print_templates_screen.dart';
 import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
@@ -300,6 +301,12 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                       Icons.request_quote_outlined,
                       'PosEInvoice',
                       const PosEInvoiceSettingsScreen(),
+                    ),
+                    _Item(
+                      'Quản lý HĐĐT',
+                      Icons.receipt_long_outlined,
+                      'PosEInvoice',
+                      const PosEInvoiceReportScreen(),
                     ),
                     _Item(
                       'Thiết lập cửa hàng',

@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
@@ -171,7 +173,19 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
     _setCash(PosVndThousandsFormatter.parse(next));
   }
 
+  bool _canShiftAct() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    return perm.canCreate('PosCashierShift') || perm.canEdit('PosProducts');
+  }
+
   Future<void> _openShift() async {
+    if (!_canShiftAct()) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không có quyền',
+        message: tr('Tài khoản không được mở / đóng ca'),
+      );
+      return;
+    }
     if (_busy) return;
     setState(() => _busy = true);
     final res = await _api.openPosCashierShift(
@@ -195,6 +209,13 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
   }
 
   Future<void> _closeShift() async {
+    if (!_canShiftAct()) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không có quyền',
+        message: tr('Tài khoản không được mở / đóng ca'),
+      );
+      return;
+    }
     final id = _shift?.id;
     if (_busy || id == null || id.isEmpty) return;
     setState(() => _busy = true);
@@ -716,7 +737,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
               SizedBox(
                 height: 52,
                 child: FilledButton.icon(
-                  onPressed: _busy ? null : _openShift,
+                  onPressed: (_busy || !_canShiftAct()) ? null : _openShift,
                   icon: _busy
                       ? const SizedBox(
                           width: 18,
@@ -886,7 +907,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFFB45309),
                   ),
-                  onPressed: _busy ? null : _closeShift,
+                  onPressed: (_busy || !_canShiftAct()) ? null : _closeShift,
                   icon: _busy
                       ? const SizedBox(
                           width: 18,

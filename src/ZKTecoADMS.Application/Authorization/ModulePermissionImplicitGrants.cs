@@ -292,6 +292,7 @@ public static class ModulePermissionImplicitGrants
             if (HasAction(map, "PosReportRevenue", action)
                 || HasAction(map, "PosReportPayment", action)
                 || HasAction(map, "PosReportStaffRevenue", action)
+                || HasAction(map, "PosReportStaffCommission", action)
                 || HasAction(map, "PosReportProfit", action))
                 return true;
         }

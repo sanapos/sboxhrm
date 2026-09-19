@@ -1310,6 +1310,8 @@ class PosMobileProductRow extends StatelessWidget {
     this.onDecrement,
     this.onQtyTap,
     this.typeBadge,
+    this.unitLabel,
+    this.onUnitTap,
   });
 
   final String name;
@@ -1320,6 +1322,9 @@ class PosMobileProductRow extends StatelessWidget {
   final Widget? image;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  /// Đơn vị đang chọn (M/L…). Hiện badge gọn trên dòng mã, không tốn hàng riêng.
+  final String? unitLabel;
+  final VoidCallback? onUnitTap;
   /// Kiểu KiotViet bán hàng: badge tồn dưới mã, giá bên phải.
   final bool kiotSellStyle;
   final String? orderReservedText;
@@ -1394,6 +1399,14 @@ class PosMobileProductRow extends StatelessWidget {
                           const SizedBox(width: 6),
                           typeBadge!,
                         ],
+                        if (unitLabel != null && unitLabel!.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          _inlineUnitBadge(
+                            label: unitLabel!,
+                            onTap: onUnitTap,
+                            selected: isSelected,
+                          ),
+                        ],
                       ],
                     ),
                   ],
@@ -1459,6 +1472,51 @@ class PosMobileProductRow extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _inlineUnitBadge({
+    required String label,
+    VoidCallback? onTap,
+    required bool selected,
+  }) {
+    final child = Container(
+      padding: const EdgeInsets.fromLTRB(6, 1, 2, 1),
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFFDBEAFE) : const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: PosTheme.kiotBlue.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            tr(label),
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              height: 1.15,
+              color: PosTheme.kiotBlue,
+            ),
+          ),
+          const Icon(
+            Icons.keyboard_arrow_down,
+            size: 14,
+            color: PosTheme.kiotBlue,
+          ),
+        ],
+      ),
+    );
+    return Semantics(
+      button: true,
+      label: 'Đơn vị $label',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: child,
       ),
     );
   }

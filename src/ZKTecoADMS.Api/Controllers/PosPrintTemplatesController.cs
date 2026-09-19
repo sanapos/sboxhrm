@@ -118,7 +118,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
 
     /// <summary>Clone mẫu chung → bản cửa hàng (có thể đặt mặc định toàn store).</summary>
     [HttpPost("catalog/{catalogId:guid}/adopt")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> AdoptCatalog(
         Guid catalogId, [FromBody] AdoptCatalogDto? dto)
     {
@@ -198,7 +198,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     }
 
     [HttpPost]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> Create([FromBody] PrintTemplateSaveDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Name))
@@ -232,7 +232,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     }
 
     [HttpPut("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> Update(Guid id, [FromBody] PrintTemplateSaveDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Name))
@@ -264,7 +264,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     }
 
     [HttpPost("{id:guid}/set-default")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SetDefault(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -281,7 +281,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Delete)]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<object>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -298,7 +298,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     }
 
     [HttpPost("seed")]
-    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> Seed(
         [FromQuery] PosPrintDocumentType documentType = PosPrintDocumentType.SaleInvoice)
     {

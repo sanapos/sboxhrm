@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'pos_einvoice_report_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Cấu hình hóa đơn điện tử — Viettel SInvoice và Easy Invoice.
@@ -226,6 +227,21 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
                 'Khi thanh toán có thể chọn xuất HĐĐT. Đơn hàng hiện trạng thái xuất.')),
             value: _enabled,
             onChanged: (v) => setState(() => _enabled = v),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.receipt_long_outlined),
+            title: Text(tr('Quản lý hóa đơn đã xuất')),
+            subtitle: Text(tr(
+                'Nháp, gửi email, thay thế, hủy, đồng bộ từ Viettel / Easy')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PosEInvoiceReportScreen(),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(

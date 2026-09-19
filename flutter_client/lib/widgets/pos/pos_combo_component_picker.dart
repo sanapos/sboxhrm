@@ -74,7 +74,7 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
         pageSize: pageSize,
         productType: widget.materialsPreferred
             ? (_materialsOnly ? PosProductType.material : null)
-            : PosProductType.goods,
+            : null,
         isDirectSale: null,
         search: trimmed.isEmpty ? null : trimmed,
       ),
@@ -86,7 +86,9 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
         .map(PosProduct.fromJson)
         .where((p) =>
             p.id != widget.excludeProductId &&
-            !widget.excludeComponentIds.contains(p.id))
+            !widget.excludeComponentIds.contains(p.id) &&
+            (widget.materialsPreferred ||
+                p.productType != PosProductType.combo))
         .toList();
     setState(() {
       _items = items;
@@ -103,7 +105,7 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
     return AlertDialog(
       title: Text(tr(widget.materialsPreferred
           ? 'Chọn nguyên vật liệu'
-          : 'Chọn hàng thành phần')),
+          : 'Chọn hàng / dịch vụ thành phần')),
       content: SizedBox(
         width: dialogWidth,
         height: 420,

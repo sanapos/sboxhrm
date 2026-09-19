@@ -126,6 +126,8 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
 
         context.BankAccounts.Add(bankAccount);
         await context.SaveChangesAsync();
+        if (bankAccount.IsDefault)
+            await SyncTingeeReceiveAccountAsync(storeId, bankAccount.AccountNumber);
 
         return await GetBankAccount(bankAccount.Id);
     }
@@ -163,6 +165,8 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
         bankAccount.LastModified = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+        if (bankAccount.IsDefault)
+            await SyncTingeeReceiveAccountAsync(storeId, bankAccount.AccountNumber);
         return await GetBankAccount(id);
     }
 
@@ -191,6 +195,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
         bankAccount.LastModified = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+        await SyncTingeeReceiveAccountAsync(storeId, bankAccount.AccountNumber);
         return await GetBankAccount(id);
     }
 
@@ -248,6 +253,24 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
         if (VietQRBanks.Banks.TryGetValue(bankCode, out var bankInfo))
             return bankInfo.Logo;
         return "";
+    }
+
+    /// <summary>Không ghi đè VA Tingee (TGE…) khi đổi STK mặc định của cửa hàng.</summary>
+    async Task SyncTingeeReceiveAccountAsync(Guid storeId, string? accountNumber)
+    {
+        var number = (accountNumber ?? "").Trim();
+        if (number.Length == 0) return;
+        var gw = await context.PosPaymentGatewaySettings.AsTracking()
+            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null);
+        if (gw == null) return;
+        var current = (gw.TingeeVaAccountNumber ?? "").Trim();
+        if (current.Any(char.IsLetter)
+            && number.All(char.IsDigit)
+            && !string.Equals(current, number, StringComparison.OrdinalIgnoreCase))
+            return;
+        gw.TingeeVaAccountNumber = number;
+        gw.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
     }
 }
 

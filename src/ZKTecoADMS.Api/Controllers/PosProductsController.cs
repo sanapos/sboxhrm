@@ -92,7 +92,10 @@ public partial class PosProductsController(
         decimal? LengthCm = null,
         decimal? WidthCm = null,
         decimal? HeightCm = null,
-        bool IsDailySoldOut = false);
+        bool IsDailySoldOut = false,
+        string CommissionMode = "None",
+        decimal CommissionPercent = 0,
+        decimal CommissionFixed = 0);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -102,7 +105,11 @@ public partial class PosProductsController(
         decimal Qty,
         decimal ComponentOnHandQty,
         decimal ComponentBasePrice,
-        string ComponentUnitName);
+        string ComponentUnitName,
+        string? ComponentProductType = null,
+        string CommissionMode = "None",
+        decimal CommissionPercent = 0,
+        decimal CommissionFixed = 0);
 
     public record PosProductToppingGroupDto(
         Guid Id,
@@ -179,7 +186,10 @@ public partial class PosProductsController(
         bool ShowComboComponentsOnSell = false,
         decimal? LengthCm = null,
         decimal? WidthCm = null,
-        decimal? HeightCm = null);
+        decimal? HeightCm = null,
+        PosCommissionMode CommissionMode = PosCommissionMode.None,
+        decimal CommissionPercent = 0,
+        decimal CommissionFixed = 0);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -671,6 +681,9 @@ public partial class PosProductsController(
             AllowToppings = dto.AllowToppings && !dto.IsTopping,
             AutoOpenToppingPopup = dto.AutoOpenToppingPopup,
             ShowComboComponentsOnSell = dto.ProductType == PosProductType.Combo && dto.ShowComboComponentsOnSell,
+            CommissionMode = dto.CommissionMode,
+            CommissionPercent = Math.Max(0, dto.CommissionPercent),
+            CommissionFixed = Math.Max(0, dto.CommissionFixed),
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -794,6 +807,9 @@ public partial class PosProductsController(
         entity.AutoOpenToppingPopup = dto.AutoOpenToppingPopup;
         entity.ShowComboComponentsOnSell =
             dto.ProductType == PosProductType.Combo && dto.ShowComboComponentsOnSell;
+        entity.CommissionMode = dto.CommissionMode;
+        entity.CommissionPercent = Math.Max(0, dto.CommissionPercent);
+        entity.CommissionFixed = Math.Max(0, dto.CommissionFixed);
         entity.UpdatedAt = DateTime.UtcNow;
         entity.UpdatedBy = CurrentUserEmail;
 
@@ -1066,7 +1082,11 @@ public partial class PosProductsController(
                     x.Qty,
                     x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
                     x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0m,
-                    x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : ""))
+                    x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : "",
+                    x.ComponentProduct != null ? x.ComponentProduct.ProductType.ToString() : null,
+                    x.ComponentProduct != null ? x.ComponentProduct.CommissionMode.ToString() : "None",
+                    x.ComponentProduct != null ? x.ComponentProduct.CommissionPercent : 0,
+                    x.ComponentProduct != null ? x.ComponentProduct.CommissionFixed : 0))
                 .ToListAsync();
             sellableQty = (await ComputeComboSellableAsync(storeId, [p.Id])).GetValueOrDefault(p.Id);
         }
@@ -1084,7 +1104,11 @@ public partial class PosProductsController(
                     x.Qty,
                     x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
                     x.ComponentProduct != null ? x.ComponentProduct.BasePrice : 0m,
-                    x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : ""))
+                    x.ComponentProduct != null ? x.ComponentProduct.BaseUnitName : "",
+                    x.ComponentProduct != null ? x.ComponentProduct.ProductType.ToString() : null,
+                    "None",
+                    0,
+                    0))
                 .ToListAsync();
             if (recipeLines.Count > 0)
             {
@@ -1124,7 +1148,10 @@ public partial class PosProductsController(
             WidthCm: p.WidthCm,
             HeightCm: p.HeightCm,
             IsDailySoldOut: PosDailySoldOutHelper.IsLockedToday(
-                p.DailySoldOutOn, await ResolveStoreBusinessDateAsync(storeId)));
+                p.DailySoldOutOn, await ResolveStoreBusinessDateAsync(storeId)),
+            CommissionMode: p.CommissionMode.ToString(),
+            CommissionPercent: p.CommissionPercent,
+            CommissionFixed: p.CommissionFixed);
     }
 
     private async Task<DateTime> ResolveStoreBusinessDateAsync(Guid storeId)

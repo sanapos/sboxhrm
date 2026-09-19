@@ -89,11 +89,23 @@ public static class PosOnlineOrderHelper
     }
 
     /// <summary>Hoàn thành đơn online (COD — thu khi giao, PaidAmount=0).</summary>
-    public static async Task<(bool Ok, string? Error)> TryCompleteAsCodAsync(
+    public static Task<(bool Ok, string? Error)> TryCompleteAsCodAsync(
         ZKTecoDbContext db,
         Guid storeId,
         PosSaleOrder order,
         string? userEmail,
+        CancellationToken ct = default) =>
+        TryCompletePaidDraftAsync(db, storeId, order, userEmail, "COD", 0, closeTableSession: false, ct);
+
+    /// <summary>Hoàn thành đơn tạm đã thu tiền (Tingee / CK) — trừ kho, đóng bàn nếu có.</summary>
+    public static async Task<(bool Ok, string? Error)> TryCompletePaidDraftAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        PosSaleOrder order,
+        string? userEmail,
+        string paymentMethod,
+        decimal paidAmount,
+        bool closeTableSession,
         CancellationToken ct = default)
     {
         if (order.Status == PosSaleOrderStatus.Completed)
@@ -108,12 +120,15 @@ public static class PosOnlineOrderHelper
             .Select(s => s.AllowNegativeStock)
             .FirstOrDefaultAsync(ct);
 
+        var due = order.PayableTotal > 0 ? order.PayableTotal : order.Total;
+        var paid = paidAmount > 0 ? paidAmount : due;
+
         PosDraftLockHelper.Release(order);
         order.Status = PosSaleOrderStatus.Completed;
         order.SaleDate = DateTime.UtcNow;
         order.SoldBy ??= userEmail;
-        order.PaymentMethod = "COD";
-        order.PaidAmount = 0;
+        order.PaymentMethod = string.IsNullOrWhiteSpace(paymentMethod) ? "Tingee" : paymentMethod.Trim();
+        order.PaidAmount = paid;
         if (PosSaleStockHelper.NeedsOfficialOrderNo(order.OrderNo))
             order.OrderNo = await PosSaleStockHelper.NextOrderNoAsync(db, storeId, order.SaleDate);
         order.InvoiceSlot = null;
@@ -141,6 +156,8 @@ public static class PosOnlineOrderHelper
                 db, storeId, order, order.Lines.Where(l => l.Deleted == null).ToList(),
                 plan!, userEmail);
             await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(db, storeId, order);
+            if (closeTableSession)
+                await CloseOpenTableSessionAsync(db, storeId, order, userEmail, ct);
             await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(db, order, Guid.Empty);
             PosKitchenKdsHelper.CloseOpenOnPaid(order.Lines);
             await db.SaveChangesAsync(ct);
@@ -152,6 +169,66 @@ public static class PosOnlineOrderHelper
             await tx.RollbackAsync(ct);
             throw;
         }
+    }
+
+    static async Task CloseOpenTableSessionAsync(
+        ZKTecoDbContext db,
+        Guid storeId,
+        PosSaleOrder order,
+        string? userEmail,
+        CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        if (order.ResourceSessionId.HasValue)
+        {
+            var sess = await db.PosResourceSessions.AsTracking()
+                .FirstOrDefaultAsync(s => s.Id == order.ResourceSessionId && s.StoreId == storeId
+                    && s.Deleted == null, ct);
+            if (sess != null && sess.Status != PosResourceSessionStatus.Closed)
+            {
+                PosServiceBillingHelper.FinalizeOpenPause(sess, now);
+                sess.Status = PosResourceSessionStatus.Closed;
+                sess.EndedAt = now;
+                sess.UpdatedAt = now;
+                sess.UpdatedBy = userEmail;
+                var table = await db.PosServiceResources.AsTracking()
+                    .FirstOrDefaultAsync(r => r.Id == sess.ResourceId && r.StoreId == storeId
+                        && r.Deleted == null, ct);
+                if (table != null)
+                {
+                    table.NeedsCleaning = false;
+                    table.UpdatedAt = now;
+                    table.UpdatedBy = userEmail;
+                }
+            }
+            return;
+        }
+
+        if (order.SplitFromOrderId != null || !order.ServiceResourceId.HasValue)
+            return;
+
+        var live = await db.PosResourceSessions.AsTracking()
+            .Where(s => s.ResourceId == order.ServiceResourceId
+                && s.StoreId == storeId && s.Deleted == null
+                && (s.Status == PosResourceSessionStatus.Open
+                    || s.Status == PosResourceSessionStatus.Paused))
+            .ToListAsync(ct);
+        foreach (var sess in live)
+        {
+            PosServiceBillingHelper.FinalizeOpenPause(sess, now);
+            sess.Status = PosResourceSessionStatus.Closed;
+            sess.EndedAt = now;
+            sess.UpdatedAt = now;
+            sess.UpdatedBy = userEmail;
+        }
+        if (live.Count == 0) return;
+        var res = await db.PosServiceResources.AsTracking()
+            .FirstOrDefaultAsync(r => r.Id == order.ServiceResourceId && r.StoreId == storeId
+                && r.Deleted == null, ct);
+        if (res == null) return;
+        res.NeedsCleaning = false;
+        res.UpdatedAt = now;
+        res.UpdatedBy = userEmail;
     }
 
     public static void MarkInternalDelivery(PosSaleOrder order, string? userEmail)

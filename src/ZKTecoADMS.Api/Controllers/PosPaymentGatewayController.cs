@@ -502,6 +502,24 @@ public class PosPaymentGatewayController(
             req.StoreId, req.VaAccountNumber, CurrentUserEmail, ct));
     }
 
+    [HttpGet("tingee/banks")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<TingeeSupportedBankDto>>>> StoreTingeeBanks(
+        CancellationToken ct)
+    {
+        var banks = await tingeeProvision.ListSupportedBanksAsync(ct);
+        return Ok(AppResponse<List<TingeeSupportedBankDto>>.Success(banks));
+    }
+
+    [HttpGet("admin/tingee-banks")]
+    [Authorize(Roles = nameof(Roles.SuperAdmin))]
+    public async Task<ActionResult<AppResponse<List<TingeeSupportedBankDto>>>> AdminTingeeBanks(
+        CancellationToken ct)
+    {
+        var banks = await tingeeProvision.ListSupportedBanksAsync(ct);
+        return Ok(AppResponse<List<TingeeSupportedBankDto>>.Success(banks));
+    }
+
     [HttpGet("tingee/status")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<TingeeStoreProvisionDto>>> StoreTingeeStatus(CancellationToken ct)

@@ -76,6 +76,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
 
     /// Tra cứu MST (CQT qua VietQR) — điền tên đơn vị / địa chỉ xuất HĐĐT.
     [HttpGet("tax-lookup")]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> LookupTax([FromQuery] string? taxCode)
     {
         var code = NormalizeTaxCode(taxCode);
@@ -207,7 +208,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireModulePermission("PosCustomers", ModulePermissionAction.Edit)]
+    [RequireAnyActionOnModule("PosCustomers", ModulePermissionAction.Delete, ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;

@@ -16,7 +16,15 @@ public record EInvoiceBuyerInput(
     string? Email,
     string? Phone);
 
-public class PosEInvoiceService(
+public record ViettelIssueOpts(
+    string AdjustmentType = "1",
+    string? OriginalInvoiceId = null,
+    long? OriginalInvoiceIssueDate = null,
+    string? AdditionalReferenceDesc = null,
+    string? AdditionalReferenceDate = null,
+    string? InvoiceNote = null);
+
+public partial class PosEInvoiceService(
     ZKTecoDbContext db,
     ViettelSInvoiceClient viettel,
     EasyInvoiceClient easy,
@@ -138,17 +146,31 @@ public class PosEInvoiceService(
         await IssueNowAsync(order, buyer, ct);
     }
 
+    public Task IssueNowAsync(
+        PosSaleOrder order,
+        EInvoiceBuyerInput? buyer,
+        CancellationToken ct = default) =>
+        IssueNowAsync(order, buyer, draftOnly: false, ct);
+
     public async Task IssueNowAsync(
         PosSaleOrder order,
         EInvoiceBuyerInput? buyer,
+        bool draftOnly,
         CancellationToken ct = default)
     {
         var settings = await GetOrCreateSettingsAsync(order.StoreId, ct);
         if (!settings.Enabled)
             throw new InvalidOperationException("Chưa bật hóa đơn điện tử cho cửa hàng");
-        if (string.Equals(order.EInvoiceStatus, "Issued", StringComparison.OrdinalIgnoreCase) &&
+        if (!draftOnly &&
+            string.Equals(order.EInvoiceStatus, "Issued", StringComparison.OrdinalIgnoreCase) &&
             !string.IsNullOrWhiteSpace(order.EInvoiceNo))
             throw new InvalidOperationException($"Đơn đã xuất HĐĐT {order.EInvoiceNo}");
+        if (string.Equals(order.EInvoiceStatus, "Cancelled", StringComparison.OrdinalIgnoreCase))
+            ResetInvoiceIdentity(order);
+        var signExistingDraft =
+            !draftOnly &&
+            string.Equals(order.EInvoiceStatus, "Draft", StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(order.EInvoiceTransactionUuid);
 
         var provider = NormalizeProvider(settings.Provider);
         if (provider == "Misa")
@@ -200,9 +222,9 @@ public class PosEInvoiceService(
         try
         {
             if (provider == "Easy")
-                await IssueEasyAsync(order, lines, settings, ct);
+                await IssueEasyAsync(order, lines, settings, draftOnly, signExistingDraft, ct: ct);
             else
-                await IssueViettelAsync(order, lines, settings, ct);
+                await IssueViettelAsync(order, lines, settings, draftOnly, ct: ct);
         }
         catch (Exception ex)
         {
@@ -214,39 +236,49 @@ public class PosEInvoiceService(
     }
 
     async Task IssueViettelAsync(
-        PosSaleOrder order, List<PosSaleOrderLine> lines, PosEInvoiceSetting settings, CancellationToken ct)
+        PosSaleOrder order,
+        List<PosSaleOrderLine> lines,
+        PosEInvoiceSetting settings,
+        bool draftOnly,
+        ViettelIssueOpts? opts = null,
+        CancellationToken ct = default)
     {
-        var payload = BuildViettelPayload(order, lines, settings);
+        var payload = BuildViettelPayload(order, lines, settings, opts);
         var token = await viettel.GetAccessTokenAsync(
             order.StoreId, settings.ApiBaseUrl, settings.Username, settings.Password, ct);
-        var created = await viettel.CreateInvoiceAsync(
-            settings.ApiBaseUrl, token, settings.SupplierTaxCode, payload, ct);
 
-        if (!created.Ok && created.ErrorCode == "TIMEOUT" &&
-            !string.IsNullOrWhiteSpace(order.EInvoiceTransactionUuid))
-        {
-            created = await viettel.SearchByTransactionUuidAsync(
-                settings.ApiBaseUrl, token, settings.SupplierTaxCode,
-                order.EInvoiceTransactionUuid, ct);
-        }
-
-        // Tài khoản chưa gắn CKS / HSM → tạo nháp chờ ký trên portal Viettel.
-        if (!created.Ok && IsSignatureMissing(created))
+        ViettelCreateResult created;
+        if (draftOnly)
         {
             created = await viettel.CreateInvoiceDraftAsync(
                 settings.ApiBaseUrl, token, settings.SupplierTaxCode, payload, ct);
-            if (created.Ok)
+        }
+        else
+        {
+            created = await viettel.CreateInvoiceAsync(
+                settings.ApiBaseUrl, token, settings.SupplierTaxCode, payload, ct);
+
+            if (!created.Ok && created.ErrorCode == "TIMEOUT" &&
+                !string.IsNullOrWhiteSpace(order.EInvoiceTransactionUuid))
             {
-                order.EInvoiceStatus = "Pending";
-                order.EInvoiceNo = created.InvoiceNo;
-                order.EInvoiceSeries = settings.InvoiceSeries;
-                order.EInvoiceReservationCode = created.ReservationCode;
-                order.EInvoiceCode = created.CodeOfTax;
-                order.EInvoiceIssuedAt = DateTime.UtcNow;
-                order.EInvoiceError =
-                    "Đã tạo nháp Viettel — chờ ký số trên portal (chưa có chứng thư số gắn API)";
-                await db.SaveChangesAsync(ct);
-                return;
+                created = await viettel.SearchByTransactionUuidAsync(
+                    settings.ApiBaseUrl, token, settings.SupplierTaxCode,
+                    order.EInvoiceTransactionUuid, ct);
+            }
+
+            // Tài khoản chưa gắn CKS / HSM → tạo nháp chờ ký trên portal Viettel.
+            if (!created.Ok && IsSignatureMissing(created))
+            {
+                created = await viettel.CreateInvoiceDraftAsync(
+                    settings.ApiBaseUrl, token, settings.SupplierTaxCode, payload, ct);
+                if (created.Ok)
+                {
+                    ApplyViettelResult(order, settings, created, "Pending");
+                    order.EInvoiceError =
+                        "Đã tạo nháp Viettel — chờ ký số trên portal (chưa có chứng thư số gắn API)";
+                    await db.SaveChangesAsync(ct);
+                    return;
+                }
             }
         }
 
@@ -258,16 +290,33 @@ public class PosEInvoiceService(
             return;
         }
 
-        order.EInvoiceStatus = "Issued";
+        if (draftOnly)
+        {
+            ApplyViettelResult(order, settings, created, "Draft");
+            order.EInvoiceError = "Đã lưu nháp trên Viettel — chưa ký phát hành";
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
+        ApplyViettelResult(order, settings, created, "Issued");
+        order.EInvoiceError = string.IsNullOrWhiteSpace(created.InvoiceNo)
+            ? "Đã gửi Viettel — chờ số hóa đơn (có thể tra cứu lại)"
+            : null;
+        await db.SaveChangesAsync(ct);
+        await TrySendBuyerEmailAsync(order, settings, ct);
+    }
+
+    static void ApplyViettelResult(
+        PosSaleOrder order, PosEInvoiceSetting settings, ViettelCreateResult created, string status)
+    {
+        order.EInvoiceStatus = status;
         order.EInvoiceNo = created.InvoiceNo;
         order.EInvoiceSeries = settings.InvoiceSeries;
         order.EInvoiceReservationCode = created.ReservationCode;
         order.EInvoiceCode = created.CodeOfTax;
         order.EInvoiceIssuedAt = DateTime.UtcNow;
-        order.EInvoiceError = string.IsNullOrWhiteSpace(created.InvoiceNo)
-            ? "Đã gửi Viettel — chờ số hóa đơn (có thể tra cứu lại)"
-            : null;
-        await db.SaveChangesAsync(ct);
+        if (string.IsNullOrWhiteSpace(order.EInvoiceKind))
+            order.EInvoiceKind = "Original";
     }
 
     static bool IsSignatureMissing(ViettelCreateResult created)
@@ -279,14 +328,37 @@ public class PosEInvoiceService(
     }
 
     async Task IssueEasyAsync(
-        PosSaleOrder order, List<PosSaleOrderLine> lines, PosEInvoiceSetting settings, CancellationToken ct)
+        PosSaleOrder order,
+        List<PosSaleOrderLine> lines,
+        PosEInvoiceSetting settings,
+        bool draftOnly,
+        bool signExistingDraft = false,
+        int easyType = 1,
+        string? originalNo = null,
+        CancellationToken ct = default)
     {
-        var xml = BuildEasyXml(order, lines, settings);
-        // SoftDreams: Pattern = Mẫu số, Serial = Ký hiệu (vd. 1C26MAA → Pattern=1, Serial=C26MAA)
+        var xml = BuildEasyXml(order, lines, settings, easyType, originalNo);
         var (pattern, serial) = ResolveEasyPatternSerial(settings);
-        var created = await easy.ImportAndIssueAsync(
-            settings.ApiBaseUrl, settings.Username, settings.Password, settings.SupplierTaxCode,
-            xml, pattern, serial, ct);
+        EasyInvoiceResult created;
+
+        if (!draftOnly && signExistingDraft)
+        {
+            created = await easy.IssueByIkeysAsync(
+                settings.ApiBaseUrl, settings.Username, settings.Password, settings.SupplierTaxCode,
+                [order.EInvoiceTransactionUuid!], ct);
+        }
+        else if (draftOnly)
+        {
+            created = await easy.ImportDraftAsync(
+                settings.ApiBaseUrl, settings.Username, settings.Password, settings.SupplierTaxCode,
+                xml, pattern, serial, ct);
+        }
+        else
+        {
+            created = await easy.ImportAndIssueAsync(
+                settings.ApiBaseUrl, settings.Username, settings.Password, settings.SupplierTaxCode,
+                xml, pattern, serial, ct);
+        }
 
         if (!created.Ok && created.ErrorCode == "TIMEOUT" &&
             !string.IsNullOrWhiteSpace(order.EInvoiceTransactionUuid))
@@ -304,16 +376,33 @@ public class PosEInvoiceService(
             return;
         }
 
-        order.EInvoiceStatus = "Issued";
+        if (draftOnly)
+        {
+            ApplyEasyResult(order, settings, created, "Draft");
+            order.EInvoiceError = "Đã lưu nháp Easy Invoice — chưa ký phát hành";
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
+        ApplyEasyResult(order, settings, created, "Issued");
+        order.EInvoiceError = string.IsNullOrWhiteSpace(created.InvoiceNo)
+            ? created.Error ?? "Đã gửi Easy Invoice — chờ số hóa đơn (có thể tra cứu lại)"
+            : null;
+        await db.SaveChangesAsync(ct);
+        await TrySendBuyerEmailAsync(order, settings, ct);
+    }
+
+    static void ApplyEasyResult(
+        PosSaleOrder order, PosEInvoiceSetting settings, EasyInvoiceResult created, string status)
+    {
+        order.EInvoiceStatus = status;
         order.EInvoiceNo = created.InvoiceNo;
         order.EInvoiceSeries = created.Pattern ?? settings.InvoiceSeries;
         order.EInvoiceReservationCode = created.LookupCode;
         order.EInvoiceCode = created.TaxAuthorityCode;
         order.EInvoiceIssuedAt = DateTime.UtcNow;
-        order.EInvoiceError = string.IsNullOrWhiteSpace(created.InvoiceNo)
-            ? created.Error ?? "Đã gửi Easy Invoice — chờ số hóa đơn (có thể tra cứu lại)"
-            : null;
-        await db.SaveChangesAsync(ct);
+        if (string.IsNullOrWhiteSpace(order.EInvoiceKind))
+            order.EInvoiceKind = "Original";
     }
 
     public async Task<object> SummaryAsync(Guid storeId, DateTime fromUtc, DateTime toUtc, CancellationToken ct = default)
@@ -327,7 +416,11 @@ public class PosEInvoiceService(
         var skipped = q.Where(o => o.EInvoiceStatus == "Skipped");
         var failed = q.Where(o => o.EInvoiceStatus == "Failed");
         var pending = q.Where(o => o.EInvoiceStatus == "Pending");
+        var draft = q.Where(o => o.EInvoiceStatus == "Draft");
+        var cancelled = q.Where(o => o.EInvoiceStatus == "Cancelled");
         var none = q.Where(o => o.EInvoiceStatus == "None" || o.EInvoiceStatus == null);
+        var emailed = q.Where(o => o.EInvoiceEmailSentAt != null);
+        var replaced = q.Where(o => o.EInvoiceKind == "Replacement");
 
         return new
         {
@@ -340,6 +433,10 @@ public class PosEInvoiceService(
             failedCount = await failed.CountAsync(ct),
             failedAmount = await failed.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
             pendingCount = await pending.CountAsync(ct),
+            draftCount = await draft.CountAsync(ct),
+            cancelledCount = await cancelled.CountAsync(ct),
+            emailSentCount = await emailed.CountAsync(ct),
+            replacedCount = await replaced.CountAsync(ct),
             noneCount = await none.CountAsync(ct),
             totalCompleted = await q.CountAsync(ct),
         };
@@ -372,7 +469,8 @@ public class PosEInvoiceService(
             order.EInvoiceBuyerPhone = buyer.Phone.Trim();
     }
 
-    object BuildViettelPayload(PosSaleOrder order, List<PosSaleOrderLine> lines, PosEInvoiceSetting s)
+    object BuildViettelPayload(
+        PosSaleOrder order, List<PosSaleOrderLine> lines, PosEInvoiceSetting s, ViettelIssueOpts? opts = null)
     {
         var calc = ComputeInvoice(order, lines, s);
         // Viettel API (TT78): dùng *WithoutTax/*WithTax — *WithoutVat gây IVI_TOTAL_A_…_NOT_COMPARED.
@@ -411,21 +509,33 @@ public class PosEInvoiceService(
         var issuedMs = new DateTimeOffset(DateTime.SpecifyKind(
             order.SaleDate ?? DateTime.UtcNow, DateTimeKind.Utc)).ToUnixTimeMilliseconds();
 
+        var gi = new Dictionary<string, object?>
+        {
+            ["transactionUuid"] = order.EInvoiceTransactionUuid,
+            ["invoiceType"] = s.InvoiceType,
+            ["templateCode"] = s.TemplateCode,
+            ["invoiceSeries"] = s.InvoiceSeries,
+            ["currencyCode"] = "VND",
+            ["exchangeRate"] = 1,
+            ["adjustmentType"] = opts?.AdjustmentType ?? "1",
+            ["paymentStatus"] = true,
+            ["cusGetInvoiceRight"] = true,
+            ["invoiceIssuedDate"] = issuedMs,
+        };
+        if (!string.IsNullOrWhiteSpace(opts?.OriginalInvoiceId))
+            gi["originalInvoiceId"] = opts!.OriginalInvoiceId;
+        if (opts?.OriginalInvoiceIssueDate is long origMs)
+            gi["originalInvoiceIssueDate"] = origMs;
+        if (!string.IsNullOrWhiteSpace(opts?.AdditionalReferenceDesc))
+            gi["additionalReferenceDesc"] = opts!.AdditionalReferenceDesc;
+        if (!string.IsNullOrWhiteSpace(opts?.AdditionalReferenceDate))
+            gi["additionalReferenceDate"] = opts!.AdditionalReferenceDate;
+        if (!string.IsNullOrWhiteSpace(opts?.InvoiceNote))
+            gi["invoiceNote"] = opts!.InvoiceNote;
+
         return new
         {
-            generalInvoiceInfo = new Dictionary<string, object?>
-            {
-                ["transactionUuid"] = order.EInvoiceTransactionUuid,
-                ["invoiceType"] = s.InvoiceType,
-                ["templateCode"] = s.TemplateCode,
-                ["invoiceSeries"] = s.InvoiceSeries,
-                ["currencyCode"] = "VND",
-                ["exchangeRate"] = 1,
-                ["adjustmentType"] = "1",
-                ["paymentStatus"] = true,
-                ["cusGetInvoiceRight"] = true,
-                ["invoiceIssuedDate"] = issuedMs,
-            },
+            generalInvoiceInfo = gi,
             buyerInfo = new Dictionary<string, object?>
             {
                 ["buyerName"] = Trim(buyerName, 100),
@@ -433,7 +543,7 @@ public class PosEInvoiceService(
                 ["buyerTaxCode"] = hasTax ? order.EInvoiceBuyerTaxCode : null,
                 ["buyerAddressLine"] = hasTax ? Trim(order.EInvoiceBuyerAddress, 400) : null,
                 ["buyerPhoneNumber"] = hasTax ? Trim(order.EInvoiceBuyerPhone, 20) : null,
-                ["buyerEmail"] = hasTax ? Trim(order.EInvoiceBuyerEmail, 50) : null,
+                ["buyerEmail"] = Trim(order.EInvoiceBuyerEmail, 50),
             },
             payments = new object[]
             {
@@ -467,7 +577,12 @@ public class PosEInvoiceService(
 
     const string ConsumerBuyerLabel = "Bán cho người tiêu dùng";
 
-    string BuildEasyXml(PosSaleOrder order, List<PosSaleOrderLine> lines, PosEInvoiceSetting s)
+    string BuildEasyXml(
+        PosSaleOrder order,
+        List<PosSaleOrderLine> lines,
+        PosEInvoiceSetting s,
+        int invoiceType = 1,
+        string? originalInvoiceNo = null)
     {
         var calc = ComputeInvoice(order, lines, s);
         var hasTax = !string.IsNullOrWhiteSpace(order.EInvoiceBuyerTaxCode);
@@ -516,9 +631,12 @@ public class PosEInvoiceService(
 
         var invoice = new XElement("Invoice",
             new XElement("Ikey", order.EInvoiceTransactionUuid),
+            new XElement("Type", invoiceType <= 0 ? 1 : invoiceType),
             new XElement("CusCode", Trim(cusCode, 50) ?? "NTD"),
             new XElement("Buyer", Trim(buyer, 100) ?? ConsumerBuyerLabel),
             new XElement("CusName", Trim(cusName, 200) ?? ConsumerBuyerLabel));
+        if (invoiceType == 2 && !string.IsNullOrWhiteSpace(originalInvoiceNo))
+            invoice.Add(new XElement("ComInvoiceNo", originalInvoiceNo.Trim()));
         if (hasTax)
         {
             var addr = Trim(order.EInvoiceBuyerAddress, 400);
@@ -526,9 +644,9 @@ public class PosEInvoiceService(
             var phone = Trim(order.EInvoiceBuyerPhone, 20);
             if (phone != null) invoice.Add(new XElement("CusPhone", phone));
             invoice.Add(new XElement("CusTaxCode", order.EInvoiceBuyerTaxCode!.Trim()));
-            var email = Trim(order.EInvoiceBuyerEmail, 50);
-            if (email != null) invoice.Add(new XElement("Email", email));
         }
+        var email = Trim(order.EInvoiceBuyerEmail, 50);
+        if (email != null) invoice.Add(new XElement("Email", email));
         invoice.Add(
             new XElement("PaymentMethod", MapEasyPayment(order.PaymentMethod)),
             new XElement("ArisingDate", arising),

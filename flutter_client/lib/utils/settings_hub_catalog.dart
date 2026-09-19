@@ -232,7 +232,7 @@ class SettingsHubCatalog {
       index: 26,
       icon: Icons.request_quote_outlined,
       label: 'Hóa đơn điện tử',
-      desc: 'Viettel SInvoice, Easy Invoice',
+      desc: 'Viettel / Easy — xuất, nháp, hủy, thay thế, gửi email',
       accent: HrmPageChrome.primaryNavy,
       groupTitle: 'Thiết lập POS',
       moduleCode: 'PosEInvoice',
