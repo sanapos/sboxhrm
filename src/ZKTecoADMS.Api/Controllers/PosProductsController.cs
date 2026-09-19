@@ -1118,7 +1118,8 @@ public partial class PosProductsController(
                     x.ComponentProduct != null ? x.ComponentProduct.ProductType.ToString() : null,
                     "None",
                     0,
-                    0))
+                    0,
+                    true))
                 .ToListAsync();
             if (recipeLines.Count > 0)
             {
