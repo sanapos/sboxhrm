@@ -14,14 +14,16 @@ internal static class PosProductComboLinePersistHelper
         ZKTecoDbContext db,
         Guid storeId,
         Guid comboProductId,
-        IReadOnlyList<(Guid ComponentId, decimal Qty)> lines,
+        IReadOnlyList<(Guid ComponentId, decimal Qty, bool TrackStock)> lines,
         string userEmail)
     {
         var now = DateTime.UtcNow;
         var wanted = lines
             .Where(x => x.ComponentId != Guid.Empty && x.Qty > 0)
             .GroupBy(x => x.ComponentId)
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.Qty));
+            .ToDictionary(
+                g => g.Key,
+                g => (Qty: g.Sum(x => x.Qty), TrackStock: g.Last().TrackStock));
 
         var existing = await db.PosProductComboLines
             .IgnoreQueryFilters()
@@ -30,9 +32,10 @@ internal static class PosProductComboLinePersistHelper
 
         foreach (var row in existing)
         {
-            if (wanted.TryGetValue(row.ComponentProductId, out var qty))
+            if (wanted.TryGetValue(row.ComponentProductId, out var spec))
             {
-                row.Qty = qty;
+                row.Qty = spec.Qty;
+                row.TrackStock = spec.TrackStock;
                 row.IsActive = true;
                 row.Deleted = null;
                 row.DeletedBy = null;
@@ -50,7 +53,7 @@ internal static class PosProductComboLinePersistHelper
             }
         }
 
-        foreach (var (componentId, qty) in wanted)
+        foreach (var (componentId, spec) in wanted)
         {
             db.PosProductComboLines.Add(new PosProductComboLine
             {
@@ -58,7 +61,8 @@ internal static class PosProductComboLinePersistHelper
                 StoreId = storeId,
                 ComboProductId = comboProductId,
                 ComponentProductId = componentId,
-                Qty = qty,
+                Qty = spec.Qty,
+                TrackStock = spec.TrackStock,
                 IsActive = true,
                 CreatedBy = userEmail,
             });

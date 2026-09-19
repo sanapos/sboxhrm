@@ -27,9 +27,10 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
         string? ComponentProductType = null,
         string CommissionMode = "None",
         decimal CommissionPercent = 0,
-        decimal CommissionFixed = 0);
+        decimal CommissionFixed = 0,
+        bool TrackStock = true);
 
-    public record ComboLineInput(Guid ComponentProductId, decimal Qty);
+    public record ComboLineInput(Guid ComponentProductId, decimal Qty, bool? TrackStock = null);
 
     public record SaveComboLinesDto(List<ComboLineInput> Lines);
 
@@ -58,7 +59,8 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
                 x.ComponentProduct != null ? x.ComponentProduct.ProductType.ToString() : null,
                 x.ComponentProduct != null ? x.ComponentProduct.CommissionMode.ToString() : "None",
                 x.ComponentProduct != null ? x.ComponentProduct.CommissionPercent : 0,
-                x.ComponentProduct != null ? x.ComponentProduct.CommissionFixed : 0))
+                x.ComponentProduct != null ? x.ComponentProduct.CommissionFixed : 0,
+                x.TrackStock))
             .ToListAsync();
 
         return Ok(AppResponse<List<ComboLineDto>>.Success(items));
@@ -110,7 +112,12 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
             dbContext,
             storeId,
             comboProductId,
-            lines.Select(l => (l.ComponentProductId, l.Qty)).ToList(),
+            lines.Select(l =>
+            {
+                var type = componentMap[l.ComponentProductId].ProductType;
+                var track = l.TrackStock ?? Domain.Enums.PosProductTypeRules.TracksInventory(type);
+                return (l.ComponentProductId, l.Qty, track);
+            }).ToList(),
             CurrentUserEmail);
 
         combo.ProductType = Domain.Enums.PosProductType.Combo;

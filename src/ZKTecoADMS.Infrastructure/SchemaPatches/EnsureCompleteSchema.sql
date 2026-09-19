@@ -769,6 +769,24 @@ ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "LastModifiedBy" text NULL;
 
 ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "ComboTrackStock" boolean NOT NULL DEFAULT true;
 
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'PosProductComboLines'
+    ) AND NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'PosProductComboLines'
+          AND column_name = 'TrackStock'
+    ) THEN
+        ALTER TABLE "PosProductComboLines" ADD COLUMN "TrackStock" boolean NOT NULL DEFAULT true;
+        UPDATE "PosProductComboLines" l
+        SET "TrackStock" = false
+        FROM "PosProducts" p
+        WHERE l."ComponentProductId" = p."Id" AND p."ProductType" = 1;
+    END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS "PosQuotes" (
     "Id" uuid NOT NULL,
     "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),

@@ -104,6 +104,7 @@ PosProduct applyPosSellStockLines(
         commissionMode: cl.commissionMode,
         commissionPercent: cl.commissionPercent,
         commissionFixed: cl.commissionFixed,
+        trackStock: cl.trackStock,
       );
     }).toList();
     if (changed) {

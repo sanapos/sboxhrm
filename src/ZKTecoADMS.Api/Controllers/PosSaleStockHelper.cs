@@ -524,9 +524,7 @@ internal static class PosSaleStockHelper
             {
                 foreach (var cl in comboLines)
                 {
-                    if (plan.Products.TryGetValue(cl.ComponentProductId, out var comp) &&
-                        !PosProductTypeRules.TracksInventory(comp.ProductType))
-                        continue;
+                    if (!cl.TrackStock) continue;
                     needs[cl.ComponentProductId] =
                         needs.GetValueOrDefault(cl.ComponentProductId) + cl.Qty * lineBaseQty;
                 }
@@ -706,7 +704,7 @@ internal static class PosSaleStockHelper
                 {
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp))
                         return (null, "Thành phần combo không hợp lệ");
-                    if (!PosProductTypeRules.TracksInventory(comp.ProductType))
+                    if (!cl.TrackStock)
                         continue;
                     var need = cl.Qty * lineBaseQty;
                     stockNeeds[cl.ComponentProductId] = stockNeeds.GetValueOrDefault(cl.ComponentProductId) + need;
@@ -822,7 +820,7 @@ internal static class PosSaleStockHelper
                 foreach (var cl in comboLines)
                 {
                     var comp = plan.Products[cl.ComponentProductId];
-                    if (!PosProductTypeRules.TracksInventory(comp.ProductType)) continue;
+                    if (!cl.TrackStock) continue;
                     var deduct = cl.Qty * deductQty;
                     await ApplyFefoComboComponentSaleAsync(
                         db, storeId, order, comp, deduct,

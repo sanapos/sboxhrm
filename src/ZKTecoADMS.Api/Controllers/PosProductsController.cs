@@ -110,7 +110,8 @@ public partial class PosProductsController(
         string? ComponentProductType = null,
         string CommissionMode = "None",
         decimal CommissionPercent = 0,
-        decimal CommissionFixed = 0);
+        decimal CommissionFixed = 0,
+        bool TrackStock = true);
 
     public record PosProductToppingGroupDto(
         Guid Id,
@@ -945,6 +946,7 @@ public partial class PosProductsController(
                     ComboProductId = copy.Id,
                     ComponentProductId = line.ComponentProductId,
                     Qty = line.Qty,
+                    TrackStock = line.TrackStock,
                     IsActive = true,
                     CreatedBy = CurrentUserEmail,
                 });
@@ -1093,7 +1095,8 @@ public partial class PosProductsController(
                     x.ComponentProduct != null ? x.ComponentProduct.ProductType.ToString() : null,
                     x.ComponentProduct != null ? x.ComponentProduct.CommissionMode.ToString() : "None",
                     x.ComponentProduct != null ? x.ComponentProduct.CommissionPercent : 0,
-                    x.ComponentProduct != null ? x.ComponentProduct.CommissionFixed : 0))
+                    x.ComponentProduct != null ? x.ComponentProduct.CommissionFixed : 0,
+                    x.TrackStock))
                 .ToListAsync();
             sellableQty = (await ComputeComboSellableAsync(storeId, [p.Id])).GetValueOrDefault(p.Id);
         }
@@ -1384,9 +1387,7 @@ public partial class PosProductsController(
                 x.ComboProductId,
                 x.Qty,
                 OnHand = x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
-                ComponentType = x.ComponentProduct != null
-                    ? x.ComponentProduct.ProductType
-                    : PosProductType.Service,
+                x.TrackStock,
             })
             .ToListAsync();
         foreach (var g in lines.GroupBy(x => x.ComboProductId))
@@ -1394,7 +1395,7 @@ public partial class PosProductsController(
             decimal? min = null;
             foreach (var cl in g)
             {
-                if (!PosProductTypeRules.TracksInventory(cl.ComponentType)) continue;
+                if (!cl.TrackStock) continue;
                 if (cl.Qty <= 0)
                 {
                     min = 0;

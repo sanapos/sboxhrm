@@ -575,7 +575,7 @@ public partial class PosProductsController
                 continue;
             }
 
-            var lineInputs = new List<(Guid ComponentId, decimal Qty)>();
+            var lineInputs = new List<(Guid ComponentId, decimal Qty, bool TrackStock)>();
             foreach (var row in group)
             {
                 var compKey = row.ComponentProductCode.Trim().ToLower();
@@ -596,19 +596,16 @@ public partial class PosProductsController
                         $"Combo «{comboProduct.ProductCode}»: «{component.ProductCode}» là combo — không hợp lệ");
                     continue;
                 }
-                if (component.ProductType == PosProductType.Service)
-                {
-                    errors.Add(
-                        $"Combo «{comboProduct.ProductCode}»: «{component.Name}» là dịch vụ — không hợp lệ");
-                    continue;
-                }
                 if (row.Qty <= 0)
                 {
                     errors.Add(
                         $"Combo «{comboProduct.ProductCode}» / «{component.ProductCode}»: số lượng phải > 0");
                     continue;
                 }
-                lineInputs.Add((component.Id, row.Qty));
+                lineInputs.Add((
+                    component.Id,
+                    row.Qty,
+                    PosProductTypeRules.TracksInventory(component.ProductType)));
             }
 
             if (lineInputs.Count == 0)

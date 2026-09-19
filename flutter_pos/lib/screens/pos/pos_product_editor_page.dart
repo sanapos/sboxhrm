@@ -1119,6 +1119,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               .map((c) => {
                     'componentProductId': c.componentProductId,
                     'qty': c.qty,
+                    'trackStock': c.trackStock,
                   })
               .toList(),
         );
@@ -1997,7 +1998,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       PosProductType.combo => (
           const Color(0xFFB45309),
           Icons.layers_outlined,
-          'Combo không có tồn riêng. Tồn theo từng thành phần: hàng hóa / NVL / topping trừ kho khi bán; dịch vụ không quản lý kho.',
+          'Combo không có tồn riêng. Từng thành phần có nút Quản lý kho (trừ tồn như hàng hóa) hoặc Không kho (như dịch vụ).'
         ),
       PosProductType.material => (
           PosTheme.materialColor,
@@ -2793,7 +2794,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              tr('Chưa có thành phần — hàng hóa / NVL / topping trừ kho; dịch vụ không trừ tồn'),
+              tr('Chưa có thành phần. Thêm hàng rồi chọn Quản lý kho hoặc Không kho trên từng dòng.'),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
           )
@@ -2802,7 +2803,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             scrollDirection: Axis.horizontal,
             child: DataTable(
               headingRowHeight: 40,
-              dataRowMinHeight: 44,
+              dataRowMinHeight: 48,
               columnSpacing: 16,
               columns: [
                 DataColumn(label: Text(tr('STT'), style: TextStyle(fontSize: 12))),
@@ -2810,7 +2811,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 DataColumn(
                     label: Text(tr('Tên hàng thành phần'),
                         style: TextStyle(fontSize: 12))),
-                DataColumn(label: Text(tr('Kho'), style: TextStyle(fontSize: 12))),
+                DataColumn(label: Text(tr('Tồn kho'), style: TextStyle(fontSize: 12))),
                 DataColumn(
                     label: Text(tr('Định lượng / 1 combo'),
                         style: TextStyle(fontSize: 12)),
@@ -2836,9 +2837,28 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     DataCell(Text(tr('${i + 1}'))),
                     DataCell(Text(tr(c.componentProductCode))),
                     DataCell(Text(tr(c.componentProductName))),
-                    DataCell(Text(tr(comboLineDeductsStock(c)
-                        ? 'Trừ tồn'
-                        : 'Không kho'))),
+                    DataCell(
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 32),
+                          foregroundColor: c.trackStock
+                              ? const Color(0xFF0369A1)
+                              : Colors.grey.shade700,
+                        ),
+                        onPressed: () => setState(
+                          () => _comboLines[i] =
+                              c.copyWith(trackStock: !c.trackStock),
+                        ),
+                        child: Text(
+                          tr(c.trackStock ? 'Quản lý kho' : 'Không kho'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
                     DataCell(
                       Text(
                         qtyText,
@@ -5057,6 +5077,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         commissionMode: prod.commissionMode,
         commissionPercent: prod.commissionPercent,
         commissionFixed: prod.commissionFixed,
+        trackStock: prod.productType.tracksInventory,
       ));
     });
   }

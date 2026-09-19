@@ -1,8 +1,7 @@
 import '../models/pos_product.dart';
 import '../models/pos_sale_order.dart';
 
-bool comboLineDeductsStock(PosComboLine cl) =>
-    posProductTypeFromString(cl.componentProductType).tracksInventory;
+bool comboLineDeductsStock(PosComboLine cl) => cl.trackStock;
 
 /// Số combo có thể bán = min(tồn thành phần có kho / qty). Dịch vụ bỏ qua.
 double computeComboSellableQty(List<PosComboLine> lines) {

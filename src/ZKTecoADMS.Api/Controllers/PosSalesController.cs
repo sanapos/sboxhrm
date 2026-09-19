@@ -627,6 +627,7 @@ public partial class PosSalesController(
                     CommissionMode = x.ComponentProduct != null ? x.ComponentProduct.CommissionMode.ToString() : "None",
                     CommissionPercent = x.ComponentProduct != null ? x.ComponentProduct.CommissionPercent : 0m,
                     CommissionFixed = x.ComponentProduct != null ? x.ComponentProduct.CommissionFixed : 0m,
+                    x.TrackStock,
                 })
                 .ToListAsync();
         var comboLinesByProduct = comboLinesFlat
@@ -745,9 +746,7 @@ public partial class PosSalesController(
             decimal? sellableQty = null;
             if (p.ProductType == nameof(PosProductType.Combo))
             {
-                var stockLines = comboLines.Where(cl =>
-                    PosProductTypeRules.TracksInventory(
-                        PosProductTypeRules.Parse(cl.ComponentProductType))).ToList();
+                var stockLines = comboLines.Where(cl => cl.TrackStock).ToList();
                 if (stockLines.Count == 0)
                     sellableQty = 999999999m;
                 else
@@ -811,6 +810,7 @@ public partial class PosSalesController(
                     cl.CommissionMode,
                     cl.CommissionPercent,
                     cl.CommissionFixed,
+                    cl.TrackStock,
                 }).ToList(),
                 RecipeLines = recipeLines.Select(cl => new
                 {
@@ -1968,7 +1968,7 @@ public partial class PosSalesController(
                 foreach (var cl in comboLines)
                 {
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
-                    if (!PosProductTypeRules.TracksInventory(comp.ProductType)) continue;
+                    if (!cl.TrackStock) continue;
                     var restore = cl.Qty * line.Qty;
                     await PosSaleStockHelper.ApplyComboReturnComponentAsync(
                         dbContext, storeId, order, comp, restore, lineRefund,

@@ -1060,6 +1060,7 @@ class PosComboLine {
   final String commissionMode;
   final double commissionPercent;
   final double commissionFixed;
+  final bool trackStock;
 
   PosComboLine({
     required this.id,
@@ -1074,6 +1075,7 @@ class PosComboLine {
     this.commissionMode = 'None',
     this.commissionPercent = 0,
     this.commissionFixed = 0,
+    this.trackStock = true,
   });
 
   factory PosComboLine.fromJson(Map<String, dynamic> json) {
@@ -1107,10 +1109,19 @@ class PosComboLine {
       commissionPercent:
           n(json['commissionPercent'] ?? json['CommissionPercent']),
       commissionFixed: n(json['commissionFixed'] ?? json['CommissionFixed']),
+      trackStock: json.containsKey('trackStock') ||
+              json.containsKey('TrackStock')
+          ? json['trackStock'] != false && json['TrackStock'] != false
+          : posProductTypeFromString(
+                  (json['componentProductType'] ??
+                          json['ComponentProductType'] ??
+                          '')
+                      .toString())
+              .tracksInventory,
     );
   }
 
-  PosComboLine copyWith({double? qty}) => PosComboLine(
+  PosComboLine copyWith({double? qty, bool? trackStock}) => PosComboLine(
         id: id,
         componentProductId: componentProductId,
         componentProductCode: componentProductCode,
@@ -1123,6 +1134,7 @@ class PosComboLine {
         commissionMode: commissionMode,
         commissionPercent: commissionPercent,
         commissionFixed: commissionFixed,
+        trackStock: trackStock ?? this.trackStock,
       );
 }
 
