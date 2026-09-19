@@ -984,7 +984,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'autoOpenToppingPopup': _autoOpenToppingPopup,
       'showComboComponentsOnSell': _isCombo && _showComboComponentsOnSell,
       'comboTrackStock': true,
-      'commissionMode': _commissionMode;
+      'commissionMode': _commissionMode,
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),
       'toppings': (_allowToppings && !_isTopping)
