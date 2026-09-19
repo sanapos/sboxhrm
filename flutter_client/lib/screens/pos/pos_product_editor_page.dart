@@ -2504,7 +2504,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           _kvExpansion(
             title: 'Hàng thành phần — định lượng trừ kho',
             subtitle:
-                'Thêm hàng hóa, dịch vụ (cắt tóc, gội, massage…) hoặc SP bán kèm. Khi bán chọn NV từng phần để tính hoa hồng.',
+                'Mỗi dòng có công tắc Quản lý tồn kho. Bật = trừ kho như hàng hóa; tắt = như dịch vụ.',
             initiallyExpanded: true,
             child: _buildComboComponentsSection(),
           ),
@@ -2794,108 +2794,114 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              tr('Chưa có thành phần. Thêm hàng rồi chọn Quản lý kho hoặc Không kho trên từng dòng.'),
+              tr('Chưa có thành phần. Thêm hàng rồi bật/tắt Quản lý tồn kho trên từng dòng.'),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
           )
         else
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowHeight: 40,
-              dataRowMinHeight: 48,
-              columnSpacing: 16,
-              columns: [
-                DataColumn(label: Text(tr('STT'), style: TextStyle(fontSize: 12))),
-                DataColumn(label: Text(tr('Mã hàng'), style: TextStyle(fontSize: 12))),
-                DataColumn(
-                    label: Text(tr('Tên hàng thành phần'),
-                        style: TextStyle(fontSize: 12))),
-                DataColumn(label: Text(tr('Tồn kho'), style: TextStyle(fontSize: 12))),
-                DataColumn(
-                    label: Text(tr('Định lượng / 1 combo'),
-                        style: TextStyle(fontSize: 12)),
-                    numeric: true),
-                DataColumn(
-                    label: Text(tr('ĐVT'), style: TextStyle(fontSize: 12))),
-                DataColumn(
-                    label: Text(tr('Giá vốn'), style: TextStyle(fontSize: 12)),
-                    numeric: true),
-                DataColumn(
-                    label: Text(tr('Tổng GV'), style: TextStyle(fontSize: 12)),
-                    numeric: true),
-                DataColumn(label: Text('', style: TextStyle(fontSize: 12))),
-              ],
-              rows: _comboLines.asMap().entries.map((e) {
-                final i = e.key;
-                final c = e.value;
-                final lineCost = c.componentBasePrice * c.qty;
-                final qtyText =
-                    '${PosQtyRules.format(c.qty, allowDecimal: true)}${c.componentUnitName.isNotEmpty ? ' ${c.componentUnitName}' : ''}';
-                return DataRow(
-                  cells: [
-                    DataCell(Text(tr('${i + 1}'))),
-                    DataCell(Text(tr(c.componentProductCode))),
-                    DataCell(Text(tr(c.componentProductName))),
-                    DataCell(
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          minimumSize: const Size(0, 32),
-                          foregroundColor: c.trackStock
-                              ? const Color(0xFF0369A1)
-                              : Colors.grey.shade700,
-                        ),
-                        onPressed: () => setState(
-                          () => _comboLines[i] =
-                              c.copyWith(trackStock: !c.trackStock),
-                        ),
-                        child: Text(
-                          tr(c.trackStock ? 'Quản lý kho' : 'Không kho'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Text(
-                        qtyText,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          decoration: TextDecoration.underline,
-                          decorationStyle: TextDecorationStyle.dotted,
-                        ),
-                      ),
-                      showEditIcon: true,
-                      onTap: () async {
-                        final q = await showComboComponentQtyDialog(
-                          context,
-                          initialQty: c.qty,
-                        );
-                        if (q == null || !mounted) return;
-                        setState(() => _comboLines[i] = c.copyWith(qty: q));
-                      },
-                    ),
-                    DataCell(Text(tr(c.componentUnitName.isEmpty
-                        ? '—'
-                        : c.componentUnitName))),
-                    DataCell(Text(tr(_moneyFmt.format(c.componentBasePrice)))),
-                    DataCell(Text(tr(_moneyFmt.format(lineCost)))),
-                    DataCell(
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: () =>
-                            setState(() => _comboLines.removeAt(i)),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
+          Column(
+            children: _comboLines.asMap().entries.map((e) {
+              return _buildComboLineCard(e.key, e.value);
+            }).toList(),
           ),
       ],
+    );
+  }
+
+  Widget _buildComboLineCard(int i, PosComboLine c) {
+    final lineCost = c.componentBasePrice * c.qty;
+    final qtyText =
+        '${PosQtyRules.format(c.qty, allowDecimal: true)}${c.componentUnitName.isNotEmpty ? ' ${c.componentUnitName}' : ''}';
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(color: PosTheme.border),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 4, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text(
+                  '${i + 1}.',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c.componentProductName,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      if (c.componentProductCode.isNotEmpty)
+                        Text(
+                          c.componentProductCode,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                InkWell(
+                  onTap: () async {
+                    final q = await showComboComponentQtyDialog(
+                      context,
+                      initialQty: c.qty,
+                    );
+                    if (q == null || !mounted) return;
+                    setState(() => _comboLines[i] = c.copyWith(qty: q));
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      qtyText,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.underline,
+                        decorationStyle: TextDecorationStyle.dotted,
+                      ),
+                    ),
+                  ),
+                ),
+                Text(
+                  _moneyFmt.format(lineCost),
+                  style: const TextStyle(fontSize: 13),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () => setState(() => _comboLines.removeAt(i)),
+                ),
+              ],
+            ),
+            SwitchListTile(
+              contentPadding: const EdgeInsets.only(left: 8, right: 4),
+              dense: true,
+              title: Text(tr('Quản lý tồn kho')),
+              subtitle: Text(
+                tr(c.trackStock
+                    ? 'Bật — trừ kho như hàng hóa khi bán combo'
+                    : 'Tắt — không kho, như dịch vụ'),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              value: c.trackStock,
+              onChanged: (v) => setState(
+                () => _comboLines[i] = c.copyWith(trackStock: v),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
