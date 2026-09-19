@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import '../../l10n/app_tr.dart';
 import '../../models/pos_product.dart';
 import '../../models/pos_quote.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_html_print.dart';
@@ -39,7 +38,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
   bool _saving = false;
   bool _locked = false;
 
-  ApiService get _api => context.read<AuthProvider>().apiService;
+  final _api = ApiService();
 
   @override
   void initState() {

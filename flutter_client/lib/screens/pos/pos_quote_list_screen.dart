@@ -4,8 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/pos_quote.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
+import '../../services/api_service.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_quote_editor_screen.dart';
 
@@ -41,7 +41,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
       _loading = true;
       _error = null;
     });
-    final api = context.read<AuthProvider>().apiService;
+    final api = ApiService();
     final res = await api.getPosQuotes(
       search: _search.text.trim().isEmpty ? null : _search.text.trim(),
       status: _status,

@@ -171,7 +171,7 @@ abstract final class PosPrintDocumentTypes {
   static const handover = 'Handover';
   static const acceptance = 'Acceptance';
 
-  static const all = <String, String>{}
+  static const all = <String, String>{
     saleInvoice: 'Hóa đơn bán hàng',
     stockIssue: 'Xuất kho',
     kitchenSlip: 'Báo chế biến',
