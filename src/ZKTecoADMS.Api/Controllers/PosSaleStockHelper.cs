@@ -522,7 +522,6 @@ internal static class PosSaleStockHelper
             else if (p.ProductType == PosProductType.Combo &&
                      plan.ComboLinesMap.TryGetValue(p.Id, out var comboLines))
             {
-                if (!p.ComboTrackStock) continue;
                 foreach (var cl in comboLines)
                 {
                     if (plan.Products.TryGetValue(cl.ComponentProductId, out var comp) &&
@@ -703,7 +702,6 @@ internal static class PosSaleStockHelper
             {
                 if (!comboLinesMap.TryGetValue(p.Id, out var comboLines) || comboLines.Count == 0)
                     return (null, $"Combo «{p.Name}» chưa có thành phần");
-                if (!p.ComboTrackStock) continue;
                 foreach (var cl in comboLines)
                 {
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp))
@@ -821,7 +819,6 @@ internal static class PosSaleStockHelper
             else if (p.ProductType == PosProductType.Combo &&
                      plan.ComboLinesMap.TryGetValue(p.Id, out var comboLines))
             {
-                if (!p.ComboTrackStock) continue;
                 foreach (var cl in comboLines)
                 {
                     var comp = plan.Products[cl.ComponentProductId];

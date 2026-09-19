@@ -107,10 +107,7 @@ PosProduct applyPosSellStockLines(
       );
     }).toList();
     if (changed) {
-      final sellable = computeComboSellableQty(
-        updated,
-        trackStock: p.comboTrackStock,
-      );
+      final sellable = computeComboSellableQty(updated);
       p = p.copyWith(
         comboLines: updated,
         sellableQty: sellable,

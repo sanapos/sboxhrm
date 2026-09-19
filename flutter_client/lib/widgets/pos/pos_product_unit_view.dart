@@ -320,7 +320,6 @@ bool isPosSellOutOfStock(PosProduct product, List<PosProductUnitView> views) {
     return false;
   }
   if (product.productType == PosProductType.combo) {
-    if (!product.comboTrackStock) return false;
     final lines = product.comboLines;
     if (lines == null || lines.isEmpty) return true;
     if (!lines.any(comboLineDeductsStock)) return false;

@@ -745,19 +745,14 @@ public partial class PosSalesController(
             decimal? sellableQty = null;
             if (p.ProductType == nameof(PosProductType.Combo))
             {
-                if (!p.ComboTrackStock)
+                var stockLines = comboLines.Where(cl =>
+                    PosProductTypeRules.TracksInventory(
+                        PosProductTypeRules.Parse(cl.ComponentProductType))).ToList();
+                if (stockLines.Count == 0)
                     sellableQty = 999999999m;
                 else
-                {
-                    var stockLines = comboLines.Where(cl =>
-                        PosProductTypeRules.TracksInventory(
-                            PosProductTypeRules.Parse(cl.ComponentProductType))).ToList();
-                    if (stockLines.Count == 0)
-                        sellableQty = 999999999m;
-                    else
-                        sellableQty = stockLines.Min(cl =>
-                            cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
-                }
+                    sellableQty = stockLines.Min(cl =>
+                        cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
             }
             else if (recipeLines.Count > 0)
             {
@@ -1972,7 +1967,6 @@ public partial class PosSalesController(
                                 $" — hoàn combo: {p.Name}";
                 foreach (var cl in comboLines)
                 {
-                    if (!p.ComboTrackStock) break;
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
                     if (!PosProductTypeRules.TracksInventory(comp.ProductType)) continue;
                     var restore = cl.Qty * line.Qty;

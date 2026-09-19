@@ -1225,7 +1225,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             : p.onHandQty;
         final trackStock = switch (p.productType) {
           PosProductType.service => p.hasRecipe,
-          PosProductType.combo => p.comboTrackStock && qty.isFinite,
+          PosProductType.combo => qty.isFinite,
           _ => true,
         };
         final outOfStock = trackStock &&
@@ -1445,7 +1445,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         qty <= p.minStockQty;
     final outOfStock = switch (p.productType) {
           PosProductType.service => p.hasRecipe,
-          PosProductType.combo => p.comboTrackStock && qty.isFinite,
+          PosProductType.combo => qty.isFinite,
           _ => true,
         } &&
         isPosSellOutOfStock(p, views ?? const []);

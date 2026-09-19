@@ -5,8 +5,7 @@ bool comboLineDeductsStock(PosComboLine cl) =>
     posProductTypeFromString(cl.componentProductType).tracksInventory;
 
 /// Số combo có thể bán = min(tồn thành phần có kho / qty). Dịch vụ bỏ qua.
-double computeComboSellableQty(List<PosComboLine> lines, {bool trackStock = true}) {
-  if (!trackStock) return double.infinity;
+double computeComboSellableQty(List<PosComboLine> lines) {
   final stockLines = lines.where(comboLineDeductsStock).toList();
   if (stockLines.isEmpty) return double.infinity;
   var min = double.infinity;
@@ -28,14 +27,13 @@ double resolveProductSellableQty(PosProduct product) {
     return double.infinity;
   }
   if (product.productType == PosProductType.combo) {
-    if (!product.comboTrackStock) return double.infinity;
     if (product.sellableQty != null) {
       final s = product.sellableQty!;
       return s >= 999999998 ? double.infinity : s;
     }
     final lines = product.comboLines;
     if (lines != null && lines.isNotEmpty) {
-      return computeComboSellableQty(lines, trackStock: true);
+      return computeComboSellableQty(lines);
     }
     return double.infinity;
   }
@@ -47,7 +45,6 @@ Map<String, double> buildComponentReservation(Iterable<CartLineForStock> cartLin
   final map = <String, double>{};
   for (final line in cartLines) {
     if (line.productType == PosProductType.combo) {
-      if (!line.comboTrackStock) continue;
       for (final cl in line.comboLines) {
         if (!comboLineDeductsStock(cl)) continue;
         map[cl.componentProductId] =
@@ -70,7 +67,6 @@ Map<String, double> buildComboOnlyReservation(Iterable<CartLineForStock> cartLin
   final map = <String, double>{};
   for (final line in cartLines) {
     if (line.productType != PosProductType.combo) continue;
-    if (!line.comboTrackStock) continue;
     for (final cl in line.comboLines) {
       if (!comboLineDeductsStock(cl)) continue;
       map[cl.componentProductId] =
@@ -104,7 +100,6 @@ bool validateComboStock({
   required double requiredComboQty,
   required Map<String, double> componentReserved,
 }) {
-  if (!combo.comboTrackStock) return true;
   final lines = combo.comboLines;
   if (lines == null || lines.isEmpty) return false;
   final stockLines = lines.where(comboLineDeductsStock).toList();
@@ -123,7 +118,6 @@ String? comboStockErrorMessage({
   required Map<String, double> componentReserved,
   String kindLabel = 'Combo',
 }) {
-  if (!combo.comboTrackStock) return null;
   final lines = combo.comboLines;
   if (lines == null || lines.isEmpty) {
     return '$kindLabel «${combo.name}» chưa có thành phần';
@@ -170,9 +164,6 @@ List<PosSaleOrderLine> expandComboToWarehouseLines({
   required double comboQty,
   String? lineNote,
 }) {
-  if (combo.productType == PosProductType.combo && !combo.comboTrackStock) {
-    return const [];
-  }
   final lines = combo.comboLines;
   if (lines == null || lines.isEmpty) {
     return [
@@ -220,17 +211,8 @@ PosProduct applyComboSellableToProduct(PosProduct product) {
     return product.copyWith(onHandQty: sellable, sellableQty: sellable);
   }
   if (product.productType != PosProductType.combo) return product;
-  if (!product.comboTrackStock) {
-    return product.copyWith(
-      onHandQty: double.infinity,
-      sellableQty: double.infinity,
-    );
-  }
   var sellable = product.sellableQty ??
-      computeComboSellableQty(
-        product.comboLines ?? const [],
-        trackStock: true,
-      );
+      computeComboSellableQty(product.comboLines ?? const []);
   if (sellable >= 999999998) sellable = double.infinity;
   return product.copyWith(onHandQty: sellable, sellableQty: sellable);
 }

@@ -685,7 +685,7 @@ public partial class PosProductsController(
             AllowToppings = dto.AllowToppings && !dto.IsTopping,
             AutoOpenToppingPopup = dto.AutoOpenToppingPopup,
             ShowComboComponentsOnSell = dto.ProductType == PosProductType.Combo && dto.ShowComboComponentsOnSell,
-            ComboTrackStock = dto.ProductType != PosProductType.Combo || dto.ComboTrackStock,
+            ComboTrackStock = true,
             CommissionMode = dto.CommissionMode,
             CommissionPercent = Math.Max(0, dto.CommissionPercent),
             CommissionFixed = Math.Max(0, dto.CommissionFixed),
@@ -812,7 +812,7 @@ public partial class PosProductsController(
         entity.AutoOpenToppingPopup = dto.AutoOpenToppingPopup;
         entity.ShowComboComponentsOnSell =
             dto.ProductType == PosProductType.Combo && dto.ShowComboComponentsOnSell;
-        entity.ComboTrackStock = dto.ProductType != PosProductType.Combo || dto.ComboTrackStock;
+        entity.ComboTrackStock = true;
         entity.CommissionMode = dto.CommissionMode;
         entity.CommissionPercent = Math.Max(0, dto.CommissionPercent);
         entity.CommissionFixed = Math.Max(0, dto.CommissionFixed);
@@ -923,7 +923,7 @@ public partial class PosProductsController(
             AllowToppings = source.AllowToppings,
             AutoOpenToppingPopup = source.AutoOpenToppingPopup,
             ShowComboComponentsOnSell = source.ShowComboComponentsOnSell,
-            ComboTrackStock = source.ComboTrackStock,
+            ComboTrackStock = true,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -1376,10 +1376,6 @@ public partial class PosProductsController(
     {
         var map = comboIds.Distinct().ToDictionary(id => id, _ => 0m);
         if (map.Count == 0) return map;
-        var trackFlags = await dbContext.PosProducts.AsNoTracking()
-            .Where(p => comboIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
-            .Select(p => new { p.Id, p.ComboTrackStock })
-            .ToDictionaryAsync(p => p.Id, p => p.ComboTrackStock);
         var lines = await dbContext.PosProductComboLines.AsNoTracking()
             .Where(x => comboIds.Contains(x.ComboProductId) &&
                         x.StoreId == storeId && x.Deleted == null)
@@ -1395,11 +1391,6 @@ public partial class PosProductsController(
             .ToListAsync();
         foreach (var g in lines.GroupBy(x => x.ComboProductId))
         {
-            if (!trackFlags.GetValueOrDefault(g.Key, true))
-            {
-                map[g.Key] = 999999999m;
-                continue;
-            }
             decimal? min = null;
             foreach (var cl in g)
             {
@@ -1454,6 +1445,7 @@ public partial class PosProductsController(
             entity.OpeningMinutes = null;
             entity.SessionPackValidDays = 0;
             entity.IsTopping = false;
+            entity.ComboTrackStock = true;
             // ShowComboComponentsOnSell chỉ có ý nghĩa với combo — giữ nguyên giá trị đã set từ DTO.
         }
         else
