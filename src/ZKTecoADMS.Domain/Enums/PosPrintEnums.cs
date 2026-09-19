@@ -22,6 +22,11 @@ public enum PosPrintDocumentType
     KitchenVoid = 16,
     /// <summary>Tem dán ly / tem báo sản phẩm khi chế biến.</summary>
     KitchenLabel = 17,
+    /// <summary>Báo giá thương mại (A4) — không phải hóa đơn bán.</summary>
+    Quote = 18,
+    Contract = 19,
+    Handover = 20,
+    Acceptance = 21,
 }
 
 /// <summary>Loại kết nối máy in cửa hàng.</summary>

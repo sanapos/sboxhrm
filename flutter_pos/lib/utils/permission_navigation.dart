@@ -144,6 +144,8 @@ class PermissionNavigation {
         return 'Hàng hóa';
       case 'PosSell':
         return 'Bán hàng';
+      case 'PosQuotes':
+        return 'Báo giá';
       case 'PosPrintTemplates':
         return 'Mẫu in';
       case 'PosSaleOrders':

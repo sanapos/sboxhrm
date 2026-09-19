@@ -162,6 +162,12 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Khi bán combo: hiện danh sách thành phần dưới tên (kiểu topping). Tắt = chỉ hiện tên combo.</summary>
     public bool ShowComboComponentsOnSell { get; set; }
 
+    /// <summary>
+    /// Combo có trừ tồn thành phần hàng hóa/NVL/topping khi bán.
+    /// Tắt = gói dịch vụ / không quản lý kho. Dịch vụ không trừ kho dù bật.
+    /// </summary>
+    public bool ComboTrackStock { get; set; } = true;
+
     /// <summary>Cách tính hoa hồng khi gán nhân viên làm / bán mặt hàng này.</summary>
     public PosCommissionMode CommissionMode { get; set; } = PosCommissionMode.None;
 

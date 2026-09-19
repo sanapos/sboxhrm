@@ -22,6 +22,14 @@ String _docTitle(String documentType) {
       return 'PHIẾU NHẬP HÀNG';
     case PosPrintDocumentTypes.stockIssue:
       return 'PHIẾU BÁO XUẤT KHO';
+    case PosPrintDocumentTypes.quote:
+      return 'BÁO GIÁ';
+    case PosPrintDocumentTypes.contract:
+      return 'HỢP ĐỒNG';
+    case PosPrintDocumentTypes.handover:
+      return 'BIÊN BẢN BÀN GIAO';
+    case PosPrintDocumentTypes.acceptance:
+      return 'BIÊN BẢN NGHIỆM THU';
     default:
       return 'HÓA ĐƠN BÁN HÀNG';
   }

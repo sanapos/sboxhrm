@@ -150,7 +150,8 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111106"), Module = "PosPrinters", ModuleDisplayName = "Máy in thiết bị", Description = "Máy in trên máy này: Bluetooth / LAN / USB, tem ly", DisplayOrder = 71 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111123"), Module = "PosStorePrinters", ModuleDisplayName = "Máy in cloud", Description = "Máy in Cloud / Print Agent dùng chung cửa hàng — bật theo gói dịch vụ", DisplayOrder = 87 },
             new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111122"), Module = "PosShipping", ModuleDisplayName = "Đơn vị giao hàng", Description = "GHN / GHTK / Viettel Post / AhaMove — cấu hình, so sánh cước, tạo vận đơn", DisplayOrder = 72 },
-            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111102"), Module = "HkdBooks", ModuleDisplayName = "Thuế hộ kinh doanh", Description = "Sổ thuế HKD dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ (TT 152/2025)", DisplayOrder = 72 }
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111102"), Module = "HkdBooks", ModuleDisplayName = "Thuế hộ kinh doanh", Description = "Sổ thuế HKD dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ (TT 152/2025)", DisplayOrder = 72 },
+            new Permission { Id = Guid.Parse("11111111-1111-1111-1111-111111111125"), Module = "PosQuotes", ModuleDisplayName = "Báo giá", Description = "Báo giá thương mại độc lập — hạn, mẫu, trạng thái; không trừ kho / không bán hàng", DisplayOrder = 89 }
         );
     }
 }

@@ -245,6 +245,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _allowToppings = false;
   bool _autoOpenToppingPopup = true;
   bool _showComboComponentsOnSell = false;
+  bool _comboTrackStock = true;
   String _commissionMode = 'None';
   late final TextEditingController _commissionPercentCtrl;
   late final TextEditingController _commissionFixedCtrl;
@@ -454,6 +455,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _allowToppings = p?.allowToppings ?? false;
     _autoOpenToppingPopup = p?.autoOpenToppingPopup ?? true;
     _showComboComponentsOnSell = p?.showComboComponentsOnSell ?? false;
+    _comboTrackStock = p?.comboTrackStock ?? true;
     _commissionMode = p?.commissionMode ?? 'None';
     _commissionPercentCtrl = TextEditingController(
         text: tr(_fmtInputMoney(p?.commissionPercent ?? 0)));
@@ -665,6 +667,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _allowToppings = data.allowToppings;
       _autoOpenToppingPopup = data.autoOpenToppingPopup;
       _showComboComponentsOnSell = data.showComboComponentsOnSell;
+      _comboTrackStock = data.comboTrackStock;
       _commissionMode = data.commissionMode;
       _commissionPercentCtrl.text = _fmtInputMoney(data.commissionPercent);
       _commissionFixedCtrl.text = _fmtInputMoney(data.commissionFixed);
@@ -983,6 +986,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'allowToppings': _allowToppings && !_isTopping && !_isMaterial && !_isToppingType,
       'autoOpenToppingPopup': _autoOpenToppingPopup,
       'showComboComponentsOnSell': _isCombo && _showComboComponentsOnSell,
+      'comboTrackStock': !_isCombo || _comboTrackStock,
       'commissionMode': _commissionMode,
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),
@@ -1421,6 +1425,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _allowToppings = false;
     _autoOpenToppingPopup = true;
     _showComboComponentsOnSell = false;
+    _comboTrackStock = true;
     _toppingOptions = [];
     _toppingGroupIds = [];
     _unitCtrl.text = 'Cái';
@@ -1996,7 +2001,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       PosProductType.combo => (
           const Color(0xFFB45309),
           Icons.layers_outlined,
-          'Combo không có tồn riêng. Khai thành phần (SL / 1 combo). Khi bán, kho trừ đúng SL từng hàng thành phần.',
+          'Combo không có tồn riêng. Thành phần có thể là hàng hóa (trừ kho) hoặc dịch vụ (không kho). Bật «Quản lý tồn kho theo thành phần» để trừ hàng hóa khi bán; tắt nếu là gói dịch vụ.',
         ),
       PosProductType.material => (
           PosTheme.materialColor,
@@ -2728,10 +2733,31 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Widget _buildComboComponentsSection() {
-    final sellable = _comboLines.isEmpty ? 0.0 : computeComboSellableQty(_comboLines);
+    final sellable = _comboLines.isEmpty
+        ? 0.0
+        : computeComboSellableQty(_comboLines, trackStock: _comboTrackStock);
+    final sellableHint = !_comboTrackStock
+        ? 'Combo không quản lý kho — bán không trừ tồn thành phần.'
+        : sellable.isInfinite
+            ? 'Chỉ có dịch vụ / không có hàng kho — không giới hạn số lượng.'
+            : sellable <= 0
+                ? 'Hiện không đủ thành phần để bán combo.'
+                : 'Có thể bán khoảng ${PosQtyRules.format(sellable, allowDecimal: false)} combo (theo thành phần ít nhất).';
+    final sellableWarn =
+        _comboTrackStock && !sellable.isInfinite && sellable <= 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr('Quản lý tồn kho theo thành phần')),
+          subtitle: Text(
+            tr('Bật: trừ kho hàng hóa / NVL / topping trong combo. Tắt: gói dịch vụ — không trừ kho. Dịch vụ luôn bỏ qua kho.'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          value: _comboTrackStock,
+          onChanged: (v) => setState(() => _comboTrackStock = v),
+        ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(tr('Hiện chi tiết thành phần khi bán')),
@@ -2747,7 +2773,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           readOnly: true,
           onTap: _addComboComponent,
           decoration: InputDecoration(
-            hintText: tr('Thêm hàng thành phần'),
+            hintText: tr('Thêm hàng hóa hoặc dịch vụ'),
             prefixIcon: const Icon(Icons.search, size: 20),
             filled: true,
             fillColor: Colors.white,
@@ -2764,13 +2790,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         if (_comboLines.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(
-            tr(sellable <= 0
-                ? 'Hiện không đủ thành phần để bán combo.'
-                : 'Có thể bán khoảng ${PosQtyRules.format(sellable, allowDecimal: false)} combo (theo thành phần ít nhất).'),
+            tr(sellableHint),
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
-              color: sellable <= 0 ? Colors.red.shade700 : const Color(0xFFB45309),
+              color: sellableWarn
+                  ? Colors.red.shade700
+                  : const Color(0xFFB45309),
             ),
           ),
         ],
@@ -2784,7 +2810,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              tr('Chưa có hàng thành phần — thêm để trừ kho theo định lượng'),
+              tr(_comboTrackStock
+                  ? 'Chưa có thành phần — thêm hàng hóa để trừ kho; dịch vụ không trừ tồn'
+                  : 'Thêm hàng hóa hoặc dịch vụ. Combo này không trừ kho.'),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
           )
@@ -2801,6 +2829,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 DataColumn(
                     label: Text(tr('Tên hàng thành phần'),
                         style: TextStyle(fontSize: 12))),
+                DataColumn(label: Text(tr('Kho'), style: TextStyle(fontSize: 12))),
                 DataColumn(
                     label: Text(tr('Định lượng / 1 combo'),
                         style: TextStyle(fontSize: 12)),
@@ -2826,6 +2855,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     DataCell(Text(tr('${i + 1}'))),
                     DataCell(Text(tr(c.componentProductCode))),
                     DataCell(Text(tr(c.componentProductName))),
+                    DataCell(Text(tr(!_comboTrackStock
+                        ? 'Không trừ'
+                        : comboLineDeductsStock(c)
+                            ? 'Trừ tồn'
+                            : 'Không kho'))),
                     DataCell(
                       Text(
                         qtyText,
@@ -3114,6 +3148,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'allowToppings': _allowToppings && !_isTopping && !_isMaterial && !_isToppingType,
         'autoOpenToppingPopup': _autoOpenToppingPopup,
         'showComboComponentsOnSell': _isCombo && _showComboComponentsOnSell,
+        'comboTrackStock': !_isCombo || _comboTrackStock,
       'commissionMode': _commissionMode,
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),

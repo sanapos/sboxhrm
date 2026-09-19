@@ -522,9 +522,15 @@ internal static class PosSaleStockHelper
             else if (p.ProductType == PosProductType.Combo &&
                      plan.ComboLinesMap.TryGetValue(p.Id, out var comboLines))
             {
+                if (!p.ComboTrackStock) continue;
                 foreach (var cl in comboLines)
+                {
+                    if (plan.Products.TryGetValue(cl.ComponentProductId, out var comp) &&
+                        !PosProductTypeRules.TracksInventory(comp.ProductType))
+                        continue;
                     needs[cl.ComponentProductId] =
                         needs.GetValueOrDefault(cl.ComponentProductId) + cl.Qty * lineBaseQty;
+                }
             }
             else
             {
@@ -697,12 +703,13 @@ internal static class PosSaleStockHelper
             {
                 if (!comboLinesMap.TryGetValue(p.Id, out var comboLines) || comboLines.Count == 0)
                     return (null, $"Combo «{p.Name}» chưa có thành phần");
+                if (!p.ComboTrackStock) continue;
                 foreach (var cl in comboLines)
                 {
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp))
                         return (null, "Thành phần combo không hợp lệ");
-                    if (comp.ProductType == PosProductType.Service)
-                        return (null, $"Combo «{p.Name}» có thành phần dịch vụ «{comp.Name}» — không trừ được tồn");
+                    if (!PosProductTypeRules.TracksInventory(comp.ProductType))
+                        continue;
                     var need = cl.Qty * lineBaseQty;
                     stockNeeds[cl.ComponentProductId] = stockNeeds.GetValueOrDefault(cl.ComponentProductId) + need;
                 }
@@ -814,9 +821,11 @@ internal static class PosSaleStockHelper
             else if (p.ProductType == PosProductType.Combo &&
                      plan.ComboLinesMap.TryGetValue(p.Id, out var comboLines))
             {
+                if (!p.ComboTrackStock) continue;
                 foreach (var cl in comboLines)
                 {
                     var comp = plan.Products[cl.ComponentProductId];
+                    if (!PosProductTypeRules.TracksInventory(comp.ProductType)) continue;
                     var deduct = cl.Qty * deductQty;
                     await ApplyFefoComboComponentSaleAsync(
                         db, storeId, order, comp, deduct,

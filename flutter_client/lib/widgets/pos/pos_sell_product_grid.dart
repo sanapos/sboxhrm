@@ -1223,7 +1223,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         final qty = view != null
             ? resolvePosSellListStockQty(p, views!)
             : p.onHandQty;
-        final trackStock = p.productType != PosProductType.service || p.hasRecipe;
+        final trackStock = switch (p.productType) {
+          PosProductType.service => p.hasRecipe,
+          PosProductType.combo => p.comboTrackStock && qty.isFinite,
+          _ => true,
+        };
         final outOfStock = trackStock &&
             isPosSellOutOfStock(p, views ?? const []);
         final price =
@@ -1435,22 +1439,31 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         ? resolvePosSellAvailableQty(p, view)
         : p.onHandQty;
     final lowStock = p.productType.tracksInventory &&
+        qty.isFinite &&
         qty > 0 &&
         p.minStockQty > 0 &&
         qty <= p.minStockQty;
-    final outOfStock = (p.productType != PosProductType.service || p.hasRecipe) &&
+    final outOfStock = switch (p.productType) {
+          PosProductType.service => p.hasRecipe,
+          PosProductType.combo => p.comboTrackStock && qty.isFinite,
+          _ => true,
+        } &&
         isPosSellOutOfStock(p, views ?? const []);
     final multi = views != null && views.length > 1;
-    final stockQtyText = lowStock
-        ? 'Sắp hết: ${_qtyFmt.format(qty)}'
-        : _qtyFmt.format(qty);
+    final stockQtyText = !qty.isFinite
+        ? ''
+        : lowStock
+            ? 'Sắp hết: ${_qtyFmt.format(qty)}'
+            : _qtyFmt.format(qty);
     final stockText = p.isDailySoldOut
         ? 'Đã hết / tạm khóa'
         : outOfStock
             ? 'Hết hàng'
-            : multi
-                ? stockQtyText
-                : '$stockQtyText $unit';
+            : stockQtyText.isEmpty
+                ? ''
+                : multi
+                    ? stockQtyText
+                    : '$stockQtyText $unit';
 
     return PosMobileProductRow(
       kiotSellStyle: true,

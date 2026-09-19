@@ -493,6 +493,70 @@ public class PosStockLotConfiguration : IEntityTypeConfiguration<PosStockLot>
     }
 }
 
+public class PosQuoteConfiguration : IEntityTypeConfiguration<PosQuote>
+{
+    public void Configure(EntityTypeBuilder<PosQuote> builder)
+    {
+        builder.ToTable("PosQuotes");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.QuoteNo).IsRequired().HasMaxLength(30);
+        builder.Property(x => x.CustomerName).HasMaxLength(200);
+        builder.Property(x => x.CustomerPhone).HasMaxLength(50);
+        builder.Property(x => x.CustomerAddress).HasMaxLength(500);
+        builder.Property(x => x.Note).HasMaxLength(1000);
+        builder.Property(x => x.Terms).HasMaxLength(2000);
+        builder.Property(x => x.IssuedBy).HasMaxLength(200);
+        builder.Property(x => x.QuotedBy).HasMaxLength(200);
+        builder.Property(x => x.SubTotal).HasPrecision(18, 2);
+        builder.Property(x => x.Discount).HasPrecision(18, 2);
+        builder.Property(x => x.VatAmount).HasPrecision(18, 2);
+        builder.Property(x => x.Total).HasPrecision(18, 2);
+        builder.HasIndex(x => new { x.StoreId, x.QuoteNo }).IsUnique();
+        builder.HasIndex(x => new { x.StoreId, x.Status });
+        builder.HasIndex(x => new { x.StoreId, x.CommercialStage });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Customer).WithMany().HasForeignKey(x => x.CustomerId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+public class PosQuoteDocumentConfiguration : IEntityTypeConfiguration<PosQuoteDocument>
+{
+    public void Configure(EntityTypeBuilder<PosQuoteDocument> builder)
+    {
+        builder.ToTable("PosQuoteDocuments");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.DocNo).IsRequired().HasMaxLength(30);
+        builder.Property(x => x.Title).HasMaxLength(200);
+        builder.Property(x => x.Note).HasMaxLength(1000);
+        builder.Property(x => x.IssuedBy).HasMaxLength(200);
+        builder.HasIndex(x => new { x.StoreId, x.DocNo }).IsUnique();
+        builder.HasIndex(x => new { x.QuoteId, x.Kind });
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Quote).WithMany(x => x.Documents).HasForeignKey(x => x.QuoteId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class PosQuoteLineConfiguration : IEntityTypeConfiguration<PosQuoteLine>
+{
+    public void Configure(EntityTypeBuilder<PosQuoteLine> builder)
+    {
+        builder.ToTable("PosQuoteLines");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.ProductName).IsRequired().HasMaxLength(500);
+        builder.Property(x => x.ProductCode).HasMaxLength(50);
+        builder.Property(x => x.UnitName).HasMaxLength(100);
+        builder.Property(x => x.LineNote).HasMaxLength(500);
+        builder.Property(x => x.Qty).HasPrecision(18, 4);
+        builder.Property(x => x.UnitPrice).HasPrecision(18, 2);
+        builder.Property(x => x.DiscountAmount).HasPrecision(18, 2);
+        builder.Property(x => x.VatRate).HasPrecision(5, 2);
+        builder.Property(x => x.LineTotal).HasPrecision(18, 2);
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Quote).WithMany(x => x.Lines).HasForeignKey(x => x.QuoteId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
 public class PosStockIssueConfiguration : IEntityTypeConfiguration<PosStockIssue>
 {
     public void Configure(EntityTypeBuilder<PosStockIssue> builder)
@@ -509,6 +573,7 @@ public class PosStockIssueConfiguration : IEntityTypeConfiguration<PosStockIssue
         builder.Property(x => x.IssuedBy).HasMaxLength(200);
         builder.HasIndex(x => new { x.StoreId, x.IssueNo }).IsUnique();
         builder.HasIndex(x => new { x.StoreId, x.Kind, x.Status });
+        builder.HasIndex(x => x.QuoteId);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
     }
 }

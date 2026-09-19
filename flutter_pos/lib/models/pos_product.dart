@@ -466,6 +466,8 @@ class PosProduct {
   final bool autoOpenToppingPopup;
   /// Khi bán combo: hiện thành phần dưới tên (kiểu topping).
   final bool showComboComponentsOnSell;
+  /// Combo trừ kho hàng hóa/NVL khi bán. Tắt = không quản lý kho (gói DV).
+  final bool comboTrackStock;
   /// None | PercentOfLine | FixedPerUnit | PercentOfCatalog
   final String commissionMode;
   final double commissionPercent;
@@ -542,6 +544,7 @@ class PosProduct {
     this.allowToppings = false,
     this.autoOpenToppingPopup = true,
     this.showComboComponentsOnSell = false,
+    this.comboTrackStock = true,
     this.commissionMode = 'None',
     this.commissionPercent = 0,
     this.commissionFixed = 0,
@@ -729,6 +732,8 @@ class PosProduct {
       showComboComponentsOnSell:
           json['showComboComponentsOnSell'] == true ||
               json['ShowComboComponentsOnSell'] == true,
+      comboTrackStock: json['comboTrackStock'] != false &&
+          json['ComboTrackStock'] != false,
       commissionMode:
           (json['commissionMode'] ?? json['CommissionMode'] ?? 'None')
               .toString(),
@@ -820,7 +825,8 @@ class PosProduct {
       'isTopping': isTopping,
       'allowToppings': allowToppings && !isTopping,
       'autoOpenToppingPopup': autoOpenToppingPopup,
-        'showComboComponentsOnSell': showComboComponentsOnSell,
+      'showComboComponentsOnSell': showComboComponentsOnSell,
+      'comboTrackStock': comboTrackStock,
       'commissionMode': commissionMode,
       'commissionPercent': commissionPercent,
       'commissionFixed': commissionFixed,
@@ -934,6 +940,7 @@ class PosProduct {
       allowToppings: this.allowToppings,
       autoOpenToppingPopup: this.autoOpenToppingPopup,
       showComboComponentsOnSell: this.showComboComponentsOnSell,
+      comboTrackStock: this.comboTrackStock,
       commissionMode: this.commissionMode,
       commissionPercent: this.commissionPercent,
       commissionFixed: this.commissionFixed,
@@ -975,6 +982,7 @@ class PosProduct {
         'allowToppings': allowToppings,
         'autoOpenToppingPopup': autoOpenToppingPopup,
         'showComboComponentsOnSell': showComboComponentsOnSell,
+        'comboTrackStock': comboTrackStock,
         if (toppingOptions.isNotEmpty)
           'toppingOptions': toppingOptions
               .map((t) => {

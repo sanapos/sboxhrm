@@ -75,6 +75,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   static const List<String> _posSellPreset = [
     'PosProducts',
     'PosSell',
+    'PosQuotes',
     'PosPrintTemplates',
     'PosSaleOrders',
     'PosSaleReturns',
@@ -109,6 +110,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   static const List<String> _posSellWarehousePreset = [
     'PosProducts',
     'PosSell',
+    'PosQuotes',
     'PosPrintTemplates',
     'PosSaleOrders',
     'PosSaleReturns',

@@ -17949,6 +17949,192 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getPosQuotes({
+    String? search,
+    String? status,
+    DateTime? from,
+    DateTime? to,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+      if (status != null && status.isNotEmpty) q['status'] = status;
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/pos/quotes')
+          .replace(queryParameters: q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosQuote(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosQuote(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/quotes'),
+              headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosQuote(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(Uri.parse('$baseUrl/api/pos/quotes/$id'),
+              headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> sendPosQuote(String id) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/quotes/$id/send'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> acceptPosQuote(String id) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/quotes/$id/accept'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> rejectPosQuote(String id) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/quotes/$id/reject'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosQuote(String id) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/quotes/$id/cancel'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosQuote(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/quotes/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> previewPosQuoteDocument(
+    String id,
+    String kind, {
+    String? note,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/quotes/$id/preview'),
+            headers: _headers,
+            body: jsonEncode({'kind': kind, 'note': note}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosQuoteDocument(
+    String id,
+    String kind, {
+    String? note,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/quotes/$id/documents'),
+            headers: _headers,
+            body: jsonEncode({'kind': kind, 'note': note}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosQuoteStockIssue(
+    String id, {
+    String? note,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/quotes/$id/stock-issue'),
+            headers: _headers,
+            body: jsonEncode({'kind': 'StockIssue', 'note': note}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> closePosQuote(String id) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/quotes/$id/close'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosCustomerPayments(String customerId) async {
     try {
       final response = await http

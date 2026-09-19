@@ -178,3 +178,37 @@ public enum PosStockLotStatus
     Depleted = 1,
     Voided = 2,
 }
+
+/// <summary>Trạng thái báo giá thương mại — độc lập với đơn bán POS.</summary>
+public enum PosQuoteStatus
+{
+    Draft = 0,
+    Sent = 1,
+    Revised = 2,
+    Accepted = 3,
+    Rejected = 4,
+    Expired = 5,
+    Cancelled = 6,
+}
+
+/// <summary>Tiến độ chứng từ sau khi khách chấp nhận báo giá.</summary>
+public enum PosQuoteCommercialStage
+{
+    None = 0,
+    Accepted = 1,
+    Contracted = 2,
+    Issued = 3,
+    HandedOver = 4,
+    Inspected = 5,
+    Closed = 6,
+}
+
+/// <summary>Loại chứng từ gắn báo giá — không phải hóa đơn bán.</summary>
+public enum PosQuoteDocumentKind
+{
+    Quote = 0,
+    Contract = 1,
+    Handover = 2,
+    Acceptance = 3,
+    StockIssue = 4,
+}

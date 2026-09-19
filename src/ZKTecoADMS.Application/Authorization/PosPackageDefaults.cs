@@ -44,6 +44,7 @@ public static class PosPackageDefaults
         "PosStorePrinters",
         "PosShipping",
         "SettingsHub",
+        "PosQuotes",
     ];
 
     /// <summary>Bán hàng + báo cáo doanh thu.</summary>
@@ -68,6 +69,7 @@ public static class PosPackageDefaults
         "PosStorePrinters",
         "PosShipping",
         "SettingsHub",
+        "PosQuotes",
     ];
 
     /// <summary>Bán hàng + kho (nhập / trả NCC / kiểm / xuất).</summary>
@@ -96,6 +98,7 @@ public static class PosPackageDefaults
         "PosStorePrinters",
         "PosShipping",
         "SettingsHub",
+        "PosQuotes",
     ];
 
     /// <summary>Toàn bộ module POS trong catalog.</summary>
@@ -117,6 +120,7 @@ public static class PosPackageDefaults
         "PosStorePrinters",
         "PosShipping",
         "SettingsHub",
+        "PosQuotes",
     ];
 
     /// <summary>GET paths mapped to PosProducts but allowed when package only has PosSell.</summary>

@@ -767,6 +767,96 @@ ALTER TABLE "TaskDependencies" ADD COLUMN IF NOT EXISTS "CreatedBy" text NULL;
 ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "LastModified" timestamp without time zone NULL;
 ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "LastModifiedBy" text NULL;
 
+ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "ComboTrackStock" boolean NOT NULL DEFAULT true;
+
+CREATE TABLE IF NOT EXISTS "PosQuotes" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "QuoteNo" character varying(30) NOT NULL DEFAULT '',
+    "Status" integer NOT NULL DEFAULT 0,
+    "CustomerId" uuid NULL,
+    "CustomerName" character varying(200) NULL,
+    "CustomerPhone" character varying(50) NULL,
+    "CustomerAddress" character varying(500) NULL,
+    "ValidUntil" timestamp without time zone NULL,
+    "IssuedAt" timestamp without time zone NULL,
+    "IssuedBy" character varying(200) NULL,
+    "SubTotal" numeric(18,2) NOT NULL DEFAULT 0,
+    "Discount" numeric(18,2) NOT NULL DEFAULT 0,
+    "VatAmount" numeric(18,2) NOT NULL DEFAULT 0,
+    "Total" numeric(18,2) NOT NULL DEFAULT 0,
+    "Note" character varying(1000) NULL,
+    "Terms" character varying(2000) NULL,
+    "PrintTemplateId" uuid NULL,
+    "Revision" integer NOT NULL DEFAULT 1,
+    "QuotedBy" character varying(200) NULL,
+    "QuotedByEmployeeId" uuid NULL,
+    CONSTRAINT "PK_PosQuotes" PRIMARY KEY ("Id")
+);
+
+CREATE TABLE IF NOT EXISTS "PosQuoteLines" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "QuoteId" uuid NOT NULL,
+    "ProductId" uuid NULL,
+    "ProductCode" character varying(50) NULL,
+    "ProductName" character varying(500) NOT NULL DEFAULT '',
+    "UnitName" character varying(100) NULL,
+    "Qty" numeric(18,4) NOT NULL DEFAULT 1,
+    "UnitPrice" numeric(18,2) NOT NULL DEFAULT 0,
+    "DiscountAmount" numeric(18,2) NOT NULL DEFAULT 0,
+    "VatRate" numeric(5,2) NOT NULL DEFAULT 0,
+    "LineTotal" numeric(18,2) NOT NULL DEFAULT 0,
+    "LineNote" character varying(500) NULL,
+    "SortOrder" integer NOT NULL DEFAULT 0,
+    CONSTRAINT "PK_PosQuoteLines" PRIMARY KEY ("Id")
+);
+
+ALTER TABLE "PosQuotes" ADD COLUMN IF NOT EXISTS "CommercialStage" integer NOT NULL DEFAULT 0;
+ALTER TABLE "PosStockIssues" ADD COLUMN IF NOT EXISTS "QuoteId" uuid NULL;
+
+CREATE TABLE IF NOT EXISTS "PosQuoteDocuments" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "QuoteId" uuid NOT NULL,
+    "Kind" integer NOT NULL DEFAULT 0,
+    "DocNo" character varying(30) NOT NULL DEFAULT '',
+    "Title" character varying(200) NOT NULL DEFAULT '',
+    "HtmlContent" text NOT NULL DEFAULT '',
+    "Note" character varying(1000) NULL,
+    "IssuedAt" timestamp without time zone NULL,
+    "IssuedBy" character varying(200) NULL,
+    "PrintTemplateId" uuid NULL,
+    "StockIssueId" uuid NULL,
+    CONSTRAINT "PK_PosQuoteDocuments" PRIMARY KEY ("Id")
+);
 ALTER TABLE "PosCustomerSessionTransactions" ADD COLUMN IF NOT EXISTS "EmployeeId" uuid NULL;
 ALTER TABLE "PosCustomerSessionTransactions" ADD COLUMN IF NOT EXISTS "EmployeeName" character varying(200) NULL;
 ALTER TABLE "PosCustomerSessionTransactions" ADD COLUMN IF NOT EXISTS "UsedAt" timestamp without time zone NULL;

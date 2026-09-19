@@ -96,6 +96,7 @@ import 'field_checkin_screen.dart';
 import 'pos_products_screen.dart';
 import 'pos_sell_screen.dart';
 import 'pos_sale_order_list_screen.dart';
+import 'pos/pos_quote_list_screen.dart';
 import 'pos_sale_return_list_screen.dart';
 import 'pos_supplier_list_screen.dart';
 import 'warehouse/wh_mobile_nav.dart';
@@ -1722,6 +1723,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       group: 'POS',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSell',
+    ),
+    NavItem(
+      icon: Icons.request_quote_outlined,
+      activeIcon: Icons.request_quote,
+      label: 'Báo giá',
+      subtitle: 'Thương mại',
+      screen: const PosQuoteListScreen(),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosQuotes',
     ),
     NavItem(
       icon: Icons.kitchen_outlined,

@@ -553,6 +553,7 @@ public partial class PosSalesController(
                 p.AllowToppings,
                 p.AutoOpenToppingPopup,
                 p.ShowComboComponentsOnSell,
+                p.ComboTrackStock,
                 CommissionMode = p.CommissionMode.ToString(),
                 p.CommissionPercent,
                 p.CommissionFixed,
@@ -744,11 +745,19 @@ public partial class PosSalesController(
             decimal? sellableQty = null;
             if (p.ProductType == nameof(PosProductType.Combo))
             {
-                if (comboLines.Count == 0)
-                    sellableQty = 0;
+                if (!p.ComboTrackStock)
+                    sellableQty = 999999999m;
                 else
-                    sellableQty = comboLines.Min(cl =>
-                        cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
+                {
+                    var stockLines = comboLines.Where(cl =>
+                        PosProductTypeRules.TracksInventory(
+                            PosProductTypeRules.Parse(cl.ComponentProductType))).ToList();
+                    if (stockLines.Count == 0)
+                        sellableQty = 999999999m;
+                    else
+                        sellableQty = stockLines.Min(cl =>
+                            cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
+                }
             }
             else if (recipeLines.Count > 0)
             {
@@ -785,6 +794,7 @@ public partial class PosSalesController(
                 p.AllowToppings,
                 p.AutoOpenToppingPopup,
                 p.ShowComboComponentsOnSell,
+                p.ComboTrackStock,
                 p.CommissionMode,
                 p.CommissionPercent,
                 p.CommissionFixed,
@@ -1962,7 +1972,9 @@ public partial class PosSalesController(
                                 $" — hoàn combo: {p.Name}";
                 foreach (var cl in comboLines)
                 {
+                    if (!p.ComboTrackStock) break;
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
+                    if (!PosProductTypeRules.TracksInventory(comp.ProductType)) continue;
                     var restore = cl.Qty * line.Qty;
                     await PosSaleStockHelper.ApplyComboReturnComponentAsync(
                         dbContext, storeId, order, comp, restore, lineRefund,

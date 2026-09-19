@@ -5197,6 +5197,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           qty: l.qty,
           comboLines: l.product.comboLines ?? const [],
           recipeLines: l.product.recipeLines ?? const [],
+          comboTrackStock: l.product.comboTrackStock,
         ),
       );
     }
@@ -5213,6 +5214,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           qty: l.qty,
           comboLines: l.product.comboLines ?? const [],
           recipeLines: l.product.recipeLines ?? const [],
+          comboTrackStock: l.product.comboTrackStock,
         ),
       );
     }

@@ -95,7 +95,8 @@ public partial class PosProductsController(
         bool IsDailySoldOut = false,
         string CommissionMode = "None",
         decimal CommissionPercent = 0,
-        decimal CommissionFixed = 0);
+        decimal CommissionFixed = 0,
+        bool ComboTrackStock = true);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -189,7 +190,8 @@ public partial class PosProductsController(
         decimal? HeightCm = null,
         PosCommissionMode CommissionMode = PosCommissionMode.None,
         decimal CommissionPercent = 0,
-        decimal CommissionFixed = 0);
+        decimal CommissionFixed = 0,
+        bool ComboTrackStock = true);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -352,6 +354,7 @@ public partial class PosProductsController(
                 p.AllowToppings,
                 p.AutoOpenToppingPopup,
                 p.ShowComboComponentsOnSell,
+                p.ComboTrackStock,
                 p.AllowDecimalQty,
                 p.ServiceBillingMode,
                 p.MinBillMinutes,
@@ -430,6 +433,7 @@ public partial class PosProductsController(
                     ? comboSellable.GetValueOrDefault(r.Id)
                     : null,
                 ShowComboComponentsOnSell: r.ShowComboComponentsOnSell,
+                ComboTrackStock: r.ComboTrackStock,
                 LengthCm: r.LengthCm,
                 WidthCm: r.WidthCm,
                 HeightCm: r.HeightCm,
@@ -681,6 +685,7 @@ public partial class PosProductsController(
             AllowToppings = dto.AllowToppings && !dto.IsTopping,
             AutoOpenToppingPopup = dto.AutoOpenToppingPopup,
             ShowComboComponentsOnSell = dto.ProductType == PosProductType.Combo && dto.ShowComboComponentsOnSell,
+            ComboTrackStock = dto.ProductType != PosProductType.Combo || dto.ComboTrackStock,
             CommissionMode = dto.CommissionMode,
             CommissionPercent = Math.Max(0, dto.CommissionPercent),
             CommissionFixed = Math.Max(0, dto.CommissionFixed),
@@ -807,6 +812,7 @@ public partial class PosProductsController(
         entity.AutoOpenToppingPopup = dto.AutoOpenToppingPopup;
         entity.ShowComboComponentsOnSell =
             dto.ProductType == PosProductType.Combo && dto.ShowComboComponentsOnSell;
+        entity.ComboTrackStock = dto.ProductType != PosProductType.Combo || dto.ComboTrackStock;
         entity.CommissionMode = dto.CommissionMode;
         entity.CommissionPercent = Math.Max(0, dto.CommissionPercent);
         entity.CommissionFixed = Math.Max(0, dto.CommissionFixed);
@@ -917,6 +923,7 @@ public partial class PosProductsController(
             AllowToppings = source.AllowToppings,
             AutoOpenToppingPopup = source.AutoOpenToppingPopup,
             ShowComboComponentsOnSell = source.ShowComboComponentsOnSell,
+            ComboTrackStock = source.ComboTrackStock,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -1151,7 +1158,8 @@ public partial class PosProductsController(
                 p.DailySoldOutOn, await ResolveStoreBusinessDateAsync(storeId)),
             CommissionMode: p.CommissionMode.ToString(),
             CommissionPercent: p.CommissionPercent,
-            CommissionFixed: p.CommissionFixed);
+            CommissionFixed: p.CommissionFixed,
+            ComboTrackStock: p.ComboTrackStock);
     }
 
     private async Task<DateTime> ResolveStoreBusinessDateAsync(Guid storeId)
@@ -1368,6 +1376,10 @@ public partial class PosProductsController(
     {
         var map = comboIds.Distinct().ToDictionary(id => id, _ => 0m);
         if (map.Count == 0) return map;
+        var trackFlags = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => comboIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .Select(p => new { p.Id, p.ComboTrackStock })
+            .ToDictionaryAsync(p => p.Id, p => p.ComboTrackStock);
         var lines = await dbContext.PosProductComboLines.AsNoTracking()
             .Where(x => comboIds.Contains(x.ComboProductId) &&
                         x.StoreId == storeId && x.Deleted == null)
@@ -1376,13 +1388,22 @@ public partial class PosProductsController(
                 x.ComboProductId,
                 x.Qty,
                 OnHand = x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
+                ComponentType = x.ComponentProduct != null
+                    ? x.ComponentProduct.ProductType
+                    : PosProductType.Service,
             })
             .ToListAsync();
         foreach (var g in lines.GroupBy(x => x.ComboProductId))
         {
+            if (!trackFlags.GetValueOrDefault(g.Key, true))
+            {
+                map[g.Key] = 999999999m;
+                continue;
+            }
             decimal? min = null;
             foreach (var cl in g)
             {
+                if (!PosProductTypeRules.TracksInventory(cl.ComponentType)) continue;
                 if (cl.Qty <= 0)
                 {
                     min = 0;
@@ -1391,7 +1412,7 @@ public partial class PosProductsController(
                 var can = Math.Floor(cl.OnHand / cl.Qty);
                 if (min == null || can < min) min = can;
             }
-            map[g.Key] = min ?? 0;
+            map[g.Key] = min ?? 999999999m;
         }
         return map;
     }

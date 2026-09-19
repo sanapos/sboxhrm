@@ -46,6 +46,7 @@ class PermissionModuleLabels {
     'PosSell': 'Bán hàng POS (Order / Thu ngân)',
     'PosPrintTemplates': 'Mẫu in POS',
     'PosSaleOrders': 'Đơn hàng POS',
+    'PosQuotes': 'Báo giá',
     'PosSaleReturns': 'Trả hàng bán',
     'PosPurchaseReceipts': 'Nhập hàng NCC',
     'PosPurchaseReturns': 'Trả hàng nhập',

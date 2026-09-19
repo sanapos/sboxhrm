@@ -166,8 +166,12 @@ abstract final class PosPrintDocumentTypes {
   static const barcodeLabel = 'BarcodeLabel';
   /// Tem báo bếp / tem ly / tem báo sản phẩm khi chế biến.
   static const kitchenLabel = 'KitchenLabel';
+  static const quote = 'Quote';
+  static const contract = 'Contract';
+  static const handover = 'Handover';
+  static const acceptance = 'Acceptance';
 
-  static const all = <String, String>{
+  static const all = <String, String>{}
     saleInvoice: 'Hóa đơn bán hàng',
     stockIssue: 'Xuất kho',
     kitchenSlip: 'Báo chế biến',
@@ -184,6 +188,10 @@ abstract final class PosPrintDocumentTypes {
     stockTransfer: 'Chuyển hàng',
     cashReceipt: 'Phiếu thu',
     cashPayment: 'Phiếu chi',
+    quote: 'Báo giá',
+    contract: 'Hợp đồng',
+    handover: 'Biên bản bàn giao',
+    acceptance: 'Biên bản nghiệm thu',
   };
 
   /// Gợi ý ngắn khi chọn loại mẫu — tránh nhầm Hóa đơn ↔ Xuất kho ↔ Tem.
@@ -204,6 +212,10 @@ abstract final class PosPrintDocumentTypes {
     stockTransfer: 'Phiếu chuyển kho.',
     cashReceipt: 'Phiếu thu tiền.',
     cashPayment: 'Phiếu chi tiền.',
+    quote: 'Báo giá thương mại (A4) — không phải hóa đơn bán hàng.',
+    contract: 'Hợp đồng theo báo giá đã chấp nhận — không phải hóa đơn bán.',
+    handover: 'Biên bản bàn giao hạng mục theo báo giá.',
+    acceptance: 'Biên bản nghiệm thu hạng mục theo báo giá.',
   };
 
   static String usageHint(String documentType) =>

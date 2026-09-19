@@ -43,5 +43,8 @@ public class PosStockIssue : AuditableEntity<Guid>
 
     public decimal TotalValue { get; set; }
 
+    /// <summary>Xuất kho theo báo giá thương mại (không phải hóa đơn bán).</summary>
+    public Guid? QuoteId { get; set; }
+
     public virtual ICollection<PosStockIssueLine> Lines { get; set; } = [];
 }

@@ -28,6 +28,7 @@ class PermissionModules {
     'PenaltyTickets',
     'Production',
     'PosProducts',
+    'PosQuotes',
     'PosSalesReport',
     'PosReportRevenue',
     'PosReportSoldGoods',

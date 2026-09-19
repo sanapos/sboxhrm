@@ -493,6 +493,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canDelete',
     },
     'PosSaleOrders': {'canView', 'canEdit', 'canDelete'},
+    'PosQuotes': {
+      'canView',
+      'canCreate',
+      'canEdit',
+      'canDelete',
+      'canApprove',
+    },
     'PosSaleReturns': {
       // Xem = menu/danh sách; Duyệt = thực hiện trả / hủy phiếu trả
       'canView',

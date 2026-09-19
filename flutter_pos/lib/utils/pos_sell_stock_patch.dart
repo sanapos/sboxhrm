@@ -99,10 +99,18 @@ PosProduct applyPosSellStockLines(
         qty: cl.qty,
         componentOnHandQty: onHand.clamp(0.0, double.infinity),
         componentBasePrice: cl.componentBasePrice,
+        componentUnitName: cl.componentUnitName,
+        componentProductType: cl.componentProductType,
+        commissionMode: cl.commissionMode,
+        commissionPercent: cl.commissionPercent,
+        commissionFixed: cl.commissionFixed,
       );
     }).toList();
     if (changed) {
-      final sellable = computeComboSellableQty(updated);
+      final sellable = computeComboSellableQty(
+        updated,
+        trackStock: p.comboTrackStock,
+      );
       p = p.copyWith(
         comboLines: updated,
         sellableQty: sellable,

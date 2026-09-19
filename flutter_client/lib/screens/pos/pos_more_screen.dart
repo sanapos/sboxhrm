@@ -46,6 +46,7 @@ import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
 import '../settings_hub_screen.dart';
+import 'pos_quote_list_screen.dart';
 import 'pos_app_settings_screen.dart';
 import 'pos_accounts_screen.dart';
 import 'pos_role_permissions_screen.dart';
@@ -116,6 +117,16 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   items: [
                     _Item('Trung tâm Kho', Icons.warehouse_outlined, 'PosProducts',
                         const WhMobileHubScreen()),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _section(
+                  context,
+                  perm,
+                  title: 'Thương mại',
+                  items: [
+                    _Item('Báo giá', Icons.request_quote_outlined, 'PosQuotes',
+                        const PosQuoteListScreen()),
                   ],
                 ),
                 const SizedBox(height: 12),

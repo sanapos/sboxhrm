@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../models/pos_product.dart';
+import '../../utils/pos_combo_stock.dart';
 
 /// Một «góc nhìn» ĐVT/biến thể trên danh sách (kiểu chip KiotViet).
 class PosProductUnitView {
@@ -269,7 +270,7 @@ double resolvePosSellAvailableQty(PosProduct product, PosProductUnitView view) {
     return double.infinity;
   }
   if (product.productType == PosProductType.combo) {
-    return product.sellableQty ?? product.onHandQty;
+    return resolveProductSellableQty(product);
   }
   final reserved = product.reservedQty;
   if (reserved <= 0) return view.onHandQty;
@@ -290,11 +291,7 @@ double resolvePosSellListStockQty(
     return double.infinity;
   }
   if (product.productType == PosProductType.combo) {
-    final sellable = product.sellableQty ??
-        (product.comboLines != null && product.comboLines!.isNotEmpty
-            ? product.onHandQty
-            : 0);
-    return sellable;
+    return resolveProductSellableQty(product);
   }
 
   if (views.isEmpty) return product.onHandQty;
@@ -323,8 +320,10 @@ bool isPosSellOutOfStock(PosProduct product, List<PosProductUnitView> views) {
     return false;
   }
   if (product.productType == PosProductType.combo) {
+    if (!product.comboTrackStock) return false;
     final lines = product.comboLines;
     if (lines == null || lines.isEmpty) return true;
+    if (!lines.any(comboLineDeductsStock)) return false;
     return resolvePosSellListStockQty(product, views) <= 0;
   }
   if (views.isEmpty) {
