@@ -484,8 +484,13 @@ class PosProductDataTable extends StatelessWidget {
       PosProductTableColumn.location =>
         _cellText(p.storageLocationName ?? '—'),
       PosProductTableColumn.reserved => _cellText(
-          p.reservedQty > 0 ? moneyFmt.format(p.reservedQty) : '0',
+          !p.showsWarehouseStock
+              ? '—'
+              : p.reservedQty > 0
+                  ? moneyFmt.format(p.reservedQty)
+                  : '0',
           align: TextAlign.right,
+          color: !p.showsWarehouseStock ? Colors.grey : null,
         ),
       PosProductTableColumn.createdAt => _cellText(
           p.createdAt != null ? dateFmt.format(p.createdAt!) : '—',
@@ -536,7 +541,7 @@ class PosProductDataTable extends StatelessWidget {
   }
 
   Widget _stockCell(PosProduct p, PosProductUnitView view) {
-    if (p.productType == PosProductType.service) {
+    if (!p.showsWarehouseStock) {
       return _cellText('—', align: TextAlign.right, color: Colors.grey);
     }
     if (p.productType == PosProductType.combo) {

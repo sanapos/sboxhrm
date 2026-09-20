@@ -8,13 +8,15 @@ public static class ShippingCarrierCodes
     public const string Ghtk = "Ghtk";
     public const string ViettelPost = "ViettelPost";
     public const string Ahamove = "Ahamove";
+    public const string Spx = "Spx";
 
-    public static readonly string[] All = [Ghn, Ghtk, ViettelPost, Ahamove];
+    public static readonly string[] All = [Ghn, Ghtk, Spx, ViettelPost, Ahamove];
 
     public static string DisplayName(string code) => code switch
     {
         Ghn => "Giao Hàng Nhanh (GHN)",
         Ghtk => "Giao Hàng Tiết Kiệm (GHTK)",
+        Spx => "SPX Express",
         ViettelPost => "Viettel Post",
         Ahamove => "AhaMove",
         _ => code,
@@ -26,6 +28,10 @@ public static class ShippingCarrierCodes
         if (c.Equals("ghn", StringComparison.OrdinalIgnoreCase)) return Ghn;
         if (c.Equals("ghtk", StringComparison.OrdinalIgnoreCase) ||
             c.Equals("giaohangtietkiem", StringComparison.OrdinalIgnoreCase)) return Ghtk;
+        if (c.Equals("spx", StringComparison.OrdinalIgnoreCase) ||
+            c.Equals("shopeeexpress", StringComparison.OrdinalIgnoreCase) ||
+            c.Equals("shopee-express", StringComparison.OrdinalIgnoreCase) ||
+            c.Equals("spxexpress", StringComparison.OrdinalIgnoreCase)) return Spx;
         if (c.Equals("viettel", StringComparison.OrdinalIgnoreCase) ||
             c.Equals("viettelpost", StringComparison.OrdinalIgnoreCase) ||
             c.Equals("vtp", StringComparison.OrdinalIgnoreCase)) return ViettelPost;

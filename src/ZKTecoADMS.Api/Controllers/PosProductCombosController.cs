@@ -115,8 +115,7 @@ public class PosProductCombosController(ZKTecoDbContext dbContext) : Authenticat
             lines.Select(l =>
             {
                 var type = componentMap[l.ComponentProductId].ProductType;
-                var track = l.TrackStock ?? Domain.Enums.PosProductTypeRules.TracksInventory(type);
-                return (l.ComponentProductId, l.Qty, track);
+                return (l.ComponentProductId, l.Qty, Domain.Enums.PosProductTypeRules.TracksInventory(type));
             }).ToList(),
             CurrentUserEmail);
 

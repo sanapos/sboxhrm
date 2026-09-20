@@ -126,6 +126,7 @@ public class ZKTecoDbInitializer(
                 ");
 
                 await ApplyCompleteSchemaPatchAsync();
+                await ApplyComboPackStockDefaultOffOnceAsync();
 
                 await context.Database.ExecuteSqlRawAsync(@"
                     ALTER TABLE ""Holidays"" ADD COLUMN IF NOT EXISTS ""EmployeeIds"" TEXT;
@@ -136,6 +137,8 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DefaultPrinterId"" uuid NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DefaultLabelPrinterId"" uuid NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WarrantyMonths"" integer NULL;
+                    ALTER TABLE ""PosQuoteLines"" ADD COLUMN IF NOT EXISTS ""WarrantyMonths"" integer NULL;
+                    ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""PaymentMethod"" character varying(100) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""RequiresSerial"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""TrackExpiry"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ExpiryWarningDays"" integer NOT NULL DEFAULT 30;
@@ -265,6 +268,53 @@ public class ZKTecoDbInitializer(
                         ""StockIssueId"" uuid NULL,
                         CONSTRAINT ""PK_PosQuoteDocuments"" PRIMARY KEY (""Id"")
                     );
+                    CREATE TABLE IF NOT EXISTS ""PosQuoteActivities"" (
+                        ""Id"" uuid NOT NULL,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""QuoteId"" uuid NOT NULL,
+                        ""Kind"" character varying(30) NOT NULL DEFAULT 'Note',
+                        ""Content"" character varying(2000) NOT NULL DEFAULT '',
+                        ""NextFollowUpAt"" timestamp without time zone NULL,
+                        ""EmployeeId"" uuid NULL,
+                        CONSTRAINT ""PK_PosQuoteActivities"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosQuoteActivities_QuoteId"" ON ""PosQuoteActivities"" (""QuoteId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosQuotes_Store_QuotedByEmp"" ON ""PosQuotes"" (""StoreId"", ""QuotedByEmployeeId"");
+                    CREATE TABLE IF NOT EXISTS ""PosStoreCommercialProfiles"" (
+                        ""Id"" uuid NOT NULL,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""CompanyName"" character varying(300) NULL,
+                        ""TaxCode"" character varying(30) NULL,
+                        ""Address"" character varying(500) NULL,
+                        ""Phone"" character varying(50) NULL,
+                        ""Email"" character varying(200) NULL,
+                        ""BankAccountNumber"" character varying(50) NULL,
+                        ""BankName"" character varying(200) NULL,
+                        ""BankAccountHolder"" character varying(200) NULL,
+                        ""LegalRepresentative"" character varying(200) NULL,
+                        ""LegalTitle"" character varying(100) NULL,
+                        CONSTRAINT ""PK_PosStoreCommercialProfiles"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosStoreCommercialProfiles_StoreId""
+                        ON ""PosStoreCommercialProfiles"" (""StoreId"");
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""EnableStaffCommission"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""RequireStaffOnService"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""AssignedEmployeeId"" uuid NULL;
@@ -1559,6 +1609,8 @@ public class ZKTecoDbInitializer(
 
                     ALTER TABLE ""PosCustomers"" ADD COLUMN IF NOT EXISTS ""Birthday"" timestamp without time zone NULL;
                     ALTER TABLE ""PosCustomers"" ADD COLUMN IF NOT EXISTS ""DeliveryAddress"" character varying(500);
+                    ALTER TABLE ""PosCustomers"" ADD COLUMN IF NOT EXISTS ""LegalRepresentative"" character varying(200);
+                    ALTER TABLE ""PosCustomers"" ADD COLUMN IF NOT EXISTS ""LegalTitle"" character varying(100);
 
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""IsTopping"" boolean NOT NULL DEFAULT false;
 
@@ -1710,6 +1762,53 @@ public class ZKTecoDbInitializer(
                         ""StockIssueId"" uuid NULL,
                         CONSTRAINT ""PK_PosQuoteDocuments"" PRIMARY KEY (""Id"")
                     );
+                    CREATE TABLE IF NOT EXISTS ""PosQuoteActivities"" (
+                        ""Id"" uuid NOT NULL,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""QuoteId"" uuid NOT NULL,
+                        ""Kind"" character varying(30) NOT NULL DEFAULT 'Note',
+                        ""Content"" character varying(2000) NOT NULL DEFAULT '',
+                        ""NextFollowUpAt"" timestamp without time zone NULL,
+                        ""EmployeeId"" uuid NULL,
+                        CONSTRAINT ""PK_PosQuoteActivities"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosQuoteActivities_QuoteId"" ON ""PosQuoteActivities"" (""QuoteId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosQuotes_Store_QuotedByEmp"" ON ""PosQuotes"" (""StoreId"", ""QuotedByEmployeeId"");
+                    CREATE TABLE IF NOT EXISTS ""PosStoreCommercialProfiles"" (
+                        ""Id"" uuid NOT NULL,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""CompanyName"" character varying(300) NULL,
+                        ""TaxCode"" character varying(30) NULL,
+                        ""Address"" character varying(500) NULL,
+                        ""Phone"" character varying(50) NULL,
+                        ""Email"" character varying(200) NULL,
+                        ""BankAccountNumber"" character varying(50) NULL,
+                        ""BankName"" character varying(200) NULL,
+                        ""BankAccountHolder"" character varying(200) NULL,
+                        ""LegalRepresentative"" character varying(200) NULL,
+                        ""LegalTitle"" character varying(100) NULL,
+                        CONSTRAINT ""PK_PosStoreCommercialProfiles"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosStoreCommercialProfiles_StoreId""
+                        ON ""PosStoreCommercialProfiles"" (""StoreId"");
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""EnableStaffCommission"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""RequireStaffOnService"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""AssignedEmployeeId"" uuid NULL;
@@ -2711,6 +2810,53 @@ public class ZKTecoDbInitializer(
                         ""StockIssueId"" uuid NULL,
                         CONSTRAINT ""PK_PosQuoteDocuments"" PRIMARY KEY (""Id"")
                     );
+                    CREATE TABLE IF NOT EXISTS ""PosQuoteActivities"" (
+                        ""Id"" uuid NOT NULL,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""QuoteId"" uuid NOT NULL,
+                        ""Kind"" character varying(30) NOT NULL DEFAULT 'Note',
+                        ""Content"" character varying(2000) NOT NULL DEFAULT '',
+                        ""NextFollowUpAt"" timestamp without time zone NULL,
+                        ""EmployeeId"" uuid NULL,
+                        CONSTRAINT ""PK_PosQuoteActivities"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosQuoteActivities_QuoteId"" ON ""PosQuoteActivities"" (""QuoteId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosQuotes_Store_QuotedByEmp"" ON ""PosQuotes"" (""StoreId"", ""QuotedByEmployeeId"");
+                    CREATE TABLE IF NOT EXISTS ""PosStoreCommercialProfiles"" (
+                        ""Id"" uuid NOT NULL,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""CreatedBy"" text NULL,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL,
+                        ""StoreId"" uuid NOT NULL,
+                        ""CompanyName"" character varying(300) NULL,
+                        ""TaxCode"" character varying(30) NULL,
+                        ""Address"" character varying(500) NULL,
+                        ""Phone"" character varying(50) NULL,
+                        ""Email"" character varying(200) NULL,
+                        ""BankAccountNumber"" character varying(50) NULL,
+                        ""BankName"" character varying(200) NULL,
+                        ""BankAccountHolder"" character varying(200) NULL,
+                        ""LegalRepresentative"" character varying(200) NULL,
+                        ""LegalTitle"" character varying(100) NULL,
+                        CONSTRAINT ""PK_PosStoreCommercialProfiles"" PRIMARY KEY (""Id"")
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosStoreCommercialProfiles_StoreId""
+                        ON ""PosStoreCommercialProfiles"" (""StoreId"");
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""EnableStaffCommission"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosStoreSellSettings"" ADD COLUMN IF NOT EXISTS ""RequireStaffOnService"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosSaleOrderLines"" ADD COLUMN IF NOT EXISTS ""AssignedEmployeeId"" uuid NULL;
@@ -3119,6 +3265,32 @@ public class ZKTecoDbInitializer(
         {
             logger.LogError(ex, "An error occurred while initialising the database. API will still start; apply remaining SQL on next boot.");
         }
+    }
+
+    /// <summary>
+    /// ComboTrackStock đổi nghĩa: quản lý tồn gói combo (mặc định tắt).
+    /// Một lần — combo cũ đang true + tồn 0 không bị kẹt «không đủ hàng».
+    /// </summary>
+    private async Task ApplyComboPackStockDefaultOffOnceAsync()
+    {
+        await context.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS "PosOneShotPatches" (
+                "Id" text PRIMARY KEY,
+                "AppliedAt" timestamptz NOT NULL DEFAULT now()
+            );
+            """);
+        await context.Database.ExecuteSqlRawAsync("""
+            DO $p$
+            BEGIN
+              IF NOT EXISTS (
+                SELECT 1 FROM "PosOneShotPatches" WHERE "Id" = 'combo-pack-stock-off-20260919'
+              ) THEN
+                UPDATE "PosProducts" SET "ComboTrackStock" = false WHERE "ProductType" = 2;
+                INSERT INTO "PosOneShotPatches" ("Id") VALUES ('combo-pack-stock-off-20260919');
+              END IF;
+            END
+            $p$;
+            """);
     }
 
     private async Task ApplyCompleteSchemaPatchAsync()

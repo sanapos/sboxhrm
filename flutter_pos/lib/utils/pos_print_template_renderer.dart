@@ -18,15 +18,19 @@ Map<String, String> posPrintSampleData({
   String? storeName,
   String? storeAddress,
   String? storePhone,
+  Map<String, dynamic>? commercialProfile,
 }) {
   final money = NumberFormat('#,##0', 'vi_VN');
-  final shop = (storeName ?? '').trim();
-  final addr = (storeAddress ?? '').trim();
-  final phone = (storePhone ?? '').trim();
+  final profileData = posPrintCommercialProfileData(commercialProfile);
+  final shop = (storeName ?? profileData['Ten_Cua_Hang'] ?? '').trim();
+  final addr = (storeAddress ?? profileData['Dia_Chi_Chi_Nhanh'] ?? '').trim();
+  final phone =
+      (storePhone ?? profileData['Dien_Thoai_Chi_Nhanh'] ?? '').trim();
   final base = <String, String>{
+    ...profileData,
     'Ten_Cua_Hang': shop.isNotEmpty ? shop : 'Cửa hàng',
-    'Dia_Chi_Chi_Nhanh': addr,
-    'Dien_Thoai_Chi_Nhanh': phone,
+    'Dia_Chi_Chi_Nhanh': addr.isNotEmpty ? addr : 'Địa chỉ cửa hàng',
+    'Dien_Thoai_Chi_Nhanh': phone.isNotEmpty ? phone : '0900000000',
     'Tieu_De_In': PosPrintDocumentTypes.all[documentType] ?? 'Hóa đơn',
     'Ma_Don_Hang': 'HD000050',
     'Ngay': '28/06/2026',
@@ -50,6 +54,34 @@ Map<String, String> posPrintSampleData({
     'Hinh_Thuc_Thanh_Toan': 'Tiền mặt',
     'Nguoi_Ban': 'NV Bán hàng',
     'Ghi_Chu': '',
+    'Ma_Bao_Gia': 'BG000012',
+    'So_Chung_Tu': 'BG000012',
+    'Han_Bao_Gia': '05/10/2026',
+    'Dieu_Khoan': 'Báo giá có hiệu lực 15 ngày. Thanh toán 50% khi đặt hàng.',
+    'Bao_Hanh': '12 tháng',
+    'So_Hop_Dong': 'HD0926/2026/NT-TLP',
+    'Ngay_Hop_Dong': '16/09/2026',
+    'Dia_Diem_Thi_Cong': 'Showroom Nghĩa Tín, Tuy Phước Tây',
+    'MST_Cua_Hang': profileData['MST_Cua_Hang'] ?? '0402207773',
+    'Email_Cua_Hang': profileData['Email_Cua_Hang'] ?? '',
+    'Tai_Khoan_Cua_Hang':
+        profileData['Tai_Khoan_Cua_Hang'] ?? '512222255555',
+    'Ngan_Hang_Cua_Hang': profileData['Ngan_Hang_Cua_Hang'] ??
+        'Ngân hàng TMCP Quân đội (MB) — CN Đà Nẵng',
+    'Chu_Tai_Khoan_Cua_Hang': profileData['Chu_Tai_Khoan_Cua_Hang'] ?? shop,
+    'Nguoi_Dai_Dien_Cua_Hang':
+        profileData['Nguoi_Dai_Dien_Cua_Hang'] ?? 'Nguyễn Hoài Sang',
+    'Chuc_Vu_Cua_Hang': profileData['Chuc_Vu_Cua_Hang'] ?? 'Giám đốc',
+    'MST_Khach_Hang': '4100543367',
+    'Ten_Cong_Ty_Khach': 'Công ty TNHH Đồ gỗ Nghĩa Tín',
+    'Tai_Khoan_Khach_Hang': '5810053610',
+    'Ngan_Hang_Khach_Hang': 'BIDV — CN Phú Tài',
+    'Nguoi_Dai_Dien_Khach': 'Huỳnh Lê Đại Phúc',
+    'Chuc_Vu_Khach': 'Giám đốc',
+    'Tam_Ung': money.format(15252500),
+    'Con_Lai_Hop_Dong': money.format(15252500),
+    'Ky_Han_Thi_Cong': '07 – 10 ngày làm việc',
+    'Ky_Han_Thanh_Toan': '10 ngày kể từ ký HĐ',
     'Ten_Ban': 'Bàn 05',
     'Ma_Hang': 'TS-TRA-DAO',
     'Ma_Vach': '8934567890123',
@@ -80,6 +112,34 @@ Map<String, String> posPrintSampleData({
   return base;
 }
 
+/// Map thông tin cửa hàng thương mại → token in A4.
+Map<String, String> posPrintCommercialProfileData(
+    Map<String, dynamic>? profile) {
+  if (profile == null || profile.isEmpty) return {};
+  String t(String a, String b) => (profile[a] ?? profile[b] ?? '').toString();
+  final company = t('companyName', 'CompanyName');
+  final rep = t('legalRepresentative', 'LegalRepresentative');
+  final title = t('legalTitle', 'LegalTitle');
+  return {
+    if (company.isNotEmpty) 'Ten_Cua_Hang': company,
+    if (t('address', 'Address').isNotEmpty)
+      'Dia_Chi_Chi_Nhanh': t('address', 'Address'),
+    if (t('phone', 'Phone').isNotEmpty)
+      'Dien_Thoai_Chi_Nhanh': t('phone', 'Phone'),
+    if (t('email', 'Email').isNotEmpty) 'Email_Cua_Hang': t('email', 'Email'),
+    if (t('taxCode', 'TaxCode').isNotEmpty)
+      'MST_Cua_Hang': t('taxCode', 'TaxCode'),
+    if (t('bankAccountNumber', 'BankAccountNumber').isNotEmpty)
+      'Tai_Khoan_Cua_Hang': t('bankAccountNumber', 'BankAccountNumber'),
+    if (t('bankName', 'BankName').isNotEmpty)
+      'Ngan_Hang_Cua_Hang': t('bankName', 'BankName'),
+    if (t('bankAccountHolder', 'BankAccountHolder').isNotEmpty)
+      'Chu_Tai_Khoan_Cua_Hang': t('bankAccountHolder', 'BankAccountHolder'),
+    if (rep.isNotEmpty) 'Nguoi_Dai_Dien_Cua_Hang': rep,
+    'Chuc_Vu_Cua_Hang': title.trim().isEmpty ? 'Giám đốc' : title.trim(),
+  };
+}
+
 List<Map<String, String>> posPrintSampleLines() {
   final money = NumberFormat('#,##0', 'vi_VN');
   return [
@@ -92,7 +152,9 @@ List<Map<String, String>> posPrintSampleLines() {
       'Don_Vi_Tinh': 'Ly',
       'Chiet_Khau': '0',
       'Thanh_Tien': money.format(38000),
+      'Bao_Hanh': '',
       'Ghi_Chu': '+ TranChau x2 (+16.000)\n+ Thach (+5.000)',
+      'Hinh_Anh': '',
     },
     {
       'STT': '2',
@@ -103,15 +165,30 @@ List<Map<String, String>> posPrintSampleLines() {
       'Don_Vi_Tinh': 'Cái',
       'Chiet_Khau': money.format(500000),
       'Thanh_Tien': money.format(27500000),
+      'Bao_Hanh': '12 tháng',
+      'Hinh_Anh': '',
     },
   ];
 }
 
+bool _isRawHtmlPrintToken(String key) => key == 'Hinh_Anh';
+
+String _replacePrintToken(String row, String key, String value) {
+  if (_isRawHtmlPrintToken(key)) {
+    return row.replaceAll('{$key}', value);
+  }
+  return row.replaceAll('{$key}', value);
+}
+
 /// Render HTML mẫu in — thay token + lặp khối dòng hàng.
+///
+/// [wrapDocument] = false khi nhúng vào iframe soạn thảo (đã có html/body).
 String renderPosPrintTemplateHtml(
   String templateHtml, {
   required Map<String, String> data,
   required List<Map<String, String>> lineItems,
+  bool wrapDocument = true,
+  String paperSize = 'K80',
 }) {
   var html = templateHtml;
   final begin = html.indexOf(_itemBegin);
@@ -122,10 +199,10 @@ String renderPosPrintTemplateHtml(
     for (final line in lineItems) {
       var row = block;
       for (final e in line.entries) {
-        row = row.replaceAll('{${e.key}}', e.value);
+        row = _replacePrintToken(row, e.key, e.value);
       }
       for (final e in data.entries) {
-        row = row.replaceAll('{${e.key}}', e.value);
+        row = _replacePrintToken(row, e.key, e.value);
       }
       rendered.write(row);
     }
@@ -143,7 +220,11 @@ String renderPosPrintTemplateHtml(
       (m) => '>$bangChu<',
     );
   }
-  return wrapPosPrintHtmlDocument(html, paperSize: data['PaperSize'] ?? 'K80');
+  if (!wrapDocument) return html;
+  return wrapPosPrintHtmlDocument(
+    html,
+    paperSize: data['PaperSize'] ?? paperSize,
+  );
 }
 
 String wrapPosPrintHtmlDocument(String bodyHtml, {required String paperSize}) {

@@ -479,6 +479,22 @@ static esp_err_t uid_lookup_cb(void *ctx, const zk_user_rec_t *rec)
     return ESP_OK;
 }
 
+typedef struct {
+    const char *want_user_id;
+    zk_user_rec_t rec;
+    bool found;
+} user_lookup_t;
+
+static esp_err_t user_lookup_cb(void *ctx, const zk_user_rec_t *rec)
+{
+    user_lookup_t *l = ctx;
+    if (!l->found && strcmp(rec->user_id, l->want_user_id) == 0) {
+        l->rec = *rec;
+        l->found = true;
+    }
+    return ESP_OK;
+}
+
 static esp_err_t resolve_uid(zk_conn_t *c, const char *user_id, uint16_t *out_uid, bool *out_exists)
 {
     uid_lookup_t lookup = {.want_user_id = user_id};
@@ -591,9 +607,98 @@ esp_err_t zk_cancel_capture(zk_conn_t *c)
     return err != ESP_OK ? err : (zk_reply_ok(c) ? ESP_OK : ESP_FAIL);
 }
 
+esp_err_t zk_reg_event(zk_conn_t *c, uint32_t mask)
+{
+    uint8_t arg[4];
+    put_le32(arg, mask);
+    esp_err_t err = zk_cmd(c, ZK_CMD_REG_EVENT, arg, sizeof(arg));
+    if (err != ESP_OK) {
+        return err;
+    }
+    if (!zk_reply_ok(c)) {
+        ESP_LOGW(TAG, "RegEvent mask=%u bi tu choi (cmd=%u)", (unsigned)mask, c->resp_cmd);
+        return ESP_FAIL;
+    }
+    return ESP_OK;
+}
+
+esp_err_t zk_start_identify(zk_conn_t *c)
+{
+    esp_err_t err = zk_cmd(c, ZK_CMD_STARTVERIFY, NULL, 0);
+    return err != ESP_OK ? err : (zk_reply_ok(c) ? ESP_OK : ESP_FAIL);
+}
+
+esp_err_t zk_delete_face(zk_conn_t *c, const char *user_id)
+{
+    if (user_id == NULL || user_id[0] == '\0') {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    /* Handbook iFace: dwFaceIndex chỉ được 50 (xoá hết mặt của user). */
+    uint8_t str_arg[25] = {0};
+    memcpy(str_arg, user_id, strnlen(user_id, 24));
+    str_arg[24] = 50;
+    if (zk_cmd(c, ZK_CMD_DELETE_USERFACE, str_arg, sizeof(str_arg)) == ESP_OK && zk_reply_ok(c)) {
+        zk_refresh_data(c);
+        return ESP_OK;
+    }
+
+    uint8_t idx_arg[28] = {0};
+    memcpy(idx_arg, user_id, strnlen(user_id, 24));
+    put_le32(idx_arg + 24, 50);
+    if (zk_cmd(c, ZK_CMD_DELETE_USERFACE, idx_arg, sizeof(idx_arg)) == ESP_OK && zk_reply_ok(c)) {
+        zk_refresh_data(c);
+        return ESP_OK;
+    }
+
+    ESP_LOGW(TAG, "DelUserFace PIN=%s khong ACK (may co the chua co mat)", user_id);
+    return ESP_ERR_NOT_FOUND;
+}
+
 /* Mỗi lần chờ một gói sự kiện. Ngắn hơn tổng thời gian chờ để khi máy đăng ký
  * xong và im lặng, gateway thoát ra sớm thay vì treo hết cửa sổ chờ. */
 #define ENROLL_EVENT_SLICE_MS 8000
+
+static int enroll_wait_events(zk_conn_t *c, int wait_ms)
+{
+    zk_set_recv_timeout(c, ENROLL_EVENT_SLICE_MS);
+
+    int64_t deadline = esp_timer_get_time() + (int64_t)wait_ms * 1000;
+    int events = 0;
+    int quiet_slices = 0;
+
+    while (esp_timer_get_time() < deadline) {
+        if (zk_recv(c, NULL, NULL) != ESP_OK) {
+            if (events > 0 && ++quiet_slices >= 2) {
+                break;
+            }
+            continue;
+        }
+        zk_send_ack(c);
+        quiet_slices = 0;
+        events++;
+        ESP_LOGI(TAG, "su kien dang ky %d: goi=%u", events, c->resp_cmd);
+    }
+
+    zk_set_recv_timeout(c, c->timeout_ms);
+    return events;
+}
+
+static bool start_enroll_ex(zk_conn_t *c, const char *user_id, int index, int flag)
+{
+    uint8_t arg[26] = {0};
+    memcpy(arg, user_id, strnlen(user_id, 24));
+    arg[24] = (uint8_t)index;
+    arg[25] = (uint8_t)flag;
+
+    if (zk_cmd(c, ZK_CMD_STARTENROLL, arg, sizeof(arg)) != ESP_OK || !zk_reply_ok(c)) {
+        ESP_LOGW(TAG, "StartEnrollEx PIN=%s index=%d flag=%d tu choi (cmd=%u)",
+                 user_id, index, flag, c->resp_cmd);
+        return false;
+    }
+    ESP_LOGW(TAG, "StartEnrollEx PIN=%s index=%d flag=%d ACK_OK", user_id, index, flag);
+    return true;
+}
 
 esp_err_t zk_enroll_finger(zk_conn_t *c, const char *user_id, int finger_index,
                            bool overwrite, int wait_ms)
@@ -620,48 +725,14 @@ esp_err_t zk_enroll_finger(zk_conn_t *c, const char *user_id, int finger_index,
     zk_set_enabled(c, true);
     zk_cancel_capture(c);
 
-    /* 24 byte user_id dạng chuỗi + số thứ tự ngón + cờ ghi đè, giống SDK gốc. */
-    uint8_t arg[26] = {0};
-    memcpy(arg, user_id, strnlen(user_id, 24));
-    arg[24] = (uint8_t)finger_index;
-    arg[25] = 1;
-
-    esp_err_t err = zk_cmd(c, ZK_CMD_STARTENROLL, arg, sizeof(arg));
-    if (err != ESP_OK) {
-        return err;
-    }
-    if (!zk_reply_ok(c)) {
-        ESP_LOGW(TAG, "may tu choi mo dang ky van tay (ma tra ve %u)", c->resp_cmd);
+    if (!start_enroll_ex(c, user_id, finger_index, 1)) {
         return ESP_ERR_NOT_SUPPORTED;
     }
 
     ESP_LOGW(TAG, "da mo dang ky van tay tren may cho PIN=%s ngon=%d, cho toi %d giay",
              user_id, finger_index, wait_ms / 1000);
 
-    /* Máy đòi quét vài lượt và gửi một gói sự kiện sau mỗi lượt. Mỗi gói phải
-     * được ACK, nếu không máy dừng giữa đường. */
-    zk_set_recv_timeout(c, ENROLL_EVENT_SLICE_MS);
-
-    int64_t deadline = esp_timer_get_time() + (int64_t)wait_ms * 1000;
-    int events = 0;
-    int quiet_slices = 0;
-
-    while (esp_timer_get_time() < deadline) {
-        if (zk_recv(c, NULL, NULL) != ESP_OK) {
-            /* Im lặng một lúc: có thể đã xong, hoặc chưa ai đặt ngón tay. Chỉ
-             * bỏ cuộc sau vài lượt im để không cắt ngang người đang quét. */
-            if (events > 0 && ++quiet_slices >= 2) {
-                break;
-            }
-            continue;
-        }
-        zk_send_ack(c);
-        quiet_slices = 0;
-        events++;
-        ESP_LOGI(TAG, "su kien dang ky %d: goi=%u", events, c->resp_cmd);
-    }
-
-    zk_set_recv_timeout(c, c->timeout_ms);
+    int events = enroll_wait_events(c, wait_ms);
 
     /* Máy ngừng trả lời hẳn sau khi rời giao diện đăng ký: mọi lệnh gửi tiếp
      * trên phiên này đều hết thời gian chờ, kể cả phép đếm dùng để kết luận. Đó
@@ -689,6 +760,249 @@ esp_err_t zk_enroll_finger(zk_conn_t *c, const char *user_id, int finger_index,
     ESP_LOGW(TAG, "khong co mau van tay moi cho PIN=%s (%d su kien, so mau %u)",
              user_id, events, (unsigned)after.fingers);
     return ESP_ERR_TIMEOUT;
+}
+
+esp_err_t zk_enroll_face(zk_conn_t *c, const char *user_id, int wait_ms)
+{
+    if (user_id == NULL || user_id[0] == '\0') {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (wait_ms <= 0) {
+        wait_ms = 60000;
+    }
+
+    uint16_t uid = 0;
+    bool exists = false;
+    esp_err_t err = resolve_uid(c, user_id, &uid, &exists);
+    if (err != ESP_OK) {
+        return err;
+    }
+    if (!exists) {
+        zk_user_rec_t user = {0};
+        strlcpy(user.user_id, user_id, sizeof(user.user_id));
+        strlcpy(user.name, user_id, sizeof(user.name));
+        user.group_id = 1;
+        err = zk_write_user(c, &user);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "SSR_SetUserInfo PIN=%s that bai", user_id);
+            return err;
+        }
+        ESP_LOGI(TAG, "da tao user PIN=%s uid=%u truoc khi enroll mat", user_id, uid);
+    } else {
+        ESP_LOGI(TAG, "user PIN=%s uid=%u da co, bat enroll mat", user_id, uid);
+    }
+
+    /* Connect_Net đã xong ở phiên ZK. Tiếp theo đúng demo zkemkeeper. */
+    zk_set_enabled(c, true);
+    zk_reg_event(c, 65535);
+    zk_cancel_capture(c);
+    zk_delete_face(c, user_id);
+    zk_refresh_data(c);
+
+    /* 111 = StartEnrollEx face (công văn ZKTeco). Flag phải = 1 (valid), không phải 0.
+     * DelUserFace dùng index 50. Nếu 111 từ chối, thử 50 (index template mặt). */
+    static const int tries[][2] = {{111, 1}, {50, 1}, {111, 0}};
+    bool started = false;
+    for (size_t i = 0; i < sizeof(tries) / sizeof(tries[0]); i++) {
+        if (start_enroll_ex(c, user_id, tries[i][0], tries[i][1])) {
+            started = true;
+            break;
+        }
+    }
+    if (!started) {
+        return ESP_ERR_NOT_SUPPORTED;
+    }
+
+    ESP_LOGW(TAG, "da mo dang ky khuon mat PIN=%s, dung truoc may, cho %d giay",
+             user_id, wait_ms / 1000);
+
+    int events = enroll_wait_events(c, wait_ms);
+
+    if (zk_reopen(c) != ESP_OK) {
+        ESP_LOGE(TAG, "khong noi lai duoc may sau enroll mat");
+        return ESP_FAIL;
+    }
+
+    zk_start_identify(c);
+    zk_refresh_data(c);
+    zk_set_enabled(c, true);
+
+    if (events <= 0) {
+        ESP_LOGW(TAG, "khong nhan su kien enroll mat PIN=%s (OnEnrollFingerEx im)", user_id);
+        return ESP_ERR_TIMEOUT;
+    }
+
+    ESP_LOGW(TAG, "enroll mat PIN=%s xong (%d su kien)", user_id, events);
+    return ESP_OK;
+}
+
+static size_t pack_hr_user(uint8_t *dst, size_t user_pkt, const zk_user_rec_t *u, uint16_t uid)
+{
+    if (user_pkt == 28) {
+        dst[0] = 2;
+        put_le16(dst + 1, uid);
+        dst[3] = u->privilege;
+        memset(dst + 4, 0, 5);
+        memcpy(dst + 4, u->password, strnlen(u->password, 5));
+        memset(dst + 9, 0, 8);
+        memcpy(dst + 9, u->name[0] ? u->name : u->user_id, strnlen(u->name[0] ? u->name : u->user_id, 8));
+        put_le32(dst + 17, u->card);
+        dst[21] = 0;
+        dst[22] = u->group_id != 0 ? u->group_id : 1;
+        put_le16(dst + 23, 0);
+        put_le32(dst + 25, (uint32_t)strtoul(u->user_id, NULL, 10));
+        return 29;
+    }
+
+    dst[0] = 2;
+    put_le16(dst + 1, uid);
+    dst[3] = u->privilege;
+    memset(dst + 4, 0, 8);
+    memcpy(dst + 4, u->password, strnlen(u->password, 8));
+    memset(dst + 12, 0, 24);
+    memcpy(dst + 12, u->name[0] ? u->name : u->user_id, strnlen(u->name[0] ? u->name : u->user_id, 24));
+    put_le32(dst + 36, u->card);
+    dst[40] = 1;
+    memset(dst + 41, 0, 8);
+    char grp[8];
+    snprintf(grp, sizeof(grp), "%u", u->group_id != 0 ? u->group_id : 1);
+    memcpy(dst + 41, grp, strnlen(grp, 7));
+    memset(dst + 49, 0, 24);
+    memcpy(dst + 49, u->user_id, strnlen(u->user_id, 24));
+    return 73;
+}
+
+static bool write_finger_hr(zk_conn_t *c, const zk_user_rec_t *user, uint16_t uid,
+                            int fid, const uint8_t *tmpl, size_t tmpl_len)
+{
+    size_t user_pkt = 72;
+    zk_probe_user_packet_size(c, &user_pkt);
+
+    uint8_t upack[73];
+    size_t ulen = pack_hr_user(upack, user_pkt, user, uid);
+
+    uint8_t table[8];
+    table[0] = 2;
+    put_le16(table + 1, uid);
+    table[3] = (uint8_t)(0x10 + fid);
+    put_le32(table + 4, 0);
+
+    size_t tfp_len = 2 + tmpl_len;
+    size_t total = 12 + ulen + sizeof(table) + tfp_len;
+    uint8_t *pkt = malloc(total);
+    if (pkt == NULL) {
+        return false;
+    }
+
+    put_le32(pkt, (uint32_t)ulen);
+    put_le32(pkt + 4, (uint32_t)sizeof(table));
+    put_le32(pkt + 8, (uint32_t)tfp_len);
+    memcpy(pkt + 12, upack, ulen);
+    memcpy(pkt + 12 + ulen, table, sizeof(table));
+    uint8_t *tfp = pkt + 12 + ulen + sizeof(table);
+    put_le16(tfp, (uint16_t)tmpl_len);
+    memcpy(tfp + 2, tmpl, tmpl_len);
+
+    bool ok = zk_send_buffered(c, pkt, total) == ESP_OK;
+    free(pkt);
+    if (!ok) {
+        return false;
+    }
+
+    uint8_t arg[8];
+    put_le32(arg, 12);
+    put_le16(arg + 4, 0);
+    put_le16(arg + 6, 8);
+    if (zk_cmd(c, ZK_CMD_SAVE_USERTEMPS, arg, sizeof(arg)) != ESP_OK || !zk_reply_ok(c)) {
+        ESP_LOGW(TAG, "SAVE_USERTEMPS bi tu choi (cmd=%u)", c->resp_cmd);
+        return false;
+    }
+    return true;
+}
+
+static bool write_finger_wrq(zk_conn_t *c, uint16_t uid, int fid, int valid,
+                             const uint8_t *tmpl, size_t tmpl_len)
+{
+    size_t n = 6 + tmpl_len;
+    uint8_t *buf = malloc(n);
+    if (buf == NULL) {
+        return false;
+    }
+    put_le16(buf, (uint16_t)n);
+    put_le16(buf + 2, uid);
+    buf[4] = (uint8_t)fid;
+    buf[5] = (uint8_t)(valid != 0 ? valid : 1);
+    memcpy(buf + 6, tmpl, tmpl_len);
+    bool ok = zk_cmd(c, ZK_CMD_USERTEMP_WRQ, buf, n) == ESP_OK && zk_reply_ok(c);
+    free(buf);
+    return ok;
+}
+
+esp_err_t zk_write_finger(zk_conn_t *c, const char *user_id, int finger_index,
+                          const uint8_t *tmpl, size_t tmpl_len, int valid)
+{
+    if (user_id == NULL || user_id[0] == '\0' || tmpl == NULL || tmpl_len < 80 || tmpl_len > 4096) {
+        return ESP_ERR_INVALID_ARG;
+    }
+    if (finger_index < 0 || finger_index > 9) {
+        finger_index = 0;
+    }
+    if (valid <= 0) {
+        valid = 1;
+    }
+
+    user_lookup_t found = {.want_user_id = user_id};
+    uint16_t uid = 0;
+    bool exists = false;
+    esp_err_t err = resolve_uid(c, user_id, &uid, &exists);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    zk_user_rec_t user = {0};
+    if (exists) {
+        zk_read_users(c, user_lookup_cb, &found);
+        if (found.found) {
+            user = found.rec;
+            uid = user.uid;
+        }
+    } else {
+        strlcpy(user.user_id, user_id, sizeof(user.user_id));
+        strlcpy(user.name, user_id, sizeof(user.name));
+        user.group_id = 1;
+        user.uid = uid;
+        err = zk_write_user(c, &user);
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "khong tao duoc nhan vien PIN=%s truoc khi ghi van tay", user_id);
+            return err;
+        }
+    }
+    if (user.user_id[0] == '\0') {
+        strlcpy(user.user_id, user_id, sizeof(user.user_id));
+        user.uid = uid;
+        user.group_id = user.group_id != 0 ? user.group_id : 1;
+    }
+
+    zk_set_enabled(c, false);
+
+    bool ok = write_finger_hr(c, &user, uid, finger_index, tmpl, tmpl_len);
+    if (!ok) {
+        ESP_LOGW(TAG, "ghi van tay kieu HR that bai, thu USERTEMP_WRQ");
+        ok = write_finger_wrq(c, uid, finger_index, valid, tmpl, tmpl_len);
+    }
+
+    zk_refresh_data(c);
+    zk_set_enabled(c, true);
+
+    if (!ok) {
+        ESP_LOGE(TAG, "may tu choi ghi mau van tay PIN=%s ngon=%d (%u byte)",
+                 user_id, finger_index, (unsigned)tmpl_len);
+        return ESP_FAIL;
+    }
+
+    ESP_LOGW(TAG, "da ghi mau van tay PIN=%s ngon=%d (%u byte)",
+             user_id, finger_index, (unsigned)tmpl_len);
+    return ESP_OK;
 }
 
 /* Hai cách xoá mẫu vân tay tồn tại song song trong họ ZKTeco:

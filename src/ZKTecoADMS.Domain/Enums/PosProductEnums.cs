@@ -35,6 +35,23 @@ public static class PosProductTypeRules
     public static bool TracksInventory(PosProductType t) =>
         t is PosProductType.Goods or PosProductType.Material or PosProductType.Topping;
 
+    public static bool TracksInventoryFromName(string? name) =>
+        Enum.TryParse<PosProductType>(name, ignoreCase: true, out var t) && TracksInventory(t);
+
+    /// <summary>
+    /// Số combo bán được: tắt quản lý tồn gói → theo thành phần (hoặc không giới hạn).
+    /// Bật → min(tồn gói combo, thành phần kho).
+    /// </summary>
+    public static decimal ComboSellableQty(
+        decimal fromComponents, decimal comboOnHand, bool trackComboStock)
+    {
+        if (!trackComboStock)
+            return fromComponents >= 999999998m ? 999999999m : fromComponents;
+        if (fromComponents >= 999999998m)
+            return comboOnHand < 0 ? 0 : comboOnHand;
+        return Math.Min(comboOnHand < 0 ? 0 : comboOnHand, fromComponents);
+    }
+
     public static bool AllowsRecipe(PosProductType t) =>
         t is PosProductType.Goods or PosProductType.Service or PosProductType.Topping;
 
@@ -211,4 +228,5 @@ public enum PosQuoteDocumentKind
     Handover = 2,
     Acceptance = 3,
     StockIssue = 4,
+    PaymentRequest = 5,
 }

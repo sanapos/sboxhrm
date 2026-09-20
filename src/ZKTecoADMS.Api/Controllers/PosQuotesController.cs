@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -15,7 +16,9 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/quotes")]
 [Authorize]
-public partial class PosQuotesController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
+public partial class PosQuotesController(
+    ZKTecoDbContext dbContext,
+    IWebHostEnvironment webHostEnvironment) : AuthenticatedControllerBase
 {
     public record QuoteLineDto(
         Guid Id,
@@ -29,6 +32,7 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         decimal VatRate,
         decimal LineTotal,
         string? LineNote,
+        int? WarrantyMonths,
         int SortOrder);
 
     public record QuoteDto(
@@ -48,9 +52,12 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         decimal Total,
         string? Note,
         string? Terms,
+        string? PaymentMethod,
         Guid? PrintTemplateId,
         int Revision,
         string? QuotedBy,
+        Guid? QuotedByEmployeeId,
+        string? QuotedByEmployeeName,
         string CommercialStage,
         DateTime CreatedAt,
         DateTime? UpdatedAt,
@@ -66,7 +73,8 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         decimal UnitPrice,
         decimal DiscountAmount = 0,
         decimal VatRate = 0,
-        string? LineNote = null);
+        string? LineNote = null,
+        int? WarrantyMonths = null);
 
     public record QuoteSaveDto(
         Guid? CustomerId,
@@ -76,15 +84,18 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         DateTime? ValidUntil,
         string? Note,
         string? Terms,
+        string? PaymentMethod,
         Guid? PrintTemplateId,
         List<QuoteLineInput>? Lines,
-        decimal Discount = 0);
+        decimal Discount = 0,
+        bool IncludeImages = false);
 
     [HttpGet]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> List(
         [FromQuery] string? search,
         [FromQuery] string? status,
+        [FromQuery] Guid? employeeId,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
         [FromQuery] int page = 1,
@@ -94,8 +105,8 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         await ExpireOverdueAsync(storeId);
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 200);
-        var q = dbContext.PosQuotes.AsNoTracking()
-            .Where(x => x.StoreId == storeId && x.Deleted == null);
+        var q = ApplyOwnScope(dbContext.PosQuotes.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null));
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();
@@ -107,14 +118,24 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         if (!string.IsNullOrWhiteSpace(status) &&
             Enum.TryParse<PosQuoteStatus>(status, true, out var st))
             q = q.Where(x => x.Status == st);
+        if (CanViewAllQuotes && employeeId.HasValue && employeeId.Value != Guid.Empty)
+            q = q.Where(x => x.QuotedByEmployeeId == employeeId);
         if (from.HasValue) q = q.Where(x => x.CreatedAt >= from.Value);
         if (to.HasValue) q = q.Where(x => x.CreatedAt <= to.Value);
         var total = await q.CountAsync();
-        var items = await q.OrderByDescending(x => x.CreatedAt)
+        var rows = await q.OrderByDescending(x => x.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(x => MapList(x))
             .ToListAsync();
-        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+        var names = await EmployeeNamesAsync(rows.Select(x => x.QuotedByEmployeeId));
+        var items = rows.Select(x => MapList(x, names)).ToList();
+        return Ok(AppResponse<object>.Success(new
+        {
+            total,
+            page,
+            pageSize,
+            canViewAll = CanViewAllQuotes,
+            items,
+        }));
     }
 
     [HttpGet("{id:guid}")]
@@ -124,12 +145,21 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         var storeId = RequiredStoreId;
         await ExpireOverdueAsync(storeId);
         var quote = await dbContext.PosQuotes.AsNoTracking()
-            .Include(x => x.Lines.Where(l => l.Deleted == null))
-            .Include(x => x.Documents.Where(d => d.Deleted == null))
+            .Include(x => x.Lines)
+            .Include(x => x.Documents)
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
-        if (quote == null)
+        if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<QuoteDto>.Fail("Không tìm thấy báo giá"));
-        return Ok(AppResponse<QuoteDto>.Success(Map(quote)));
+        if (!quote.Lines.Any(l => l.Deleted == null))
+        {
+            var extra = await dbContext.PosQuoteLines.AsNoTracking()
+                .Where(l => l.QuoteId == id && l.StoreId == storeId && l.Deleted == null)
+                .OrderBy(l => l.SortOrder)
+                .ToListAsync();
+            foreach (var line in extra) quote.Lines.Add(line);
+        }
+        var names = await EmployeeNamesAsync([quote.QuotedByEmployeeId]);
+        return Ok(AppResponse<QuoteDto>.Success(Map(quote, names)));
     }
 
     [HttpPost]
@@ -139,13 +169,14 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         var storeId = RequiredStoreId;
         if (dto.Lines == null || dto.Lines.Count == 0)
             return BadRequest(AppResponse<QuoteDto>.Fail("Báo giá cần ít nhất một dòng"));
+        var quotedName = await EmployeeNameAsync(EmployeeId) ?? CurrentUserEmail;
         var quote = new PosQuote
         {
             Id = Guid.NewGuid(),
             StoreId = storeId,
             QuoteNo = await NextQuoteNoAsync(storeId),
             Status = PosQuoteStatus.Draft,
-            QuotedBy = CurrentUserEmail,
+            QuotedBy = quotedName,
             QuotedByEmployeeId = EmployeeId,
             CreatedBy = CurrentUserEmail,
             IsActive = true,
@@ -154,8 +185,11 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         ApplyLines(quote, storeId, dto.Lines);
         Recalc(quote);
         dbContext.PosQuotes.Add(quote);
+        await AttachQuoteSlipAsync(quote, dto.IncludeImages);
+        AddActivity(quote, "Created", $"Tạo báo giá {quote.QuoteNo}");
         await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<QuoteDto>.Success(Map(quote)));
+        var names = await EmployeeNamesAsync([quote.QuotedByEmployeeId]);
+        return Ok(AppResponse<QuoteDto>.Success(Map(quote, names)));
     }
 
     [HttpPut("{id:guid}")]
@@ -165,9 +199,12 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         var storeId = RequiredStoreId;
         var quote = await dbContext.PosQuotes
             .Include(x => x.Lines)
+            .Include(x => x.Documents.Where(d => d.Deleted == null))
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
-        if (quote == null)
+        if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<QuoteDto>.Fail("Không tìm thấy báo giá"));
+        if (!CanMutateOwn(quote))
+            return StatusCode(403, AppResponse<QuoteDto>.Fail("Không có quyền sửa báo giá của nhân viên khác"));
         if (quote.Status is PosQuoteStatus.Accepted or PosQuoteStatus.Rejected
             or PosQuoteStatus.Expired or PosQuoteStatus.Cancelled)
             return BadRequest(AppResponse<QuoteDto>.Fail("Báo giá đã khóa — không sửa được"));
@@ -188,8 +225,11 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         Recalc(quote);
         quote.UpdatedAt = DateTime.UtcNow;
         quote.UpdatedBy = CurrentUserEmail;
+        await RefreshQuoteSlipAsync(quote, dto.IncludeImages);
+        AddActivity(quote, "Edit", $"Sửa báo giá (lần {quote.Revision})");
         await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<QuoteDto>.Success(Map(quote)));
+        var names = await EmployeeNamesAsync([quote.QuotedByEmployeeId]);
+        return Ok(AppResponse<QuoteDto>.Success(Map(quote, names)));
     }
 
     [HttpPost("{id:guid}/send")]
@@ -255,8 +295,10 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         var storeId = RequiredStoreId;
         var quote = await dbContext.PosQuotes
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
-        if (quote == null)
+        if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
+        if (!CanMutateOwn(quote))
+            return StatusCode(403, AppResponse<object>.Fail("Không có quyền xóa báo giá của nhân viên khác"));
         if (quote.Status != PosQuoteStatus.Draft)
             return BadRequest(AppResponse<object>.Fail("Chỉ xóa báo giá nháp"));
         quote.Deleted = DateTime.UtcNow;
@@ -272,15 +314,19 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         var quote = await dbContext.PosQuotes
             .Include(x => x.Lines.Where(l => l.Deleted == null))
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
-        if (quote == null)
+        if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<QuoteDto>.Fail("Không tìm thấy báo giá"));
+        if (!CanMutateOwn(quote))
+            return StatusCode(403, AppResponse<QuoteDto>.Fail("Không có quyền thao tác báo giá của nhân viên khác"));
         var err = apply(quote);
         if (err != null)
             return BadRequest(AppResponse<QuoteDto>.Fail(err));
         quote.UpdatedAt = DateTime.UtcNow;
         quote.UpdatedBy = CurrentUserEmail;
+        AddActivity(quote, "Status", $"Cập nhật trạng thái: {quote.Status}");
         await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<QuoteDto>.Success(Map(quote)));
+        var names = await EmployeeNamesAsync([quote.QuotedByEmployeeId]);
+        return Ok(AppResponse<QuoteDto>.Success(Map(quote, names)));
     }
 
     async Task ExpireOverdueAsync(Guid storeId)
@@ -326,6 +372,7 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         quote.Discount = Math.Max(0, dto.Discount);
         quote.Note = dto.Note?.Trim();
         quote.Terms = dto.Terms?.Trim();
+        quote.PaymentMethod = dto.PaymentMethod?.Trim();
         quote.PrintTemplateId = dto.PrintTemplateId;
     }
 
@@ -355,10 +402,30 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
                 VatRate = vat,
                 LineTotal = lineTotal,
                 LineNote = input.LineNote?.Trim(),
+                WarrantyMonths = input.WarrantyMonths,
                 SortOrder = sort++,
                 CreatedBy = CurrentUserEmail,
                 IsActive = true,
             });
+        }
+        var needWarranty = quote.Lines
+            .Where(l => l.Deleted == null && l.ProductId.HasValue && l.WarrantyMonths == null)
+            .Select(l => l.ProductId!.Value)
+            .Distinct()
+            .ToList();
+        if (needWarranty.Count > 0)
+        {
+            var months = dbContext.PosProducts.AsNoTracking()
+                .Where(p => needWarranty.Contains(p.Id) && p.Deleted == null)
+                .Select(p => new { p.Id, p.WarrantyMonths })
+                .ToList()
+                .ToDictionary(p => p.Id, p => p.WarrantyMonths);
+            foreach (var line in quote.Lines.Where(l => l.Deleted == null && l.ProductId.HasValue))
+            {
+                if (line.WarrantyMonths == null &&
+                    months.TryGetValue(line.ProductId!.Value, out var m))
+                    line.WarrantyMonths = m;
+            }
         }
     }
 
@@ -375,24 +442,138 @@ public partial class PosQuotesController(ZKTecoDbContext dbContext) : Authentica
         quote.Total = Math.Max(0, lineSum - quote.Discount);
     }
 
-    static QuoteDto MapList(PosQuote x) => new(
+    bool CanViewAllQuotes => IsManager;
+
+    bool OwnsOrManages(PosQuote q) =>
+        CanViewAllQuotes || OwnsQuote(q);
+
+    bool CanMutateOwn(PosQuote q) =>
+        CanViewAllQuotes || OwnsQuote(q);
+
+    bool OwnsQuote(PosQuote q)
+    {
+        if (EmployeeId is Guid empId && q.QuotedByEmployeeId == empId)
+            return true;
+        return string.Equals(q.QuotedBy, CurrentUserEmail, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(q.CreatedBy, CurrentUserEmail, StringComparison.OrdinalIgnoreCase);
+    }
+
+    IQueryable<PosQuote> ApplyOwnScope(IQueryable<PosQuote> q)
+    {
+        if (CanViewAllQuotes) return q;
+        var empId = EmployeeId;
+        var email = CurrentUserEmail;
+        if (empId.HasValue)
+            return q.Where(x =>
+                x.QuotedByEmployeeId == empId
+                || x.QuotedBy == email
+                || x.CreatedBy == email);
+        return q.Where(x => x.QuotedBy == email || x.CreatedBy == email);
+    }
+
+    async Task<Dictionary<Guid, string>> EmployeeNamesAsync(IEnumerable<Guid?> ids)
+    {
+        var keys = ids.Where(x => x.HasValue && x.Value != Guid.Empty)
+            .Select(x => x!.Value).Distinct().ToList();
+        if (keys.Count == 0) return [];
+        return await dbContext.Employees.AsNoTracking()
+            .Where(e => keys.Contains(e.Id) && e.Deleted == null)
+            .Select(e => new { e.Id, Name = (e.LastName + " " + e.FirstName).Trim() })
+            .ToDictionaryAsync(e => e.Id, e => e.Name);
+    }
+
+    async Task<string?> EmployeeNameAsync(Guid? id)
+    {
+        if (id is not Guid empId || empId == Guid.Empty) return null;
+        var names = await EmployeeNamesAsync([id]);
+        return names.GetValueOrDefault(empId);
+    }
+
+    void AddActivity(PosQuote quote, string kind, string content, DateTime? nextFollowUpAt = null)
+    {
+        var act = new PosQuoteActivity
+        {
+            Id = Guid.NewGuid(),
+            StoreId = quote.StoreId,
+            QuoteId = quote.Id,
+            Kind = kind,
+            Content = content.Trim(),
+            NextFollowUpAt = nextFollowUpAt,
+            EmployeeId = EmployeeId,
+            CreatedBy = CurrentUserEmail,
+            IsActive = true,
+        };
+        dbContext.PosQuoteActivities.Add(act);
+    }
+
+    async Task AttachQuoteSlipAsync(PosQuote quote, bool includeImages = false)
+    {
+        var docNo = await NextDocNoAsync(quote.StoreId, PosQuoteDocumentKind.Quote);
+        var html = await PosQuoteDocumentHtml.BuildAsync(
+            dbContext, quote, PosQuoteDocumentKind.Quote, docNo, quote.Note,
+            includeImages, webHostEnvironment.ContentRootPath);
+        quote.Documents.Add(new PosQuoteDocument
+        {
+            Id = Guid.NewGuid(),
+            StoreId = quote.StoreId,
+            QuoteId = quote.Id,
+            Kind = PosQuoteDocumentKind.Quote,
+            DocNo = docNo,
+            Title = PosQuoteDocumentHtml.TitleOf(PosQuoteDocumentKind.Quote),
+            HtmlContent = html,
+            Note = quote.Note,
+            IssuedAt = DateTime.UtcNow,
+            IssuedBy = CurrentUserEmail,
+            PrintTemplateId = quote.PrintTemplateId,
+            CreatedBy = CurrentUserEmail,
+            IsActive = true,
+        });
+    }
+
+    async Task RefreshQuoteSlipAsync(PosQuote quote, bool includeImages = false)
+    {
+        var slip = quote.Documents
+            .Where(d => d.Deleted == null && d.Kind == PosQuoteDocumentKind.Quote)
+            .OrderByDescending(d => d.IssuedAt)
+            .FirstOrDefault();
+        if (slip == null)
+        {
+            await AttachQuoteSlipAsync(quote, includeImages);
+            return;
+        }
+        slip.HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
+            dbContext, quote, PosQuoteDocumentKind.Quote, slip.DocNo, quote.Note,
+            includeImages, webHostEnvironment.ContentRootPath);
+        slip.PrintTemplateId = quote.PrintTemplateId;
+        slip.Note = quote.Note;
+        slip.UpdatedAt = DateTime.UtcNow;
+        slip.UpdatedBy = CurrentUserEmail;
+    }
+
+    static QuoteDto MapList(PosQuote x, IReadOnlyDictionary<Guid, string>? names = null) => new(
         x.Id, x.QuoteNo, x.Status.ToString(), x.CustomerId, x.CustomerName,
         x.CustomerPhone, x.CustomerAddress, x.ValidUntil, x.IssuedAt, x.IssuedBy,
         x.SubTotal, x.Discount, x.VatAmount, x.Total, x.Note, x.Terms,
-        x.PrintTemplateId, x.Revision, x.QuotedBy, x.CommercialStage.ToString(),
+        x.PaymentMethod, x.PrintTemplateId, x.Revision, x.QuotedBy,
+        x.QuotedByEmployeeId,
+        x.QuotedByEmployeeId is Guid eid ? names?.GetValueOrDefault(eid) : null,
+        x.CommercialStage.ToString(),
         x.CreatedAt, x.UpdatedAt, null, null);
 
-    static QuoteDto Map(PosQuote x) => new(
+    static QuoteDto Map(PosQuote x, IReadOnlyDictionary<Guid, string>? names = null) => new(
         x.Id, x.QuoteNo, x.Status.ToString(), x.CustomerId, x.CustomerName,
         x.CustomerPhone, x.CustomerAddress, x.ValidUntil, x.IssuedAt, x.IssuedBy,
         x.SubTotal, x.Discount, x.VatAmount, x.Total, x.Note, x.Terms,
-        x.PrintTemplateId, x.Revision, x.QuotedBy, x.CommercialStage.ToString(),
+        x.PaymentMethod, x.PrintTemplateId, x.Revision, x.QuotedBy,
+        x.QuotedByEmployeeId,
+        x.QuotedByEmployeeId is Guid eid ? names?.GetValueOrDefault(eid) : null,
+        x.CommercialStage.ToString(),
         x.CreatedAt, x.UpdatedAt,
         x.Lines.Where(l => l.Deleted == null).OrderBy(l => l.SortOrder)
             .Select(l => new QuoteLineDto(
                 l.Id, l.ProductId, l.ProductCode, l.ProductName, l.UnitName,
                 l.Qty, l.UnitPrice, l.DiscountAmount, l.VatRate, l.LineTotal,
-                l.LineNote, l.SortOrder))
+                l.LineNote, l.WarrantyMonths, l.SortOrder))
             .ToList(),
         x.Documents.Where(d => d.Deleted == null)
             .OrderByDescending(d => d.IssuedAt)

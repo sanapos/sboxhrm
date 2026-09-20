@@ -170,6 +170,14 @@ abstract final class PosPrintDocumentTypes {
   static const contract = 'Contract';
   static const handover = 'Handover';
   static const acceptance = 'Acceptance';
+  static const paymentRequest = 'PaymentRequest';
+
+  static bool isCommercial(String t) =>
+      t == quote ||
+      t == contract ||
+      t == handover ||
+      t == acceptance ||
+      t == paymentRequest;
 
   static const all = <String, String>{
     saleInvoice: 'Hóa đơn bán hàng',
@@ -192,6 +200,7 @@ abstract final class PosPrintDocumentTypes {
     contract: 'Hợp đồng',
     handover: 'Biên bản bàn giao',
     acceptance: 'Biên bản nghiệm thu',
+    paymentRequest: 'Đề nghị thanh toán',
   };
 
   /// Gợi ý ngắn khi chọn loại mẫu — tránh nhầm Hóa đơn ↔ Xuất kho ↔ Tem.
@@ -212,10 +221,11 @@ abstract final class PosPrintDocumentTypes {
     stockTransfer: 'Phiếu chuyển kho.',
     cashReceipt: 'Phiếu thu tiền.',
     cashPayment: 'Phiếu chi tiền.',
-    quote: 'Báo giá thương mại (A4) — không phải hóa đơn bán hàng.',
-    contract: 'Hợp đồng theo báo giá đã chấp nhận — không phải hóa đơn bán.',
-    handover: 'Biên bản bàn giao hạng mục theo báo giá.',
-    acceptance: 'Biên bản nghiệm thu hạng mục theo báo giá.',
+    quote: 'Bảng báo giá A4 — soạn như Word, trường động như hóa đơn.',
+    contract: 'Hợp đồng thi công A4 (Bên A / Bên B, điều khoản, bảng hạng mục).',
+    handover: 'Biên bản bàn giao công trình A4.',
+    acceptance: 'Biên bản nghiệm thu hoàn thành A4.',
+    paymentRequest: 'Đề nghị thanh toán / tạm ứng theo hợp đồng.',
   };
 
   static String usageHint(String documentType) =>
@@ -510,7 +520,38 @@ abstract final class PosPrintTokens {
     ('Don_Vi_Tinh', 'ĐVT'),
     ('Chiet_Khau', 'Chiết khấu dòng'),
     ('Thanh_Tien', 'Thành tiền dòng'),
+    ('Bao_Hanh', 'Bảo hành dòng'),
+    ('Hinh_Anh', 'Hình ảnh SP (3×3 cm)'),
     ('Ten_Ban', 'Tên bàn'),
+  ];
+
+  /// Token chứng từ thương mại A4 (báo giá / HĐ / bàn giao / nghiệm thu).
+  static const commercial = [
+    ('Ma_Bao_Gia', 'Số báo giá'),
+    ('So_Chung_Tu', 'Số chứng từ'),
+    ('Han_Bao_Gia', 'Hạn báo giá'),
+    ('Dieu_Khoan', 'Điều khoản'),
+    ('Bao_Hanh', 'Bảo hành'),
+    ('So_Hop_Dong', 'Số hợp đồng'),
+    ('Ngay_Hop_Dong', 'Ngày ký HĐ'),
+    ('Dia_Diem_Thi_Cong', 'Địa điểm thi công'),
+    ('MST_Cua_Hang', 'MST công ty shop'),
+    ('Email_Cua_Hang', 'Email cửa hàng'),
+    ('Tai_Khoan_Cua_Hang', 'Số TK cửa hàng'),
+    ('Ngan_Hang_Cua_Hang', 'Ngân hàng cửa hàng'),
+    ('Chu_Tai_Khoan_Cua_Hang', 'Chủ tài khoản cửa hàng'),
+    ('Nguoi_Dai_Dien_Cua_Hang', 'Đại diện cửa hàng'),
+    ('Chuc_Vu_Cua_Hang', 'Chức vụ đại diện CH'),
+    ('MST_Khach_Hang', 'MST khách hàng'),
+    ('Ten_Cong_Ty_Khach', 'Tên công ty KH'),
+    ('Tai_Khoan_Khach_Hang', 'Số TK khách hàng'),
+    ('Ngan_Hang_Khach_Hang', 'Ngân hàng khách hàng'),
+    ('Nguoi_Dai_Dien_Khach', 'Đại diện khách hàng'),
+    ('Chuc_Vu_Khach', 'Chức vụ đại diện KH'),
+    ('Tam_Ung', 'Tạm ứng đợt 1'),
+    ('Con_Lai_Hop_Dong', 'Còn lại sau tạm ứng'),
+    ('Ky_Han_Thi_Cong', 'Kỳ hạn thi công'),
+    ('Ky_Han_Thanh_Toan', 'Kỳ hạn thanh toán'),
   ];
 
   /// Token chuyên dùng tem sản phẩm / tem bếp.

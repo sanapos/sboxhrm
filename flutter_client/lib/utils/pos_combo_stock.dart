@@ -1,7 +1,8 @@
 import '../models/pos_product.dart';
 import '../models/pos_sale_order.dart';
 
-bool comboLineDeductsStock(PosComboLine cl) => cl.trackStock;
+bool comboLineDeductsStock(PosComboLine cl) =>
+    posProductTypeFromString(cl.componentProductType).tracksInventory;
 
 /// Số combo có thể bán = min(tồn thành phần có kho / qty). Dịch vụ bỏ qua.
 double computeComboSellableQty(List<PosComboLine> lines) {
@@ -26,15 +27,22 @@ double resolveProductSellableQty(PosProduct product) {
     return double.infinity;
   }
   if (product.productType == PosProductType.combo) {
-    if (product.sellableQty != null) {
-      final s = product.sellableQty!;
-      return s >= 999999998 ? double.infinity : s;
+    var fromComponents = product.sellableQty;
+    if (fromComponents == null) {
+      final lines = product.comboLines;
+      fromComponents = (lines != null && lines.isNotEmpty)
+          ? computeComboSellableQty(lines)
+          : double.infinity;
     }
-    final lines = product.comboLines;
-    if (lines != null && lines.isNotEmpty) {
-      return computeComboSellableQty(lines);
+    if (fromComponents >= 999999998) fromComponents = double.infinity;
+    if (!product.comboTrackStock) {
+      return fromComponents.isInfinite ? double.infinity : fromComponents;
     }
-    return double.infinity;
+    if (fromComponents.isInfinite) return product.onHandQty;
+    final capped = product.onHandQty < fromComponents
+        ? product.onHandQty
+        : fromComponents;
+    return capped < 0 ? 0 : capped;
   }
   return product.onHandQty;
 }
@@ -101,6 +109,8 @@ bool validateComboStock({
 }) {
   final lines = combo.comboLines;
   if (lines == null || lines.isEmpty) return false;
+  if (combo.comboTrackStock &&
+      combo.onHandQty + 0.0001 < requiredComboQty) return false;
   final stockLines = lines.where(comboLineDeductsStock).toList();
   if (stockLines.isEmpty) return true;
   for (final cl in stockLines) {
@@ -120,6 +130,10 @@ String? comboStockErrorMessage({
   final lines = combo.comboLines;
   if (lines == null || lines.isEmpty) {
     return '$kindLabel «${combo.name}» chưa có thành phần';
+  }
+  if (combo.comboTrackStock &&
+      combo.onHandQty + 0.0001 < requiredComboQty) {
+    return '$kindLabel «${combo.name}»: còn ${combo.onHandQty.toStringAsFixed(0)} combo, cần ${requiredComboQty.toStringAsFixed(requiredComboQty == requiredComboQty.roundToDouble() ? 0 : 2)}';
   }
   final stockLines = lines.where(comboLineDeductsStock).toList();
   if (stockLines.isEmpty) return null;
@@ -210,8 +224,16 @@ PosProduct applyComboSellableToProduct(PosProduct product) {
     return product.copyWith(onHandQty: sellable, sellableQty: sellable);
   }
   if (product.productType != PosProductType.combo) return product;
-  var sellable = product.sellableQty ??
+  var fromComponents = product.sellableQty ??
       computeComboSellableQty(product.comboLines ?? const []);
-  if (sellable >= 999999998) sellable = double.infinity;
-  return product.copyWith(onHandQty: sellable, sellableQty: sellable);
+  if (fromComponents >= 999999998) fromComponents = double.infinity;
+  if (!product.comboTrackStock) {
+    return product.copyWith(sellableQty: fromComponents);
+  }
+  final sellable = fromComponents.isInfinite
+      ? product.onHandQty
+      : (product.onHandQty < fromComponents
+          ? product.onHandQty
+          : fromComponents);
+  return product.copyWith(sellableQty: sellable);
 }

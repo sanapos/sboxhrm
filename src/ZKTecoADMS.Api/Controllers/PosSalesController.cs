@@ -746,12 +746,15 @@ public partial class PosSalesController(
             decimal? sellableQty = null;
             if (p.ProductType == nameof(PosProductType.Combo))
             {
-                var stockLines = comboLines.Where(cl => cl.TrackStock).ToList();
-                if (stockLines.Count == 0)
-                    sellableQty = 999999999m;
-                else
-                    sellableQty = stockLines.Min(cl =>
+                var stockLines = comboLines
+                    .Where(cl => PosProductTypeRules.TracksInventoryFromName(cl.ComponentProductType))
+                    .ToList();
+                var fromComponents = stockLines.Count == 0
+                    ? 999999999m
+                    : stockLines.Min(cl =>
                         cl.Qty > 0 ? Math.Floor(cl.ComponentOnHandQty / cl.Qty) : 0);
+                sellableQty = PosProductTypeRules.ComboSellableQty(
+                    fromComponents, p.OnHandQty, p.ComboTrackStock);
             }
             else if (recipeLines.Count > 0)
             {
@@ -1968,10 +1971,16 @@ public partial class PosSalesController(
                 foreach (var cl in comboLines)
                 {
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
-                    if (!cl.TrackStock) continue;
+                    if (!PosProductTypeRules.TracksInventory(comp.ProductType)) continue;
                     var restore = cl.Qty * line.Qty;
                     await PosSaleStockHelper.ApplyComboReturnComponentAsync(
                         dbContext, storeId, order, comp, restore, lineRefund,
+                        returnNo, comboNote, CurrentUserEmail);
+                }
+                if (p.ComboTrackStock)
+                {
+                    await PosSaleStockHelper.ApplyComboReturnComponentAsync(
+                        dbContext, storeId, order, p, line.Qty, lineRefund,
                         returnNo, comboNote, CurrentUserEmail);
                 }
                 refundTotal += lineRefund;

@@ -245,6 +245,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _allowToppings = false;
   bool _autoOpenToppingPopup = true;
   bool _showComboComponentsOnSell = false;
+  bool _comboTrackStock = false;
   String _commissionMode = 'None';
   late final TextEditingController _commissionPercentCtrl;
   late final TextEditingController _commissionFixedCtrl;
@@ -454,6 +455,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _allowToppings = p?.allowToppings ?? false;
     _autoOpenToppingPopup = p?.autoOpenToppingPopup ?? true;
     _showComboComponentsOnSell = p?.showComboComponentsOnSell ?? false;
+    _comboTrackStock = p?.comboTrackStock ?? false;
     _commissionMode = p?.commissionMode ?? 'None';
     _commissionPercentCtrl = TextEditingController(
         text: tr(_fmtInputMoney(p?.commissionPercent ?? 0)));
@@ -665,6 +667,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _allowToppings = data.allowToppings;
       _autoOpenToppingPopup = data.autoOpenToppingPopup;
       _showComboComponentsOnSell = data.showComboComponentsOnSell;
+      _comboTrackStock = data.comboTrackStock;
       _commissionMode = data.commissionMode;
       _commissionPercentCtrl.text = _fmtInputMoney(data.commissionPercent);
       _commissionFixedCtrl.text = _fmtInputMoney(data.commissionFixed);
@@ -983,7 +986,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'allowToppings': _allowToppings && !_isTopping && !_isMaterial && !_isToppingType,
       'autoOpenToppingPopup': _autoOpenToppingPopup,
       'showComboComponentsOnSell': _isCombo && _showComboComponentsOnSell,
-      'comboTrackStock': true,
+      'comboTrackStock': _isCombo && _comboTrackStock,
       'commissionMode': _commissionMode,
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),
@@ -1008,7 +1011,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'vatRate': _vatExempt ? 0 : _vatRate,
       'vatExempt': _vatExempt,
       if (!_hasVariants || _usesSharedUnitStock)
-        'onHandQty': _isCombo || _isService ? 0 : _parseNum(_stockCtrl.text),
+        'onHandQty': _isService || (_isCombo && !_comboTrackStock)
+            ? 0
+            : _parseNum(_stockCtrl.text),
       'reservedQty': widget.product?.reservedQty ?? 0,
       // ĐVT: luôn gửi (hàng/dịch vụ/combo) — không mặc định «Cái» khi user đã nhập.
       'baseUnitName':
@@ -1119,7 +1124,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               .map((c) => {
                     'componentProductId': c.componentProductId,
                     'qty': c.qty,
-                    'trackStock': c.trackStock,
                   })
               .toList(),
         );
@@ -1423,6 +1427,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _allowToppings = false;
     _autoOpenToppingPopup = true;
     _showComboComponentsOnSell = false;
+    _comboTrackStock = false;
     _toppingOptions = [];
     _toppingGroupIds = [];
     _unitCtrl.text = 'Cái';
@@ -2502,9 +2507,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   ],
                 ),
           _kvExpansion(
-            title: 'Hàng thành phần — định lượng trừ kho',
+            title: 'Hàng thành phần — định lượng',
             subtitle:
-                'Mỗi dòng có công tắc Quản lý tồn kho. Bật = trừ kho như hàng hóa; tắt = như dịch vụ.',
+                'Số lượng trên từng dòng là định lượng trong 1 combo. Khi bán, hàng hóa / NVL / topping tự trừ kho; dịch vụ không trừ.',
             initiallyExpanded: true,
             child: _buildComboComponentsSection(),
           ),
@@ -2683,6 +2688,52 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           onCreate: _quickCreateCategory,
           manageKind: PosCatalogKind.category,
         ),
+        const SizedBox(height: 12),
+        _buildComboQtyField(),
+      ],
+    );
+  }
+
+  Widget _buildComboQtyField() {
+    final fromComponents = _comboLines.isEmpty
+        ? 0.0
+        : computeComboSellableQty(_comboLines);
+    final hint = !_comboTrackStock
+        ? 'Tắt: bán combo như dịch vụ, không nhập/trừ số lượng gói. Thành phần có kho vẫn trừ khi bán.'
+        : fromComponents.isInfinite
+            ? 'Bật: nhập số combo. Khi bán trừ tồn combo. Thành phần dịch vụ không trừ kho.'
+            : 'Thành phần kho đủ khoảng ${PosQtyRules.format(fromComponents, allowDecimal: false)} combo. Khi bán trừ tồn combo và trừ kho chai/hộp.';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr('Quản lý tồn kho combo')),
+          subtitle: Text(
+            tr(_comboTrackStock
+                ? 'Bật — nhập số lượng gói, bán hết thì không bán tiếp'
+                : 'Tắt — không giới hạn số gói, bán như dịch vụ'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          value: _comboTrackStock,
+          onChanged: (v) => setState(() => _comboTrackStock = v),
+        ),
+        if (_comboTrackStock) ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: _stockCtrl,
+            keyboardType: TextInputType.number,
+            decoration: PosTheme.inputDecoration(
+              label: 'Số lượng (tồn combo)',
+              hint: 'VD: 5',
+            ),
+          ),
+        ],
+        const SizedBox(height: 4),
+        Text(
+          tr(hint),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
       ],
     );
   }
@@ -2794,7 +2845,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              tr('Chưa có thành phần. Thêm hàng rồi bật/tắt Quản lý tồn kho trên từng dòng.'),
+              tr('Chưa có thành phần. Thêm hàng hóa hoặc dịch vụ vào combo.'),
               style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
           )
@@ -2883,21 +2934,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   onPressed: () => setState(() => _comboLines.removeAt(i)),
                 ),
               ],
-            ),
-            SwitchListTile(
-              contentPadding: const EdgeInsets.only(left: 8, right: 4),
-              dense: true,
-              title: Text(tr('Quản lý tồn kho')),
-              subtitle: Text(
-                tr(c.trackStock
-                    ? 'Bật — trừ kho như hàng hóa khi bán combo'
-                    : 'Tắt — không kho, như dịch vụ'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-              value: c.trackStock,
-              onChanged: (v) => setState(
-                () => _comboLines[i] = c.copyWith(trackStock: v),
-              ),
             ),
           ],
         ),
@@ -3153,7 +3189,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'allowToppings': _allowToppings && !_isTopping && !_isMaterial && !_isToppingType,
         'autoOpenToppingPopup': _autoOpenToppingPopup,
         'showComboComponentsOnSell': _isCombo && _showComboComponentsOnSell,
-        'comboTrackStock': true,
+        'comboTrackStock': _isCombo && _comboTrackStock,
       'commissionMode': _commissionMode,
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),
@@ -3174,7 +3210,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'vatRate': _vatExempt ? 0 : _vatRate,
       'vatExempt': _vatExempt,
       if (!_hasVariants || _usesSharedUnitStock)
-        'onHandQty': _isCombo ? 0 : (_isService ? 0 : _parseNum(_stockCtrl.text)),
+        'onHandQty': _isService || (_isCombo && !_comboTrackStock)
+            ? 0
+            : _parseNum(_stockCtrl.text),
       'reservedQty': widget.product?.reservedQty ?? 0,
         if (_isGoods) ...{
           'minStockQty': _parseNum(_minStockCtrl.text),

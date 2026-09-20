@@ -163,10 +163,10 @@ public class PosProduct : AuditableEntity<Guid>
     public bool ShowComboComponentsOnSell { get; set; }
 
     /// <summary>
-    /// Giữ tương thích schema. Tồn combo luôn theo loại thành phần:
-    /// hàng hóa / NVL / topping trừ kho; dịch vụ không trừ.
+    /// Bật: nhập/trừ số lượng gói combo khi bán.
+    /// Tắt: không tồn gói combo — bán như dịch vụ; thành phần có kho vẫn trừ.
     /// </summary>
-    public bool ComboTrackStock { get; set; } = true;
+    public bool ComboTrackStock { get; set; }
 
     /// <summary>Cách tính hoa hồng khi gán nhân viên làm / bán mặt hàng này.</summary>
     public PosCommissionMode CommissionMode { get; set; } = PosCommissionMode.None;

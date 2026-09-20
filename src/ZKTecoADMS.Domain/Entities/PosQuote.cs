@@ -47,6 +47,9 @@ public class PosQuote : AuditableEntity<Guid>
     [MaxLength(2000)]
     public string? Terms { get; set; }
 
+    [MaxLength(100)]
+    public string? PaymentMethod { get; set; }
+
     public Guid? PrintTemplateId { get; set; }
 
     public int Revision { get; set; } = 1;
@@ -61,4 +64,5 @@ public class PosQuote : AuditableEntity<Guid>
 
     public virtual ICollection<PosQuoteLine> Lines { get; set; } = [];
     public virtual ICollection<PosQuoteDocument> Documents { get; set; } = [];
+    public virtual ICollection<PosQuoteActivity> Activities { get; set; } = [];
 }

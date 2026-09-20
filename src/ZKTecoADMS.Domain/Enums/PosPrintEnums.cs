@@ -27,6 +27,8 @@ public enum PosPrintDocumentType
     Contract = 19,
     Handover = 20,
     Acceptance = 21,
+    /// <summary>Đề nghị thanh toán / tạm ứng theo hợp đồng.</summary>
+    PaymentRequest = 22,
 }
 
 /// <summary>Loại kết nối máy in cửa hàng.</summary>

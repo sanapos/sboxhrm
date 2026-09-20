@@ -524,10 +524,14 @@ internal static class PosSaleStockHelper
             {
                 foreach (var cl in comboLines)
                 {
-                    if (!cl.TrackStock) continue;
+                    if (!plan.Products.TryGetValue(cl.ComponentProductId, out var draftComp) ||
+                        !PosProductTypeRules.TracksInventory(draftComp.ProductType))
+                        continue;
                     needs[cl.ComponentProductId] =
                         needs.GetValueOrDefault(cl.ComponentProductId) + cl.Qty * lineBaseQty;
                 }
+                if (p.ComboTrackStock)
+                    needs[p.Id] = needs.GetValueOrDefault(p.Id) + lineBaseQty;
             }
             else
             {
@@ -704,11 +708,13 @@ internal static class PosSaleStockHelper
                 {
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp))
                         return (null, "Thành phần combo không hợp lệ");
-                    if (!cl.TrackStock)
+                    if (!PosProductTypeRules.TracksInventory(comp.ProductType))
                         continue;
                     var need = cl.Qty * lineBaseQty;
                     stockNeeds[cl.ComponentProductId] = stockNeeds.GetValueOrDefault(cl.ComponentProductId) + need;
                 }
+                if (p.ComboTrackStock)
+                    stockNeeds[p.Id] = stockNeeds.GetValueOrDefault(p.Id) + lineBaseQty;
             }
             else if (p.ProductType == PosProductType.Service)
             {
@@ -820,11 +826,16 @@ internal static class PosSaleStockHelper
                 foreach (var cl in comboLines)
                 {
                     var comp = plan.Products[cl.ComponentProductId];
-                    if (!cl.TrackStock) continue;
+                    if (!PosProductTypeRules.TracksInventory(comp.ProductType)) continue;
                     var deduct = cl.Qty * deductQty;
                     await ApplyFefoComboComponentSaleAsync(
                         db, storeId, order, comp, deduct,
                         $"Bán combo: {p.Name}", createdBy);
+                }
+                if (p.ComboTrackStock)
+                {
+                    await ApplyFefoSaleDeductionAsync(
+                        db, storeId, order, p, null, deductQty, $"Bán combo: {p.Name}", createdBy, plan);
                 }
             }
             else if (p.ProductType == PosProductType.Service)

@@ -9,7 +9,7 @@ import '../notification_overlay.dart';
 import 'pos_form_keyboard.dart';
 import 'pos_theme.dart';
 import 'vn_admin_address_fields.dart';
-import 'package:sbox_pos/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 
@@ -33,6 +33,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
   late final TextEditingController _wardCtrl;
   late final TextEditingController _companyCtrl;
   late final TextEditingController _taxCtrl;
+  late final TextEditingController _legalRepCtrl;
+  late final TextEditingController _legalTitleCtrl;
   late final TextEditingController _noteCtrl;
   late final TextEditingController _deliveryCtrl;
   DateTime? _birthday;
@@ -56,6 +58,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
     _wardCtrl = TextEditingController(text: c?.ward ?? '');
     _companyCtrl = TextEditingController(text: c?.companyName ?? '');
     _taxCtrl = TextEditingController(text: c?.taxCode ?? '');
+    _legalRepCtrl = TextEditingController(text: c?.legalRepresentative ?? '');
+    _legalTitleCtrl = TextEditingController(text: c?.legalTitle ?? '');
     _noteCtrl = TextEditingController(text: c?.note ?? '');
     _deliveryCtrl = TextEditingController(text: c?.deliveryAddress ?? '');
     _birthday = c?.birthday;
@@ -73,6 +77,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
     _wardCtrl.dispose();
     _companyCtrl.dispose();
     _taxCtrl.dispose();
+    _legalRepCtrl.dispose();
+    _legalTitleCtrl.dispose();
     _noteCtrl.dispose();
     _deliveryCtrl.dispose();
     super.dispose();
@@ -90,6 +96,11 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
         'companyName':
             _companyCtrl.text.trim().isEmpty ? null : _companyCtrl.text.trim(),
         'taxCode': _taxCtrl.text.trim().isEmpty ? null : _taxCtrl.text.trim(),
+        'legalRepresentative': _legalRepCtrl.text.trim().isEmpty
+            ? null
+            : _legalRepCtrl.text.trim(),
+        'legalTitle':
+            _legalTitleCtrl.text.trim().isEmpty ? null : _legalTitleCtrl.text.trim(),
         'note': _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
         if (_birthday != null)
           'birthday': DateFormat('yyyy-MM-dd').format(_birthday!),
@@ -370,6 +381,28 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                             }
                             return null;
                           },
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: TextFormField(
+                                controller: _legalRepCtrl,
+                                decoration: PosTheme.inputDecoration(
+                                    label: 'Người đại diện pháp luật'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: TextFormField(
+                                controller: _legalTitleCtrl,
+                                decoration: PosTheme.inputDecoration(
+                                    label: 'Chức vụ'),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 12),
                         TextFormField(

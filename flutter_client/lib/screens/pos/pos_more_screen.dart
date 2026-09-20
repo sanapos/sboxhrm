@@ -46,6 +46,7 @@ import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
 import '../settings_hub_screen.dart';
+import 'pos_commercial_company_screen.dart';
 import 'pos_quote_list_screen.dart';
 import 'pos_app_settings_screen.dart';
 import 'pos_accounts_screen.dart';
@@ -127,6 +128,8 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   items: [
                     _Item('Báo giá', Icons.request_quote_outlined, 'PosQuotes',
                         const PosQuoteListScreen()),
+                    _Item('Công ty trên chứng từ', Icons.apartment_outlined,
+                        'PosQuotes', const PosCommercialCompanyScreen()),
                   ],
                 ),
                 const SizedBox(height: 12),

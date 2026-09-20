@@ -268,6 +268,33 @@ esp_err_t zk_cmd(zk_conn_t *c, uint16_t cmd, const void *data, size_t len)
     return zk_cmd_stream(c, cmd, data, len, NULL, NULL);
 }
 
+esp_err_t zk_send_buffered(zk_conn_t *c, const void *data, size_t len)
+{
+    const size_t max_chunk = 1024;
+
+    zk_cmd(c, ZK_CMD_FREE_DATA, NULL, 0);
+
+    uint8_t sz[4];
+    put_u32(sz, (uint32_t)len);
+    if (zk_cmd(c, ZK_CMD_PREPARE_DATA, sz, 4) != ESP_OK || !zk_reply_ok(c)) {
+        ESP_LOGE(TAG, "PREPARE_DATA that bai (cmd=%u)", c->resp_cmd);
+        return ESP_FAIL;
+    }
+
+    const uint8_t *p = data;
+    size_t left = len;
+    while (left > 0) {
+        size_t chunk = left > max_chunk ? max_chunk : left;
+        if (zk_cmd(c, ZK_CMD_DATA, p, chunk) != ESP_OK || !zk_reply_ok(c)) {
+            ESP_LOGE(TAG, "CMD_DATA that bai, con %u byte", (unsigned)left);
+            return ESP_FAIL;
+        }
+        p += chunk;
+        left -= chunk;
+    }
+    return ESP_OK;
+}
+
 bool zk_reply_ok(const zk_conn_t *c)
 {
     return c->resp_cmd == ZK_CMD_ACK_OK || c->resp_cmd == ZK_CMD_ACK_DATA ||

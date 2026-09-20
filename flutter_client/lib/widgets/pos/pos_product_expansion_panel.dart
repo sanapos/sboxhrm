@@ -412,9 +412,12 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
   Widget _buildInventoryTab() {
     final v = widget.focusVariant;
     final stock = v?.onHandQty ?? _p.onHandQty;
-    if (_p.productType == PosProductType.service) {
+    if (!_p.showsWarehouseStock) {
       return Center(
-        child: Text(tr('Dịch vụ không quản lý tồn kho'),
+        child: Text(
+          tr(_p.productType == PosProductType.combo
+              ? 'Combo không quản lý tồn kho'
+              : 'Dịch vụ không quản lý tồn kho'),
           style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
         ),
       );

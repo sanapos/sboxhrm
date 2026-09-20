@@ -152,6 +152,9 @@ Khi quản trị viên bấm “Đồng bộ chấm công” trên web, máy ch�
 | `SET OPTION` / `SET TIME` | Chỉnh đồng hồ máy theo giờ NTP |
 | `INFO` / `CHECK` | Trả về thành công (thông tin máy đã gửi kèm mỗi vòng poll) |
 | `ENROLL_FP PIN=… FID=…` | Mở đăng ký vân tay ngay trên máy (`CMD_STARTENROLL`) |
+| `ENROLL_BIO TYPE=9 PIN=…` | Mở đăng ký khuôn mặt (`RegEvent` + `DelUserFace(50)` + `StartEnrollEx` 111/50 Flag=1 + `StartIdentify`) |
+| `DATA DELETE FACE PIN=…` | Xoá mặt (`CMD_DELETE_USERFACE`, index 50) |
+| `DATA UPDATE FINGERTMP PIN=… FID=… TMP=…` | Ghi mẫu vân tay có sẵn (`CMD_SAVE_USERTEMPS` / `CMD_USERTEMP_WRQ`) |
 | `DATA DELETE FINGERTMP PIN=… FID=…` | Xoá mẫu vân tay; thiếu `FID` thì xoá cả 10 ngón |
 
 Kết quả mọi lệnh đều được báo về `/iclock/devicecmd` với `Return=0` khi thành công.
@@ -189,11 +192,36 @@ tổng số mẫu không đổi.
 Lệnh xoá mẫu cũng đối chiếu số mẫu vì máy trả ACK OK cả khi ngón đó vốn trống. Xoá một ngón
 không có mẫu được coi là thành công, vì trạng thái mong muốn đã đạt.
 
+### Sao chép vân tay sang máy sau gateway
+
+SBOX copy sinh trắc xếp `DATA UPDATE FINGERTMP` (mẫu Base64 trong trường `TMP`). Gateway giải
+mẫu rồi ghi xuống máy qua SDK 4370 (cùng đường pyzk `save_user_template`: khối
+`PREPARE_DATA` + `CMD_SAVE_USERTEMPS=110`, nếu máy từ chối thì thử `CMD_USERTEMP_WRQ=10`).
+
+Nhân viên phải đã có trên máy (hoặc lệnh `DATA UPDATE USERINFO` đi trước). Máy **không cần**
+xuất mẫu ra ngoài — chiều này chỉ **ghi vào**.
+
 ### Chưa hỗ trợ
 
-`ENROLL_BIO` (khuôn mặt), `DATA QUERY FINGERTMP` và `DATA DELETE FACE` trả về `Return=-1`.
-Máy standalone không xuất được mẫu sinh trắc ra ngoài, và dòng máy chỉ có cảm biến vân tay
-thì không có phần cứng khuôn mặt để đăng ký. Dữ liệu vân tay vẫn nằm nguyên trên máy.
+`DATA QUERY FINGERTMP` trả về `Return=-1` (máy standalone thường cấm xuất mẫu).
+Kéo mẫu / enroll mặt **ZAM70 ADMS** không đi cổng 4370 — không dùng ESP-C3.
+
+### Đăng ký khuôn mặt (SDK 4370 / zkemkeeper)
+
+Chỉ `StartEnrollEx(PIN, 111, 0)` **không đủ**. Thứ tự đúng (handbook iFace + demo SDK):
+
+1. `Connect_Net` → `EnableDevice(true)`
+2. `RegEvent(1, 65535)` — bắt `OnEnrollFinger` / `OnEnrollFingerEx`
+3. `SSR_SetUserInfo` (tạo + bật user)
+4. `CancelOperation`
+5. `DelUserFace(PIN, 50)` — index mặt trên máy là **50**, không phải 111
+6. `RefreshData`
+7. `StartEnrollEx(PIN, 111, 1)` — **Flag=1**; nếu máy từ chối thì `StartEnrollEx(PIN, 50, 1)`
+8. ACK sự kiện đến khi `ActionResult=0`
+9. `StartIdentify` → `RefreshData` → `EnableDevice(true)` → `Disconnect`
+
+File mẫu C# (cần zkemkeeper, STA + `DoEvents`): `tools/ZkEnrollFace.cs`.
+Gateway ESP-C3 làm cùng chuỗi khi nhận `ENROLL_BIO` (chờ 60 giây, người phải đứng sẵn tại máy).
 
 ## Thao tác trên trang cấu hình
 

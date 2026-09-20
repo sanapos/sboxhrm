@@ -23,6 +23,11 @@ public static class PosPrintTemplateDefaults
         PosPrintDocumentType.KitchenLabel => "TEM BÁO BẾP",
         PosPrintDocumentType.CashReceipt => "PHIẾU THU",
         PosPrintDocumentType.CashPayment => "PHIẾU CHI",
+        PosPrintDocumentType.Quote => "BÁO GIÁ",
+        PosPrintDocumentType.Contract => "HỢP ĐỒNG",
+        PosPrintDocumentType.Handover => "BIÊN BẢN BÀN GIAO",
+        PosPrintDocumentType.Acceptance => "BIÊN BẢN NGHIỆM THU",
+        PosPrintDocumentType.PaymentRequest => "ĐỀ NGHỊ THANH TOÁN",
         _ => "CHỨNG TỪ",
     };
 
@@ -77,6 +82,17 @@ public static class PosPrintTemplateDefaults
             };
         }
 
+        if (docType is PosPrintDocumentType.Quote or PosPrintDocumentType.Contract
+            or PosPrintDocumentType.Handover or PosPrintDocumentType.Acceptance
+            or PosPrintDocumentType.PaymentRequest)
+        {
+            return new[]
+            {
+                new CatalogSpec("A4 ★", PosPrintPaperSize.A4, 0, true),
+                new CatalogSpec("A5", PosPrintPaperSize.A5, 1, false),
+            };
+        }
+
         // Hóa đơn / xuất kho / phiếu khác: 3 mẫu (K80 chuẩn, K80 A4/A5 sheet, K58)
         return new[]
         {
@@ -101,6 +117,10 @@ public static class PosPrintTemplateDefaults
             return BuildKitchenLabelHtml(paperSize);
         if (docType is PosPrintDocumentType.KitchenSlip or PosPrintDocumentType.KitchenVoid)
             return BuildKitchenV2(paperSize, isCancel: docType == PosPrintDocumentType.KitchenVoid);
+        if (docType is PosPrintDocumentType.Quote or PosPrintDocumentType.Contract
+            or PosPrintDocumentType.Handover or PosPrintDocumentType.Acceptance
+            or PosPrintDocumentType.PaymentRequest)
+            return ZKTecoADMS.Api.Services.PosQuoteDocumentHtml.DefaultA4Html(title);
         return paperSize is PosPrintPaperSize.K58 or PosPrintPaperSize.K80
             ? BuildThermalV2(docType, paperSize)
             : BuildSheetHtml(title, paperSize);

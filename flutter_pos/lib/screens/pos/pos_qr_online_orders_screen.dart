@@ -540,8 +540,15 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
     return p.contains('aha');
   }
 
+  bool _isSpxCarrier(String partner) {
+    final p = partner.toLowerCase();
+    return p.contains('spx') || p.contains('shopee express');
+  }
+
   bool _canManageCarrierShipment(String partner) =>
-      _isViettelCarrier(partner) || _isAhamoveCarrier(partner);
+      _isViettelCarrier(partner) ||
+      _isAhamoveCarrier(partner) ||
+      _isSpxCarrier(partner);
 
   Future<void> _openShipmentLabel(_OnlineOrder o) async {
     setState(() => _busy = true);

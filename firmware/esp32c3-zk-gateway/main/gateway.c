@@ -23,7 +23,7 @@ static const char *TAG = "gw";
  * vẫn thừa RAM cho phiên TLS trên ESP32-C3. */
 #define BATCH_CAP        6144
 #define BATCH_FLUSH_AT   (BATCH_CAP - 160)
-#define SERVER_RESP_CAP  4096
+#define SERVER_RESP_CAP  8192
 #define REGISTER_EVERY_MS (30 * 60 * 1000)
 #define ZK_TIMEOUT_MS    8000
 
@@ -594,7 +594,7 @@ static void apply_server_options(const char *block)
 }
 
 /* Chạy tất cả các dòng "C:<id>:<lenh>" trong phản hồi, dùng chung một phiên ZK. */
-static void run_commands(const char *resp)
+static void run_commands(char *resp)
 {
     if (strstr(resp, "C:") == NULL) {
         return;
@@ -603,16 +603,23 @@ static void run_commands(const char *resp)
     zk_conn_t c;
     bool opened = false;
 
-    const char *p = resp;
+    char *p = resp;
     while (*p != '\0') {
-        const char *nl = strchr(p, '\n');
+        char *nl = strchr(p, '\n');
         size_t line_len = nl != NULL ? (size_t)(nl - p) : strlen(p);
+        while (line_len > 0 && (p[line_len - 1] == '\r' || p[line_len - 1] == '\n')) {
+            line_len--;
+        }
+
+        char saved = p[line_len];
+        p[line_len] = '\0';
 
         adms_cmd_t cmd;
         if (line_len > 0 && cmd_parse_line(p, line_len, &cmd)) {
             if (!opened) {
                 if (!device_session_begin(&c, pdMS_TO_TICKS(15000))) {
                     adms_ack_command(app_config_effective_serial(), cmd.id, -2, "DEVICE_OFFLINE");
+                    p[line_len] = saved;
                     return;
                 }
                 opened = true;
@@ -628,10 +635,12 @@ static void run_commands(const char *resp)
 
             /* REBOOT làm mất phiên; dừng lô lệnh còn lại. */
             if (c.session_id == 0) {
+                p[line_len] = saved;
                 break;
             }
         }
 
+        p[line_len] = saved;
         if (nl == NULL) {
             break;
         }
@@ -643,7 +652,7 @@ static void run_commands(const char *resp)
     }
 }
 
-static void handle_server_response(const char *resp)
+static void handle_server_response(char *resp)
 {
     if (resp == NULL || resp[0] == '\0') {
         return;

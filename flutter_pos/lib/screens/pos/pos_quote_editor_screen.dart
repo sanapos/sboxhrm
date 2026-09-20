@@ -3,11 +3,18 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_tr.dart';
+import '../../models/pos_customer.dart';
+import '../../models/pos_print_template.dart';
 import '../../models/pos_product.dart';
 import '../../models/pos_quote.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_html_print.dart';
+import '../../utils/pos_print_template_loader.dart';
+import '../../utils/pos_print_template_v2_codec.dart';
+import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_customer_form_dialog.dart';
+import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 class PosQuoteEditorScreen extends StatefulWidget {
@@ -23,6 +30,9 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
   final _name = TextEditingController();
   final _phone = TextEditingController();
   final _address = TextEditingController();
+  final _custSearch = TextEditingController();
+  List<PosCustomer> _custHits = [];
+  PosCustomer? _customer;
   final _note = TextEditingController();
   final _terms = TextEditingController();
   final _discount = TextEditingController(text: '0');
@@ -32,10 +42,14 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
   String _status = 'Draft';
   String _quoteNo = '';
   String _commercialStage = 'None';
+  String _paymentMethod = 'Chuyển khoản';
+  String? _printTemplateId;
+  List<PosPrintTemplate> _templates = [];
   List<PosQuoteLine> _lines = [];
   List<PosQuoteDocument> _documents = [];
   bool _loading = false;
   bool _saving = false;
+  bool _includeImages = false;
   bool _locked = false;
 
   final _api = ApiService();
@@ -43,7 +57,21 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
   @override
   void initState() {
     super.initState();
+    _loadTemplates();
     if (widget.quoteId != null) _load();
+  }
+
+  Future<void> _loadTemplates() async {
+    final list = await loadPosPrintTemplates(_api, PosPrintDocumentTypes.quote);
+    if (!mounted) return;
+    setState(() {
+      // Bỏ mẫu JSON V2 (thermal) đã lưu nhầm cho báo giá — JSON V2 cũng
+      // bắt đầu bằng `<!--…-->` nên không lọc được bằng `startsWith('<')`.
+      _templates = list.where((t) {
+        final raw = t.htmlContent.trim();
+        return raw.startsWith('<') && !PosPrintTemplateV2Codec.isV2Content(raw);
+      }).toList();
+    });
   }
 
   @override
@@ -51,6 +79,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
     _name.dispose();
     _phone.dispose();
     _address.dispose();
+    _custSearch.dispose();
     _note.dispose();
     _terms.dispose();
     _discount.dispose();
@@ -74,6 +103,10 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
     _address.text = q.customerAddress ?? '';
     _note.text = q.note ?? '';
     _terms.text = q.terms ?? '';
+    _paymentMethod = (q.paymentMethod ?? '').trim().isEmpty
+        ? 'Chuyển khoản'
+        : q.paymentMethod!;
+    _printTemplateId = q.printTemplateId;
     _discount.text = _money.format(q.discount);
     if (q.validUntil != null) _validUntil = q.validUntil!.toLocal();
     _lines = q.lines
@@ -89,6 +122,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
               'vatRate': l.vatRate,
               'lineTotal': l.lineTotal,
               'lineNote': l.lineNote,
+              'warrantyMonths': l.warrantyMonths,
             }))
         .toList();
     _documents = q.documents;
@@ -106,51 +140,78 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                 0,
         'note': _note.text.trim(),
         'terms': _terms.text.trim(),
+        'paymentMethod': _paymentMethod,
+        'printTemplateId': _printTemplateId,
         'lines': _lines.map((l) => l.toInputJson()).toList(),
       };
 
-  Future<bool> _save() async {
+  Future<bool> _save({bool popAfter = true}) async {
     if (_lines.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(tr('Thêm ít nhất một dòng hàng / dịch vụ'))),
+      NotificationOverlayManager().showWarning(
+        title: 'Thiếu hàng',
+        message: tr('Thêm ít nhất một dòng hàng / dịch vụ'),
       );
       return false;
     }
     setState(() => _saving = true);
-    final res = widget.quoteId == null
-        ? await _api.createPosQuote(_body())
-        : await _api.updatePosQuote(widget.quoteId!, _body());
-    if (!mounted) return false;
-    setState(() => _saving = false);
-    if (res['isSuccess'] != true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message']?.toString() ?? 'Lưu thất bại')),
+    try {
+      final res = widget.quoteId == null
+          ? await _api.createPosQuote(_body())
+          : await _api.updatePosQuote(widget.quoteId!, _body());
+      if (!mounted) return false;
+      setState(() => _saving = false);
+      if (res['isSuccess'] != true) {
+        NotificationOverlayManager().showError(
+          title: 'Không lưu được',
+          message: res['message']?.toString() ?? tr('Lưu thất bại'),
+        );
+        return false;
+      }
+      PosQuote? q;
+      if (res['data'] is Map) {
+        q = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+      }
+      NotificationOverlayManager().showSuccess(
+        title: widget.quoteId == null ? 'Đã tạo báo giá' : 'Đã lưu',
+        message: q?.quoteNo ?? _quoteNo,
+      );
+      if (widget.quoteId == null && q != null) {
+        await printPosQuoteSlip(
+          context,
+          quoteId: q.id,
+          quote: q,
+          includeImages: _includeImages,
+        );
+      }
+      if (popAfter && mounted) {
+        Navigator.of(context).pop(true);
+      } else if (widget.quoteId != null) {
+        await _load();
+      }
+      return true;
+    } catch (e) {
+      if (!mounted) return false;
+      setState(() => _saving = false);
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: e.toString(),
       );
       return false;
     }
-    if (widget.quoteId == null && res['data'] is Map) {
-      final q = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
-      if (!mounted) return true;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => PosQuoteEditorScreen(quoteId: q.id)),
-      );
-      return true;
-    }
-    await _load();
-    return true;
   }
 
   Future<void> _act(Future<Map<String, dynamic>> Function() fn,
       {bool pop = false}) async {
     if (widget.quoteId != null) {
-      final ok = _locked ? true : await _save();
+      final ok = _locked ? true : await _save(popAfter: false);
       if (!ok) return;
     }
     final res = await fn();
     if (!mounted) return;
     if (res['isSuccess'] != true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message']?.toString() ?? 'Thao tác thất bại')),
+      NotificationOverlayManager().showError(
+        title: 'Thao tác thất bại',
+        message: res['message']?.toString() ?? tr('Thao tác thất bại'),
       );
       return;
     }
@@ -190,11 +251,16 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
 
   Future<void> _previewKind(String kind) async {
     if (widget.quoteId == null) return;
-    final res = await _api.previewPosQuoteDocument(widget.quoteId!, kind);
+    final res = await _api.previewPosQuoteDocument(
+      widget.quoteId!,
+      kind,
+      includeImages: _includeImages,
+    );
     if (!mounted) return;
     if (res['isSuccess'] != true || res['data'] is! Map) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message']?.toString() ?? 'Không xem trước được')),
+      NotificationOverlayManager().showError(
+        title: 'Không xem trước được',
+        message: res['message']?.toString() ?? tr('Không xem trước được'),
       );
       return;
     }
@@ -210,13 +276,23 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
     if (note == null || !mounted) return;
     setState(() => _saving = true);
     final res = kind == 'StockIssue'
-        ? await _api.createPosQuoteStockIssue(widget.quoteId!, note: note)
-        : await _api.createPosQuoteDocument(widget.quoteId!, kind, note: note);
+        ? await _api.createPosQuoteStockIssue(
+            widget.quoteId!,
+            note: note,
+            includeImages: _includeImages,
+          )
+        : await _api.createPosQuoteDocument(
+            widget.quoteId!,
+            kind,
+            note: note,
+            includeImages: _includeImages,
+          );
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] != true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res['message']?.toString() ?? 'Lập chứng từ thất bại')),
+      NotificationOverlayManager().showError(
+        title: 'Lập chứng từ thất bại',
+        message: res['message']?.toString() ?? tr('Lập chứng từ thất bại'),
       );
       return;
     }
@@ -269,8 +345,9 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
         .map((e) => PosProduct.fromJson(Map<String, dynamic>.from(e)))
         .toList();
     if (products.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(tr('Không tìm thấy'))),
+      NotificationOverlayManager().showWarning(
+        title: 'Không tìm thấy',
+        message: tr('Không tìm thấy hàng hóa / dịch vụ'),
       );
       return;
     }
@@ -297,6 +374,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
         qty: 1,
         unitPrice: picked.basePrice,
         vatRate: picked.vatExempt ? 0 : picked.vatRate,
+        warrantyMonths: picked.warrantyMonths,
       ));
     });
   }
@@ -305,6 +383,8 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
     final line = _lines[i];
     final qty = TextEditingController(text: line.qty.toString());
     final price = TextEditingController(text: _money.format(line.unitPrice));
+    final bh = TextEditingController(
+        text: line.warrantyMonths == null ? '' : '${line.warrantyMonths}');
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -322,6 +402,12 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
               controller: price,
               keyboardType: TextInputType.number,
               decoration: PosTheme.inputDecoration(label: 'Đơn giá (có thể sửa)'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: bh,
+              keyboardType: TextInputType.number,
+              decoration: PosTheme.inputDecoration(label: 'Bảo hành (tháng)'),
             ),
           ],
         ),
@@ -341,6 +427,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
       line.unitPrice =
           double.tryParse(price.text.replaceAll('.', '').replaceAll(',', '')) ??
               line.unitPrice;
+      line.warrantyMonths = int.tryParse(bh.text.trim());
     });
   }
 
@@ -381,6 +468,18 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
           ],
         ),
         const SizedBox(height: 8),
+        if (widget.quoteId != null)
+          CheckboxListTile(
+            value: _includeImages,
+            onChanged: (v) => setState(() => _includeImages = v ?? false),
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            dense: true,
+            title: Text(
+              tr('Đưa hình ảnh SP vào chứng từ in (3×3 cm)'),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
         if (widget.quoteId != null) ...[
           Wrap(
             spacing: 8,
@@ -406,6 +505,10 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                 FilledButton.tonal(
                   onPressed: _saving ? null : () => _createKind('Acceptance'),
                   child: Text(tr('Nghiệm thu')),
+                ),
+                FilledButton.tonal(
+                  onPressed: _saving ? null : () => _createKind('PaymentRequest'),
+                  child: Text(tr('Đề nghị thanh toán')),
                 ),
               ],
             ],
@@ -451,9 +554,34 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
       appBar: AppBar(
         title: Text(_quoteNo.isEmpty ? tr('Tạo báo giá') : _quoteNo),
         actions: [
-          if (widget.quoteId != null)
+          if (widget.quoteId != null) ...[
+            IconButton(
+              tooltip: tr('In phiếu báo giá'),
+              onPressed: () => printPosQuoteSlip(
+                context,
+                quoteId: widget.quoteId!,
+                includeImages: _includeImages,
+              ),
+              icon: const Icon(Icons.print_outlined),
+            ),
+            IconButton(
+              tooltip: tr('Gọi khách'),
+              onPressed: () => callPosQuoteCustomer(_phone.text),
+              icon: const Icon(Icons.call_outlined),
+            ),
+            IconButton(
+              tooltip: tr('Lịch CSKH'),
+              onPressed: () => showPosQuoteCareSheet(
+                context,
+                quoteId: widget.quoteId!,
+                quoteNo: _quoteNo,
+                customerName: _name.text,
+                customerPhone: _phone.text,
+              ),
+              icon: const Icon(Icons.history_edu_outlined),
+            ),
             Padding(
-              padding: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.only(right: 8),
               child: Center(
                 child: Text([
                   PosQuote.statusLabel(_status),
@@ -462,6 +590,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                 ].join(' · ')),
               ),
             ),
+          ],
         ],
       ),
       body: _loading
@@ -474,10 +603,95 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                     style: TextStyle(
                         color: Colors.grey.shade700, fontSize: 12.5)),
                 const SizedBox(height: 12),
+                if (canEdit)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _custSearch,
+                          decoration: PosTheme.inputDecoration(
+                            label: 'Tìm khách (tên / SĐT / MST)',
+                          ),
+                          onChanged: (q) async {
+                            if (q.trim().length < 2) {
+                              setState(() => _custHits = []);
+                              return;
+                            }
+                            final res = await _api.getPosCustomers(
+                                search: q.trim(), pageSize: 8);
+                            if (!mounted) return;
+                            final data = res['data'];
+                            final raw = data is Map
+                                ? (data['items'] as List? ?? [])
+                                : <dynamic>[];
+                            setState(() {
+                              _custHits = raw
+                                  .whereType<Map>()
+                                  .map((e) => PosCustomer.fromJson(
+                                      Map<String, dynamic>.from(e)))
+                                  .toList();
+                            });
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: tr('Thêm khách hàng'),
+                        icon: const Icon(Icons.person_add_outlined,
+                            color: PosTheme.kiotBlue),
+                        onPressed: () async {
+                          final created = await showDialog<dynamic>(
+                            context: context,
+                            builder: (_) => const PosCustomerFormDialog(),
+                          );
+                          if (created is Map && mounted) {
+                            final c = PosCustomer.fromJson(
+                                Map<String, dynamic>.from(created));
+                            setState(() {
+                              _customer = c;
+                              _customerId = c.id;
+                              _name.text =
+                                  (c.companyName ?? '').trim().isNotEmpty
+                                      ? c.companyName!
+                                      : c.name;
+                              _phone.text = c.phone ?? '';
+                              _address.text = c.address ?? '';
+                              _custHits = [];
+                              _custSearch.text = _name.text;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                if (_custHits.isNotEmpty)
+                  ..._custHits.take(6).map(
+                        (c) => ListTile(
+                          dense: true,
+                          title: Text((c.companyName ?? '').trim().isNotEmpty
+                              ? c.companyName!
+                              : c.name),
+                          subtitle: Text([
+                            if ((c.taxCode ?? '').isNotEmpty) 'MST ${c.taxCode}',
+                            c.phone,
+                          ].where((e) => (e ?? '').isNotEmpty).join(' · ')),
+                          onTap: () => setState(() {
+                            _customer = c;
+                            _customerId = c.id;
+                            _name.text = (c.companyName ?? '').trim().isNotEmpty
+                                ? c.companyName!
+                                : c.name;
+                            _phone.text = c.phone ?? '';
+                            _address.text = c.address ?? '';
+                            _custHits = [];
+                            _custSearch.text = _name.text;
+                          }),
+                        ),
+                      ),
+                const SizedBox(height: 8),
                 TextField(
                   controller: _name,
                   enabled: canEdit,
-                  decoration: PosTheme.inputDecoration(label: 'Khách hàng'),
+                  decoration: PosTheme.inputDecoration(label: 'Khách hàng / công ty'),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -522,9 +736,11 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                   Card(
                     child: ListTile(
                       title: Text(_lines[i].productName),
-                      subtitle: Text(
+                      subtitle: Text([
                         '${_lines[i].qty} ${_lines[i].unitName ?? ''} × ${_money.format(_lines[i].unitPrice)} đ',
-                      ),
+                        if ((_lines[i].warrantyMonths ?? 0) > 0)
+                          'BH ${_lines[i].warrantyMonths} tháng',
+                      ].join(' · ')),
                       trailing: canEdit
                           ? IconButton(
                               icon: const Icon(Icons.close),
@@ -535,6 +751,48 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                       onTap: canEdit ? () => _editLine(i) : null,
                     ),
                   ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String?>(
+                  value: _templates.any((t) => t.id == _printTemplateId)
+                      ? _printTemplateId
+                      : null,
+                  decoration:
+                      PosTheme.inputDecoration(label: 'Mẫu báo giá A4'),
+                  items: [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(tr('Mẫu mặc định cửa hàng')),
+                    ),
+                    for (final t in _templates)
+                      DropdownMenuItem<String?>(
+                        value: t.id,
+                        child: Text(t.name, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: !canEdit
+                      ? null
+                      : (v) => setState(() => _printTemplateId = v),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _paymentMethod,
+                  decoration:
+                      PosTheme.inputDecoration(label: 'Hình thức thanh toán'),
+                  items: const [
+                    'Tiền mặt',
+                    'Chuyển khoản',
+                    'Công nợ',
+                    'COD',
+                  ]
+                      .map((e) =>
+                          DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: !canEdit
+                      ? null
+                      : (v) {
+                          if (v != null) setState(() => _paymentMethod = v);
+                        },
+                ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _discount,
@@ -559,11 +817,23 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                       label: 'Điều khoản / hiệu lực mẫu'),
                 ),
                 const SizedBox(height: 20),
-                if (canEdit)
+                if (widget.quoteId != null)
+                  FilledButton.tonalIcon(
+                    onPressed: () => printPosQuoteSlip(
+                      context,
+                      quoteId: widget.quoteId!,
+                      includeImages: _includeImages,
+                    ),
+                    icon: const Icon(Icons.print_outlined),
+                    label: Text(tr('In phiếu báo giá')),
+                  ),
+                if (canEdit) ...[
+                  const SizedBox(height: 8),
                   FilledButton(
-                    onPressed: _saving ? null : _save,
+                    onPressed: _saving ? null : () => _save(),
                     child: Text(_saving ? tr('Đang lưu…') : tr('Lưu báo giá')),
                   ),
+                ],
                 if (widget.quoteId != null &&
                     (_status == 'Draft' || _status == 'Revised') &&
                     perm.canEdit('PosQuotes')) ...[

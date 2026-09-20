@@ -35,5 +35,8 @@ public class PosQuoteLine : AuditableEntity<Guid>
     [MaxLength(500)]
     public string? LineNote { get; set; }
 
+    /// <summary>Số tháng bảo hành (sao chép từ hàng hóa khi lập BG).</summary>
+    public int? WarrantyMonths { get; set; }
+
     public int SortOrder { get; set; }
 }

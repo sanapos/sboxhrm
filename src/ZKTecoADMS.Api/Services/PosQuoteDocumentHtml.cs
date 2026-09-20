@@ -1,8 +1,8 @@
 using System.Globalization;
-using System.Net;
-using System.Text;
+using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Services;
 
@@ -11,9 +11,10 @@ public static class PosQuoteDocumentHtml
     public static string TitleOf(PosQuoteDocumentKind kind) => kind switch
     {
         PosQuoteDocumentKind.Quote => "BÁO GIÁ",
-        PosQuoteDocumentKind.Contract => "HỢP ĐỒNG CUNG CẤP / THI CÔNG",
+        PosQuoteDocumentKind.Contract => "HỢP ĐỒNG THI CÔNG",
         PosQuoteDocumentKind.Handover => "BIÊN BẢN BÀN GIAO",
-        PosQuoteDocumentKind.Acceptance => "BIÊN BẢN NGHIỆM THU",
+        PosQuoteDocumentKind.Acceptance => "BIÊN BẢN NGHIỆM THU HOÀN THÀNH",
+        PosQuoteDocumentKind.PaymentRequest => "ĐỀ NGHỊ THANH TOÁN",
         PosQuoteDocumentKind.StockIssue => "PHIẾU XUẤT KHO",
         _ => "CHỨNG TỪ",
     };
@@ -24,106 +25,499 @@ public static class PosQuoteDocumentHtml
         PosQuoteDocumentKind.Contract => "HD",
         PosQuoteDocumentKind.Handover => "BB",
         PosQuoteDocumentKind.Acceptance => "NT",
+        PosQuoteDocumentKind.PaymentRequest => "DN",
         PosQuoteDocumentKind.StockIssue => "PX",
         _ => "CT",
     };
 
+    public static PosPrintDocumentType PrintDocumentTypeOf(PosQuoteDocumentKind kind) => kind switch
+    {
+        PosQuoteDocumentKind.Quote => PosPrintDocumentType.Quote,
+        PosQuoteDocumentKind.Contract => PosPrintDocumentType.Contract,
+        PosQuoteDocumentKind.Handover => PosPrintDocumentType.Handover,
+        PosQuoteDocumentKind.Acceptance => PosPrintDocumentType.Acceptance,
+        PosQuoteDocumentKind.PaymentRequest => PosPrintDocumentType.PaymentRequest,
+        _ => PosPrintDocumentType.StockIssue,
+    };
+
+    public static async Task<string> BuildAsync(
+        ZKTecoDbContext db,
+        PosQuote quote,
+        PosQuoteDocumentKind kind,
+        string docNo,
+        string? extraNote,
+        bool includeImages = false,
+        string? contentRootPath = null)
+    {
+        var store = quote.Store ?? await db.Stores.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Id == quote.StoreId);
+        // Chi tiết chi nhánh & MST bên B từ Branch (mã thuế / địa chỉ) — nếu store
+        // có `HeadquarterBranchId`. `PosQuote` không lưu BranchId nên tìm trụ sở.
+        Branch? branch = null;
+        if (store != null)
+        {
+            branch = await db.Branches.AsNoTracking()
+                .Where(b => b.StoreId == store.Id && (b.IsHeadquarter || b.TaxCode != null))
+                .OrderByDescending(b => b.IsHeadquarter)
+                .FirstOrDefaultAsync();
+        }
+        // Khách hàng: pull TaxCode + CompanyName từ PosCustomer nếu có.
+        PosCustomer? customer = null;
+        if (quote.CustomerId is Guid cid)
+        {
+            customer = await db.PosCustomers.AsNoTracking().FirstOrDefaultAsync(c => c.Id == cid);
+        }
+        var profile = await db.PosStoreCommercialProfiles.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.StoreId == quote.StoreId && x.Deleted == null);
+        var docType = PrintDocumentTypeOf(kind);
+        var templateHtml = await ResolveTemplateHtmlAsync(db, quote, docType);
+        var data = BuildData(quote, kind, docNo, extraNote, store, branch, customer, profile);
+        var lines = await BuildLinesAsync(db, quote, includeImages, contentRootPath);
+        return PosPrintTemplateHtmlRenderer.Render(templateHtml, data, lines);
+    }
+
+    /// <summary>Fallback đồng bộ khi chưa có DbContext (giữ chữ ký cũ).</summary>
     public static string Build(PosQuote quote, PosQuoteDocumentKind kind, string docNo, string? extraNote)
     {
-        var vn = CultureInfo.GetCultureInfo("vi-VN");
-        var lines = quote.Lines.Where(l => l.Deleted == null).OrderBy(l => l.SortOrder).ToList();
-        var sb = new StringBuilder();
-        sb.Append("""
-            <!DOCTYPE html><html><head><meta charset="utf-8">
-            <style>
-            body{font-family:Arial,sans-serif;font-size:13px;color:#222;margin:24px}
-            h1{font-size:20px;margin:0 0 4px;text-align:center}
-            .sub{text-align:center;color:#555;margin-bottom:16px}
-            table{width:100%;border-collapse:collapse;margin:12px 0}
-            th,td{border:1px solid #ccc;padding:6px 8px}
-            th{background:#f3f3f3;text-align:left}
-            .r{text-align:right}
-            .meta{margin:8px 0}
-            .sign{display:flex;justify-content:space-between;margin-top:36px}
-            .sign div{width:45%;text-align:center}
-            .note{margin-top:12px;white-space:pre-wrap}
-            </style></head><body>
-            """);
-        sb.Append("<h1>").Append(WebUtility.HtmlEncode(TitleOf(kind))).Append("</h1>");
-        sb.Append("<div class=\"sub\">Số ").Append(WebUtility.HtmlEncode(docNo));
-        sb.Append(" · Theo báo giá ").Append(WebUtility.HtmlEncode(quote.QuoteNo)).Append("</div>");
-        sb.Append("<div class=\"meta\"><b>Khách hàng:</b> ")
-            .Append(WebUtility.HtmlEncode(quote.CustomerName ?? "—"));
-        if (!string.IsNullOrWhiteSpace(quote.CustomerPhone))
-            sb.Append(" · ").Append(WebUtility.HtmlEncode(quote.CustomerPhone));
-        sb.Append("<br/><b>Địa chỉ:</b> ")
-            .Append(WebUtility.HtmlEncode(quote.CustomerAddress ?? "—"));
-        if (quote.ValidUntil.HasValue && kind == PosQuoteDocumentKind.Quote)
-            sb.Append("<br/><b>Hạn báo giá:</b> ")
-                .Append(quote.ValidUntil.Value.ToString("dd/MM/yyyy", vn));
-        sb.Append("</div>");
-
-        sb.Append(kind switch
-        {
-            PosQuoteDocumentKind.Contract =>
-                "<p>Hai bên thống nhất các hạng mục, đơn giá và điều khoản theo bảng dưới. Báo giá là phụ lục không tách rời của hợp đồng này.</p>",
-            PosQuoteDocumentKind.Handover =>
-                "<p>Bên A bàn giao cho bên B các hạng mục sau. Bên B đã kiểm tra số lượng / tình trạng tại thời điểm giao.</p>",
-            PosQuoteDocumentKind.Acceptance =>
-                "<p>Hai bên nghiệm thu các hạng mục. Đánh dấu đạt / tồn tại phần ghi chú dòng.</p>",
-            PosQuoteDocumentKind.StockIssue =>
-                "<p>Phiếu xuất kho theo báo giá (chứng từ thương mại — không phải hóa đơn bán hàng).</p>",
-            _ => "",
-        });
-
-        sb.Append("<table><tr><th>STT</th><th>Hạng mục</th><th>ĐVT</th><th class=\"r\">SL</th>");
-        if (kind is PosQuoteDocumentKind.Quote or PosQuoteDocumentKind.Contract)
-            sb.Append("<th class=\"r\">Đơn giá</th><th class=\"r\">Thành tiền</th>");
-        sb.Append("</tr>");
-        var i = 1;
-        foreach (var l in lines)
-        {
-            sb.Append("<tr><td>").Append(i++).Append("</td><td>")
-                .Append(WebUtility.HtmlEncode(l.ProductName));
-            if (!string.IsNullOrWhiteSpace(l.LineNote))
-                sb.Append("<div style=\"color:#666;font-size:12px\">")
-                    .Append(WebUtility.HtmlEncode(l.LineNote)).Append("</div>");
-            sb.Append("</td><td>").Append(WebUtility.HtmlEncode(l.UnitName ?? "—"))
-                .Append("</td><td class=\"r\">").Append(l.Qty.ToString("0.##", vn)).Append("</td>");
-            if (kind is PosQuoteDocumentKind.Quote or PosQuoteDocumentKind.Contract)
-            {
-                sb.Append("<td class=\"r\">").Append(l.UnitPrice.ToString("#,##0", vn))
-                    .Append("</td><td class=\"r\">").Append(l.LineTotal.ToString("#,##0", vn))
-                    .Append("</td>");
-            }
-            sb.Append("</tr>");
-        }
-        sb.Append("</table>");
-
-        if (kind is PosQuoteDocumentKind.Quote or PosQuoteDocumentKind.Contract)
-        {
-            sb.Append("<p class=\"r\"><b>Tổng cộng: ")
-                .Append(quote.Total.ToString("#,##0", vn)).Append(" đ</b></p>");
-        }
-
-        if (!string.IsNullOrWhiteSpace(quote.Terms) &&
-            kind is PosQuoteDocumentKind.Quote or PosQuoteDocumentKind.Contract)
-        {
-            sb.Append("<div class=\"note\"><b>Điều khoản:</b><br/>")
-                .Append(WebUtility.HtmlEncode(quote.Terms)).Append("</div>");
-        }
-        if (!string.IsNullOrWhiteSpace(extraNote))
-        {
-            sb.Append("<div class=\"note\"><b>Ghi chú chứng từ:</b><br/>")
-                .Append(WebUtility.HtmlEncode(extraNote)).Append("</div>");
-        }
-
-        sb.Append("""
-            <div class="sign">
-            <div>ĐẠI DIỆN BÊN A<br/><span style="color:#888">Ký, ghi rõ họ tên</span></div>
-            <div>ĐẠI DIỆN BÊN B<br/><span style="color:#888">Ký, ghi rõ họ tên</span></div>
-            </div></body></html>
-            """);
-        return sb.ToString();
+        var data = BuildData(quote, kind, docNo, extraNote, quote.Store, null, null, null);
+        var lines = activeLinesSync(quote);
+        var html = DefaultA4For(kind);
+        return PosPrintTemplateHtmlRenderer.Render(html, data, lines);
     }
+
+    static List<Dictionary<string, string>> activeLinesSync(PosQuote quote)
+    {
+        var vn = CultureInfo.GetCultureInfo("vi-VN");
+        var i = 1;
+        return quote.Lines.Where(l => l.Deleted == null).OrderBy(l => l.SortOrder)
+            .Select(l => new Dictionary<string, string>
+            {
+                ["STT"] = (i++).ToString(),
+                ["Ma_Hang"] = l.ProductCode ?? "",
+                ["Ten_Hang_Hoa"] = l.ProductName,
+                ["Don_Vi_Tinh"] = l.UnitName ?? "",
+                ["So_Luong"] = l.Qty.ToString("0.##", vn),
+                ["Don_Gia"] = l.UnitPrice.ToString("#,##0", vn),
+                ["Thanh_Tien"] = l.LineTotal.ToString("#,##0", vn),
+                ["Chiet_Khau"] = l.DiscountAmount.ToString("#,##0", vn),
+                ["Ghi_Chu"] = l.LineNote ?? "",
+                ["Bao_Hanh"] = l.WarrantyMonths is > 0 ? l.WarrantyMonths + " tháng" : "",
+                ["Hinh_Anh"] = "",
+            }).ToList();
+    }
+
+    static async Task<string> ResolveTemplateHtmlAsync(
+        ZKTecoDbContext db, PosQuote quote, PosPrintDocumentType docType)
+    {
+        if (quote.PrintTemplateId is Guid tid)
+        {
+            var picked = await db.PosPrintTemplates.AsNoTracking()
+                .Where(t => t.Id == tid && t.StoreId == quote.StoreId && t.Deleted == null)
+                .Select(t => t.HtmlContent)
+                .FirstOrDefaultAsync();
+            if (IsCompleteA4(picked)) return picked!;
+        }
+        var def = await db.PosPrintTemplates.AsNoTracking()
+            .Where(t => t.StoreId == quote.StoreId && t.DocumentType == docType
+                        && t.Deleted == null && t.IsActive)
+            .OrderByDescending(t => t.IsDefault)
+            .ThenBy(t => t.SortOrder)
+            .Select(t => t.HtmlContent)
+            .FirstOrDefaultAsync();
+        if (IsCompleteA4(def)) return def!;
+        return DefaultA4For(kindFromDocType(docType));
+    }
+
+    static PosQuoteDocumentKind kindFromDocType(PosPrintDocumentType t) => t switch
+    {
+        PosPrintDocumentType.Contract => PosQuoteDocumentKind.Contract,
+        PosPrintDocumentType.Handover => PosQuoteDocumentKind.Handover,
+        PosPrintDocumentType.Acceptance => PosQuoteDocumentKind.Acceptance,
+        PosPrintDocumentType.PaymentRequest => PosQuoteDocumentKind.PaymentRequest,
+        PosPrintDocumentType.StockIssue => PosQuoteDocumentKind.StockIssue,
+        _ => PosQuoteDocumentKind.Quote,
+    };
+
+    static bool IsUsableHtml(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return false;
+        var t = html.TrimStart();
+        // Reject JSON V2 marker (`<!--POS_TEMPLATE_V2-->…{ }`) — cũng bắt đầu bằng `<`.
+        if (t.StartsWith("<!--POS_TEMPLATE_V2", StringComparison.OrdinalIgnoreCase)) return false;
+        return t.StartsWith("<", StringComparison.Ordinal) && !t.StartsWith("{", StringComparison.Ordinal);
+    }
+
+    /// <summary>Mẫu cũ thiếu MST / đại diện shop — dùng mặc định A4 đầy đủ.</summary>
+    static bool IsCompleteA4(string? html) =>
+        IsUsableHtml(html) &&
+        html!.Contains("{MST_Cua_Hang}", StringComparison.Ordinal) &&
+        html.Contains("{Nguoi_Dai_Dien_Cua_Hang}", StringComparison.Ordinal);
+
+    static string FirstText(params string?[] values)
+    {
+        foreach (var v in values)
+        {
+            if (!string.IsNullOrWhiteSpace(v)) return v.Trim();
+        }
+        return "";
+    }
+
+    static Dictionary<string, string> BuildData(
+        PosQuote quote,
+        PosQuoteDocumentKind kind,
+        string docNo,
+        string? extraNote,
+        Store? store,
+        Branch? branch,
+        PosCustomer? customer,
+        PosStoreCommercialProfile? profile)
+    {
+        var vn = CultureInfo.GetCultureInfo("vi-VN");
+        var now = DateTime.Now;
+        var shopName = FirstText(profile?.CompanyName, store?.Name);
+        var storeAddress = FirstText(profile?.Address, branch?.Address, store?.Address);
+        var storePhone = FirstText(profile?.Phone, branch?.Phone, store?.Phone);
+        var storeTaxCode = FirstText(profile?.TaxCode, branch?.TaxCode);
+        var storeEmail = FirstText(profile?.Email, branch?.Email);
+        var storeBankNo = FirstText(profile?.BankAccountNumber);
+        var storeBankName = FirstText(profile?.BankName);
+        var storeBankHolder = FirstText(profile?.BankAccountHolder, shopName);
+        var storeRep = FirstText(profile?.LegalRepresentative);
+        var storeTitle = FirstText(profile?.LegalTitle, "Giám đốc");
+        var customerCompany = FirstText(customer?.CompanyName, quote.CustomerName);
+        var customerTaxCode = customer?.TaxCode ?? "";
+        var deposit = quote.Total * 0.5m;
+        return new Dictionary<string, string>
+        {
+            ["PaperSize"] = "A4",
+            ["Ten_Cua_Hang"] = shopName,
+            ["Dia_Chi_Chi_Nhanh"] = storeAddress,
+            ["Dien_Thoai_Chi_Nhanh"] = storePhone,
+            ["Email_Cua_Hang"] = storeEmail,
+            ["MST_Cua_Hang"] = storeTaxCode,
+            ["Tai_Khoan_Cua_Hang"] = storeBankNo,
+            ["Ngan_Hang_Cua_Hang"] = storeBankName,
+            ["Chu_Tai_Khoan_Cua_Hang"] = storeBankHolder,
+            ["Nguoi_Dai_Dien_Cua_Hang"] = storeRep,
+            ["Chuc_Vu_Cua_Hang"] = storeTitle,
+            ["Tieu_De_In"] = TitleOf(kind),
+            ["Ma_Don_Hang"] = docNo,
+            ["Ma_Bao_Gia"] = quote.QuoteNo,
+            ["So_Chung_Tu"] = docNo,
+            ["So_Hop_Dong"] = kind == PosQuoteDocumentKind.Contract ? docNo : quote.QuoteNo,
+            ["Ngay_Hop_Dong"] = now.ToString("dd/MM/yyyy", vn),
+            ["Ngay"] = now.ToString("dd/MM/yyyy", vn),
+            ["Gio"] = now.ToString("HH:mm", vn),
+            ["Khach_Hang"] = quote.CustomerName ?? "",
+            ["Ten_Cong_Ty_Khach"] = customerCompany,
+            ["MST_Khach_Hang"] = customerTaxCode,
+            ["Tai_Khoan_Khach_Hang"] = "",
+            ["Ngan_Hang_Khach_Hang"] = "",
+            ["Nguoi_Dai_Dien_Khach"] = customer?.LegalRepresentative ?? quote.CustomerName ?? "",
+            ["Chuc_Vu_Khach"] = string.IsNullOrWhiteSpace(customer?.LegalTitle)
+                ? "Giám đốc"
+                : customer!.LegalTitle!,
+            ["SDT"] = quote.CustomerPhone ?? "",
+            ["Dia_Chi_Khach_Hang"] = quote.CustomerAddress ?? "",
+            ["Dia_Diem_Thi_Cong"] = quote.CustomerAddress ?? "",
+            ["Han_Bao_Gia"] = quote.ValidUntil?.ToLocalTime().ToString("dd/MM/yyyy", vn) ?? "",
+            ["Tong_Tien_Hang"] = quote.SubTotal.ToString("#,##0", vn),
+            ["Chiet_Khau_Hoa_Don"] = quote.Discount.ToString("#,##0", vn),
+            ["Tien_Thue"] = quote.VatAmount.ToString("#,##0", vn),
+            ["Thue"] = quote.VatAmount.ToString("#,##0", vn),
+            ["VAT"] = quote.VatAmount.ToString("#,##0", vn),
+            ["Tong_Cong"] = quote.Total.ToString("#,##0", vn),
+            ["Khach_Can_Tra"] = quote.Total.ToString("#,##0", vn),
+            ["Tam_Ung"] = deposit.ToString("#,##0", vn),
+            ["Con_Lai_Hop_Dong"] = (quote.Total - deposit).ToString("#,##0", vn),
+            ["Ky_Han_Thi_Cong"] = "Theo thỏa thuận",
+            ["Ky_Han_Thanh_Toan"] = "10 ngày kể từ ký hợp đồng",
+            ["Tong_Cong_Bang_Chu"] = PosVietnameseMoney.InWords(quote.Total),
+            ["Hinh_Thuc_Thanh_Toan"] = quote.PaymentMethod ?? "",
+            ["Dieu_Khoan"] = quote.Terms ?? "",
+            ["Bao_Hanh"] = "12 tháng",
+            ["Ghi_Chu"] = string.Join("\n", new[] { quote.Note, extraNote }.Where(s => !string.IsNullOrWhiteSpace(s))),
+            ["Nguoi_Bao_Gia"] = quote.QuotedBy ?? quote.IssuedBy ?? "",
+            ["Nguoi_Ban"] = quote.QuotedBy ?? "",
+        };
+    }
+
+    static async Task<List<Dictionary<string, string>>> BuildLinesAsync(
+        ZKTecoDbContext db,
+        PosQuote quote,
+        bool includeImages,
+        string? contentRootPath)
+    {
+        var vn = CultureInfo.GetCultureInfo("vi-VN");
+        var active = quote.Lines.Where(l => l.Deleted == null).OrderBy(l => l.SortOrder).ToList();
+        var productIds = active.Where(l => l.ProductId.HasValue).Select(l => l.ProductId!.Value).Distinct().ToList();
+        var imageByProduct = new Dictionary<Guid, string>();
+        if (includeImages && productIds.Count > 0 && !string.IsNullOrWhiteSpace(contentRootPath))
+        {
+            var products = await db.PosProducts.AsNoTracking()
+                .Where(p => productIds.Contains(p.Id) && p.Deleted == null)
+                .Select(p => new { p.Id, p.ImageUrl })
+                .ToListAsync();
+            foreach (var p in products)
+            {
+                if (string.IsNullOrWhiteSpace(p.ImageUrl)) continue;
+                imageByProduct[p.Id] = PosProductImageFiles.EmbedImgTag(contentRootPath, p.ImageUrl);
+            }
+        }
+
+        var i = 1;
+        return active.Select(l =>
+        {
+            var img = "";
+            if (includeImages && l.ProductId is Guid pid)
+                imageByProduct.TryGetValue(pid, out img);
+            img ??= "";
+            return new Dictionary<string, string>
+            {
+                ["STT"] = (i++).ToString(),
+                ["Ma_Hang"] = l.ProductCode ?? "",
+                ["Ten_Hang_Hoa"] = l.ProductName,
+                ["Don_Vi_Tinh"] = l.UnitName ?? "",
+                ["So_Luong"] = l.Qty.ToString("0.##", vn),
+                ["Don_Gia"] = l.UnitPrice.ToString("#,##0", vn),
+                ["Thanh_Tien"] = l.LineTotal.ToString("#,##0", vn),
+                ["Chiet_Khau"] = l.DiscountAmount.ToString("#,##0", vn),
+                ["Ghi_Chu"] = l.LineNote ?? "",
+                ["Bao_Hanh"] = l.WarrantyMonths is > 0 ? l.WarrantyMonths + " tháng" : "",
+                ["Hinh_Anh"] = img,
+            };
+        }).ToList();
+    }
+
+    public static string DefaultA4Html(string title) => DefaultA4For(kindFromTitle(title));
+
+    public static string DefaultA4For(PosQuoteDocumentKind kind) => kind switch
+    {
+        PosQuoteDocumentKind.Contract => ContractHtml(),
+        PosQuoteDocumentKind.Handover => HandoverHtml(),
+        PosQuoteDocumentKind.Acceptance => AcceptanceHtml(),
+        PosQuoteDocumentKind.PaymentRequest => PaymentRequestHtml(),
+        _ => QuoteHtml(),
+    };
+
+    static PosQuoteDocumentKind kindFromTitle(string title)
+    {
+        var t = (title ?? "").ToUpperInvariant();
+        if (t.Contains("HỢP ĐỒNG") || t.Contains("HOP DONG") || t.Contains("THI CÔNG"))
+            return PosQuoteDocumentKind.Contract;
+        if (t.Contains("NGHIỆM") || t.Contains("NGHIEM"))
+            return PosQuoteDocumentKind.Acceptance;
+        if (t.Contains("BÀN GIAO") || t.Contains("BAN GIAO"))
+            return PosQuoteDocumentKind.Handover;
+        if (t.Contains("THANH TOÁN") || t.Contains("THANH TOAN") || t.Contains("ĐỀ NGHỊ") || t.Contains("DE NGHI"))
+            return PosQuoteDocumentKind.PaymentRequest;
+        return PosQuoteDocumentKind.Quote;
+    }
+
+    static string Motto() =>
+        """
+        <div style="text-align:center;line-height:1.35">
+          <div style="font-weight:bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+          <div style="font-weight:bold">Độc lập - Tự do - Hạnh phúc</div>
+          <div style="border-top:1px solid #000;width:180px;margin:4px auto 10px"></div>
+        </div>
+        """;
+
+    static string ItemTable() =>
+        """
+        <table style="width:100%;border-collapse:collapse;margin:8px 0">
+          <thead><tr>
+            <th style="border:1px solid #000;padding:5px;width:36px">STT</th>
+            <th style="border:1px solid #000;padding:5px;width:3.2cm">Hình</th>
+            <th style="border:1px solid #000;padding:5px">Tên hàng hóa / sản phẩm</th>
+            <th style="border:1px solid #000;padding:5px">ĐVT</th>
+            <th style="border:1px solid #000;padding:5px">SL</th>
+            <th style="border:1px solid #000;padding:5px">Đơn giá (VNĐ)</th>
+            <th style="border:1px solid #000;padding:5px">Thành tiền (VNĐ)</th>
+            <th style="border:1px solid #000;padding:5px">Bảo hành</th>
+          </tr></thead>
+          <tbody><!--BEGIN_ITEMS-->
+            <tr>
+              <td style="border:1px solid #000;padding:4px;text-align:center">{STT}</td>
+              <td style="border:1px solid #000;padding:2px;text-align:center;vertical-align:middle">{Hinh_Anh}</td>
+              <td style="border:1px solid #000;padding:4px">{Ten_Hang_Hoa}</td>
+              <td style="border:1px solid #000;padding:4px;text-align:center">{Don_Vi_Tinh}</td>
+              <td style="border:1px solid #000;padding:4px;text-align:center">{So_Luong}</td>
+              <td style="border:1px solid #000;padding:4px;text-align:right">{Don_Gia}</td>
+              <td style="border:1px solid #000;padding:4px;text-align:right">{Thanh_Tien}</td>
+              <td style="border:1px solid #000;padding:4px">{Bao_Hanh}</td>
+            </tr><!--END_ITEMS-->
+          </tbody>
+        </table>
+        """;
+
+    static string QuoteHtml() =>
+        $$"""
+        <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:12px">
+          <table style="width:100%"><tr>
+            <td style="width:50%;vertical-align:top">
+              <div style="font-weight:bold;text-transform:uppercase">{Ten_Cua_Hang}</div>
+              <div>MST: {MST_Cua_Hang}</div>
+              <div>{Dia_Chi_Chi_Nhanh}</div>
+              <div>ĐT: {Dien_Thoai_Chi_Nhanh} &nbsp; Email: {Email_Cua_Hang}</div>
+              <div>TK: {Tai_Khoan_Cua_Hang} — {Ngan_Hang_Cua_Hang}</div>
+              <div>Chủ TK: {Chu_Tai_Khoan_Cua_Hang}</div>
+              <div>Đại diện: {Nguoi_Dai_Dien_Cua_Hang} — {Chuc_Vu_Cua_Hang}</div>
+            </td>
+            <td>{{Motto()}}<div style="text-align:center">{Dia_Chi_Chi_Nhanh}, ngày {Ngay}</div></td>
+          </tr></table>
+          <h2 style="text-align:center;margin:12px 0 4px">BẢNG BÁO GIÁ</h2>
+          <div style="text-align:center">Số: <b>{So_Chung_Tu}</b> &nbsp; Theo BG: {Ma_Bao_Gia} &nbsp; Hiệu lực đến: <b>{Han_Bao_Gia}</b></div>
+          <p><b>Kính gửi:</b> {Ten_Cong_Ty_Khach}<br/>
+          MST: {MST_Khach_Hang} &nbsp; ĐT: {SDT}<br/>
+          Địa chỉ: {Dia_Chi_Khach_Hang}<br/>
+          Đại diện: {Nguoi_Dai_Dien_Khach} — {Chuc_Vu_Khach}<br/>
+          Hình thức thanh toán: {Hinh_Thuc_Thanh_Toan}</p>
+          <p>Công ty chúng tôi xin trân trọng gửi Quý khách hàng bảng báo giá hàng hóa / dịch vụ như sau:</p>
+          {{ItemTable()}}
+          <div style="text-align:right">
+            <div>Tổng tiền hàng: <b>{Tong_Tien_Hang}</b></div>
+            <div>Chiết khấu: <b>{Chiet_Khau_Hoa_Don}</b></div>
+            <div>Thuế GTGT: <b>{Tien_Thue}</b></div>
+            <div style="font-size:15px;font-weight:bold">Tổng cộng: {Tong_Cong} VNĐ</div>
+            <div><i>Bằng chữ: {Tong_Cong_Bang_Chu}</i></div>
+          </div>
+          <p><b>Điều khoản:</b><br/>{Dieu_Khoan}<br/>Bảo hành: {Bao_Hanh}<br/>{Ghi_Chu}</p>
+          <p>Rất mong nhận được sự hợp tác của Quý khách hàng.<br/><b>Trân trọng!</b></p>
+          <table style="width:100%;margin-top:28px"><tr>
+            <td style="width:50%;text-align:center">KHÁCH HÀNG<br/><i>Ký, ghi rõ họ tên</i><div style="height:56px"></div>{Nguoi_Dai_Dien_Khach}</td>
+            <td style="width:50%;text-align:center">ĐẠI DIỆN {Ten_Cua_Hang}<br/>{Chuc_Vu_Cua_Hang}<div style="height:56px"></div>{Nguoi_Dai_Dien_Cua_Hang}</td>
+          </tr></table>
+        </div>
+        """;
+
+    static string ContractHtml() =>
+        $$"""
+        <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:12px">
+          {{Motto()}}
+          <h2 style="text-align:center;margin:8px 0 4px">HỢP ĐỒNG THI CÔNG</h2>
+          <div style="text-align:center">Số HĐ: <b>{So_Hop_Dong}</b> &nbsp; Theo báo giá: {Ma_Bao_Gia}</div>
+          <p>- Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24/11/2015;<br/>
+          - Căn cứ Luật Thương mại số 36/2005/QH11 ngày 14/6/2005;<br/>
+          - Căn cứ nhu cầu của các bên.</p>
+          <p>Hợp đồng này được ký kết ngày {Ngay} giữa hai đơn vị:</p>
+          <p><b>BÊN A (Chủ đầu tư): {Ten_Cong_Ty_Khach}</b><br/>
+          Mã số thuế: {MST_Khach_Hang}<br/>
+          Địa chỉ: {Dia_Chi_Khach_Hang}<br/>
+          Điện thoại: {SDT}<br/>
+          Tài khoản: {Tai_Khoan_Khach_Hang} — {Ngan_Hang_Khach_Hang}<br/>
+          Đại diện: {Nguoi_Dai_Dien_Khach} — Chức vụ: {Chuc_Vu_Khach}</p>
+          <p><b>BÊN B (Nhà thầu / shop): {Ten_Cua_Hang}</b><br/>
+          Mã số thuế: {MST_Cua_Hang}<br/>
+          Địa chỉ: {Dia_Chi_Chi_Nhanh}<br/>
+          Điện thoại: {Dien_Thoai_Chi_Nhanh} &nbsp; Email: {Email_Cua_Hang}<br/>
+          Tài khoản: {Tai_Khoan_Cua_Hang} tại {Ngan_Hang_Cua_Hang}<br/>
+          Chủ tài khoản: {Chu_Tai_Khoan_Cua_Hang}<br/>
+          Đại diện: {Nguoi_Dai_Dien_Cua_Hang} — Chức vụ: {Chuc_Vu_Cua_Hang}</p>
+          <p>Sau khi thỏa thuận, Bên A giao cho Bên B cung cấp / lắp đặt các hạng mục dưới đây:</p>
+          <p><b>Điều 1: Hạng mục thi công, giá trị hợp đồng</b><br/>Địa điểm: {Dia_Diem_Thi_Cong}</p>
+          {{ItemTable()}}
+          <p>Giá trị hợp đồng: <b>{Tong_Cong} VNĐ</b> (Bằng chữ: {Tong_Cong_Bang_Chu}).
+          Trọn gói vật tư, nhân công, vận chuyển, lắp đặt, đã gồm thuế GTGT.</p>
+          <p><b>Điều 2: Thời gian và phương thức thanh toán</b><br/>
+          Hình thức: {Hinh_Thuc_Thanh_Toan}.<br/>
+          Đợt 1: Bên A tạm ứng 50% — <b>{Tam_Ung} VNĐ</b> trong vòng {Ky_Han_Thanh_Toan}.<br/>
+          Đợt 2: Thanh toán phần còn lại <b>{Con_Lai_Hop_Dong} VNĐ</b> sau nghiệm thu. Hồ sơ: biên bản nghiệm thu, đề nghị thanh toán, hóa đơn GTGT.</p>
+          <p><b>Điều 3: Thời gian thi công</b><br/>
+          Dự kiến {Ky_Han_Thi_Cong} kể từ ngày Bên B nhận tạm ứng, trừ bất khả kháng.</p>
+          <p><b>Điều 4: Bảo hành</b><br/>{Bao_Hanh}. {Dieu_Khoan}</p>
+          <p><b>Điều 5: Quyền và nghĩa vụ</b><br/>
+          Bên A thanh toán đúng hạn. Bên B thi công đúng chủng loại, chất lượng, tiến độ và bảo hành theo Điều 4.</p>
+          <p><b>Điều 6: Điều khoản chung</b><br/>
+          Hợp đồng có hiệu lực từ ngày ký, lập thành 02 bản, mỗi bên giữ 01 bản có giá trị như nhau.</p>
+          <table style="width:100%;margin-top:28px"><tr>
+            <td style="width:50%;text-align:center"><b>ĐẠI DIỆN BÊN A</b><br/><i>Ký, ghi rõ họ tên</i><div style="height:56px"></div>{Nguoi_Dai_Dien_Khach}</td>
+            <td style="width:50%;text-align:center"><b>ĐẠI DIỆN BÊN B</b><br/><i>Ký, ghi rõ họ tên</i><div style="height:56px"></div>{Nguoi_Dai_Dien_Cua_Hang}</td>
+          </tr></table>
+        </div>
+        """;
+
+    static string AcceptanceHtml() =>
+        $$"""
+        <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:12px">
+          <table style="width:100%"><tr>
+            <td style="width:42%;font-weight:bold">{Ten_Cua_Hang}</td>
+            <td>{{Motto()}}</td>
+          </tr></table>
+          <div style="text-align:right">{Dia_Chi_Chi_Nhanh}, ngày {Ngay}</div>
+          <h2 style="text-align:center;margin:10px 0 4px">BIÊN BẢN NGHIỆM THU HOÀN THÀNH<br/>BÀN GIAO SẢN PHẨM ĐƯA VÀO SỬ DỤNG</h2>
+          <div style="text-align:center">Số: <b>{So_Chung_Tu}</b> &nbsp; Theo HĐ/BG: {Ma_Bao_Gia}</div>
+          <p><b>1. Đối tượng nghiệm thu</b><br/>
+          - Tên hạng mục: theo bảng chi tiết bên dưới<br/>
+          - Địa điểm: {Dia_Chi_Khach_Hang}<br/>
+          - Căn cứ hợp đồng / báo giá: {Ma_Bao_Gia}</p>
+          <p><b>2. Thành phần trực tiếp nghiệm thu</b><br/>
+          ● Chủ đầu tư: {Khach_Hang} — ĐT {SDT} — {Dia_Chi_Khach_Hang}<br/>
+          ● Nhà thầu: {Ten_Cua_Hang} — {Dia_Chi_Chi_Nhanh}</p>
+          <p><b>3. Thời gian nghiệm thu:</b> ngày {Ngay} tại hiện trường.</p>
+          <p><b>4. Đánh giá khối lượng / chất lượng</b></p>
+          {{ItemTable()}}
+          <p>Về chất lượng: Đạt yêu cầu. Ý kiến khác: {Ghi_Chu}</p>
+          <p><b>Giá trị quyết toán:</b> {Tong_Cong} VNĐ (Bằng chữ: {Tong_Cong_Bang_Chu}).</p>
+          <p><b>Kết luận:</b> Chấp nhận nghiệm thu hạng mục và đưa vào sử dụng.
+          Biên bản lập thành 02 bản, mỗi bên 01 bản, có giá trị pháp lý như nhau.</p>
+          <table style="width:100%;margin-top:28px"><tr>
+            <td style="width:50%;text-align:center"><b>ĐẠI DIỆN CHỦ ĐẦU TƯ</b></td>
+            <td style="width:50%;text-align:center"><b>ĐẠI DIỆN NHÀ THẦU</b></td>
+          </tr></table>
+        </div>
+        """;
+
+    static string HandoverHtml() =>
+        $$"""
+        <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:12px">
+          <table style="width:100%"><tr>
+            <td style="width:42%;font-weight:bold">{Ten_Cua_Hang}</td>
+            <td>{{Motto()}}</td>
+          </tr></table>
+          <div style="text-align:right">{Dia_Chi_Chi_Nhanh}, ngày {Ngay}</div>
+          <h2 style="text-align:center;margin:10px 0 4px">BIÊN BẢN BÀN GIAO CÔNG TRÌNH</h2>
+          <div style="text-align:center">Số: <b>{So_Chung_Tu}</b> &nbsp; Theo HĐ/BG: {Ma_Bao_Gia}</div>
+          <p>Hôm nay, các bên tiến hành bàn giao hạng mục đã thi công:</p>
+          <p><b>Bên giao (Nhà thầu):</b> {Ten_Cua_Hang} — {Dia_Chi_Chi_Nhanh}<br/>
+          <b>Bên nhận (Chủ đầu tư):</b> {Khach_Hang} — {Dia_Chi_Khach_Hang} — ĐT {SDT}</p>
+          {{ItemTable()}}
+          <p>Tổng giá trị: <b>{Tong_Cong} VNĐ</b> ({Tong_Cong_Bang_Chu}).</p>
+          <p>Bên nhận đã kiểm tra hiện trường, đồng ý nhận bàn giao. {Ghi_Chu}</p>
+          <p>{Dieu_Khoan}</p>
+          <table style="width:100%;margin-top:28px"><tr>
+            <td style="width:50%;text-align:center"><b>BÊN NHẬN</b></td>
+            <td style="width:50%;text-align:center"><b>BÊN GIAO</b></td>
+          </tr></table>
+        </div>
+        """;
+
+    static string PaymentRequestHtml() =>
+        $$"""
+        <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:12px">
+          <table style="width:100%"><tr>
+            <td style="width:42%;vertical-align:top">
+              <div style="font-weight:bold">{Ten_Cua_Hang}</div>
+              <div>Số: {So_Chung_Tu}</div>
+            </td>
+            <td>{{Motto()}}</td>
+          </tr></table>
+          <div style="text-align:right">ngày {Ngay}</div>
+          <h2 style="text-align:center;margin:12px 0 4px">ĐỀ NGHỊ THANH TOÁN</h2>
+          <div style="text-align:center">V/v: Thanh toán theo báo giá / hợp đồng {Ma_Bao_Gia}</div>
+          <p><b>Kính gửi:</b> {Khach_Hang}</p>
+          <p>Căn cứ hợp đồng / báo giá số {Ma_Bao_Gia} ngày {Ngay} giữa {Khach_Hang} và {Ten_Cua_Hang}.</p>
+          <p>Đến nay chúng tôi đã hoàn tất hạng mục theo danh sách:</p>
+          {{ItemTable()}}
+          <p>Nay kính đề nghị Quý Công ty thanh toán:</p>
+          <p>- Giá trị đề nghị thanh toán: <b>{Tong_Cong} VNĐ</b> (Bằng chữ: {Tong_Cong_Bang_Chu}).<br/>
+          - Hình thức thanh toán: {Hinh_Thuc_Thanh_Toan}</p>
+          <p>Rất mong Quý Công ty xem xét, đối chiếu và thanh toán theo đúng tiến độ đã thỏa thuận.</p>
+          <p>Trân trọng!</p>
+          <table style="width:100%;margin-top:28px"><tr>
+            <td style="width:50%"></td>
+            <td style="width:50%;text-align:center"><b>ĐẠI DIỆN {Ten_Cua_Hang}</b><br/>{Chuc_Vu_Cua_Hang}</td>
+          </tr></table>
+        </div>
+        """;
 }

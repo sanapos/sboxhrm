@@ -11,6 +11,7 @@ class PosQuoteLine {
     this.vatRate = 0,
     this.lineTotal = 0,
     this.lineNote,
+    this.warrantyMonths,
     this.sortOrder = 0,
   });
 
@@ -25,12 +26,19 @@ class PosQuoteLine {
   double vatRate;
   double lineTotal;
   String? lineNote;
+  int? warrantyMonths;
   int sortOrder;
 
   double get net => (qty * unitPrice - discountAmount).clamp(0, double.infinity);
 
   factory PosQuoteLine.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+    int? i(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toInt();
+      return int.tryParse('$v');
+    }
+
     return PosQuoteLine(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       productId: (json['productId'] ?? json['ProductId'])?.toString(),
@@ -44,7 +52,8 @@ class PosQuoteLine {
       vatRate: n(json['vatRate'] ?? json['VatRate']),
       lineTotal: n(json['lineTotal'] ?? json['LineTotal']),
       lineNote: (json['lineNote'] ?? json['LineNote'])?.toString(),
-      sortOrder: (json['sortOrder'] ?? json['SortOrder'] as num?)?.toInt() ?? 0,
+      warrantyMonths: i(json['warrantyMonths'] ?? json['WarrantyMonths']),
+      sortOrder: i(json['sortOrder'] ?? json['SortOrder']) ?? 0,
     );
   }
 
@@ -58,6 +67,7 @@ class PosQuoteLine {
         'discountAmount': discountAmount,
         'vatRate': vatRate,
         'lineNote': lineNote,
+        if (warrantyMonths != null) 'warrantyMonths': warrantyMonths,
       };
 }
 
@@ -111,6 +121,7 @@ class PosQuoteDocument {
         'Contract' => 'Hợp đồng',
         'Handover' => 'Bàn giao',
         'Acceptance' => 'Nghiệm thu',
+        'PaymentRequest' => 'Đề nghị thanh toán',
         'StockIssue' => 'Xuất kho',
         _ => k,
       };
@@ -134,9 +145,12 @@ class PosQuote {
     this.total = 0,
     this.note,
     this.terms,
+    this.paymentMethod,
     this.printTemplateId,
     this.revision = 1,
     this.quotedBy,
+    this.quotedByEmployeeId,
+    this.quotedByEmployeeName,
     this.commercialStage = 'None',
     this.createdAt,
     this.lines = const [],
@@ -159,9 +173,12 @@ class PosQuote {
   final double total;
   final String? note;
   final String? terms;
+  final String? paymentMethod;
   final String? printTemplateId;
   final int revision;
   final String? quotedBy;
+  final String? quotedByEmployeeId;
+  final String? quotedByEmployeeName;
   final String commercialStage;
   final DateTime? createdAt;
   final List<PosQuoteLine> lines;
@@ -231,27 +248,112 @@ class PosQuote {
       total: n(json['total'] ?? json['Total']),
       note: (json['note'] ?? json['Note'])?.toString(),
       terms: (json['terms'] ?? json['Terms'])?.toString(),
+      paymentMethod:
+          (json['paymentMethod'] ?? json['PaymentMethod'])?.toString(),
       printTemplateId:
           (json['printTemplateId'] ?? json['PrintTemplateId'])?.toString(),
-      revision: (json['revision'] ?? json['Revision'] as num?)?.toInt() ?? 1,
+      revision: (json['revision'] is num
+              ? (json['revision'] as num).toInt()
+              : (json['Revision'] is num
+                  ? (json['Revision'] as num).toInt()
+                  : int.tryParse('${json['revision'] ?? json['Revision']}'))) ??
+          1,
       quotedBy: (json['quotedBy'] ?? json['QuotedBy'])?.toString(),
+      quotedByEmployeeId:
+          (json['quotedByEmployeeId'] ?? json['QuotedByEmployeeId'])?.toString(),
+      quotedByEmployeeName: (json['quotedByEmployeeName'] ??
+              json['QuotedByEmployeeName'])
+          ?.toString(),
       commercialStage:
           (json['commercialStage'] ?? json['CommercialStage'] ?? 'None')
               .toString(),
       createdAt: d(json['createdAt'] ?? json['CreatedAt']),
-      lines: rawLines is List
-          ? rawLines
-              .whereType<Map>()
-              .map((e) => PosQuoteLine.fromJson(Map<String, dynamic>.from(e)))
-              .toList()
-          : const [],
+      lines: parseLines(rawLines),
       documents: rawDocs is List
-          ? rawDocs
-              .whereType<Map>()
-              .map((e) =>
-                  PosQuoteDocument.fromJson(Map<String, dynamic>.from(e)))
-              .toList()
+          ? [
+              for (final e in rawDocs)
+                if (e is Map)
+                  PosQuoteDocument.fromJson(Map<String, dynamic>.from(e)),
+            ]
           : const [],
+    );
+  }
+
+  static List<PosQuoteLine> parseLines(dynamic raw) {
+    if (raw is! List) return [];
+    final out = <PosQuoteLine>[];
+    for (final e in raw) {
+      if (e is Map) {
+        out.add(PosQuoteLine.fromJson(Map<String, dynamic>.from(e)));
+      }
+    }
+    return out;
+  }
+
+  PosQuoteDocument? get quoteSlip {
+    for (final d in documents) {
+      if (d.kind == 'Quote' && d.htmlContent.trim().isNotEmpty) return d;
+    }
+    for (final d in documents) {
+      if (d.htmlContent.trim().isNotEmpty) return d;
+    }
+    return null;
+  }
+
+  String get staffLabel {
+    final n = (quotedByEmployeeName ?? '').trim();
+    if (n.isNotEmpty) return n;
+    return (quotedBy ?? '').trim();
+  }
+}
+
+class PosQuoteActivity {
+  PosQuoteActivity({
+    required this.id,
+    required this.kind,
+    required this.content,
+    this.nextFollowUpAt,
+    this.employeeId,
+    this.employeeName,
+    this.createdBy,
+    this.createdAt,
+  });
+
+  final String id;
+  final String kind;
+  final String content;
+  final DateTime? nextFollowUpAt;
+  final String? employeeId;
+  final String? employeeName;
+  final String? createdBy;
+  final DateTime? createdAt;
+
+  static String kindLabel(String k) => switch (k) {
+        'Created' => 'Tạo báo giá',
+        'Edit' => 'Sửa báo giá',
+        'Call' => 'Gọi khách',
+        'Note' => 'Ghi chú',
+        'Meeting' => 'Gặp khách',
+        'FollowUp' => 'Hẹn chăm sóc',
+        'Status' => 'Trạng thái',
+        _ => k,
+      };
+
+  factory PosQuoteActivity.fromJson(Map<String, dynamic> json) {
+    DateTime? d(dynamic v) {
+      if (v == null) return null;
+      return DateTime.tryParse(v.toString());
+    }
+
+    return PosQuoteActivity(
+      id: (json['id'] ?? json['Id'] ?? '').toString(),
+      kind: (json['kind'] ?? json['Kind'] ?? 'Note').toString(),
+      content: (json['content'] ?? json['Content'] ?? '').toString(),
+      nextFollowUpAt: d(json['nextFollowUpAt'] ?? json['NextFollowUpAt']),
+      employeeId: (json['employeeId'] ?? json['EmployeeId'])?.toString(),
+      employeeName: (json['employeeName'] ?? json['EmployeeName'])?.toString(),
+      createdBy: (json['createdBy'] ?? json['CreatedBy'])?.toString(),
+      createdAt: d(json['createdAt'] ?? json['CreatedAt']),
     );
   }
 }

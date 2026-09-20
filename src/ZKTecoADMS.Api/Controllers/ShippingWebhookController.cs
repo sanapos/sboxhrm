@@ -165,6 +165,41 @@ public class ShippingWebhookController(
         }
     }
 
+    [HttpPost("spx")]
+    public async Task<IActionResult> Spx(CancellationToken ct)
+    {
+        using var reader = new StreamReader(Request.Body);
+        var raw = await reader.ReadToEndAsync(ct);
+        try
+        {
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(raw) ? "{}" : raw);
+            var root = doc.RootElement;
+            var data = root.TryGetProperty("data", out var d) && d.ValueKind == JsonValueKind.Object
+                ? d : root;
+            var tracking = data.TryGetProperty("tracking_number", out var tn) ? tn.GetString()
+                : data.TryGetProperty("sls_tn", out var sls) ? sls.GetString()
+                : data.TryGetProperty("tracking_no", out var tn2) ? tn2.GetString()
+                : data.TryGetProperty("order_id", out var oid) ? oid.GetString()
+                : root.TryGetProperty("tracking_number", out var tn3) ? tn3.GetString() : null;
+            var status = data.TryGetProperty("status", out var st) ? st.GetString()
+                : data.TryGetProperty("current_status", out var cs) ? cs.GetString()
+                : data.TryGetProperty("status_name", out var sn) ? sn.GetString()
+                : root.TryGetProperty("status", out var st2) ? st2.GetString() : null;
+
+            var hash = Request.Query["hash"].ToString();
+            if (!await shipping.ValidateSpxWebhookHashAsync(hash, tracking, ct))
+                return Unauthorized(new { ok = false, message = "hash không khớp" });
+
+            var ok = await shipping.ApplySpxWebhookAsync(tracking, status, ct);
+            return Ok(new { ok, message = ok ? "ok" : "order not found" });
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "SPX shipping webhook failed");
+            return Ok(new { ok = true, message = "accepted" });
+        }
+    }
+
     [HttpPost("{carrier}")]
     public async Task<IActionResult> Generic(string carrier, CancellationToken ct)
     {

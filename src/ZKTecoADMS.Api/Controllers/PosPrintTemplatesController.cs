@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -499,6 +500,44 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
             CreatedBy = "system",
         });
         await dbContext.SaveChangesAsync();
+    }
+
+    [HttpPost("import-file")]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.Create)]
+    [RequestSizeLimit(20_000_000)]
+    public async Task<ActionResult<AppResponse<object>>> ImportFile(
+        IFormFile? file,
+        [FromForm] PosPrintDocumentType documentType = PosPrintDocumentType.Quote,
+        [FromForm] string? name = null)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(AppResponse<object>.Fail("Chọn file Word (.docx) hoặc PDF."));
+        await using var ms = new MemoryStream();
+        await file.CopyToAsync(ms);
+        if (!PosCommercialTemplateImport.TryImport(file.FileName, ms.ToArray(), out var html, out var error))
+            return BadRequest(AppResponse<object>.Fail(error));
+
+        var storeId = RequiredStoreId;
+        var now = DateTime.UtcNow;
+        var entity = new PosPrintTemplate
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            Name = string.IsNullOrWhiteSpace(name)
+                ? Path.GetFileNameWithoutExtension(file.FileName)
+                : name.Trim(),
+            DocumentType = documentType,
+            PaperSize = PosPrintPaperSize.A4,
+            HtmlContent = html,
+            IsDefault = false,
+            IsActive = true,
+            SortOrder = 0,
+            CreatedAt = now,
+            CreatedBy = CurrentUserEmail,
+        };
+        dbContext.PosPrintTemplates.Add(entity);
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(ToDto(entity)));
     }
 
     async Task ClearDefaultAsync(Guid storeId, PosPrintDocumentType docType, Guid? exceptId)

@@ -797,48 +797,61 @@ class PosPendingPrintIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: tr(pendingCount > 0
-              ? 'Phiếu chưa in ($pendingCount)'
-              : 'Phiếu in treo'),
-          icon: Icon(
-            pendingCount > 0
-                ? Icons.print_disabled_outlined
-                : Icons.receipt_long_outlined,
-            size: compact ? 22 : 22,
-            color: pendingCount > 0 ? Colors.orange.shade200 : iconColor,
-          ),
-          onPressed: onTap,
-        ),
-        if (pendingCount > 0)
-          Positioned(
-            right: 4,
-            top: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.orange.shade700,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white, width: 1),
-              ),
-              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-              child: Text(
-                tr(pendingCount > 99 ? '99+' : '$pendingCount'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  height: 1.1,
+    final tooltip = tr(pendingCount > 0
+        ? 'Phiếu chưa in ($pendingCount)'
+        : 'Phiếu in treo');
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  pendingCount > 0
+                      ? Icons.print_disabled_outlined
+                      : Icons.receipt_long_outlined,
+                  size: compact ? 24 : 26,
+                  color: pendingCount > 0 ? Colors.orange.shade200 : iconColor,
                 ),
-              ),
+                if (pendingCount > 0)
+                  Positioned(
+                    right: 2,
+                    top: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade700,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.white, width: 1),
+                      ),
+                      constraints:
+                          const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        tr(pendingCount > 99 ? '99+' : '$pendingCount'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          height: 1.1,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-      ],
+        ),
+      ),
     );
   }
 }

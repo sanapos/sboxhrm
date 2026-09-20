@@ -96,7 +96,7 @@ public partial class PosProductsController(
         string CommissionMode = "None",
         decimal CommissionPercent = 0,
         decimal CommissionFixed = 0,
-        bool ComboTrackStock = true);
+        bool ComboTrackStock = false);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -192,7 +192,7 @@ public partial class PosProductsController(
         PosCommissionMode CommissionMode = PosCommissionMode.None,
         decimal CommissionPercent = 0,
         decimal CommissionFixed = 0,
-        bool ComboTrackStock = true);
+        bool ComboTrackStock = false);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -686,7 +686,7 @@ public partial class PosProductsController(
             AllowToppings = dto.AllowToppings && !dto.IsTopping,
             AutoOpenToppingPopup = dto.AutoOpenToppingPopup,
             ShowComboComponentsOnSell = dto.ProductType == PosProductType.Combo && dto.ShowComboComponentsOnSell,
-            ComboTrackStock = true,
+            ComboTrackStock = dto.ProductType == PosProductType.Combo && dto.ComboTrackStock,
             CommissionMode = dto.CommissionMode,
             CommissionPercent = Math.Max(0, dto.CommissionPercent),
             CommissionFixed = Math.Max(0, dto.CommissionFixed),
@@ -813,7 +813,7 @@ public partial class PosProductsController(
         entity.AutoOpenToppingPopup = dto.AutoOpenToppingPopup;
         entity.ShowComboComponentsOnSell =
             dto.ProductType == PosProductType.Combo && dto.ShowComboComponentsOnSell;
-        entity.ComboTrackStock = true;
+        entity.ComboTrackStock = dto.ProductType == PosProductType.Combo && dto.ComboTrackStock;
         entity.CommissionMode = dto.CommissionMode;
         entity.CommissionPercent = Math.Max(0, dto.CommissionPercent);
         entity.CommissionFixed = Math.Max(0, dto.CommissionFixed);
@@ -924,7 +924,7 @@ public partial class PosProductsController(
             AllowToppings = source.AllowToppings,
             AutoOpenToppingPopup = source.AutoOpenToppingPopup,
             ShowComboComponentsOnSell = source.ShowComboComponentsOnSell,
-            ComboTrackStock = true,
+            ComboTrackStock = source.ComboTrackStock,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -1380,6 +1380,10 @@ public partial class PosProductsController(
     {
         var map = comboIds.Distinct().ToDictionary(id => id, _ => 0m);
         if (map.Count == 0) return map;
+        var comboOnHands = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => comboIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .Select(p => new { p.Id, p.OnHandQty, p.ComboTrackStock })
+            .ToDictionaryAsync(p => p.Id, p => new { p.OnHandQty, p.ComboTrackStock });
         var lines = await dbContext.PosProductComboLines.AsNoTracking()
             .Where(x => comboIds.Contains(x.ComboProductId) &&
                         x.StoreId == storeId && x.Deleted == null)
@@ -1388,7 +1392,9 @@ public partial class PosProductsController(
                 x.ComboProductId,
                 x.Qty,
                 OnHand = x.ComponentProduct != null ? x.ComponentProduct.OnHandQty : 0m,
-                x.TrackStock,
+                ComponentType = x.ComponentProduct != null
+                    ? x.ComponentProduct.ProductType
+                    : PosProductType.Service,
             })
             .ToListAsync();
         foreach (var g in lines.GroupBy(x => x.ComboProductId))
@@ -1396,7 +1402,7 @@ public partial class PosProductsController(
             decimal? min = null;
             foreach (var cl in g)
             {
-                if (!cl.TrackStock) continue;
+                if (!PosProductTypeRules.TracksInventory(cl.ComponentType)) continue;
                 if (cl.Qty <= 0)
                 {
                     min = 0;
@@ -1405,7 +1411,10 @@ public partial class PosProductsController(
                 var can = Math.Floor(cl.OnHand / cl.Qty);
                 if (min == null || can < min) min = can;
             }
-            map[g.Key] = min ?? 999999999m;
+            var fromComponents = min ?? 999999999m;
+            var combo = comboOnHands.GetValueOrDefault(g.Key);
+            map[g.Key] = PosProductTypeRules.ComboSellableQty(
+                fromComponents, combo?.OnHandQty ?? 0, combo?.ComboTrackStock == true);
         }
         return map;
     }
@@ -1428,8 +1437,6 @@ public partial class PosProductsController(
         }
         else if (entity.ProductType == PosProductType.Combo)
         {
-            entity.OnHandQty = 0;
-            entity.ReservedQty = 0;
             entity.MinStockQty = 0;
             entity.MaxStockQty = 0;
             entity.WarrantyMonths = null;
@@ -1447,8 +1454,12 @@ public partial class PosProductsController(
             entity.OpeningMinutes = null;
             entity.SessionPackValidDays = 0;
             entity.IsTopping = false;
-            entity.ComboTrackStock = true;
-            // ShowComboComponentsOnSell chỉ có ý nghĩa với combo — giữ nguyên giá trị đã set từ DTO.
+            if (!entity.ComboTrackStock)
+            {
+                entity.OnHandQty = 0;
+                entity.ReservedQty = 0;
+            }
+            // ShowComboComponentsOnSell / ComboTrackStock giữ từ DTO.
         }
         else
         {

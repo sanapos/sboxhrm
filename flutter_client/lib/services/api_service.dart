@@ -17952,6 +17952,7 @@ class ApiService {
   Future<Map<String, dynamic>> getPosQuotes({
     String? search,
     String? status,
+    String? employeeId,
     DateTime? from,
     DateTime? to,
     int page = 1,
@@ -17961,6 +17962,9 @@ class ApiService {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (status != null && status.isNotEmpty) q['status'] = status;
+      if (employeeId != null && employeeId.isNotEmpty) {
+        q['employeeId'] = employeeId;
+      }
       if (from != null) q['from'] = from.toIso8601String();
       if (to != null) q['to'] = to.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/pos/quotes')
@@ -18071,13 +18075,18 @@ class ApiService {
     String id,
     String kind, {
     String? note,
+    bool includeImages = false,
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/quotes/$id/preview'),
             headers: _headers,
-            body: jsonEncode({'kind': kind, 'note': note}),
+            body: jsonEncode({
+              'kind': kind,
+              'note': note,
+              'includeImages': includeImages,
+            }),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -18090,13 +18099,18 @@ class ApiService {
     String id,
     String kind, {
     String? note,
+    bool includeImages = false,
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/quotes/$id/documents'),
             headers: _headers,
-            body: jsonEncode({'kind': kind, 'note': note}),
+            body: jsonEncode({
+              'kind': kind,
+              'note': note,
+              'includeImages': includeImages,
+            }),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -18108,13 +18122,55 @@ class ApiService {
   Future<Map<String, dynamic>> createPosQuoteStockIssue(
     String id, {
     String? note,
+    bool includeImages = false,
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/quotes/$id/stock-issue'),
             headers: _headers,
-            body: jsonEncode({'kind': 'StockIssue', 'note': note}),
+            body: jsonEncode({
+              'kind': 'StockIssue',
+              'note': note,
+              'includeImages': includeImages,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosQuoteActivities(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/$id/activities'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosQuoteActivity(
+    String id, {
+    required String kind,
+    required String content,
+    DateTime? nextFollowUpAt,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/quotes/$id/activities'),
+            headers: _headers,
+            body: jsonEncode({
+              'kind': kind,
+              'content': content,
+              if (nextFollowUpAt != null)
+                'nextFollowUpAt': nextFollowUpAt.toUtc().toIso8601String(),
+            }),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -18128,6 +18184,31 @@ class ApiService {
       final response = await http
           .post(Uri.parse('$baseUrl/api/pos/quotes/$id/close'),
               headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosCommercialProfile() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/commercial-profile'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosCommercialProfile(
+      Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(Uri.parse('$baseUrl/api/pos/commercial-profile'),
+              headers: _headers, body: jsonEncode(body))
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
@@ -18432,6 +18513,43 @@ class ApiService {
           .replace(queryParameters: {'documentType': documentType});
       final response =
           await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> importPosPrintTemplateFile({
+    required List<int> bytes,
+    required String fileName,
+    required String documentType,
+    String? name,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/print-templates/import-file');
+      final request = http.MultipartRequest('POST', uri);
+      if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
+      request.fields['documentType'] = documentType;
+      if (name != null && name.trim().isNotEmpty) {
+        request.fields['name'] = name.trim();
+      }
+      final ext = fileName.toLowerCase().split('.').last;
+      final mime = switch (ext) {
+        'pdf' => 'application/pdf',
+        'docx' =>
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'doc' => 'application/msword',
+        _ => 'application/octet-stream',
+      };
+      final parts = mime.split('/');
+      request.files.add(http.MultipartFile.fromBytes(
+        'file',
+        bytes,
+        filename: fileName,
+        contentType: MediaType(parts[0], parts[1]),
+      ));
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

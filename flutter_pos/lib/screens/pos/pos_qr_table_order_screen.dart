@@ -946,6 +946,8 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                         value: 'ViettelPost', child: Text('Viettel Post')),
                     const DropdownMenuItem(
                         value: 'Ahamove', child: Text('AhaMove')),
+                    const DropdownMenuItem(
+                        value: 'Spx', child: Text('SPX Express')),
                   ],
                   onChanged: _busy
                       ? null

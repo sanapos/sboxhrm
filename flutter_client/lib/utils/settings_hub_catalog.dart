@@ -223,7 +223,7 @@ class SettingsHubCatalog {
       index: 27,
       icon: Icons.local_shipping_outlined,
       label: 'Đơn vị giao hàng',
-      desc: 'GHN, GHTK, Viettel Post, AhaMove — token, tạo vận đơn',
+      desc: 'GHN, GHTK, SPX Express, Viettel Post, AhaMove — token, tạo vận đơn',
       accent: HrmPageChrome.primaryNavy,
       groupTitle: 'Thiết lập POS',
       moduleCode: 'PosShipping',

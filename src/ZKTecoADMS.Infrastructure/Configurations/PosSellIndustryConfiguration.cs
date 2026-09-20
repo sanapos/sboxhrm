@@ -20,6 +20,27 @@ public class PosStoreSellSettingsConfiguration : IEntityTypeConfiguration<PosSto
     }
 }
 
+public class PosStoreCommercialProfileConfiguration : IEntityTypeConfiguration<PosStoreCommercialProfile>
+{
+    public void Configure(EntityTypeBuilder<PosStoreCommercialProfile> builder)
+    {
+        builder.ToTable("PosStoreCommercialProfiles");
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => x.StoreId).IsUnique();
+        builder.Property(x => x.CompanyName).HasMaxLength(300);
+        builder.Property(x => x.TaxCode).HasMaxLength(30);
+        builder.Property(x => x.Address).HasMaxLength(500);
+        builder.Property(x => x.Phone).HasMaxLength(50);
+        builder.Property(x => x.Email).HasMaxLength(200);
+        builder.Property(x => x.BankAccountNumber).HasMaxLength(50);
+        builder.Property(x => x.BankName).HasMaxLength(200);
+        builder.Property(x => x.BankAccountHolder).HasMaxLength(200);
+        builder.Property(x => x.LegalRepresentative).HasMaxLength(200);
+        builder.Property(x => x.LegalTitle).HasMaxLength(100);
+        builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class PosServiceAreaConfiguration : IEntityTypeConfiguration<PosServiceArea>
 {
     public void Configure(EntityTypeBuilder<PosServiceArea> builder)

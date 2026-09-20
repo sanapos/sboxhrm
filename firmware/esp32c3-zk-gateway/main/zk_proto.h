@@ -39,6 +39,8 @@
 
 #define ZK_CMD_USER_WRQ       8
 #define ZK_CMD_USERTEMP_RRQ   9
+#define ZK_CMD_USERTEMP_WRQ   10
+#define ZK_CMD_SAVE_USERTEMPS 110
 #define ZK_CMD_OPTIONS_RRQ    11
 #define ZK_CMD_OPTIONS_WRQ    12
 #define ZK_CMD_ATTLOG_RRQ     13
@@ -55,10 +57,14 @@
 #define ZK_CMD_GET_TIME       201
 #define ZK_CMD_SET_TIME       202
 
+#define ZK_CMD_USERFACE_RRQ     0x96
+#define ZK_CMD_USERFACE_WRQ     0x97
+#define ZK_CMD_DELETE_USERFACE  0x98
+
 /* Xoá một mẫu vân tay theo user_id dạng chuỗi (bản TCP của DELETE_USERTEMP). */
 #define ZK_CMD_DEL_FPTMP_STR  134
 
-/* Máy chủ động gửi lên trong lúc đăng ký vân tay (không phải trả lời lệnh nào). */
+/* Máy chủ động gửi lên trong lúc đăng ký (không phải trả lời lệnh nào). */
 #define ZK_CMD_REG_EVENT      500
 
 #define ZK_FCT_USER           5
@@ -93,6 +99,9 @@ esp_err_t zk_reopen(zk_conn_t *c);
 
 /* Gửi một lệnh và đọc đúng một gói trả lời vào c->reply. */
 esp_err_t zk_cmd(zk_conn_t *c, uint16_t cmd, const void *data, size_t len);
+
+/* Đẩy khối lớn lên máy (PREPARE_DATA + CMD_DATA từng 1024 byte) — pyzk _send_with_buffer. */
+esp_err_t zk_send_buffered(zk_conn_t *c, const void *data, size_t len);
 
 /* Như zk_cmd nhưng phần data của gói trả lời được đẩy dần sang sink. */
 esp_err_t zk_cmd_stream(zk_conn_t *c, uint16_t cmd, const void *data, size_t len,

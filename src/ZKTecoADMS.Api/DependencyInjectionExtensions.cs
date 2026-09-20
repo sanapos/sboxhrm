@@ -140,6 +140,7 @@ public static class DependencyInjectionExtensions
         services.AddHttpClient("shipping-ghtk", c => c.Timeout = TimeSpan.FromSeconds(60));
         services.AddHttpClient("shipping-viettelpost", c => c.Timeout = TimeSpan.FromSeconds(60));
         services.AddHttpClient("shipping-ahamove", c => c.Timeout = TimeSpan.FromSeconds(60));
+        services.AddHttpClient("shipping-spx", c => c.Timeout = TimeSpan.FromSeconds(60));
         services.AddHttpClient("shipping-geocode", c =>
         {
             c.Timeout = TimeSpan.FromSeconds(20);
@@ -153,6 +154,8 @@ public static class DependencyInjectionExtensions
             ZKTecoADMS.Api.Services.Shipping.ViettelPostShippingClient>();
         services.AddScoped<ZKTecoADMS.Api.Services.Shipping.IShippingCarrierClient,
             ZKTecoADMS.Api.Services.Shipping.AhamoveShippingClient>();
+        services.AddScoped<ZKTecoADMS.Api.Services.Shipping.IShippingCarrierClient,
+            ZKTecoADMS.Api.Services.Shipping.SpxShippingClient>();
         services.AddScoped<ZKTecoADMS.Api.Services.Shipping.PosShippingService>();
         services.AddScoped<PosQrMenuService>();
         services.AddScoped<IPaymentWebhookProvider, TingeePaymentWebhookProvider>();

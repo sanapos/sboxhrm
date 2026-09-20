@@ -56,7 +56,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
       );
     }
     if (list.isEmpty) {
-      for (final c in const ['Ghn', 'Ghtk', 'ViettelPost', 'Ahamove']) {
+      for (final c in const ['Ghn', 'Ghtk', 'Spx', 'ViettelPost', 'Ahamove']) {
         list.add(_CarrierForm(
           code: c,
           displayName: _displayName(c),
@@ -80,6 +80,8 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
         return 'Viettel Post';
       case 'Ahamove':
         return 'AhaMove';
+      case 'Spx':
+        return 'SPX Express';
       default:
         return code;
     }
@@ -152,7 +154,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
     if (f.fromWardCodeCtrl.text.trim().isNotEmpty) {
       body['fromWardCode'] = f.fromWardCodeCtrl.text.trim();
     }
-    if (f.code == 'ViettelPost' || f.code == 'Ghtk') {
+    if (f.code == 'ViettelPost' || f.code == 'Ghtk' || f.code == 'Spx') {
       if (f.code == 'ViettelPost') {
         if (f.usernameCtrl.text.trim().isNotEmpty) {
           body['username'] = f.usernameCtrl.text.trim();
@@ -444,9 +446,13 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                   ? (f.hasToken
                       ? 'API Key AhaMove (để trống = giữ đã lưu)'
                       : 'API Key AhaMove')
-                  : (f.hasToken
-                      ? 'API Token (để trống = giữ đã lưu)'
-                      : 'API Token'),
+                  : f.code == 'Spx'
+                      ? (f.hasToken
+                          ? 'Secret Key SPX (để trống = giữ đã lưu)'
+                          : 'Secret Key SPX')
+                      : (f.hasToken
+                          ? 'API Token (để trống = giữ đã lưu)'
+                          : 'API Token'),
               enabled: canEdit && !busy,
               visibilityKey: 'tk_${f.code}',
             ),
@@ -485,6 +491,26 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
               ),
             if (f.code == 'Ghn')
               _field(f.shopIdCtrl, label: 'ShopId (GHN)', enabled: canEdit),
+            if (f.code == 'Spx') ...[
+              _field(f.shopIdCtrl,
+                  label: 'User ID SPX (15 số — Hồ sơ Shop)',
+                  enabled: canEdit),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  tr(
+                    'spx.vn → Quản lý tài khoản → Hồ sơ Shop: copy User ID và Secret Key. '
+                    'Bật hãng, điền điểm lấy hàng, rồi Lưu / Thử kết nối (check giá).',
+                  ),
+                  style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade800),
+                ),
+              ),
+              _SpxWebhookGuide(
+                apiBaseUrl: ApiService.baseUrl,
+                webhookSecretCtrl: f.webhookSecretCtrl,
+                enabled: canEdit && !busy,
+              ),
+            ],
             if (f.code == 'Ahamove') ...[
               _field(f.shopIdCtrl,
                   label: 'SĐT tài khoản AhaMove (84…)',
@@ -562,7 +588,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                 },
               ),
             ),
-            if (f.code == 'Ghn' || f.code == 'Ahamove') ...[
+            if (f.code == 'Ghn' || f.code == 'Ahamove' || f.code == 'Spx') ...[
               const SizedBox(height: 2),
               Text(tr('Nâng cao (tuỳ chọn)'),
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
@@ -578,6 +604,14 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                   f.extraJsonCtrl,
                   label:
                       'Tuỳ chọn: {"lat":16.06,"lng":108.15} hoặc {"service_id":"SGN-BIKE"}',
+                  maxLines: 2,
+                  enabled: canEdit,
+                ),
+              if (f.code == 'Spx')
+                _field(
+                  f.extraJsonCtrl,
+                  label:
+                      'Tuỳ chọn: {"openApiPrefix":"/open/api/v1","allowInspect":true}',
                   maxLines: 2,
                   enabled: canEdit,
                 ),
@@ -1044,6 +1078,124 @@ class _GhtkWebhookGuide extends StatelessWidget {
             '2. Dán Token vào ô API Token phía trên → điền điểm lấy hàng → Lưu.\n'
             '3. Đặt Hash (vd SboxGhtk2026) → copy URL webhook → gửi GHTK / cấu hình callback.\n'
             '4. GHTK gửi form-urlencoded (label_id, status_id, …) → SBOX cập nhật trạng thái đơn.',
+            style: TextStyle(fontSize: 11, height: 1.35, color: Colors.grey.shade800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Webhook SPX Express — URL + hash tuỳ chọn (?hash=).
+class _SpxWebhookGuide extends StatelessWidget {
+  const _SpxWebhookGuide({
+    required this.apiBaseUrl,
+    required this.webhookSecretCtrl,
+    required this.enabled,
+  });
+
+  final String apiBaseUrl;
+  final TextEditingController webhookSecretCtrl;
+  final bool enabled;
+
+  static const spxShopUrl = 'https://spx.vn/spx-admin';
+
+  String get _webhookUrl {
+    final root = apiBaseUrl.replaceFirst(RegExp(r'/api/?$'), '');
+    final hash = webhookSecretCtrl.text.trim();
+    final base = '$root/api/webhooks/shipping/spx';
+    return hash.isEmpty ? base : '$base?hash=$hash';
+  }
+
+  Future<void> _open(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _copy(BuildContext context, String text, String label) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!context.mounted) return;
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã copy',
+      message: label,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(tr('Webhook SPX — cập nhật trạng thái realtime'),
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: Colors.orange.shade900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          OutlinedButton.icon(
+            onPressed: () => _open(spxShopUrl),
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: Text(tr('Mở cổng SPX (Hồ sơ Shop)')),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: webhookSecretCtrl,
+            enabled: enabled,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: tr('Hash webhook (tuỳ chọn)'),
+              border: const OutlineInputBorder(),
+              isDense: true,
+              helperText: tr('Nếu điền, SPX phải gọi URL có ?hash= khớp chuỗi này'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(tr('URL webhook SBOX:'),
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SelectableText(
+                    _webhookUrl,
+                    style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Copy URL',
+                  icon: const Icon(Icons.copy, size: 18),
+                  onPressed: () => _copy(context, _webhookUrl, 'Webhook URL'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '1. Copy User ID + Secret Key tại spx.vn → Hồ sơ Shop.\n'
+            '2. Dán Secret Key + User ID, điểm lấy hàng → Lưu → Thử kết nối.\n'
+            '3. Lên đơn / check giá / tra hành trình từ màn thu ngân hoặc đơn online.\n'
+            '4. (Tuỳ chọn) Đăng URL webhook với SPX để nhận trạng thái realtime.',
             style: TextStyle(fontSize: 11, height: 1.35, color: Colors.grey.shade800),
           ),
         ],

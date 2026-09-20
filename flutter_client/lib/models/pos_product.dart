@@ -574,6 +574,13 @@ class PosProduct {
   bool get hasRecipe =>
       recipeLines != null && recipeLines!.isNotEmpty;
 
+  /// Cột tồn kho: dịch vụ và combo tắt quản lý tồn gói hiện "—", không hiện 999.
+  bool get showsWarehouseStock {
+    if (productType == PosProductType.service) return false;
+    if (productType == PosProductType.combo) return comboTrackStock;
+    return true;
+  }
+
   bool get isTimedService {
     final m = serviceBillingMode.toLowerCase();
     return productType == PosProductType.service &&
@@ -732,8 +739,8 @@ class PosProduct {
       showComboComponentsOnSell:
           json['showComboComponentsOnSell'] == true ||
               json['ShowComboComponentsOnSell'] == true,
-      comboTrackStock: json['comboTrackStock'] != false &&
-          json['ComboTrackStock'] != false,
+      comboTrackStock: json['comboTrackStock'] == true ||
+          json['ComboTrackStock'] == true,
       commissionMode:
           (json['commissionMode'] ?? json['CommissionMode'] ?? 'None')
               .toString(),
@@ -1109,15 +1116,12 @@ class PosComboLine {
       commissionPercent:
           n(json['commissionPercent'] ?? json['CommissionPercent']),
       commissionFixed: n(json['commissionFixed'] ?? json['CommissionFixed']),
-      trackStock: json.containsKey('trackStock') ||
-              json.containsKey('TrackStock')
-          ? json['trackStock'] != false && json['TrackStock'] != false
-          : posProductTypeFromString(
-                  (json['componentProductType'] ??
-                          json['ComponentProductType'] ??
-                          '')
-                      .toString())
-              .tracksInventory,
+      trackStock: posProductTypeFromString(
+              (json['componentProductType'] ??
+                      json['ComponentProductType'] ??
+                      '')
+                  .toString())
+          .tracksInventory,
     );
   }
 

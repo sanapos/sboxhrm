@@ -234,6 +234,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosQuote> PosQuotes => Set<PosQuote>();
     public DbSet<PosQuoteLine> PosQuoteLines => Set<PosQuoteLine>();
     public DbSet<PosQuoteDocument> PosQuoteDocuments => Set<PosQuoteDocument>();
+    public DbSet<PosQuoteActivity> PosQuoteActivities => Set<PosQuoteActivity>();
     public DbSet<PosSaleCommissionLine> PosSaleCommissionLines => Set<PosSaleCommissionLine>();
     public DbSet<PosEInvoiceSetting> PosEInvoiceSettings => Set<PosEInvoiceSetting>();
     public DbSet<PosProductComboLine> PosProductComboLines => Set<PosProductComboLine>();
@@ -264,6 +265,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosVoucher> PosVouchers => Set<PosVoucher>();
     public DbSet<PosQrMenuItem> PosQrMenuItems => Set<PosQrMenuItem>();
     public DbSet<PosStoreSellSettings> PosStoreSellSettings => Set<PosStoreSellSettings>();
+    public DbSet<PosStoreCommercialProfile> PosStoreCommercialProfiles => Set<PosStoreCommercialProfile>();
     public DbSet<PosCashierShift> PosCashierShifts => Set<PosCashierShift>();
     public DbSet<PosServiceArea> PosServiceAreas => Set<PosServiceArea>();
     public DbSet<PosServiceResource> PosServiceResources => Set<PosServiceResource>();

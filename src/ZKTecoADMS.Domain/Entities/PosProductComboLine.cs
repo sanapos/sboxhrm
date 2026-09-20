@@ -21,7 +21,8 @@ public class PosProductComboLine : AuditableEntity<Guid>
     public decimal Qty { get; set; } = 1;
 
     /// <summary>
-    /// Bật: trừ kho thành phần khi bán (như hàng hóa). Tắt: không kho (như dịch vụ).
+    /// Đồng bộ loại thành phần (hàng hóa/NVL/topping = true, dịch vụ = false).
+    /// Bán combo trừ kho theo ProductType, không theo công tắc tay.
     /// </summary>
     public bool TrackStock { get; set; } = true;
 }

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -116,6 +116,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
     'Giao Hàng Nhanh (GHN)',
     'Giao Hàng Tiết Kiệm (GHTK)',
     'Viettel Post',
+    'SPX Express',
     'AhaMove',
     'J&T',
   ];
@@ -123,6 +124,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
     'Giao Hàng Nhanh (GHN)': 'Ghn',
     'Giao Hàng Tiết Kiệm (GHTK)': 'Ghtk',
     'Viettel Post': 'ViettelPost',
+    'SPX Express': 'Spx',
     'AhaMove': 'Ahamove',
   };
 
@@ -321,8 +323,15 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
     return p.contains('aha');
   }
 
+  bool _isSpxPartner(String partner) {
+    final p = partner.toLowerCase();
+    return p.contains('spx') || p.contains('shopee express');
+  }
+
   bool _canManageCarrierShipment(String partner) =>
-      _isViettelPartner(partner) || _isAhamovePartner(partner);
+      _isViettelPartner(partner) ||
+      _isAhamovePartner(partner) ||
+      _isSpxPartner(partner);
 
   Future<void> _openShipmentLabel() async {
     final order = _order;

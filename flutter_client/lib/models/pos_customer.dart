@@ -9,6 +9,8 @@ class PosCustomer {
   final String? ward;
   final String? companyName;
   final String? taxCode;
+  final String? legalRepresentative;
+  final String? legalTitle;
   final String? note;
   final DateTime? birthday;
   final String? deliveryAddress;
@@ -27,6 +29,8 @@ class PosCustomer {
     this.ward,
     this.companyName,
     this.taxCode,
+    this.legalRepresentative,
+    this.legalTitle,
     this.note,
     this.birthday,
     this.deliveryAddress,
@@ -48,6 +52,9 @@ class PosCustomer {
       ward: json['ward'] ?? json['Ward'] as String?,
       companyName: json['companyName'] ?? json['CompanyName'] as String?,
       taxCode: json['taxCode'] ?? json['TaxCode'] as String?,
+      legalRepresentative:
+          json['legalRepresentative'] ?? json['LegalRepresentative'] as String?,
+      legalTitle: json['legalTitle'] ?? json['LegalTitle'] as String?,
       note: json['note'] ?? json['Note'] as String?,
       birthday: DateTime.tryParse(
           '${json['birthday'] ?? json['Birthday'] ?? ''}'),

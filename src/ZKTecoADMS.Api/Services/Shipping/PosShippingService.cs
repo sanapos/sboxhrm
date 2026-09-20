@@ -659,6 +659,9 @@ public class PosShippingService(
     AhamoveShippingClient? AhamoveClient() =>
         Resolve(ShippingCarrierCodes.Ahamove) as AhamoveShippingClient;
 
+    SpxShippingClient? SpxClient() =>
+        Resolve(ShippingCarrierCodes.Spx) as SpxShippingClient;
+
     static string? FirstNonEmpty(params string?[] values) =>
         values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
@@ -870,6 +873,94 @@ public class PosShippingService(
         return rows > 0;
     }
 
+    public async Task<bool> ValidateSpxWebhookHashAsync(
+        string? queryHash, string? trackingCode, CancellationToken ct)
+    {
+        var secrets = await db.PosShippingCarrierSettings.AsNoTracking()
+            .Where(x => x.CarrierCode == ShippingCarrierCodes.Spx
+                        && x.Deleted == null && x.Enabled
+                        && x.ExtraJson != null && x.ExtraJson != "")
+            .Select(x => x.ExtraJson!)
+            .ToListAsync(ct);
+
+        var configured = secrets
+            .Select(SpxExtraJson.GetWebhookSecret)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (configured.Count == 0) return true;
+
+        if (!string.IsNullOrWhiteSpace(trackingCode))
+        {
+            var t = trackingCode.Trim();
+            var order = await db.PosSaleOrders.AsNoTracking()
+                .Where(o => o.Deleted == null && o.IsDelivery
+                            && (o.DeliveryTrackingCode == t || o.DeliveryCarrierOrderId == t))
+                .Select(o => new { o.StoreId })
+                .FirstOrDefaultAsync(ct);
+            if (order != null)
+            {
+                var storeSecret = await db.PosShippingCarrierSettings.AsNoTracking()
+                    .Where(x => x.StoreId == order.StoreId
+                                && x.CarrierCode == ShippingCarrierCodes.Spx
+                                && x.Deleted == null)
+                    .Select(x => x.ExtraJson)
+                    .FirstOrDefaultAsync(ct);
+                var one = SpxExtraJson.GetWebhookSecret(storeSecret);
+                if (!string.IsNullOrWhiteSpace(one))
+                    return SpxExtraJson.MatchesHash(one, queryHash);
+            }
+        }
+
+        return configured.Any(s => SpxExtraJson.MatchesHash(s, queryHash));
+    }
+
+    public async Task<bool> ApplySpxWebhookAsync(
+        string? trackingCode, string? statusText, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(trackingCode)) return false;
+        var t = trackingCode.Trim();
+        var order = await db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.Deleted == null && o.IsDelivery
+                        && (o.DeliveryTrackingCode == t || o.DeliveryCarrierOrderId == t))
+            .OrderByDescending(o => o.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+        if (order == null) return false;
+
+        var isOnline = string.Equals(order.SalesChannel, QrOnlineOrderStatuses.Channel,
+            StringComparison.OrdinalIgnoreCase);
+        var mapped = SpxWebhookHelper.MapOnlineStatus(statusText);
+        var label = SpxWebhookHelper.StatusLabel(statusText);
+
+        string newStatus;
+        if (isOnline && mapped != null)
+        {
+            var prev = QrOnlineOrderStatuses.Normalize(order.DeliveryStatus);
+            if (QrOnlineOrderStatuses.IsTerminal(prev) && mapped != prev)
+                return true;
+            newStatus = mapped;
+        }
+        else
+            newStatus = label;
+
+        var now = DateTime.UtcNow;
+        var rows = await db.PosSaleOrders.Where(o => o.Id == order.Id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.DeliveryStatus, newStatus)
+                .SetProperty(o => o.UpdatedAt, now)
+                .SetProperty(o => o.DeliveryCarrierCode,
+                    o => string.IsNullOrWhiteSpace(o.DeliveryCarrierCode)
+                        ? ShippingCarrierCodes.Spx
+                        : o.DeliveryCarrierCode)
+                .SetProperty(o => o.DeliveryDate,
+                    o => mapped == QrOnlineOrderStatuses.Delivered ? (o.DeliveryDate ?? now) : o.DeliveryDate), ct);
+
+        logger.LogInformation("SPX webhook {Tracking} {Status} → {New} ({Rows})",
+            t, statusText, newStatus, rows);
+        return rows > 0;
+    }
+
     public async Task<IReadOnlyList<ShippingAddressItem>> ListViettelPostAddressesAsync(
         Guid storeId, string level, int? parentId, CancellationToken ct)
     {
@@ -898,6 +989,8 @@ public class PosShippingService(
             return new(false, order.DeliveryCarrierCode ?? "", Message: "Đơn chưa có mã vận đơn");
 
         var code = ShippingCarrierCodes.Normalize(order.DeliveryCarrierCode ?? "");
+        if (string.Equals(code, ShippingCarrierCodes.Spx, StringComparison.OrdinalIgnoreCase))
+            return await GetSpxLabelAsync(storeId, order, ct);
         if (!string.Equals(code, ShippingCarrierCodes.ViettelPost, StringComparison.OrdinalIgnoreCase))
         {
             if (!string.IsNullOrWhiteSpace(order.DeliveryLabelUrl))
@@ -937,6 +1030,8 @@ public class PosShippingService(
         var code = ShippingCarrierCodes.Normalize(order.DeliveryCarrierCode ?? "");
         if (string.Equals(code, ShippingCarrierCodes.Ahamove, StringComparison.OrdinalIgnoreCase))
             return await CancelAhamoveAsync(storeId, order, note, userEmail, ct);
+        if (string.Equals(code, ShippingCarrierCodes.Spx, StringComparison.OrdinalIgnoreCase))
+            return await CancelSpxAsync(storeId, order, note, userEmail, ct);
         if (!string.Equals(code, ShippingCarrierCodes.ViettelPost, StringComparison.OrdinalIgnoreCase))
             return new(false, code, Message: "Hãng này chưa hỗ trợ hủy vận đơn qua API");
 
@@ -998,6 +1093,8 @@ public class PosShippingService(
         var code = ShippingCarrierCodes.Normalize(order.DeliveryCarrierCode ?? "");
         if (string.Equals(code, ShippingCarrierCodes.Ahamove, StringComparison.OrdinalIgnoreCase))
             return await SyncAhamoveTrackingAsync(storeId, order, userEmail, ct);
+        if (string.Equals(code, ShippingCarrierCodes.Spx, StringComparison.OrdinalIgnoreCase))
+            return await SyncSpxTrackingAsync(storeId, order, userEmail, ct);
         if (!string.Equals(code, ShippingCarrierCodes.ViettelPost, StringComparison.OrdinalIgnoreCase))
             return new(false, code, Message: "Hãng này chưa hỗ trợ đồng bộ hành trình qua API");
 
@@ -1091,5 +1188,95 @@ public class PosShippingService(
                     o => string.IsNullOrWhiteSpace(labelUrl) ? o.DeliveryLabelUrl : labelUrl)
                 .SetProperty(o => o.DeliveryDate,
                     o => delivered ? now : o.DeliveryDate), ct);
+    }
+
+    async Task<ShippingLabelResult> GetSpxLabelAsync(
+        Guid storeId, PosSaleOrder order, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(order.DeliveryLabelUrl))
+            return new(true, ShippingCarrierCodes.Spx, LabelUrl: order.DeliveryLabelUrl, Message: "Link in đã lưu");
+
+        var (settings, err) = await GetEnabledSettingsAsync(storeId, ShippingCarrierCodes.Spx, ct);
+        if (settings == null)
+            return new(false, ShippingCarrierCodes.Spx, Message: err);
+        var client = SpxClient();
+        if (client == null)
+            return new(false, ShippingCarrierCodes.Spx, Message: "Adapter chưa đăng ký");
+
+        var tn = FirstNonEmpty(order.DeliveryTrackingCode, order.DeliveryCarrierOrderId)!;
+        var result = await client.GetPrintLabelAsync(settings, tn, ct);
+        if (result.Success && !string.IsNullOrWhiteSpace(result.LabelUrl))
+        {
+            await db.PosSaleOrders.Where(o => o.Id == order.Id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(o => o.DeliveryLabelUrl, result.LabelUrl)
+                    .SetProperty(o => o.UpdatedAt, DateTime.UtcNow), ct);
+        }
+        return result;
+    }
+
+    async Task<ShippingCancelResult> CancelSpxAsync(
+        Guid storeId, PosSaleOrder order, string? note, string? userEmail, CancellationToken ct)
+    {
+        var settings = await LoadEnabledCarrierAsync(storeId, ShippingCarrierCodes.Spx, ct);
+        if (settings == null)
+            return new(false, ShippingCarrierCodes.Spx, Message: "Chưa bật / cấu hình SPX Express");
+        var client = SpxClient();
+        if (client == null)
+            return new(false, ShippingCarrierCodes.Spx, Message: "Adapter chưa đăng ký");
+
+        var tn = FirstNonEmpty(order.DeliveryTrackingCode, order.DeliveryCarrierOrderId)!;
+        var result = await client.CancelOrderAsync(settings, tn, note, ct);
+        if (!result.Success) return result;
+
+        var cancelStatus = QrOnlineOrderStatuses.Label(QrOnlineOrderStatuses.Cancelled);
+        await db.PosSaleOrders.Where(o => o.Id == order.Id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.DeliveryStatus, cancelStatus)
+                .SetProperty(o => o.UpdatedAt, DateTime.UtcNow)
+                .SetProperty(o => o.UpdatedBy, userEmail), ct);
+        return result;
+    }
+
+    async Task<ShippingTrackingResult> SyncSpxTrackingAsync(
+        Guid storeId, PosSaleOrder order, string? userEmail, CancellationToken ct)
+    {
+        var settings = await LoadEnabledCarrierAsync(storeId, ShippingCarrierCodes.Spx, ct);
+        if (settings == null)
+            return new(false, ShippingCarrierCodes.Spx, Message: "Chưa bật / cấu hình SPX Express");
+        var client = SpxClient();
+        if (client == null)
+            return new(false, ShippingCarrierCodes.Spx, Message: "Adapter chưa đăng ký");
+
+        var tn = FirstNonEmpty(order.DeliveryTrackingCode, order.DeliveryCarrierOrderId)!;
+        var tracking = await client.GetTrackingAsync(settings, tn, ct);
+        if (!tracking.Success) return tracking;
+
+        var isOnline = string.Equals(order.SalesChannel, QrOnlineOrderStatuses.Channel,
+            StringComparison.OrdinalIgnoreCase);
+        var mapped = tracking.MappedOnlineStatus ?? SpxWebhookHelper.MapOnlineStatus(tracking.StatusName);
+        var newStatus = isOnline && mapped != null
+            ? mapped
+            : (tracking.StatusName ?? order.DeliveryStatus ?? "SPX");
+        if (isOnline && mapped != null)
+        {
+            var prev = QrOnlineOrderStatuses.Normalize(order.DeliveryStatus);
+            if (QrOnlineOrderStatuses.IsTerminal(prev) && mapped != prev)
+                return tracking;
+        }
+
+        var now = DateTime.UtcNow;
+        await db.PosSaleOrders.Where(o => o.Id == order.Id)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.DeliveryStatus, newStatus)
+                .SetProperty(o => o.UpdatedAt, now)
+                .SetProperty(o => o.UpdatedBy, userEmail)
+                .SetProperty(o => o.DeliveryCarrierCode,
+                    o => string.IsNullOrWhiteSpace(o.DeliveryCarrierCode)
+                        ? ShippingCarrierCodes.Spx
+                        : o.DeliveryCarrierCode)
+                .SetProperty(o => o.DeliveryDate,
+                    o => mapped == QrOnlineOrderStatuses.Delivered ? now : o.DeliveryDate), ct);
+        return tracking;
     }
 }

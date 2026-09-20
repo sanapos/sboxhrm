@@ -5,7 +5,7 @@ namespace ZKTecoADMS.Domain.Entities;
 
 /// <summary>
 /// Cấu hình API đơn vị giao hàng theo cửa hàng.
-/// Một dòng / (StoreId, CarrierCode): Ghn | Ghtk | ViettelPost | Ahamove.
+/// Một dòng / (StoreId, CarrierCode): Ghn | Ghtk | Spx | ViettelPost | Ahamove.
 /// </summary>
 public class PosShippingCarrierSetting : AuditableEntity<Guid>
 {
@@ -13,7 +13,7 @@ public class PosShippingCarrierSetting : AuditableEntity<Guid>
     public Guid StoreId { get; set; }
     public virtual Store? Store { get; set; }
 
-    /// <summary>Ghn | Ghtk | ViettelPost | Ahamove</summary>
+    /// <summary>Ghn | Ghtk | Spx | ViettelPost | Ahamove</summary>
     [Required]
     [MaxLength(30)]
     public string CarrierCode { get; set; } = string.Empty;
@@ -26,7 +26,7 @@ public class PosShippingCarrierSetting : AuditableEntity<Guid>
     [MaxLength(2000)]
     public string? ApiToken { get; set; }
 
-    /// <summary>GHN ShopId; AhaMove mobile/account; GHTK partner code (X-Client-Source).</summary>
+    /// <summary>GHN ShopId; SPX User ID; AhaMove mobile/account; GHTK partner code (X-Client-Source).</summary>
     [MaxLength(100)]
     public string? ShopId { get; set; }
 

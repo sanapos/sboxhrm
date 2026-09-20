@@ -108,11 +108,15 @@ PosProduct applyPosSellStockLines(
       );
     }).toList();
     if (changed) {
-      final sellable = computeComboSellableQty(updated);
+      final fromComp = computeComboSellableQty(updated);
+      final sellable = !p.comboTrackStock
+          ? fromComp
+          : fromComp.isInfinite
+              ? p.onHandQty
+              : (p.onHandQty < fromComp ? p.onHandQty : fromComp);
       p = p.copyWith(
         comboLines: updated,
         sellableQty: sellable,
-        onHandQty: sellable,
       );
     }
   }

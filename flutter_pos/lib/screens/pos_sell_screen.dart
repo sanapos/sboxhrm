@@ -2086,6 +2086,15 @@ class _PosSellScreenState extends State<PosSellScreen>
     return _sellProfile.usesFloorPlan;
   }
 
+  /// Tab Bán nhanh / Bán thường / Giao hàng chỉ cho bán lẻ — F&B dùng bàn + đơn online.
+  bool get _showRetailSellModeBar {
+    if (_sellProfile.usesFloorPlan) return false;
+    if (_sellProfile == PosSellProfile.restaurant) return false;
+    if (_useFloorAsPrimary || _industryUsesTables) return false;
+    if (_isTableOrderMode) return false;
+    return true;
+  }
+
   /// Dựng lưới món Offstage khi đang xem sơ đồ — lần nhấn bàn không mount lần đầu.
   void _scheduleCatalogPrefetch() {
     if (!_useFloorAsPrimary || _catalogPaneKept) return;
@@ -2133,6 +2142,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Đang phóng toàn màn hình (browser fullscreen / immersive).
   bool _isPosFullscreen = false;
   int _systemUnreadNotifications = 0;
+  bool _openingPendingPrintQueue = false;
   bool _qrOnlineFeatureEnabled = false;
   List<PosOnlineToolbarOrder> _qrOnlinePending = [];
   StreamSubscription<Map<String, dynamic>>? _qrOnlineSignalSub;
@@ -9832,6 +9842,12 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
     if (p == 'viettelpost' || p.contains('viettel')) return 'ViettelPost';
     if (p == 'ahamove' || p.contains('aha')) return 'Ahamove';
+    if (p == 'spx' ||
+        p.contains('spx') ||
+        p.contains('shopee express') ||
+        p.contains('shopeeexpress')) {
+      return 'Spx';
+    }
     return null;
   }
 
@@ -9857,8 +9873,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     required bool preferAhamoveFirst,
   }) {
     if (list.isEmpty) return list;
-    const retailOrder = ['Ghn', 'Ghtk', 'ViettelPost', 'Ahamove'];
-    const fnbOrder = ['Ahamove', 'Ghn', 'Ghtk', 'ViettelPost'];
+    const retailOrder = ['Ghn', 'Ghtk', 'Spx', 'ViettelPost', 'Ahamove'];
+    const fnbOrder = ['Ahamove', 'Ghn', 'Ghtk', 'Spx', 'ViettelPost'];
     final order = preferAhamoveFirst ? fnbOrder : retailOrder;
     int rank(String code) {
       final i = order.indexWhere((c) => c.toLowerCase() == code.toLowerCase());
@@ -10410,7 +10426,16 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
       final baseQty = _cartLineQtyInBase(l);
       if (l.product.productType == PosProductType.combo) {
+        if (l.product.comboTrackStock) {
+          raw.add(
+            PosSellStockLineDelta(
+              productId: l.product.id,
+              qty: baseQty,
+            ),
+          );
+        }
         for (final cl in l.product.comboLines ?? const <PosComboLine>[]) {
+          if (!comboLineDeductsStock(cl)) continue;
           raw.add(
             PosSellStockLineDelta(
               productId: cl.componentProductId,
@@ -10741,6 +10766,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       _failedCupPrints.length;
 
   Future<void> _openPendingPrintQueue() async {
+    if (_openingPendingPrintQueue) return;
     if (_pendingPrintCount == 0) {
       NotificationOverlayManager().showInfo(
         title: 'Không có phiếu treo',
@@ -10748,40 +10774,17 @@ class _PosSellScreenState extends State<PosSellScreen>
       );
       return;
     }
-    // Làm mới danh sách máy — tránh «Chọn máy khác» trống / mất chức năng.
-    await PosPrintOrchestrator.instance.refreshConfig(force: true);
-    if (!mounted) return;
-    var printers = List<PosStorePrinter>.from(
+    _openingPendingPrintQueue = true;
+    // Mở sheet ngay — không chờ refresh máy (tránh bấm nhiều lần mới thấy danh sách).
+    unawaited(PosPrintOrchestrator.instance.refreshConfig(force: true));
+    if (!mounted) {
+      _openingPendingPrintQueue = false;
+      return;
+    }
+    final printers = List<PosStorePrinter>.from(
       PosPrintOrchestrator.instance.printers,
     );
-    if (printers.isEmpty) {
-      try {
-        final res = await _api.getPosStorePrinters();
-        if (res['isSuccess'] == true) {
-          final raw = res['data'];
-          final list = raw is List
-              ? raw
-              : (raw is Map && raw['items'] is List
-                  ? raw['items'] as List
-                  : const []);
-          printers = list
-              .whereType<Map>()
-              .map((e) =>
-                  PosStorePrinter.fromJson(Map<String, dynamic>.from(e)))
-              .where((p) => p.id.isNotEmpty && p.isActive)
-              .toList();
-        }
-      } catch (e) {
-        debugPrint('pending print load printers: $e');
-      }
-    }
-    if (!mounted) return;
-    if (printers.isEmpty) {
-      NotificationOverlayManager().showWarning(
-        title: 'Chưa tải được máy in',
-        message: tr('Kiểm tra mạng — vẫn mở hàng đợi, thử Tải lại máy in cửa hàng'),
-      );
-    }
+    try {
     await showPendingWarehousePrintSheet(
       context: context,
       jobs: List.unmodifiable(_failedWarehousePrints),
@@ -10887,7 +10890,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         return result;
       },
     );
-    if (mounted) setState(() {});
+    } finally {
+      _openingPendingPrintQueue = false;
+      if (mounted) setState(() {});
+    }
   }
 
   void _onWarehouseSlipButtonTap() {
@@ -12270,7 +12276,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               if (_buildOnlineOrdersToolbarButton() != null)
                 _buildOnlineOrdersToolbarButton()!,
               _buildSystemNotificationButton(),
-              if (!fnb && _pendingPrintCount > 0)
+              if (_pendingPrintCount > 0)
                 Padding(
                   padding: const EdgeInsets.only(left: 2, right: 2),
                   child: TextButton.icon(
@@ -12279,7 +12285,8 @@ class _PosSellScreenState extends State<PosSellScreen>
                       backgroundColor: const Color(0xFFEA580C),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: const Size(0, 36),
+                      minimumSize: const Size(48, 36),
+                      tapTargetSize: MaterialTapTargetSize.padded,
                     ),
                     icon: const Icon(Icons.print_disabled_outlined, size: 18),
                     label: Text(
@@ -14831,7 +14838,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             _buildMobileSellActionBar(),
             Expanded(child: _buildMobileSellCartBody()),
             _buildMobileCheckoutBar(perm, canPay),
-            if (!inHub) _buildMobileModeBar(),
+            if (!inHub && _showRetailSellModeBar) _buildMobileModeBar(),
           ],
         ),
         if (_mobileProductPickerOpen)
@@ -15349,12 +15356,33 @@ class _PosSellScreenState extends State<PosSellScreen>
                   _buildOnlineOrdersToolbarButton(labeled: !compact) != null)
                 _buildOnlineOrdersToolbarButton(labeled: !compact)!,
               _buildSystemNotificationButton(),
-              PosPendingPrintIconButton(
-                pendingCount: _pendingPrintCount,
-                onTap: _openPendingPrintQueue,
-                iconColor: Colors.white,
-                compact: true,
-              ),
+              if (_pendingPrintCount > 0)
+                Padding(
+                  padding: const EdgeInsets.only(left: 2, right: 2),
+                  child: TextButton.icon(
+                    onPressed: _openPendingPrintQueue,
+                    style: TextButton.styleFrom(
+                      backgroundColor: const Color(0xFFEA580C),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(48, 36),
+                      tapTargetSize: MaterialTapTargetSize.padded,
+                    ),
+                    icon: const Icon(Icons.print_disabled_outlined, size: 18),
+                    label: Text(
+                      tr('In treo ($_pendingPrintCount)'),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
+                  ),
+                )
+              else
+                PosPendingPrintIconButton(
+                  pendingCount: _pendingPrintCount,
+                  onTap: _openPendingPrintQueue,
+                  iconColor: Colors.white,
+                  compact: true,
+                ),
               IconButton(
                 constraints: _KiotLayout.topBarActionTap,
                 tooltip: tr('Menu'),
@@ -15916,12 +15944,33 @@ class _PosSellScreenState extends State<PosSellScreen>
                 _buildSystemNotificationButton(
                   iconColor: PosTheme.textPrimary,
                 ),
-                PosPendingPrintIconButton(
-                  pendingCount: _pendingPrintCount,
-                  onTap: _openPendingPrintQueue,
-                  iconColor: PosTheme.textPrimary,
-                  compact: true,
-                ),
+                if (_pendingPrintCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2, right: 2),
+                    child: TextButton.icon(
+                      onPressed: _openPendingPrintQueue,
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFFEA580C),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(48, 36),
+                        tapTargetSize: MaterialTapTargetSize.padded,
+                      ),
+                      icon: const Icon(Icons.print_disabled_outlined, size: 18),
+                      label: Text(
+                        tr('In treo ($_pendingPrintCount)'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 12),
+                      ),
+                    ),
+                  )
+                else
+                  PosPendingPrintIconButton(
+                    pendingCount: _pendingPrintCount,
+                    onTap: _openPendingPrintQueue,
+                    iconColor: PosTheme.textPrimary,
+                    compact: true,
+                  ),
                 IconButton(
                   constraints: _KiotLayout.topBarActionTap,
                   icon: const Icon(Icons.menu, color: PosTheme.textPrimary),
@@ -16791,6 +16840,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget _buildMobileModeBar() {
+    if (!_showRetailSellModeBar) return const SizedBox.shrink();
     return Material(
       color: const Color(0xFFF8FAFC),
       child: SafeArea(
@@ -17432,6 +17482,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget _buildBottomBar() {
+    if (!_showRetailSellModeBar) return const SizedBox.shrink();
     final isNormal = _sellMode == _SellMode.normal;
     if (Responsive.isMobile(context)) {
       return _buildMobileModeBar();

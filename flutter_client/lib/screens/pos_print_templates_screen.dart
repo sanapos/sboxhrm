@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../models/pos_print_template.dart';
@@ -23,6 +24,8 @@ import '../utils/pos_store_printer_mapper.dart';
 import '../utils/pos_thermal_printer_settings.dart';
 import '../models/pos_print_template_v2.dart';
 import '../widgets/pos/pos_print_template_v2_editor.dart';
+import '../widgets/pos/pos_commercial_a4_editor.dart';
+import '../utils/pos_html_print.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -173,6 +176,24 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
   void _applyLocalDefault({String? paperSize}) {
     _selected = null;
+    if (_isCommercialDoc) {
+      _legacyHtml = posPrintDefaultHtml(
+        documentType: _docType,
+        paperSize: PosPrintPaperSizes.a4,
+      );
+      _v2Template = PosPrintTemplateV2Presets.build(
+        documentType: _docType,
+        paperSize: PosPrintPaperSizes.a4,
+        printerProfile: PosPrintPrinterProfiles.sunmiK80,
+        name: posPrintDefaultTemplateName(PosPrintPaperSizes.a4,
+            documentType: _docType),
+      );
+      _nameCtrl.text = _v2Template!.name ??
+          posPrintDefaultTemplateName(PosPrintPaperSizes.a4,
+              documentType: _docType);
+      _dirty = false;
+      return;
+    }
     _legacyHtml = null;
     final paper = paperSize ??
         (_docType == PosPrintDocumentTypes.kitchenLabel
@@ -194,6 +215,26 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   }
 
   void _bindTemplateContent(PosPrintTemplate? t) {
+    if (_isCommercialDoc) {
+      final raw = (t?.htmlContent ?? '').trim();
+      // JSON V2 (`<!--POS_TEMPLATE_V2-->…`) cũng khởi đầu bằng `<`; phải loại
+      // trước khi dán vào editor Word, nếu không editor sẽ hiển thị raw JSON.
+      final looksLikeHtml =
+          raw.startsWith('<') && !PosPrintTemplateV2Codec.isV2Content(raw);
+      _legacyHtml = looksLikeHtml
+          ? t!.htmlContent
+          : posPrintDefaultHtml(
+              documentType: _docType,
+              paperSize: PosPrintPaperSizes.a4,
+            );
+      _v2Template = PosPrintTemplateV2Presets.build(
+        documentType: _docType,
+        paperSize: PosPrintPaperSizes.a4,
+        printerProfile: PosPrintPrinterProfiles.sunmiK80,
+        name: t?.name,
+      );
+      return;
+    }
     final parsed = PosPrintTemplateV2Codec.tryParse(t?.htmlContent);
     if (parsed != null) {
       _v2Template = parsed;
@@ -231,6 +272,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
   /// HTML seed cũ (`1 x {Don_Gia}`) không điều khiển máy nhiệt — đổi sang V2 4 cột.
   Future<void> _upgradeLegacyHtmlTemplates() async {
+    if (_isCommercialDoc) {
+      await _upgradeCommercialToA4Html();
+      return;
+    }
     var changed = false;
     final next = <PosPrintTemplate>[];
     for (final t in _templates) {
@@ -261,6 +306,48 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       }
     }
     if (changed) _templates = next;
+  }
+
+  /// Mẫu báo giá/HĐ từng bị lưu JSON V2 — đổi lại HTML A4 để in được.
+  /// Chỉ upgrade khi paperSize=A4 (mẫu K80 thermal cho báo giá vẫn hợp lệ
+  /// nên giữ nguyên). JSON V2 bắt đầu bằng `<!--POS_TEMPLATE_V2-->` (cũng
+  /// bắt đầu bằng `<`) nên phải kiểm tra bằng `PosPrintTemplateV2Codec`.
+  Future<void> _upgradeCommercialToA4Html() async {
+    final next = <PosPrintTemplate>[];
+    for (final t in _templates) {
+      final raw = t.htmlContent.trim();
+      final isV2 = PosPrintTemplateV2Codec.isV2Content(raw);
+      final looksLikeHtml = raw.startsWith('<') && !isV2;
+      final wantsA4 = t.paperSize == PosPrintPaperSizes.a4;
+      // Đã là HTML A4 hoặc là mẫu thermal (K80/K58) → không upgrade.
+      if (looksLikeHtml || !wantsA4) {
+        next.add(t);
+        continue;
+      }
+      // Trường hợp còn lại: paperSize=A4 nhưng nội dung V2 JSON → sửa.
+      final html = posPrintDefaultHtml(
+        documentType: _docType,
+        paperSize: PosPrintPaperSizes.a4,
+      );
+      final res = await _api.updatePosPrintTemplate(
+        t.id,
+        t.copyWith(
+          htmlContent: html,
+          paperSize: PosPrintPaperSizes.a4,
+        ).toSaveJson(),
+      );
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        next.add(PosPrintTemplate.fromJson(
+          Map<String, dynamic>.from(res['data'] as Map),
+        ));
+      } else {
+        next.add(t.copyWith(
+          htmlContent: html,
+          paperSize: PosPrintPaperSizes.a4,
+        ));
+      }
+    }
+    _templates = next;
   }
 
   void _selectTemplate(PosPrintTemplate? t) {
@@ -324,6 +411,43 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       return;
     }
     setState(() => _saving = true);
+    if (_isCommercialDoc) {
+      final html = (_legacyHtml ?? '').trim().isEmpty
+          ? posPrintDefaultHtml(
+              documentType: _docType,
+              paperSize: PosPrintPaperSizes.a4,
+            )
+          : _legacyHtml!;
+      final body = _selected!
+          .copyWith(
+            name: name,
+            htmlContent: html,
+            documentType: _docType,
+            paperSize: PosPrintPaperSizes.a4,
+            isDefault: true,
+          )
+          .toSaveJson();
+      final res = await _api.updatePosPrintTemplate(_selected!.id, body);
+      if (!mounted) return;
+      setState(() => _saving = false);
+      if (res['isSuccess'] == true) {
+        _dirty = false;
+        NotificationOverlayManager().showSuccess(
+          title: 'Đã lưu',
+          message: tr('Mẫu A4 đã cập nhật — in báo giá / HĐ theo trang này'),
+        );
+        try {
+          await _api.setDefaultPosPrintTemplate(_selected!.id);
+        } catch (_) {}
+        await _load();
+      } else {
+        NotificationOverlayManager().showError(
+          title: 'Lỗi',
+          message: res['message']?.toString() ?? 'Không lưu được',
+        );
+      }
+      return;
+    }
     final v2 = _v2Template!.copyWith(
       name: name,
       documentType: _docType,
@@ -374,6 +498,11 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           .map((id) => (id, PosPrintPaperSizes.displayLabel(id)))
           .toList();
     }
+    if (_isCommercialDoc) {
+      return [
+        (PosPrintPaperSizes.a4, PosPrintPaperSizes.labels[PosPrintPaperSizes.a4]!),
+      ];
+    }
     return [
       (PosPrintPaperSizes.k58, PosPrintPaperSizes.labels[PosPrintPaperSizes.k58]!),
       (PosPrintPaperSizes.k80, PosPrintPaperSizes.labels[PosPrintPaperSizes.k80]!),
@@ -396,6 +525,8 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       paper = 'roll_1_50x30';
     } else if (_docType == PosPrintDocumentTypes.kitchenLabel) {
       paper = PosPrintPaperSizes.label50x30;
+    } else if (PosPrintDocumentTypes.isCommercial(_docType)) {
+      paper = PosPrintPaperSizes.a4;
     } else {
       paper = PosPrintPaperSizes.k80;
     }
@@ -437,7 +568,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     setDlg(() => paper = v);
                   },
                 ),
-                if (presets.isNotEmpty && !isLabel) ...[
+                if (presets.isNotEmpty && !isLabel && !_isCommercialDoc) ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     value: presets.any((p) => p.paperSize == paper)
@@ -494,11 +625,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       name: displayName,
     );
 
+    final commercial = PosPrintDocumentTypes.isCommercial(_docType);
     final res = await _api.createPosPrintTemplate({
       'name': displayName,
       'documentType': _docType,
       'paperSize': PosPrintPaperSizes.toApiPaperSize(_docType, v2Paper),
-      'htmlContent': PosPrintTemplateV2Codec.encode(v2Preset),
+      'htmlContent': commercial
+          ? posPrintDefaultHtml(documentType: _docType, paperSize: v2Paper)
+          : PosPrintTemplateV2Codec.encode(v2Preset),
       'isDefault': _templates.isEmpty,
       'isActive': true,
       'sortOrder': _templates.length,
@@ -511,7 +645,80 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     }
   }
 
+  bool get _isCommercialDoc =>
+      PosPrintDocumentTypes.isCommercial(_docType);
+
+  Future<void> _importCustomerTemplate() async {
+    try {
+      final pick = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['docx', 'doc', 'pdf'],
+        withData: true,
+      );
+      if (pick == null || pick.files.isEmpty) return;
+      final f = pick.files.first;
+      final bytes = f.bytes;
+      if (bytes == null) {
+        NotificationOverlayManager().showError(
+          title: 'Không đọc được file',
+          message: tr('Chọn lại file Word hoặc PDF'),
+        );
+        return;
+      }
+      final res = await _api.importPosPrintTemplateFile(
+        bytes: bytes,
+        fileName: f.name,
+        documentType: _docType,
+        name: f.name.replaceAll(RegExp(r'\.(docx|doc|pdf)$', caseSensitive: false), ''),
+      );
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        NotificationOverlayManager().showSuccess(
+          title: 'Đã tạo mẫu từ file',
+          message: tr('Khổ A4 — chèn {Khach_Hang}, {Tong_Cong}… rồi Lưu'),
+        );
+        await _load();
+        final created = PosPrintTemplate.fromJson(
+            Map<String, dynamic>.from(res['data'] as Map));
+        _applyTemplate(created);
+      } else {
+        NotificationOverlayManager().showError(
+          title: 'Không nhập được file',
+          message: res['message']?.toString() ?? 'Thử file Word .docx',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      NotificationOverlayManager().showError(
+        title: 'Không nhập được file',
+        message: '$e',
+      );
+    }
+  }
+
   Future<void> _testPrintTemplate() async {
+    if (_isCommercialDoc) {
+      final html = renderPosPrintTemplateHtml(
+        (_legacyHtml ?? '').trim().isEmpty
+            ? posPrintDefaultHtml(
+                documentType: _docType,
+                paperSize: PosPrintPaperSizes.a4,
+              )
+            : _legacyHtml!,
+        data: posPrintSampleData(documentType: _docType),
+        lineItems: posPrintSampleLines(),
+      );
+      if (!mounted) return;
+      await showPosHtmlPrintDialog(
+        context,
+        title: _nameCtrl.text.trim().isEmpty
+            ? tr('Xem trước A4')
+            : _nameCtrl.text.trim(),
+        htmlDocument:
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{margin:0}</style></head><body>$html</body></html>',
+      );
+      return;
+    }
     final v2 = _v2Template;
     if (v2 == null) return;
     setState(() => _testingPrint = true);
@@ -998,7 +1205,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                             onChanged: (_) => setState(() => _dirty = true),
                           ),
                         ),
-                        if (_legacyHtml != null)
+                        if (_legacyHtml != null && !_isCommercialDoc)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Material(
@@ -1020,7 +1227,20 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                             ),
                           ),
                         Expanded(
-                          child: _v2Template == null
+                          child: _isCommercialDoc
+                              ? PosCommercialA4Editor(
+                                  html: _legacyHtml ??
+                                      posPrintDefaultHtml(
+                                        documentType: _docType,
+                                        paperSize: PosPrintPaperSizes.a4,
+                                      ),
+                                  documentType: _docType,
+                                  onChanged: (html) => setState(() {
+                                    _legacyHtml = html;
+                                    _dirty = true;
+                                  }),
+                                )
+                              : _v2Template == null
                               ? Center(child: Text(tr('Đang tải…')))
                               : PosPrintTemplateV2Editor(
                                   template: _v2Template!,
@@ -1060,7 +1280,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               onChanged: (_) => setState(() => _dirty = true),
             ),
           ),
-          if (_legacyHtml != null)
+          if (_legacyHtml != null && !_isCommercialDoc)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: Material(
@@ -1081,7 +1301,23 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               ),
             ),
           Expanded(
-            child: _v2Template == null
+            child: _isCommercialDoc
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    child: PosCommercialA4Editor(
+                      html: _legacyHtml ??
+                          posPrintDefaultHtml(
+                            documentType: _docType,
+                            paperSize: PosPrintPaperSizes.a4,
+                          ),
+                      documentType: _docType,
+                      onChanged: (html) => setState(() {
+                        _legacyHtml = html;
+                        _dirty = true;
+                      }),
+                    ),
+                  )
+                : _v2Template == null
                 ? const Center(child: CircularProgressIndicator())
                 : PosPrintTemplateV2Editor(
                     compact: true,
@@ -1100,7 +1336,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   }
 
   Widget _buildCatalogBar() {
-    if (_catalog.isEmpty) return const SizedBox.shrink();
+    if (_isCommercialDoc || _catalog.isEmpty) return const SizedBox.shrink();
     return Material(
       color: const Color(0xFFF0FDFA),
       child: Padding(
@@ -1204,6 +1440,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     compact: true,
                     onPressed: _addTemplate,
                   ),
+                  if (_isCommercialDoc)
+                    IconButton(
+                      tooltip: tr('Tải Word / PDF'),
+                      onPressed: _importCustomerTemplate,
+                      icon: const Icon(Icons.upload_file_outlined),
+                    ),
                   const Spacer(),
                   IconButton(
                     tooltip: tr('Xóa mẫu'),
@@ -1246,6 +1488,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                       icon: const Icon(Icons.add_circle_outline, size: 18),
                       label: Text(tr('Thêm')),
                     ),
+                    if (_isCommercialDoc) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: _importCustomerTemplate,
+                        icon: const Icon(Icons.upload_file_outlined, size: 18),
+                        label: Text(tr('Tải Word / PDF')),
+                      ),
+                    ],
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
                       onPressed: _selected == null ? null : _deleteTemplate,
@@ -1306,6 +1556,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             onPressed: _addTemplate,
             icon: const Icon(Icons.add_circle_outline, color: _blue),
           ),
+          if (_isCommercialDoc)
+            IconButton(
+              tooltip: tr('Tải mẫu Word / PDF của khách'),
+              onPressed: _importCustomerTemplate,
+              icon: const Icon(Icons.upload_file_outlined, color: _blue),
+            ),
           IconButton(
             tooltip: tr('Xóa mẫu'),
             onPressed: _selected == null ? null : _deleteTemplate,

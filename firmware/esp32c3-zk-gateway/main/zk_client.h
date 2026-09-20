@@ -90,6 +90,22 @@ esp_err_t zk_cancel_capture(zk_conn_t *c);
 esp_err_t zk_enroll_finger(zk_conn_t *c, const char *user_id, int finger_index,
                            bool overwrite, int wait_ms);
 
+/* Đăng ký khuôn mặt trên máy 4370 — cùng thứ tự zkemkeeper:
+ * EnableDevice, SSR_SetUserInfo, RegEvent(65535), CancelOperation,
+ * DelUserFace(index=50), RefreshData, StartEnrollEx(111 rồi 50, Flag=1),
+ * ACK sự kiện, StartIdentify, RefreshData.
+ * 111 một mình (Flag=0, không RegEvent) thường bị máy bỏ qua. */
+esp_err_t zk_enroll_face(zk_conn_t *c, const char *user_id, int wait_ms);
+
+esp_err_t zk_delete_face(zk_conn_t *c, const char *user_id);
+esp_err_t zk_reg_event(zk_conn_t *c, uint32_t mask);
+esp_err_t zk_start_identify(zk_conn_t *c);
+
 /* Xoá mẫu vân tay. finger_index < 0 nghĩa là xoá toàn bộ mẫu của nhân viên.
  * Trả ESP_ERR_NOT_FOUND khi trên máy vốn không có mẫu nào để xoá. */
 esp_err_t zk_delete_finger(zk_conn_t *c, const char *user_id, int finger_index);
+
+/* Ghi mẫu vân tay đã có (copy từ máy khác / ADMS DATA UPDATE FINGERTMP).
+ * tmpl là bytes thô sau khi giải Base64. */
+esp_err_t zk_write_finger(zk_conn_t *c, const char *user_id, int finger_index,
+                          const uint8_t *tmpl, size_t tmpl_len, int valid);

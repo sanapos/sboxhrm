@@ -18,14 +18,16 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
     public record CustomerDto(
         Guid Id, string CustomerCode, string Name, string? Phone, string? Email,
         string? Address, string? Province, string? Ward,
-        string? CompanyName, string? TaxCode, string? Note,
+        string? CompanyName, string? TaxCode,
+        string? LegalRepresentative, string? LegalTitle, string? Note,
         DateTime? Birthday, string? DeliveryAddress,
         decimal TotalPurchase, decimal CurrentDebt, decimal PointBalance, bool IsActive,
         DateTime CreatedAt, string? CreatedBy);
 
     public record CustomerSaveDto(
         string Name, string? Phone, string? Email, string? Address,
-        string? Province, string? Ward, string? CompanyName, string? TaxCode, string? Note,
+        string? Province, string? Ward, string? CompanyName, string? TaxCode,
+        string? LegalRepresentative, string? LegalTitle, string? Note,
         DateTime? Birthday, string? DeliveryAddress);
 
     [HttpGet]
@@ -167,6 +169,8 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
             Ward = dto.Ward?.Trim(),
             CompanyName = dto.CompanyName?.Trim(),
             TaxCode = dto.TaxCode?.Trim(),
+            LegalRepresentative = dto.LegalRepresentative?.Trim(),
+            LegalTitle = dto.LegalTitle?.Trim(),
             Birthday = dto.Birthday?.Date,
             DeliveryAddress = dto.DeliveryAddress?.Trim(),
             Note = dto.Note?.Trim(),
@@ -198,6 +202,8 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         c.Ward = dto.Ward?.Trim();
         c.CompanyName = dto.CompanyName?.Trim();
         c.TaxCode = dto.TaxCode?.Trim();
+        c.LegalRepresentative = dto.LegalRepresentative?.Trim();
+        c.LegalTitle = dto.LegalTitle?.Trim();
         c.Birthday = dto.Birthday?.Date;
         c.DeliveryAddress = dto.DeliveryAddress?.Trim();
         c.Note = dto.Note?.Trim();
@@ -226,7 +232,8 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
 
     private static CustomerDto MapCustomer(PosCustomer c) => new(
         c.Id, c.CustomerCode, c.Name, c.Phone, c.Email, c.Address, c.Province, c.Ward,
-        c.CompanyName, c.TaxCode, c.Note, c.Birthday, c.DeliveryAddress,
+        c.CompanyName, c.TaxCode, c.LegalRepresentative, c.LegalTitle, c.Note,
+        c.Birthday, c.DeliveryAddress,
         c.TotalPurchase, c.CurrentDebt, c.PointBalance, c.IsActive,
         c.CreatedAt, c.CreatedBy);
 }

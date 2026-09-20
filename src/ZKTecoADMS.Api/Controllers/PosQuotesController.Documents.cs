@@ -23,14 +23,14 @@ public partial class PosQuotesController
         Guid? StockIssueId,
         string? StockIssueNo);
 
-    public record CreateQuoteDocumentDto(string Kind, string? Note);
+    public record CreateQuoteDocumentDto(string Kind, string? Note, bool IncludeImages = false);
 
     [HttpGet("{id:guid}/documents")]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> ListDocuments(Guid id)
     {
         var storeId = RequiredStoreId;
-        if (!await QuoteExists(storeId, id))
+        if (!await QuoteAccessible(storeId, id))
             return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
         var items = await dbContext.PosQuoteDocuments.AsNoTracking()
             .Where(d => d.QuoteId == id && d.StoreId == storeId && d.Deleted == null)
@@ -51,9 +51,11 @@ public partial class PosQuotesController
         if (!TryParseKind(dto.Kind, out var kind))
             return BadRequest(AppResponse<object>.Fail("Loại chứng từ không hợp lệ"));
         var quote = await LoadQuote(storeId, id);
-        if (quote == null)
+        if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
-        var html = PosQuoteDocumentHtml.Build(quote, kind, "XEM TRƯỚC", dto.Note);
+        var html = await PosQuoteDocumentHtml.BuildAsync(
+            dbContext, quote, kind, "XEM TRƯỚC", dto.Note,
+            dto.IncludeImages, webHostEnvironment.ContentRootPath);
         return Ok(AppResponse<object>.Success(new
         {
             kind = kind.ToString(),
@@ -71,8 +73,11 @@ public partial class PosQuotesController
         if (!TryParseKind(dto.Kind, out var kind))
             return BadRequest(AppResponse<QuoteDocumentDto>.Fail("Loại chứng từ không hợp lệ"));
         var quote = await LoadQuote(storeId, id, track: true);
-        if (quote == null)
+        if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<QuoteDocumentDto>.Fail("Không tìm thấy báo giá"));
+        if (!CanMutateOwn(quote))
+            return StatusCode(403, AppResponse<QuoteDocumentDto>.Fail(
+                "Không có quyền lập chứng từ trên báo giá của nhân viên khác"));
         if (quote.Status != PosQuoteStatus.Accepted && kind != PosQuoteDocumentKind.Quote)
             return BadRequest(AppResponse<QuoteDocumentDto>.Fail(
                 "Chỉ lập HĐ / xuất kho / bàn giao / nghiệm thu khi khách đã chấp nhận báo giá"));
@@ -86,7 +91,9 @@ public partial class PosQuotesController
             Kind = kind,
             DocNo = docNo,
             Title = PosQuoteDocumentHtml.TitleOf(kind),
-            HtmlContent = PosQuoteDocumentHtml.Build(quote, kind, docNo, dto.Note),
+            HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
+                dbContext, quote, kind, docNo, dto.Note,
+                dto.IncludeImages, webHostEnvironment.ContentRootPath),
             Note = dto.Note?.Trim(),
             IssuedAt = DateTime.UtcNow,
             IssuedBy = CurrentUserEmail,
@@ -108,8 +115,11 @@ public partial class PosQuotesController
     {
         var storeId = RequiredStoreId;
         var quote = await LoadQuote(storeId, id, track: true);
-        if (quote == null)
+        if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<QuoteDocumentDto>.Fail("Không tìm thấy báo giá"));
+        if (!CanMutateOwn(quote))
+            return StatusCode(403, AppResponse<QuoteDocumentDto>.Fail(
+                "Không có quyền xuất kho trên báo giá của nhân viên khác"));
         if (quote.Status != PosQuoteStatus.Accepted)
             return BadRequest(AppResponse<QuoteDocumentDto>.Fail(
                 "Chỉ xuất kho khi khách đã chấp nhận báo giá"));
@@ -199,7 +209,9 @@ public partial class PosQuotesController
             Kind = kind,
             DocNo = docNo,
             Title = PosQuoteDocumentHtml.TitleOf(kind),
-            HtmlContent = PosQuoteDocumentHtml.Build(quote, kind, docNo, dto?.Note),
+            HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
+                dbContext, quote, kind, docNo, dto?.Note,
+                dto?.IncludeImages ?? false, webHostEnvironment.ContentRootPath),
             Note = dto?.Note?.Trim(),
             IssuedAt = DateTime.UtcNow,
             IssuedBy = CurrentUserEmail,
@@ -241,6 +253,13 @@ public partial class PosQuotesController
         dbContext.PosQuotes.AsNoTracking()
             .AnyAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
 
+    async Task<bool> QuoteAccessible(Guid storeId, Guid id)
+    {
+        var quote = await dbContext.PosQuotes.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        return quote != null && OwnsOrManages(quote);
+    }
+
     async Task<string> NextDocNoAsync(Guid storeId, PosQuoteDocumentKind kind)
     {
         var prefix = $"{PosQuoteDocumentHtml.PrefixOf(kind)}{DateTime.UtcNow:ddMMyyyy}";
@@ -268,6 +287,7 @@ public partial class PosQuotesController
             PosQuoteDocumentKind.StockIssue => PosQuoteCommercialStage.Issued,
             PosQuoteDocumentKind.Handover => PosQuoteCommercialStage.HandedOver,
             PosQuoteDocumentKind.Acceptance => PosQuoteCommercialStage.Inspected,
+            PosQuoteDocumentKind.PaymentRequest => quote.CommercialStage,
             _ => quote.CommercialStage,
         };
         if ((int)next > (int)quote.CommercialStage)

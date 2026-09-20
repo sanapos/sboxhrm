@@ -2257,7 +2257,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       name: p.name,
       code: activeView.displayCode,
       priceText: _moneyFmt.format(activeView.basePrice),
-      stockText: p.productType == PosProductType.service
+      stockText: !p.showsWarehouseStock
           ? ''
           : p.productType == PosProductType.combo
               ? 'Bán ${_moneyFmt.format(p.sellableQty ?? activeView.onHandQty)}'
@@ -2376,8 +2376,10 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
-                if (p.productType == PosProductType.service)
-                  Text(tr('Không trừ kho'),
+                if (!p.showsWarehouseStock)
+                  Text(tr(p.productType == PosProductType.combo
+                      ? 'Combo không quản lý tồn kho'
+                      : 'Không trừ kho'),
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                   )
                 else if (p.productType == PosProductType.combo)
