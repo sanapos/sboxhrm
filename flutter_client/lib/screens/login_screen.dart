@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
+import '../widgets/server_url_dialog.dart';
 import '../services/api_service.dart';
 import '../services/app_permission_service.dart';
 import '../widgets/notification_overlay.dart';
@@ -63,6 +65,39 @@ class _LoginScreenState extends State<LoginScreen>
       _isPos ? const Color(0xFF1B5E20) : const Color(0xFF004ABA);
   Timer? _agentLookupDebounce;
   String _appVersionLabel = '';
+
+  Widget _loginLanguageSwitch() {
+    final theme = context.watch<ThemeProvider>();
+    final code = theme.locale.languageCode;
+    Widget chip(String label, String lang) {
+      final selected = code == lang;
+      return Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: ChoiceChip(
+          label: Text(label),
+          selected: selected,
+          onSelected: (_) => theme.setLocale(Locale(lang)),
+          visualDensity: VisualDensity.compact,
+          labelStyle: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: selected ? Colors.white : const Color(0xFF374151),
+          ),
+          selectedColor: _brand,
+          backgroundColor: const Color(0xFFF3F4F6),
+          side: BorderSide.none,
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        chip('VI', 'vi'),
+        chip('EN', 'en'),
+      ],
+    );
+  }
 
   String get _siteOrigin {
     var origin = ApiService.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
@@ -543,9 +578,9 @@ class _LoginScreenState extends State<LoginScreen>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Back to home
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
+                  Row(
+                    children: [
+                      TextButton.icon(
                       onPressed: () async {
                         if (kIsWeb) {
                           web_home.redirectToStaticHome();
@@ -580,6 +615,9 @@ class _LoginScreenState extends State<LoginScreen>
                         textStyle: const TextStyle(fontSize: 13),
                       ),
                     ),
+                      const Spacer(),
+                      _loginLanguageSwitch(),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Align(
@@ -614,7 +652,22 @@ class _LoginScreenState extends State<LoginScreen>
                           color: Color(0xFF586064), fontSize: 14, height: 1.5),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 12),
+                  TextButton.icon(
+                    onPressed: () async {
+                      await showServerUrlDialog(context);
+                      if (mounted) setState(() {});
+                    },
+                    icon: const Icon(Icons.dns_outlined, size: 16),
+                    label: Text(
+                      tr('Máy chủ: ${ApiService.baseUrl}'),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF374151),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
 
                   // Form
                   Form(

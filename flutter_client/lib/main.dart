@@ -14,6 +14,8 @@ import 'app/app.dart';
 import 'providers/auth_provider.dart';
 import 'providers/permission_provider.dart';
 import 'providers/theme_provider.dart';
+import 'services/api_service.dart';
+import 'services/app_icon_badge.dart';
 import 'services/fcm_service_stub.dart'
     if (dart.library.io) 'services/fcm_service.dart';
 
@@ -56,6 +58,8 @@ void main() async {
     return AppFatalErrorScreen(details: details);
   };
 
+  await ApiService.loadSavedBaseUrl();
+  await AppIconBadge.set(0);
   await preloadVietnameseFonts();
 
   await SboxAppVariant.bootstrap();

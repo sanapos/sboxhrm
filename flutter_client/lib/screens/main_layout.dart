@@ -120,6 +120,7 @@ import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../utils/notification_sound_stub.dart';
+import '../services/app_icon_badge.dart';
 import '../services/system_notification_service.dart';
 import '../services/app_permission_service.dart';
 
@@ -1335,6 +1336,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final n = summary['unreadCount'];
       final count = n is int ? n : int.tryParse('$n') ?? 0;
       _unreadNotificationsCount.value = count;
+      await AppIconBadge.set(count);
       if (count == 0) {
         await SystemNotificationService().cancelAll();
       }

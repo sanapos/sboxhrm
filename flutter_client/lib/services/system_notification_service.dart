@@ -147,7 +147,7 @@ class SystemNotificationService {
 
     const darwinDetails = DarwinNotificationDetails(
       presentAlert: true,
-      presentBadge: true,
+      presentBadge: false,
       presentSound: true,
     );
 

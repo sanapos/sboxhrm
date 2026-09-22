@@ -26,8 +26,27 @@ import FirebaseMessaging
     // With FlutterImplicitEngineDelegate, plugins register asynchronously, so
     // we cannot rely on firebase_messaging plugin to call this at the right time.
     application.registerForRemoteNotifications()
+    // Badge iOS gắn với bundle id và không mất khi gỡ/cài lại cho đến khi app xóa.
+    Self.clearIconBadge()
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  static func clearIconBadge() {
+    if #available(iOS 16.0, *) {
+      UNUserNotificationCenter.current().setBadgeCount(0)
+    } else {
+      UIApplication.shared.applicationIconBadgeNumber = 0
+    }
+  }
+
+  static func setIconBadge(_ count: Int) {
+    let n = max(0, count)
+    if #available(iOS 16.0, *) {
+      UNUserNotificationCenter.current().setBadgeCount(n)
+    } else {
+      UIApplication.shared.applicationIconBadgeNumber = n
+    }
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
@@ -37,6 +56,23 @@ import FirebaseMessaging
     // can call it via MethodChannel('sana/native_face_embedder').
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NativeFaceEmbedder") {
       NativeFaceEmbedder.register(with: registrar)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SboxAppBadge") {
+      let channel = FlutterMethodChannel(
+        name: "sbox/app_badge",
+        binaryMessenger: registrar.messenger()
+      )
+      channel.setMethodCallHandler { call, result in
+        if call.method == "set" {
+          let n = call.arguments as? Int ?? (call.arguments as? NSNumber)?.intValue ?? 0
+          DispatchQueue.main.async {
+            AppDelegate.setIconBadge(n)
+          }
+          result(nil)
+        } else {
+          result(FlutterMethodNotImplemented)
+        }
+      }
     }
   }
 

@@ -12,6 +12,7 @@ import '../providers/permission_provider.dart';
 import '../providers/theme_provider.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/server_url_dialog.dart';
 import 'app_info_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -470,42 +471,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showServerDialog(BuildContext context) {
-    final controller = TextEditingController(text: tr(_serverUrl));
-    final l = AppLocalizations.of(context);
-
-    showDialog(
-      context: context,
-      builder: (context) => ScrollableAlertDialog(
-        title: Text(tr(l.serverConfig)),
-        content: SingleChildScrollView(
-          child: TextField(
-            controller: controller,
-            decoration: InputDecoration(
-              labelText: tr('URL Server API'),
-              hintText: tr('http://192.168.1.2:7070'),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(tr(l.cancel)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() => _serverUrl = controller.text);
-              Navigator.pop(context);
-              appNotification.showInfo(
-                title: l.serverConfig,
-                message: tr('URL Server được tùy chỉnh qua biến môi trường API_BASE_URL khi build.\nURL hiện tại: ${ApiService.baseUrl}'),
-              );
-            },
-            child: Text(tr(l.save)),
-          ),
-        ],
-      ),
-    );
+  Future<void> _showServerDialog(BuildContext context) async {
+    await showServerUrlDialog(context);
+    if (!mounted) return;
+    setState(() => _serverUrl = ApiService.baseUrl);
   }
 
   void _showSyncDialog(BuildContext context) {

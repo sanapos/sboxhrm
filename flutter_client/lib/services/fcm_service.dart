@@ -15,7 +15,7 @@ import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../utils/notification_display_utils.dart';
 import '../utils/notification_navigation.dart';
 import '../utils/pending_notification_launch.dart';
-import 'api_config.dart';
+import 'api_service.dart';
 
 /// Background message handler. Must be a top-level function.
 /// On iOS, this handler is only called for DATA-ONLY messages (no `notification` field).
@@ -169,7 +169,7 @@ class FcmService {
       final accessToken = prefs.getString('access_token');
       if (token != null && accessToken != null) {
         final url = Uri.parse(
-          '${getApiBaseUrl()}/api/notifications/device-token?token=${Uri.encodeQueryComponent(token)}',
+          '${ApiService.baseUrl}/api/notifications/device-token?token=${Uri.encodeQueryComponent(token)}',
         );
         await http.delete(url, headers: {
           'Authorization': 'Bearer $accessToken',
@@ -196,7 +196,7 @@ class FcmService {
       'token': token,
       'platform': platform,
     });
-    final url = Uri.parse('${getApiBaseUrl()}/api/notifications/device-token');
+    final url = Uri.parse('${ApiService.baseUrl}/api/notifications/device-token');
     final res = await http.post(url, headers: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $accessToken',

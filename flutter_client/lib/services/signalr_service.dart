@@ -3,10 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:signalr_netcore/signalr_client.dart';
 import '../models/attendance.dart';
-import 'api_config.dart';
-
-/// Base URL for SignalR connections
-final String _defaultBaseUrl = getApiBaseUrl();
+import 'api_service.dart';
 
 /// Device status notification model
 class DeviceStatusNotification {
@@ -186,7 +183,7 @@ class SignalRService {
         _lastAccessToken = token;
       }
       
-      final url = _lastBaseUrl ?? _defaultBaseUrl;
+      final url = _lastBaseUrl ?? ApiService.baseUrl;
       final hubUrl = '$url/hubs/attendance';
       debugPrint('📡 Connecting to SignalR hub: $hubUrl (auth: ${token != null ? "yes" : "no"})');
 

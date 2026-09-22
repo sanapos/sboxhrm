@@ -20,7 +20,53 @@ Map<String, String> paginationQueryParams(int page, int pageSize) => {
     };
 
 class ApiService {
-  static final String baseUrl = getApiBaseUrl();
+  static const String _baseUrlPrefKey = 'sbox_api_base_url';
+  static String _baseUrl = getApiBaseUrl();
+
+  /// Máy chủ API đang dùng. Có thể đổi trong Cài đặt hoặc màn đăng nhập.
+  static String get baseUrl => _baseUrl;
+
+  static String normalizeBaseUrl(String raw) {
+    var s = raw.trim();
+    if (s.isEmpty) return getApiBaseUrl();
+    if (!s.startsWith('http://') && !s.startsWith('https://')) {
+      s = 'https://$s';
+    }
+    s = s.replaceAll(RegExp(r'/+$'), '');
+    s = s.replaceFirst(RegExp(r'/api$'), '');
+    return s;
+  }
+
+  static Future<void> loadSavedBaseUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_baseUrlPrefKey);
+    if (saved != null && saved.trim().isNotEmpty) {
+      _baseUrl = normalizeBaseUrl(saved);
+    }
+  }
+
+  /// Lưu máy chủ sau khi gọi thử /api/publicsettings. Trả về lỗi, hoặc null nếu được.
+  static Future<String?> applyBaseUrl(String raw) async {
+    final normalized = normalizeBaseUrl(raw);
+    final uri = Uri.tryParse(normalized);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      return 'Địa chỉ máy chủ không hợp lệ';
+    }
+    try {
+      final res = await http
+          .get(Uri.parse('$normalized/api/publicsettings'))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode >= 500) {
+        return 'Máy chủ không phản hồi (${res.statusCode})';
+      }
+    } catch (_) {
+      return 'Không kết nối được $normalized';
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_baseUrlPrefKey, normalized);
+    _baseUrl = normalized;
+    return null;
+  }
   static const String _tokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
   static const Duration _defaultTimeout = Duration(seconds: 8);

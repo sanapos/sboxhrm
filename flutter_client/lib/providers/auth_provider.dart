@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/app_icon_badge.dart';
 import '../services/fcm_service_stub.dart'
     if (dart.library.io) '../services/fcm_service.dart';
 import '../utils/pending_notification_launch.dart';
@@ -440,6 +441,7 @@ class AuthProvider extends ChangeNotifier {
       debugPrint('FCM unregister error: $e');
     }
 
+    await AppIconBadge.set(0);
     await SessionReset.clearForAccountSwitch();
     await _apiService.clearToken();
     NotificationPreferencesCache.instance.clear();
