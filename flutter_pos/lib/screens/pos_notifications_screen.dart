@@ -7,6 +7,7 @@ import '../l10n/app_tr.dart';
 import '../models/hrm.dart';
 import '../screens/main_layout.dart';
 import '../services/api_service.dart';
+import '../services/system_notification_service.dart';
 import '../services/signalr_service.dart';
 import '../utils/notification_display_utils.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -244,6 +245,7 @@ class _PosNotificationsScreenState extends State<PosNotificationsScreen> {
         _unread = 0;
       });
       ScreenRefreshNotifier.refreshNotificationCount();
+      await SystemNotificationService().cancelAll();
     }
   }
 

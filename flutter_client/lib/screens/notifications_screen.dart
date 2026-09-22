@@ -13,6 +13,7 @@ import '../widgets/notification_overlay.dart';
 import '../utils/notification_navigation.dart';
 import '../utils/admin_navigation.dart';
 import '../services/api_service.dart';
+import '../services/system_notification_service.dart';
 import '../services/signalr_service.dart';
 import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
@@ -299,6 +300,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _unreadCount = summary['unreadCount'] ?? 0;
       });
       ScreenRefreshNotifier.refreshNotificationCount();
+      if ((_unreadCount) == 0) {
+        await SystemNotificationService().cancelAll();
+      }
       if (mounted) {
         appNotification.showSuccess(
             title: 'Thành công', message: tr('Đã đánh dấu tất cả đã đọc'));

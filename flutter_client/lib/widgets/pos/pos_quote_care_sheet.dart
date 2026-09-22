@@ -3,9 +3,15 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_tr.dart';
+import '../../models/pos_print_template.dart';
 import '../../models/pos_quote.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_html_print.dart';
+import '../../utils/pos_print_template_defaults.dart';
+import '../../utils/pos_print_template_loader.dart';
+import '../../utils/pos_print_template_renderer.dart';
+import '../../utils/pos_print_template_v2_codec.dart';
+import '../../utils/pos_vietnamese_money_words.dart';
 import '../../widgets/notification_overlay.dart';
 import 'pos_theme.dart';
 
@@ -32,19 +38,38 @@ Future<void> printPosQuoteSlip(
   BuildContext context, {
   required String quoteId,
   PosQuote? quote,
+  List<PosQuoteLine>? lines,
   bool includeImages = false,
 }) async {
   final api = ApiService();
+  var html = '';
+  var title = quote?.quoteSlip?.title ?? 'BÁO GIÁ';
   PosQuote? q = quote;
-  if (q == null || q.documents.isEmpty) {
+  var useLines = lines ?? q?.lines ?? const <PosQuoteLine>[];
+  if (q == null || useLines.isEmpty) {
     final res = await api.getPosQuote(quoteId);
     if (res['isSuccess'] == true && res['data'] is Map) {
       q = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+      if (useLines.isEmpty) useLines = q.lines;
     }
   }
-  var html = q?.quoteSlip?.htmlContent ?? '';
-  var title = q?.quoteSlip?.title ?? 'BÁO GIÁ';
-  if (html.trim().isEmpty || includeImages) {
+  if (q != null && useLines.isNotEmpty) {
+    try {
+      html = bindPosQuotePrintHtmlLocal(q, useLines);
+    } catch (_) {
+      html = '';
+    }
+    if (html.trim().isEmpty) {
+      try {
+        html = await bindPosQuotePrintHtml(api, q, useLines);
+      } catch (_) {
+        html = '';
+      }
+    }
+    if (html.trim().isNotEmpty) title = 'BÁO GIÁ';
+  }
+  // Chỉ gọi preview API khi không có dòng hàng — preview hay dính mẫu Aquafina.
+  if (html.trim().isEmpty && useLines.isEmpty) {
     final preview = await api.previewPosQuoteDocument(
       quoteId,
       'Quote',
@@ -56,6 +81,13 @@ Future<void> printPosQuoteSlip(
       title = (data['title'] ?? data['Title'] ?? title).toString();
     }
   }
+  if (html.trim().isEmpty) {
+    final slip = q?.quoteSlip?.htmlContent ?? '';
+    if (slip.isNotEmpty && !slip.contains('XEM TRƯỚC')) {
+      html = slip;
+      title = q?.quoteSlip?.title ?? title;
+    }
+  }
   if (!context.mounted) return;
   if (html.trim().isEmpty) {
     NotificationOverlayManager().showError(
@@ -64,7 +96,201 @@ Future<void> printPosQuoteSlip(
     );
     return;
   }
-  await showPosHtmlPrintDialog(context, title: title, htmlDocument: html);
+  await showPosHtmlPrintDialog(
+    context,
+    title: title,
+    htmlDocument: html,
+    a4Paper: true,
+  );
+}
+
+String bindPosQuotePrintHtmlLocal(
+  PosQuote q,
+  List<PosQuoteLine> lineItems, {
+  Map<String, dynamic>? commercialProfile,
+}) {
+  final data = posPrintSampleData(
+    documentType: PosPrintDocumentTypes.quote,
+    commercialProfile: commercialProfile,
+  );
+  data.addAll(_quoteHeaderData(q, lineItems));
+  for (final k in const [
+    'So_Luong',
+    'Don_Gia',
+    'Ma_Hang',
+    'Don_Vi_Tinh',
+    'Ma_Vach',
+    'STT',
+  ]) {
+    data.remove(k);
+  }
+  return renderPosPrintTemplateHtml(
+    posPrintDefaultHtml(
+      documentType: PosPrintDocumentTypes.quote,
+      paperSize: PosPrintPaperSizes.a4,
+    ),
+    data: data,
+    lineItems: _quoteLineItems(lineItems),
+    wrapDocument: true,
+    paperSize: PosPrintPaperSizes.a4,
+  );
+}
+
+Future<String> bindPosQuotePrintHtml(
+    ApiService api, PosQuote q, List<PosQuoteLine> lineItems) async {
+  Map<String, dynamic>? profile;
+  try {
+    final profileRes = await api.getPosCommercialProfile();
+    if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
+      profile = Map<String, dynamic>.from(profileRes['data'] as Map);
+    }
+  } catch (_) {}
+
+  String render(String templateHtml) => renderPosPrintTemplateHtml(
+        templateHtml,
+        data: () {
+          final data = posPrintSampleData(
+            documentType: PosPrintDocumentTypes.quote,
+            commercialProfile: profile,
+          );
+          data.addAll(_quoteHeaderData(q, lineItems));
+          for (final k in const [
+            'So_Luong',
+            'Don_Gia',
+            'Ma_Hang',
+            'Don_Vi_Tinh',
+            'Ma_Vach',
+            'STT',
+          ]) {
+            data.remove(k);
+          }
+          return data;
+        }(),
+        lineItems: _quoteLineItems(lineItems),
+        wrapDocument: true,
+        paperSize: PosPrintPaperSizes.a4,
+      );
+
+  try {
+    final list = await loadPosPrintTemplates(api, PosPrintDocumentTypes.quote);
+    final htmlTemplates = list.where((t) {
+      final raw = t.htmlContent.trim();
+      return raw.startsWith('<') && !PosPrintTemplateV2Codec.isV2Content(raw);
+    }).toList();
+    PosPrintTemplate? tpl;
+    final id = q.printTemplateId;
+    if (id != null && id.isNotEmpty) {
+      tpl = htmlTemplates.where((t) => t.id == id).firstOrNull;
+    }
+    tpl ??= htmlTemplates.where((t) => t.isDefault).firstOrNull ??
+        htmlTemplates.firstOrNull;
+    final remote = (tpl?.htmlContent ?? '').trim();
+    if (remote.isNotEmpty && _templateCanBindQuoteLines(remote)) {
+      final html = render(remote);
+      if (_printHtmlMatchesQuoteLines(html, _quoteLineItems(lineItems))) {
+        return html;
+      }
+    }
+  } catch (_) {}
+  return bindPosQuotePrintHtmlLocal(q, lineItems, commercialProfile: profile);
+}
+
+bool _templateCanBindQuoteLines(String html) {
+  final raw = posPrintRestoreItemMarkers(html);
+  if (raw.contains('XEM TRƯỚC')) return false;
+  return raw.contains('{Ten_Hang_Hoa}') ||
+      raw.contains('BEGIN_ITEMS') ||
+      raw.contains('begin-items');
+}
+
+bool _printHtmlMatchesQuoteLines(
+    String html, List<Map<String, String>> items) {
+  if (html.trim().isEmpty || html.contains('XEM TRƯỚC')) return false;
+  if (items.length < 2) {
+    final name = items.isEmpty ? '' : (items.first['Ten_Hang_Hoa'] ?? '');
+    return name.isEmpty || html.contains(name);
+  }
+  final second = items[1]['Ten_Hang_Hoa'] ?? '';
+  return second.isEmpty || html.contains(second);
+}
+
+double _quoteLineAmount(PosQuoteLine l) {
+  if (l.lineTotal > 0) return l.lineTotal;
+  final net =
+      (l.qty * l.unitPrice - l.discountAmount).clamp(0.0, double.infinity);
+  return net * (1 + l.vatRate / 100);
+}
+
+Map<String, String> _quoteHeaderData(PosQuote q, List<PosQuoteLine> lines) {
+  final money = NumberFormat('#,##0', 'vi_VN');
+  final day = DateFormat('dd/MM/yyyy');
+  final now = DateTime.now();
+  final use = lines.isNotEmpty ? lines : q.lines;
+  final subTotal = use.fold<double>(0, (a, l) => a + l.qty * l.unitPrice);
+  final lineSum = use.fold<double>(0, (a, l) => a + _quoteLineAmount(l));
+  final vat = use.fold<double>(0, (a, l) {
+    final net =
+        (l.qty * l.unitPrice - l.discountAmount).clamp(0.0, double.infinity);
+    return a + (_quoteLineAmount(l) - net);
+  });
+  final total = (lineSum - q.discount).clamp(0.0, double.infinity);
+  return {
+    'Tieu_De_In': 'BÁO GIÁ',
+    'Ma_Don_Hang': q.quoteNo,
+    'Ma_Bao_Gia': q.quoteNo,
+    'So_Chung_Tu': q.quoteNo,
+    'Ngay': day.format(now),
+    'Gio': DateFormat('HH:mm').format(now),
+    'Khach_Hang': q.customerName ?? '',
+    'Ten_Cong_Ty_Khach': q.customerName ?? '',
+    'SDT': q.customerPhone ?? '',
+    'Dia_Chi_Khach_Hang': q.customerAddress ?? '',
+    'Han_Bao_Gia': q.validUntil == null ? '' : day.format(q.validUntil!.toLocal()),
+    'Tong_Tien_Hang': money.format(subTotal),
+    'Chiet_Khau_Hoa_Don': money.format(q.discount),
+    'Tien_Thue': money.format(vat),
+    'Thue': money.format(vat),
+    'VAT': money.format(vat),
+    'Tong_Cong': money.format(total),
+    'Khach_Can_Tra': money.format(total),
+    'Tong_Cong_Bang_Chu': vietnameseMoneyInWords(total.round()),
+    'Hinh_Thuc_Thanh_Toan': q.paymentMethod ?? '',
+    'Dieu_Khoan': q.terms ?? '',
+    'Ghi_Chu': q.note ?? '',
+    'Nguoi_Bao_Gia': q.quotedBy ?? q.issuedBy ?? '',
+    'Nguoi_Ban': q.quotedBy ?? '',
+    'Ten_Hang_Hoa': use.isEmpty
+        ? ''
+        : (use.length == 1
+            ? use.first.productName
+            : '${use.first.productName} +${use.length - 1}'),
+    'Bao_Hanh': use.any((l) => (l.warrantyMonths ?? 0) > 0)
+        ? '${use.where((l) => (l.warrantyMonths ?? 0) > 0).map((l) => l.warrantyMonths).first} tháng'
+        : '12 tháng',
+  };
+}
+
+List<Map<String, String>> _quoteLineItems(List<PosQuoteLine> lines) {
+  final money = NumberFormat('#,##0', 'vi_VN');
+  final qty = NumberFormat('0.##', 'vi_VN');
+  var i = 1;
+  return [
+    for (final l in lines)
+      {
+        'STT': '${i++}',
+        'Ma_Hang': l.productCode ?? '',
+        'Ten_Hang_Hoa': l.productName,
+        'Don_Vi_Tinh': l.unitName ?? '',
+        'So_Luong': qty.format(l.qty),
+        'Don_Gia': money.format(l.unitPrice),
+        'Thanh_Tien': money.format(_quoteLineAmount(l)),
+        'Chiet_Khau': money.format(l.discountAmount),
+        'Ghi_Chu': l.lineNote ?? '',
+        'Bao_Hanh':
+            (l.warrantyMonths ?? 0) > 0 ? '${l.warrantyMonths} tháng' : '',
+        'Hinh_Anh': '',
+      },
+  ];
 }
 
 Future<void> showPosQuoteCareSheet(

@@ -183,13 +183,6 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     final ids = <String>{MobileBottomNavCatalog.posMoreId};
     for (final d in MobileBottomNavCatalog.posItems) {
       if (d.moduleCode == null) continue;
-      if (d.moduleCode == 'PosSalesReport') {
-        if (PermissionNavigation.canNavigate(perm, 'PosSalesReport') ||
-            PermissionNavigation.canNavigate(perm, 'PosSell')) {
-          ids.add(d.id);
-        }
-        continue;
-      }
       if (PermissionNavigation.canAccessModule(
         d.moduleCode!,
         allowedModules: allowedModules,
@@ -214,8 +207,13 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     if (slotId == MobileBottomNavCatalog.emptyId) return false;
     if (slotId == MobileBottomNavCatalog.posMoreId) return true;
     if (slotId == 'PosSalesReport') {
-      return PermissionNavigation.canNavigate(perm, 'PosSalesReport') ||
-          PermissionNavigation.canNavigate(perm, 'PosSell');
+      final authUser = Provider.of<AuthProvider>(context, listen: false).user;
+      return PermissionNavigation.canAccessModule(
+        'PosSalesReport',
+        allowedModules: authUser?.allowedModules,
+        perm: perm,
+        role: authUser?.role,
+      );
     }
     final def = MobileBottomNavCatalog.mapFor(MobileBottomNavCatalog.posItems)[slotId];
     if (def?.moduleCode == null) return false;

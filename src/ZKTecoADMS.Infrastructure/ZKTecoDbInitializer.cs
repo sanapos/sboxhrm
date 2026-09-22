@@ -139,6 +139,8 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WarrantyMonths"" integer NULL;
                     ALTER TABLE ""PosQuoteLines"" ADD COLUMN IF NOT EXISTS ""WarrantyMonths"" integer NULL;
                     ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""PaymentMethod"" character varying(100) NULL;
+                    ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""DepositAmount"" numeric(18,2) NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""DepositPercent"" numeric(5,2) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""RequiresSerial"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""TrackExpiry"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ExpiryWarningDays"" integer NOT NULL DEFAULT 30;
@@ -3337,9 +3339,8 @@ public class ZKTecoDbInitializer(
             await SeedPermissionModulesAsync();
             await SyncEmployeeRolePermissionsAsync();
             await PatchPosSellOpsRolePermissionsAsync();
-            await PatchPosReportRolePermissionsAsync();
             await SeedServicePackagesAsync();
-            await PatchPosReportPackageModulesAsync();
+            // Không gọi PatchPosReportPackageModulesAsync — bỏ tick báo cáo phải được giữ.
             await context.SaveChangesAsync();
 
             try
@@ -3778,58 +3779,9 @@ public class ZKTecoDbInitializer(
                 existing.UpdatedBy = "System";
                 logger.LogInformation("Updated empty modules for package: {Name}", basicName);
             }
-            else if (mods.Contains("PosSell", StringComparer.OrdinalIgnoreCase))
-            {
-                var added = false;
-                if (!mods.Contains("PosSaleReturns", StringComparer.OrdinalIgnoreCase))
-                {
-                    mods.Add("PosSaleReturns");
-                    added = true;
-                }
-                foreach (var addon in PosPackageDefaults.SellAddonModules)
-                {
-                    if (mods.Contains(addon, StringComparer.OrdinalIgnoreCase)) continue;
-                    mods.Add(addon);
-                    added = true;
-                }
-                if (added)
-                {
-                    existing.AllowedModules = System.Text.Json.JsonSerializer.Serialize(mods);
-                    existing.Description =
-                        "Bán hàng POS cơ bản: hàng hóa, bán hàng, đơn hàng, trả hàng, CRM, đặt bàn, BH, màn phụ";
-                    existing.UpdatedAt = DateTime.UtcNow;
-                    existing.UpdatedBy = "System";
-                    logger.LogInformation("Patched POS addon modules on package: {Name}", basicName);
-                }
-            }
         }
 
-        // Mọi gói đang có PosSell → bổ sung 4 addon tách riêng (không gãy cửa hàng cũ).
-        await PatchPosSellAddonModulesAsync();
-    }
-
-    private async Task PatchPosSellAddonModulesAsync()
-    {
-        var packages = await context.ServicePackages
-            .Where(p => p.IsActive)
-            .ToListAsync();
-        foreach (var pkg in packages)
-        {
-            var mods = StorePackageHelper.DeserializeModules(pkg.AllowedModules);
-            if (!mods.Contains("PosSell", StringComparer.OrdinalIgnoreCase)) continue;
-            var changed = false;
-            foreach (var addon in PosPackageDefaults.SellAddonModules)
-            {
-                if (mods.Contains(addon, StringComparer.OrdinalIgnoreCase)) continue;
-                mods.Add(addon);
-                changed = true;
-            }
-            if (!changed) continue;
-            pkg.AllowedModules = System.Text.Json.JsonSerializer.Serialize(mods);
-            pkg.UpdatedAt = DateTime.UtcNow;
-            pkg.UpdatedBy = "System";
-            logger.LogInformation("Added POS sell addons to package: {Name}", pkg.Name);
-        }
+        // Không gắn lại addon mỗi lần khởi động — tick Super Admin bỏ phải được giữ.
     }
 
     #endregion
@@ -3992,6 +3944,12 @@ public class ZKTecoDbInitializer(
             foreach (var op in ops)
             {
                 if (have.Contains((src.RoleName, src.StoreId, op.Id))) continue;
+                // Không copy PosSell sang chức năng tick riêng — dòng thiếu hoặc đã tắt phải giữ nguyên.
+                if (op.Module is "PosKds" or "PosQrOrder" or "PosQuotes" or "PosEInvoice"
+                    or "PosShipping" or "PosCustomerDisplay" or "PosBooking" or "PosPrinters"
+                    or "PosStorePrinters" or "SettingsHub" or "PosCustomers" or "PosWarranty"
+                    or "PosCashierShift")
+                    continue;
                 var (v, c, e, d, x, a) = ModulePermissionDefaults.Get(src.RoleName, op.Module);
                 if (!v && !c && !e && !d && !x && !a)
                 {

@@ -43,7 +43,7 @@ public static class PosCommercialTemplateImport
         "Chèn trường động (giống hóa đơn): {Ten_Cua_Hang} {Dia_Chi_Chi_Nhanh} {Khach_Hang} {SDT} {Dia_Chi_Khach_Hang} " +
         "{Ma_Bao_Gia} {Han_Bao_Gia} {Tong_Tien_Hang} {Chiet_Khau_Hoa_Don} {Tien_Thue} {Tong_Cong} {Tong_Cong_Bang_Chu} " +
         "{Hinh_Thuc_Thanh_Toan} {Dieu_Khoan}<br/>" +
-        "Bảng hàng: <!--BEGIN_ITEMS--> … {STT} {Ma_Hang} {Ten_Hang_Hoa} {Don_Gia} {So_Luong} {Thanh_Tien} {Bao_Hanh} <!--END_ITEMS-->" +
+        "Bảng hàng: BEGIN_ITEMS … {STT} {Ma_Hang} {Ten_Hang_Hoa} {Don_Gia} {So_Luong} {Thanh_Tien} {Bao_Hanh} END_ITEMS" +
         "</div></div>";
 
     static string DocxToHtml(byte[] bytes)
@@ -79,7 +79,7 @@ public static class PosCommercialTemplateImport
         return
             "<p><b>Mẫu PDF: " + safe + "</b> (" + (bytes / 1024) + " KB)</p>" +
             "<p>PDF giữ bố cục gốc khó sửa chữ. Hãy dán nội dung cần in bên dưới, rồi chèn token " +
-            "<code>{Khach_Hang}</code>, <code>{Tong_Cong}</code>, bảng <!--BEGIN_ITEMS-->.</p>" +
+            "<code>{Khach_Hang}</code>, <code>{Tong_Cong}</code>, bảng BEGIN_ITEMS.</p>" +
             "<p>Gợi ý: xuất lại file Word từ PDF rồi tải lên để lấy đủ đoạn văn.</p>" +
             DefaultItemTable();
     }

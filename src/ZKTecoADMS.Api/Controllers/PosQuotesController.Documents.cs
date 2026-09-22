@@ -54,7 +54,7 @@ public partial class PosQuotesController
         if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
         var html = await PosQuoteDocumentHtml.BuildAsync(
-            dbContext, quote, kind, "XEM TRƯỚC", dto.Note,
+            dbContext, quote, kind, quote.QuoteNo, dto.Note,
             dto.IncludeImages, webHostEnvironment.ContentRootPath);
         return Ok(AppResponse<object>.Success(new
         {
@@ -79,8 +79,25 @@ public partial class PosQuotesController
             return StatusCode(403, AppResponse<QuoteDocumentDto>.Fail(
                 "Không có quyền lập chứng từ trên báo giá của nhân viên khác"));
         if (quote.Status != PosQuoteStatus.Accepted && kind != PosQuoteDocumentKind.Quote)
-            return BadRequest(AppResponse<QuoteDocumentDto>.Fail(
-                "Chỉ lập HĐ / xuất kho / bàn giao / nghiệm thu khi khách đã chấp nhận báo giá"));
+        {
+            if (kind == PosQuoteDocumentKind.Contract &&
+                quote.Status is PosQuoteStatus.Draft or PosQuoteStatus.Sent or PosQuoteStatus.Revised)
+            {
+                if (quote.Status == PosQuoteStatus.Draft)
+                {
+                    quote.IssuedAt = DateTime.UtcNow;
+                    quote.IssuedBy = CurrentUserEmail;
+                }
+                quote.Status = PosQuoteStatus.Accepted;
+                if (quote.CommercialStage < PosQuoteCommercialStage.Accepted)
+                    quote.CommercialStage = PosQuoteCommercialStage.Accepted;
+            }
+            else
+            {
+                return BadRequest(AppResponse<QuoteDocumentDto>.Fail(
+                    "Chỉ lập HĐ / xuất kho / bàn giao / nghiệm thu khi khách đã chấp nhận báo giá"));
+            }
+        }
 
         var docNo = await NextDocNoAsync(storeId, kind);
         var doc = new PosQuoteDocument
@@ -245,8 +262,21 @@ public partial class PosQuotesController
         var q = track
             ? dbContext.PosQuotes.AsTracking()
             : dbContext.PosQuotes.AsNoTracking();
-        return await q.Include(x => x.Lines)
+        var quote = await q.Include(x => x.Lines)
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        if (quote == null) return null;
+        if (!quote.Lines.Any(l => l.Deleted == null))
+        {
+            var extraQ = track
+                ? dbContext.PosQuoteLines.AsTracking()
+                : dbContext.PosQuoteLines.AsNoTracking();
+            var extra = await extraQ
+                .Where(l => l.QuoteId == id && l.StoreId == storeId && l.Deleted == null)
+                .OrderBy(l => l.SortOrder)
+                .ToListAsync();
+            foreach (var line in extra) quote.Lines.Add(line);
+        }
+        return quote;
     }
 
     Task<bool> QuoteExists(Guid storeId, Guid id) =>

@@ -5,7 +5,7 @@ class MobileQuickActionsLayout {
   const MobileQuickActionsLayout({required this.modules});
 
   static const slotCount = 9;
-  static const storageKey = 'mobile_quick_actions_v2';
+  static const storageKey = 'mobile_quick_actions_v3';
   static const legacyStorageKey = 'mobile_quick_actions_v1';
   static const emptySlot = '';
 
@@ -13,14 +13,14 @@ class MobileQuickActionsLayout {
 
   static const defaultModules = [
     'PosSell',
+    'PosQuotes',
+    'PosPrintTemplates',
     'PosProducts',
     'PosSaleOrders',
-    'Employee',
-    'Payroll',
-    'Leave',
-    'Communication',
-    'SettingsHub',
+    'PosKds',
     'PosSalesReport',
+    'SettingsHub',
+    'Employee',
   ];
 
   factory MobileQuickActionsLayout.defaults() =>

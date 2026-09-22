@@ -97,6 +97,7 @@ import 'pos_products_screen.dart';
 import 'pos_sell_screen.dart';
 import 'pos_sale_order_list_screen.dart';
 import 'pos/pos_quote_list_screen.dart';
+import 'pos_print_templates_screen.dart';
 import 'pos_sale_return_list_screen.dart';
 import 'pos_supplier_list_screen.dart';
 import 'warehouse/wh_mobile_nav.dart';
@@ -727,11 +728,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         StoreRoleHelper.bypassesPackageFilter(authUser?.role);
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     if (!PermissionNavigation.isAllowedByPackageOrRole(
-      moduleCode,
-      allowedModules: allowedModules,
-      perm: perm,
-      bypassPackageFilter: bypassPackage,
-    )) {
+          moduleCode,
+          allowedModules: allowedModules,
+          perm: perm,
+          bypassPackageFilter: bypassPackage,
+        )) {
       if (moduleCode != null && moduleCode.isNotEmpty) {
         PermissionNavigation.showDenied(context, moduleCode);
       }
@@ -1332,8 +1333,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final summary = await _apiService.getNotificationSummary();
       if (!mounted) return;
       final n = summary['unreadCount'];
-      _unreadNotificationsCount.value =
-          n is int ? n : int.tryParse('$n') ?? 0;
+      final count = n is int ? n : int.tryParse('$n') ?? 0;
+      _unreadNotificationsCount.value = count;
+      if (count == 0) {
+        await SystemNotificationService().cancelAll();
+      }
     } catch (e) {
       debugPrint('Error loading notification count: $e');
     }
@@ -1733,6 +1737,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       group: 'POS',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosQuotes',
+    ),
+    NavItem(
+      icon: Icons.article_outlined,
+      activeIcon: Icons.article,
+      label: 'Mẫu in báo giá',
+      subtitle: 'A4 thương mại',
+      screen: const PosPrintTemplatesScreen(initialDocumentType: 'Quote'),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosPrintTemplates',
     ),
     NavItem(
       icon: Icons.kitchen_outlined,
@@ -3084,9 +3098,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         continue;
       }
       // Lọc theo quyền canView - ẩn module nếu không có quyền xem
-      if (!permProvider.canViewNav(_navItems[i].moduleCode) &&
-          !(_navItems[i].moduleCode == 'PosKds' &&
-              PermissionNavigation.canNavigate(permProvider, 'PosSell'))) {
+      if (!PermissionNavigation.canNavigate(
+            permProvider,
+            _navItems[i].moduleCode,
+          )) {
         continue;
       }
       final group = _navItems[i].group.isEmpty ? 'Khác' : _navItems[i].group;
@@ -3628,10 +3643,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       )) {
         continue;
       }
-      // Lọc theo quyền canView
-      if (!permProvider.canViewNav(item.moduleCode) &&
-          !(item.moduleCode == 'PosKds' &&
-              PermissionNavigation.canNavigate(permProvider, 'PosSell'))) {
+      if (!PermissionNavigation.canNavigate(permProvider, item.moduleCode)) {
         continue;
       }
       final group = item.group.isEmpty ? 'Khác' : item.group;
@@ -4038,6 +4050,46 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     return 'Chi nhánh';
   }
 
+  Widget _buildQuoteShortcutGrid(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    bool can(String code) => PermissionNavigation.canAccessModule(
+          code,
+          allowedModules: auth.user?.allowedModules,
+          perm: perm,
+          role: auth.user?.role,
+        );
+    void open(String code) {
+      if (widget.onModuleTap != null) {
+        widget.onModuleTap!(code);
+        return;
+      }
+      final idx = widget.navItems.indexWhere((n) => n.moduleCode == code);
+      if (idx >= 0) widget.onItemTap(idx);
+    }
+
+    final items = <PosMobileHubGridItem>[
+      if (can('PosQuotes'))
+        PosMobileHubGridItem(
+          label: 'Báo giá',
+          icon: Icons.request_quote_outlined,
+          onTap: () => open('PosQuotes'),
+        ),
+      if (can('PosQuotes') && can('PosPrintTemplates'))
+        PosMobileHubGridItem(
+          label: 'Mẫu in báo giá',
+          icon: Icons.article_outlined,
+          onTap: () => open('PosPrintTemplates'),
+        ),
+    ];
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return PosMobileHubSectionGrid(
+      title: 'Thương mại',
+      items: items,
+    );
+  }
+
   Widget _buildMobileQuickActionsGrid(BuildContext context) {
     final authUser =
         Provider.of<AuthProvider>(context, listen: false).user;
@@ -4045,7 +4097,15 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     final allowedModules = widget.allowedModules ?? authUser?.allowedModules;
     final role = authUser?.role;
     final allowed = <String>{};
+    final quotesAllowed = PermissionNavigation.canAccessModule(
+      'PosQuotes',
+      allowedModules: allowedModules,
+      perm: perm,
+      role: role,
+    );
     for (final def in MobileQuickActionsCatalog.items) {
+      // Ô «Mẫu in báo giá» chỉ khi gói có Báo giá, không theo mẫu in hóa đơn.
+      if (def.moduleCode == 'PosPrintTemplates' && !quotesAllowed) continue;
       if (PermissionNavigation.canAccessModule(
         def.moduleCode,
         allowedModules: allowedModules,
@@ -4060,30 +4120,33 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
         .modules
         .where((c) => c.isNotEmpty)
         .toList(growable: false);
-    if (modules.isEmpty) return const SizedBox.shrink();
+    PosMobileHubGridItem? tileFor(String code) {
+      final def = MobileQuickActionsCatalog.map[code];
+      if (def == null) return null;
+      return PosMobileHubGridItem(
+        label: def.label,
+        icon: def.icon,
+        onTap: () {
+          if (widget.onModuleTap != null) {
+            widget.onModuleTap!(code);
+            return;
+          }
+          final idx =
+              widget.navItems.indexWhere((n) => n.moduleCode == code);
+          if (idx >= 0) widget.onItemTap(idx);
+        },
+      );
+    }
+
+    final items = modules
+        .map(tileFor)
+        .whereType<PosMobileHubGridItem>()
+        .toList(growable: false);
+    if (items.isEmpty) return const SizedBox.shrink();
 
     return PosMobileHubSectionGrid(
       title: 'Truy cập nhanh',
-      items: modules
-          .map((code) {
-            final def = MobileQuickActionsCatalog.map[code];
-            if (def == null) return null;
-            return PosMobileHubGridItem(
-              label: def.label,
-              icon: def.icon,
-              onTap: () {
-                if (widget.onModuleTap != null) {
-                  widget.onModuleTap!(code);
-                  return;
-                }
-                final idx = widget.navItems
-                    .indexWhere((n) => n.moduleCode == code);
-                if (idx >= 0) widget.onItemTap(idx);
-              },
-            );
-          })
-          .whereType<PosMobileHubGridItem>()
-          .toList(),
+      items: items,
     );
   }
 
@@ -4126,6 +4189,8 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                   subtitle: _profileSubtitle(user),
                 ),
               ),
+              const SizedBox(height: 12),
+              RepaintBoundary(child: _buildQuoteShortcutGrid(context)),
               const SizedBox(height: 12),
               RepaintBoundary(child: _buildMobileQuickActionsGrid(context)),
             ]),
@@ -4213,16 +4278,17 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
       if (item.adminOnly) continue;
       if (item.requiredRole != null) continue;
       if (!PermissionNavigation.isAllowedByPackageOrRole(
-        item.moduleCode,
-        allowedModules: widget.allowedModules,
-        perm: permProvider,
-        bypassPackageFilter: widget.bypassPackageFilter,
-      )) {
+            item.moduleCode,
+            allowedModules: widget.allowedModules,
+            perm: permProvider,
+            bypassPackageFilter: widget.bypassPackageFilter,
+          )) {
         continue;
       }
-      if (!permProvider.canViewNav(item.moduleCode) &&
-          !(item.moduleCode == 'PosKds' &&
-              PermissionNavigation.canNavigate(permProvider, 'PosSell'))) {
+      if (!PermissionNavigation.canNavigate(
+            permProvider,
+            item.moduleCode,
+          )) {
         continue;
       }
       final group = item.group.isEmpty ? 'Khác' : item.group;

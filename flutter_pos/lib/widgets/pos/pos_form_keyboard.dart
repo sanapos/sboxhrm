@@ -110,9 +110,11 @@ bool _posPointerLooksLikeTouch(PointerEvent e) {
       e.kind == PointerDeviceKind.invertedStylus) {
     return true;
   }
-  // Chrome/Windows tablet: cảm ứng đôi khi thành mouse (có radius, hoặc maxTouchPoints).
+  // Chrome/Windows tablet: cảm ứng đôi khi thành mouse — chỉ tin khi có radius/size.
+  // Không dùng maxTouchPoints: laptop có màn cảm ứng sẽ coi mọi chuột là touch
+  // và mở bàn phím liên tục khi bấm card / nút.
   if (e.kind == PointerDeviceKind.mouse &&
-      (e.radiusMajor > 0 || e.size > 0 || posWebHasTouchPoints())) {
+      (e.radiusMajor > 0 || e.size > 0)) {
     return true;
   }
   return false;
@@ -176,14 +178,19 @@ class _PosTouchImeHostState extends State<PosTouchImeHost> {
 
   void _onPointerDown(PointerDownEvent e) {
     posLastPointerWasTouch = _posPointerLooksLikeTouch(e);
-    if (!posLastPointerWasTouch) return;
-    final onField = posHitWantsSoftKeyboard(e.position) ||
-        posFocusWantsSoftKeyboard(FocusManager.instance.primaryFocus);
-    if (onField) {
-      // Phải focus input HTML ngay trong cử chỉ — post-frame thì Chrome không mở OSK.
-      posArmWebImeForGesture();
-      posShowSoftKeyboard();
+    final onField = posHitWantsSoftKeyboard(e.position);
+    if (!onField) {
+      if (posLastPointerWasTouch) {
+        hidePosSoftKeyboard(alsoAfterMs: 0);
+      } else {
+        FocusManager.instance.primaryFocus?.unfocus();
+      }
+      return;
     }
+    if (!posLastPointerWasTouch) return;
+    // Phải focus input HTML ngay trong cử chỉ — post-frame thì Chrome không mở OSK.
+    posArmWebImeForGesture();
+    posShowSoftKeyboard();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!posLastPointerWasTouch) return;
       _showIfFocusedEditable(hit: e.position, requireHit: true);
@@ -253,6 +260,7 @@ void posScrollIntoViewAboveIme(
   }
 
   WidgetsBinding.instance.addPostFrameCallback((_) => run());
+  // IME animate ~250ms — cuộn lại lần 2 khi chiều cao bàn phím ổn định.
   Future<void>.delayed(const Duration(milliseconds: 280), run);
 }
 

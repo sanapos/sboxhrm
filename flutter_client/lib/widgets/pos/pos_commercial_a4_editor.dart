@@ -1,12 +1,13 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/pos_print_template.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_print_template_defaults.dart';
 import '../../utils/pos_print_template_renderer.dart';
 import 'pos_commercial_word_stub.dart'
     if (dart.library.js_interop) 'pos_commercial_word_web.dart';
+import 'pos_html_preview_stub.dart';
 
 /// Soạn mẫu A4 kiểu Word: ribbon (font, cỡ, đậm/nghiêng, căn, màu, bảng, undo)
 /// + trang giấy A4 contenteditable + tab «Xem trước» render HTML thật.
@@ -20,16 +21,24 @@ class PosCommercialA4Editor extends StatefulWidget {
     required this.documentType,
     required this.onChanged,
     this.immersive = false,
+    this.compact = false,
     this.initialTab = 0,
     this.initialZoom = 0,
+    this.paperSize = PosPrintPaperSizes.a4,
+    this.onPageSetupChanged,
   });
 
   final String html;
   final String documentType;
   final ValueChanged<String> onChanged;
+  final String paperSize;
+  final ValueChanged<PosCommercialPageSetup>? onPageSetupChanged;
 
   /// Mở trong route toàn màn hình (ẩn hướng dẫn, hiện nút Thu nhỏ).
   final bool immersive;
+
+  /// Mobile: ẩn ribbon, chỉ thanh Soạn/Xem + công cụ trong sheet.
+  final bool compact;
 
   /// 0 = Soạn thảo, 1 = Xem trước.
   final int initialTab;
@@ -44,17 +53,15 @@ class PosCommercialA4Editor extends StatefulWidget {
 class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   final _api = ApiService();
   final _surfaceKey = GlobalKey<PosCommercialWordSurfaceState>();
-  final _previewKey = GlobalKey<PosCommercialWordSurfaceState>();
   late String _html;
   late int _tab;
   late double _zoom; // 0 = vừa khung
+  late PosCommercialPageSetup _setup;
   Map<String, dynamic>? _commercialProfile;
   String _fontFamily = "'Times New Roman', Times, serif";
   String _fontSize = '3'; // execCommand fontSize: 1..7
-
-  /// Chiều rộng CSS của A4 @ 96dpi — mốc 100%.
-  static const _a4CssWidth = 794.0;
-  static const _zoomSteps = <double>[0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+  bool _zoomOpen = false;
+  bool _marginOpen = false;
 
   static const _fonts = <(String, String)>[
     ('Times', "'Times New Roman', Times, serif"),
@@ -90,6 +97,10 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     _html = widget.html;
     _tab = widget.initialTab.clamp(0, 1);
     _zoom = widget.initialZoom;
+    _setup = PosCommercialPageSetup.parse(
+      widget.html,
+      fallbackPaper: widget.paperSize,
+    );
     _loadCommercialProfile();
   }
 
@@ -109,6 +120,15 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.html != widget.html && widget.html != _html) {
       _html = widget.html;
+      _setup = PosCommercialPageSetup.parse(
+        widget.html,
+        fallbackPaper: widget.paperSize,
+      );
+    } else if (oldWidget.paperSize != widget.paperSize &&
+        widget.paperSize != _setup.paperSize) {
+      _setup = _setup.copyWith(
+        paperSize: PosPrintPaperSizes.normalizeCommercialPaper(widget.paperSize),
+      );
     }
   }
 
@@ -118,17 +138,26 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     // Không gọi setState để tránh làm mất caret trong iframe.
   }
 
+  void _applySetup(PosCommercialPageSetup next) {
+    _setup = next;
+    final html = next.applyToHtml(_html);
+    _emit(html);
+    widget.onPageSetupChanged?.call(next);
+    setState(() {});
+  }
+
   void _cmd(String cmd, [String? value]) {
     _surfaceKey.currentState?.exec(cmd, value);
   }
 
   void _insert(String html) {
     _surfaceKey.currentState?.insertHtml(html);
-    if (!kIsWeb) {
-      _html = '$_html$html';
-      widget.onChanged(_html);
-      setState(() {});
-    }
+  }
+
+  Future<void> _switchTab(int tab) async {
+    await _surfaceKey.currentState?.flush();
+    if (!mounted) return;
+    setState(() => _tab = tab);
   }
 
   String get _previewHtml => renderPosPrintTemplateHtml(
@@ -137,13 +166,30 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
           documentType: widget.documentType,
           commercialProfile: _commercialProfile,
         ),
-        lineItems: posPrintSampleLines(),
+        lineItems: posPrintSampleLines(
+          count: PosPrintDocumentTypes.isCommercial(widget.documentType) ? 8 : 2,
+        ),
         wrapDocument: false,
-        paperSize: PosPrintPaperSizes.a4,
+        paperSize: _setup.paperSize,
       );
+
+  bool get _compact {
+    if (widget.compact) return true;
+    return MediaQuery.sizeOf(context).width < 800;
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _compactBar(),
+          if (_zoomOpen) _zoomSlider(),
+          Expanded(child: _paperCanvas(preview: _tab == 1)),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -154,15 +200,312 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
         _tokenBar(),
         const SizedBox(height: 6),
         _modeAndZoomRow(),
+        if (_zoomOpen) _zoomSlider(),
+        const SizedBox(height: 6),
+        _pageSetupPanel(compact: true),
         const SizedBox(height: 8),
         Expanded(child: _paperCanvas(preview: _tab == 1)),
       ],
     );
   }
 
+  Widget _compactBar() {
+    Widget modeBtn(int tab, IconData icon, String label) {
+      final on = _tab == tab;
+      return Material(
+        color: on ? const Color(0xFF2563EB) : const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => _switchTab(tab),
+          child: SizedBox(
+            height: 44,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 20, color: on ? Colors.white : const Color(0xFF374151)),
+                const SizedBox(width: 6),
+                Text(
+                  tr(label),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: on ? Colors.white : const Color(0xFF111827),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: Colors.white,
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 4, 8),
+        child: Row(
+          children: [
+            if (widget.immersive)
+              IconButton(
+                tooltip: tr('Thu nhỏ'),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.close, size: 22),
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+            Expanded(child: modeBtn(0, Icons.edit_outlined, 'Soạn')),
+            const SizedBox(width: 8),
+            Expanded(child: modeBtn(1, Icons.visibility_outlined, 'Xem')),
+            IconButton(
+              tooltip: tr('Thu phóng'),
+              onPressed: () => setState(() => _zoomOpen = !_zoomOpen),
+              icon: Icon(
+                Icons.zoom_in,
+                size: 24,
+                color: _zoomOpen ? const Color(0xFF2563EB) : null,
+              ),
+            ),
+            IconButton(
+              tooltip: tr('Khổ giấy & lề'),
+              visualDensity: VisualDensity.compact,
+              onPressed: _openToolsSheet,
+              icon: const Icon(Icons.tune, size: 22),
+            ),
+            if (!widget.immersive)
+              IconButton(
+                tooltip: tr('Toàn màn hình'),
+                visualDensity: VisualDensity.compact,
+                onPressed: _openFullscreen,
+                icon: const Icon(Icons.fullscreen, size: 22),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _zoomSlider() {
+    final label = _zoom <= 0 ? tr('Vừa rộng') : '${(_zoom * 100).round()}%';
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 8, 6),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: tr('Vừa rộng giấy'),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => setState(() => _zoom = 0),
+              icon: const Icon(Icons.fit_screen, size: 20),
+            ),
+            Expanded(
+              child: Slider(
+                min: 0,
+                max: 2,
+                divisions: 20,
+                value: _zoom <= 0 ? 0 : _zoom.clamp(0.2, 2),
+                label: label,
+                onChanged: (v) => setState(() => _zoom = v < 0.12 ? 0 : v),
+              ),
+            ),
+            SizedBox(
+              width: 64,
+              child: Text(
+                label,
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tokenWrap() {
+    final chips = <(String, String)>[
+      ...PosPrintTokens.store,
+      ...PosPrintTokens.customer,
+      ...PosPrintTokens.order,
+      ...PosPrintTokens.commercial,
+      ...PosPrintTokens.totals.take(8),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final t in chips)
+            ActionChip(
+              visualDensity: VisualDensity.compact,
+              label: Text(t.$2, style: const TextStyle(fontSize: 11)),
+              onPressed: () {
+                _insert('{${t.$1}}');
+                if (_tab != 0) setState(() => _tab = 0);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openToolsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(tr('Định dạng & chèn trường'),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 16)),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text(tr('Xong')),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _pageSetupPanel(),
+                const SizedBox(height: 12),
+                _ribbon(),
+                const SizedBox(height: 10),
+                _tokenWrap(),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pageSetupPanel({bool compact = false}) {
+    Widget mmSlider(String label, double value, ValueChanged<double> onMm) {
+      return Row(
+        children: [
+          SizedBox(
+            width: 42,
+            child: Text(tr(label), style: const TextStyle(fontSize: 12)),
+          ),
+          Expanded(
+            child: Slider(
+              min: PosCommercialPageSetup.minMm,
+              max: PosCommercialPageSetup.maxMm,
+              divisions: 25,
+              value: value.clamp(
+                PosCommercialPageSetup.minMm,
+                PosCommercialPageSetup.maxMm,
+              ),
+              label: '${value.round()} mm',
+              onChanged: onMm,
+            ),
+          ),
+          SizedBox(
+            width: 40,
+            child: Text(
+              '${value.round()}',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(10, compact ? 6 : 10, 10, compact ? 4 : 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Text(
+                  tr('Khổ giấy'),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                ),
+                SegmentedButton<String>(
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  segments: [
+                    ButtonSegment(value: PosPrintPaperSizes.a4, label: Text(tr('A4'))),
+                    ButtonSegment(value: PosPrintPaperSizes.a5, label: Text(tr('A5'))),
+                  ],
+                  selected: {_setup.paperSize},
+                  onSelectionChanged: (s) => _applySetup(
+                    _setup.copyWith(paperSize: s.first),
+                  ),
+                ),
+            TextButton.icon(
+              onPressed: compact
+                  ? () => setState(() => _marginOpen = !_marginOpen)
+                  : () => _applySetup(
+                        PosCommercialPageSetup(paperSize: _setup.paperSize),
+                      ),
+              icon: Icon(
+                compact
+                    ? (_marginOpen ? Icons.expand_less : Icons.expand_more)
+                    : Icons.space_bar,
+                size: 18,
+              ),
+              label: Text(
+                compact
+                    ? tr('Lề ${_setup.topMm.round()}·${_setup.rightMm.round()}·${_setup.bottomMm.round()}·${_setup.leftMm.round()} mm')
+                    : tr('Lề 12mm'),
+              ),
+            ),
+          ],
+        ),
+        if (!compact || _marginOpen) ...[
+            const SizedBox(height: 4),
+            Text(
+              tr('Lề so với nội dung (mm)'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+            mmSlider('Trên', _setup.topMm, (v) => _applySetup(_setup.copyWith(topMm: v))),
+            mmSlider('Phải', _setup.rightMm, (v) => _applySetup(_setup.copyWith(rightMm: v))),
+            mmSlider('Dưới', _setup.bottomMm, (v) => _applySetup(_setup.copyWith(bottomMm: v))),
+            mmSlider('Trái', _setup.leftMm, (v) => _applySetup(_setup.copyWith(leftMm: v))),
+            if (compact)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _applySetup(
+                    PosCommercialPageSetup(paperSize: _setup.paperSize),
+                  ),
+                  child: Text(tr('Đặt lại 12mm')),
+                ),
+              ),
+        ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _hintRow() {
     return Text(
-      tr('Bôi đen chữ rồi chọn font / cỡ / đậm / màu. Phóng to hoặc toàn màn hình để dễ xem.'),
+      tr('Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.'),
       style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
     );
   }
@@ -203,8 +546,6 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   }
 
   Widget _modeAndZoomRow() {
-    final zoomLabel =
-        _zoom <= 0 ? tr('Vừa khung') : '${(_zoom * 100).round()}%';
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       spacing: 8,
@@ -219,54 +560,19 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
             ),
             ButtonSegment(
               value: 1,
-              label: Text(tr('Xem trước A4')),
+              label: Text(tr('Xem trước')),
               icon: const Icon(Icons.visibility_outlined, size: 18),
             ),
           ],
           selected: {_tab},
-          onSelectionChanged: (s) => setState(() => _tab = s.first),
+          onSelectionChanged: (s) => _switchTab(s.first),
         ),
-        Material(
-          color: const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                tooltip: tr('Thu nhỏ'),
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.remove, size: 18),
-                onPressed: _zoomOut,
-              ),
-              PopupMenuButton<double>(
-                tooltip: tr('Tỷ lệ xem'),
-                onSelected: (v) => setState(() => _zoom = v),
-                itemBuilder: (_) => [
-                  PopupMenuItem(value: 0, child: Text(tr('Vừa khung'))),
-                  for (final z in _zoomSteps)
-                    PopupMenuItem(
-                      value: z,
-                      child: Text('${(z * 100).round()}%'),
-                    ),
-                ],
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(
-                    zoomLabel,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
-              IconButton(
-                tooltip: tr('Phóng to'),
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.add, size: 18),
-                onPressed: _zoomIn,
-              ),
-            ],
+        IconButton.filledTonal(
+          tooltip: tr('Thu phóng'),
+          onPressed: () => setState(() => _zoomOpen = !_zoomOpen),
+          icon: Icon(
+            Icons.zoom_in,
+            color: _zoomOpen ? const Color(0xFF2563EB) : null,
           ),
         ),
         if (!widget.immersive)
@@ -285,24 +591,6 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     );
   }
 
-  void _zoomIn() {
-    if (_zoom <= 0) {
-      setState(() => _zoom = 1.25);
-      return;
-    }
-    final i = _zoomSteps.indexWhere((z) => z > _zoom + 0.001);
-    if (i >= 0) setState(() => _zoom = _zoomSteps[i]);
-  }
-
-  void _zoomOut() {
-    if (_zoom <= 0) {
-      setState(() => _zoom = 0.75);
-      return;
-    }
-    final prev = _zoomSteps.lastWhere((z) => z < _zoom - 0.001, orElse: () => 0);
-    setState(() => _zoom = prev);
-  }
-
   Future<void> _openFullscreen() async {
     await Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute(
@@ -317,8 +605,14 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
                 documentType: widget.documentType,
                 onChanged: _emit,
                 immersive: true,
+                compact: _compact,
                 initialTab: _tab,
-                initialZoom: 0,
+                initialZoom: _zoom,
+                paperSize: _setup.paperSize,
+                onPageSetupChanged: (s) {
+                  _setup = s;
+                  widget.onPageSetupChanged?.call(s);
+                },
               ),
             ),
           ),
@@ -513,25 +807,26 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
 
   void _insertItemsTable() {
     _insert(
-      '<table style="width:100%;border-collapse:collapse;margin:6px 0">'
-      '<thead><tr>'
-      '<th style="border:1px solid #000;padding:4px 6px">STT</th>'
-      '<th style="border:1px solid #000;padding:4px 6px">Hàng hóa / dịch vụ</th>'
-      '<th style="border:1px solid #000;padding:4px 6px">ĐVT</th>'
-      '<th style="border:1px solid #000;padding:4px 6px">SL</th>'
-      '<th style="border:1px solid #000;padding:4px 6px;text-align:right">Đơn giá</th>'
-      '<th style="border:1px solid #000;padding:4px 6px;text-align:right">Thành tiền</th>'
-      '<th style="border:1px solid #000;padding:4px 6px">Bảo hành</th>'
+      '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin:8px 0;font-size:11px">'
+      '<colgroup><col width="46"/><col width="293"/><col width="62"/><col width="62"/><col width="123"/><col width="123"/><col width="61"/></colgroup>'
+      '<thead><tr style="background:#f3f4f6">'
+      '<th style="width:6%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">STT</th>'
+      '<th style="width:38%;border:1px solid #111;padding:4px 4px;text-align:left">Tên hàng</th>'
+      '<th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">ĐVT</th>'
+      '<th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">SL</th>'
+      '<th style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">Đơn giá</th>'
+      '<th style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">Thành tiền</th>'
+      '<th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">BH</th>'
       '</tr></thead>'
       '<tbody><!--BEGIN_ITEMS-->'
       '<tr>'
-      '<td style="border:1px solid #000;padding:4px 6px;text-align:center">{STT}</td>'
-      '<td style="border:1px solid #000;padding:4px 6px">{Ten_Hang_Hoa}</td>'
-      '<td style="border:1px solid #000;padding:4px 6px;text-align:center">{Don_Vi_Tinh}</td>'
-      '<td style="border:1px solid #000;padding:4px 6px;text-align:center">{So_Luong}</td>'
-      '<td style="border:1px solid #000;padding:4px 6px;text-align:right">{Don_Gia}</td>'
-      '<td style="border:1px solid #000;padding:4px 6px;text-align:right">{Thanh_Tien}</td>'
-      '<td style="border:1px solid #000;padding:4px 6px">{Bao_Hanh}</td>'
+      '<td style="width:6%;border:1px solid #111;padding:4px 2px;text-align:center">{STT}</td>'
+      '<td style="width:38%;border:1px solid #111;padding:4px 4px">{Ten_Hang_Hoa}</td>'
+      '<td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center">{Don_Vi_Tinh}</td>'
+      '<td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center">{So_Luong}</td>'
+      '<td style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">{Don_Gia}</td>'
+      '<td style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">{Thanh_Tien}</td>'
+      '<td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center">{Bao_Hanh}</td>'
       '</tr><!--END_ITEMS--></tbody></table>',
     );
   }
@@ -639,25 +934,59 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   }
 
   Widget _paperCanvas({required bool preview}) {
+    if (preview) {
+      return buildPosA4ScaledSheet(
+        zoom: _zoom,
+        pad: EdgeInsets.all(_compact ? 6 : 12),
+        pageWidth: _setup.cssWidth,
+        pageHeight: _setup.cssHeight,
+        buildChild: () => PosCommercialWordSurface(
+          html: _previewHtml,
+          editable: false,
+          pageSetup: _setup,
+          onChanged: (_) {},
+        ),
+      );
+    }
+    if (_compact) {
+      return ColoredBox(
+        color: const Color(0xFFE5E7EB),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Material(
+            color: Colors.white,
+            elevation: 6,
+            child: PosCommercialWordSurface(
+              key: _surfaceKey,
+              html: _html,
+              editable: true,
+              pageSetup: _setup,
+              onChanged: _emit,
+            ),
+          ),
+        ),
+      );
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
-        const pad = 20.0;
-        final availW = (constraints.maxWidth - pad * 2).clamp(280.0, 1600.0);
+        final pad = 20.0;
+        final availW = (constraints.maxWidth - pad * 2).clamp(180.0, 1600.0);
         final paperW = _zoom <= 0
-            ? availW.clamp(480.0, 1100.0)
-            : (_a4CssWidth * _zoom).clamp(320.0, 2000.0);
-        final paperH = paperW * 297 / 210;
+            ? availW
+            : (_setup.cssWidth * _zoom).clamp(240.0, 2000.0);
+        final paperH = paperW * (_setup.cssHeight / _setup.cssWidth);
         return ColoredBox(
           color: const Color(0xFFE5E7EB),
           child: Scrollbar(
             thumbVisibility: true,
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: pad),
+              padding: EdgeInsets.symmetric(vertical: pad),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: pad),
+                padding: EdgeInsets.symmetric(horizontal: pad),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth - pad * 2),
+                  constraints:
+                      BoxConstraints(minWidth: constraints.maxWidth - pad * 2),
                   child: Center(
                     child: SizedBox(
                       width: paperW,
@@ -666,19 +995,13 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
                         color: Colors.white,
                         elevation: 8,
                         shadowColor: Colors.black26,
-                        child: preview
-                            ? PosCommercialWordSurface(
-                                key: _previewKey,
-                                html: _previewHtml,
-                                editable: false,
-                                onChanged: (_) {},
-                              )
-                            : PosCommercialWordSurface(
-                                key: _surfaceKey,
-                                html: _html,
-                                editable: true,
-                                onChanged: _emit,
-                              ),
+                        child: PosCommercialWordSurface(
+                          key: _surfaceKey,
+                          html: _html,
+                          editable: true,
+                          pageSetup: _setup,
+                          onChanged: _emit,
+                        ),
                       ),
                     ),
                   ),

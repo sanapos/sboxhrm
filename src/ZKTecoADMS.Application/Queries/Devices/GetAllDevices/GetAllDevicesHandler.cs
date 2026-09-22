@@ -23,6 +23,10 @@ public class GetAllDevicesHandler(
         {
             filtered = filtered.Where(d => d.StoreId == request.StoreId.Value);
         }
+        else if (request.StoreScoped)
+        {
+            filtered = [];
+        }
         else if (!request.IsAdminRequest)
         {
             filtered = filtered.Where(d => d.ManagerId == request.UserId);

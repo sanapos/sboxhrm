@@ -4,6 +4,9 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
+import '../../utils/pos_print_template_defaults.dart';
+import '../../utils/pos_print_template_renderer.dart';
+
 /// Trang A4 contenteditable trên web — thanh công cụ gọi execCommand như Word.
 ///
 /// Chỉ đẩy `innerHTML` lại khi HTML từ parent thay đổi thật sự so với lần cuối
@@ -14,11 +17,13 @@ class PosCommercialWordSurface extends StatefulWidget {
     required this.html,
     required this.onChanged,
     this.editable = true,
+    this.pageSetup = const PosCommercialPageSetup(),
   });
 
   final String html;
   final ValueChanged<String> onChanged;
   final bool editable;
+  final PosCommercialPageSetup pageSetup;
 
   @override
   State<PosCommercialWordSurface> createState() =>
@@ -113,16 +118,24 @@ class PosCommercialWordSurfaceState extends State<PosCommercialWordSurface> {
   body{
     font-family:"Times New Roman",Times,serif;
     font-size:14px;line-height:1.5;color:#111;
-    padding:14mm 16mm 16mm;min-height:100%;box-sizing:border-box;
-    outline:none;word-wrap:break-word;overflow-wrap:anywhere;
+    padding:${widget.pageSetup.paddingCss};min-height:100%;box-sizing:border-box;
+    outline:none;word-wrap:break-word;overflow-wrap:anywhere;overflow-x:hidden;
   }
-  table{border-collapse:collapse;width:100%;table-layout:fixed;}
-  td,th{border:1px solid #444;padding:5px 7px;vertical-align:top;word-wrap:break-word;}
+  table{border-collapse:collapse;width:100%;max-width:100%;table-layout:fixed;}
+  td,th{padding:5px 7px;vertical-align:top;word-wrap:break-word;overflow-wrap:anywhere;}
   h1,h2,h3{text-align:center;margin:8px 0;}
   h2{font-size:18px;font-weight:bold;text-transform:uppercase;}
   p{margin:6px 0;}
 </style></head>
-<body contenteditable="$editableAttr">$html</body></html>''';
+<body contenteditable="$editableAttr">${posPrintProtectItemMarkers(html)}</body></html>''';
+  }
+
+  Future<void> flush() async {
+    final body = _iframe?.contentDocument?.body;
+    if (body == null) return;
+    final html = _readHtml(body);
+    _lastAppliedHtml = html;
+    widget.onChanged(html);
   }
 
   void exec(String cmd, [String? value]) {
@@ -150,6 +163,12 @@ class PosCommercialWordSurfaceState extends State<PosCommercialWordSurface> {
       _iframe?.contentDocument?.body
           ?.setAttribute('contenteditable', widget.editable ? 'true' : 'false');
     }
+    if (oldWidget.pageSetup.paddingCss != widget.pageSetup.paddingCss ||
+        oldWidget.pageSetup.paperSize != widget.pageSetup.paperSize) {
+      _iframe?.srcdoc = _wrap(widget.html).toJS;
+      _lastAppliedHtml = widget.html;
+      return;
+    }
     if (oldWidget.html == widget.html) return;
     // Nếu HTML mới trùng với thứ ta vừa ghi ra (user gõ → onChanged →
     // parent setState → didUpdateWidget) thì không đụng vào body để giữ caret.
@@ -157,15 +176,15 @@ class PosCommercialWordSurfaceState extends State<PosCommercialWordSurface> {
     final body = _iframe?.contentDocument?.body;
     if (body == null) return;
     _applying = true;
-    body.innerHTML = widget.html.toJS;
+    body.innerHTML = posPrintProtectItemMarkers(widget.html).toJS;
     _lastAppliedHtml = widget.html;
     _applying = false;
   }
 
   String _readHtml(web.HTMLElement body) {
     final raw = body.innerHTML;
-    if (raw is JSString) return raw.toDart;
-    return raw.toString();
+    final text = raw is JSString ? raw.toDart : raw.toString();
+    return posPrintRestoreItemMarkers(text);
   }
 
   @override

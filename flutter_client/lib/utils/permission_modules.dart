@@ -28,7 +28,6 @@ class PermissionModules {
     'PenaltyTickets',
     'Production',
     'PosProducts',
-    'PosQuotes',
     'PosSalesReport',
     'PosReportRevenue',
     'PosReportSoldGoods',
@@ -53,6 +52,20 @@ class PermissionModules {
     'AdvanceReport',
     'BusinessTripReport',
     'AssetReport',
+    'PosKds',
+    'PosQrOrder',
+    'PosCashierShift',
+    'PosQuotes',
+    'PosEInvoice',
+    'PosShipping',
+    'PosCustomerDisplay',
+    'PosBooking',
+    'PosCustomers',
+    'PosWarranty',
+    'PosPrintTemplates',
+    'PosPrinters',
+    'PosStorePrinters',
+    'HkdBooks',
   };
 
   static const financialTransactions = [

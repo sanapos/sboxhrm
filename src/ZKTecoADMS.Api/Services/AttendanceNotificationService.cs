@@ -33,6 +33,21 @@ public class AttendanceNotificationService : IAttendanceNotificationService
         _serviceScopeFactory = serviceScopeFactory;
     }
 
+    /// <summary>
+    /// Đồng bộ lịch sử từ máy không được tạo thông báo. Chỉ lần chấm trong 24 giờ gần nhất.
+    /// </summary>
+    private static bool IsLivePunch(DateTime attendanceTime)
+    {
+        var cutoffUtc = DateTime.UtcNow.AddHours(-24);
+        if (attendanceTime.Kind == DateTimeKind.Utc)
+            return attendanceTime >= cutoffUtc;
+        if (attendanceTime.Kind == DateTimeKind.Local)
+            return attendanceTime.ToUniversalTime() >= cutoffUtc;
+        // Giờ tường (thường là giờ VN, Kind = Unspecified).
+        return attendanceTime >= DateTime.UtcNow.AddHours(7).AddHours(-24)
+               || attendanceTime >= cutoffUtc;
+    }
+
     public async Task NotifyNewAttendanceAsync(
         Attendance attendance,
         Device device,
@@ -42,6 +57,9 @@ public class AttendanceNotificationService : IAttendanceNotificationService
     {
         try
         {
+            if (!IsLivePunch(attendance.AttendanceTime))
+                return;
+
             using var scope = _serviceScopeFactory.CreateScope();
             var employeeRepo = scope.ServiceProvider.GetRequiredService<IRepository<Employee>>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -65,7 +83,8 @@ public class AttendanceNotificationService : IAttendanceNotificationService
     {
         try
         {
-            var attendanceList = attendances.ToList();
+            var attendanceList = attendances.Where(a => IsLivePunch(a.AttendanceTime)).ToList();
+            if (attendanceList.Count == 0) return;
             var pins = attendanceList.Select(a => a.PIN).Where(p => !string.IsNullOrEmpty(p)).Distinct().ToList();
 
             using var scope = _serviceScopeFactory.CreateScope();

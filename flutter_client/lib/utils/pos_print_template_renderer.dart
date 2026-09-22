@@ -1,9 +1,9 @@
-import 'package:collection/collection.dart';
 import 'package:intl/intl.dart';
 
 import '../models/pos_print_template.dart';
 import '../models/pos_sale_order.dart';
 import '../services/api_service.dart';
+import 'pos_print_template_defaults.dart';
 import 'pos_print_template_loader.dart';
 import 'pos_receipt_layout.dart';
 import 'pos_topping_format.dart';
@@ -11,6 +11,148 @@ import 'pos_vietnamese_money_words.dart';
 
 const _itemBegin = '<!--BEGIN_ITEMS-->';
 const _itemEnd = '<!--END_ITEMS-->';
+
+const _beginMarker = '<span data-pos="begin-items" hidden></span>';
+const _endMarker = '<span data-pos="end-items" hidden></span>';
+
+final _tableRe = RegExp(r'<table\b[^>]*>[\s\S]*?</table>', caseSensitive: false);
+final _tbodyRe = RegExp(r'(<tbody\b[^>]*>)([\s\S]*?)(</tbody>)', caseSensitive: false);
+final _trRe = RegExp(r'<tr\b[^>]*>[\s\S]*?</tr>', caseSensitive: false);
+final _tdRe = RegExp(r'(<td\b[^>]*>)([\s\S]*?)(</td>)', caseSensitive: false);
+
+/// contenteditable thường nuốt HTML comment — giữ vòng hàng bằng span ẩn.
+String posPrintProtectItemMarkers(String html) => html
+    .replaceAll(_itemBegin, _beginMarker)
+    .replaceAll(_itemEnd, _endMarker);
+
+String posPrintRestoreItemMarkers(String html) {
+  var out = html.replaceAll(
+    RegExp(r'<span[^>]*data-pos="begin-items"[^>]*>\s*</span>',
+        caseSensitive: false),
+    _itemBegin,
+  );
+  return out.replaceAll(
+    RegExp(r'<span[^>]*data-pos="end-items"[^>]*>\s*</span>',
+        caseSensitive: false),
+    _itemEnd,
+  );
+}
+
+const _defaultItemTable =
+    '<table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:12px">'
+    '<thead><tr style="background:#f3f4f6">'
+    '<th style="border:1px solid #111;padding:4px 2px;text-align:center">STT</th>'
+    '<th style="border:1px solid #111;padding:4px 4px;text-align:left">Tên hàng</th>'
+    '<th style="border:1px solid #111;padding:4px 2px;text-align:center">ĐVT</th>'
+    '<th style="border:1px solid #111;padding:4px 2px;text-align:center">SL</th>'
+    '<th style="border:1px solid #111;padding:4px 3px;text-align:right">Đơn giá</th>'
+    '<th style="border:1px solid #111;padding:4px 3px;text-align:right">Thành tiền</th>'
+    '<th style="border:1px solid #111;padding:4px 2px;text-align:center">BH</th>'
+    '</tr></thead><tbody><!--BEGIN_ITEMS-->'
+    '<tr>'
+    '<td style="border:1px solid #111;padding:4px 2px;text-align:center">{STT}</td>'
+    '<td style="border:1px solid #111;padding:4px 4px">{Ten_Hang_Hoa}</td>'
+    '<td style="border:1px solid #111;padding:4px 2px;text-align:center">{Don_Vi_Tinh}</td>'
+    '<td style="border:1px solid #111;padding:4px 2px;text-align:center">{So_Luong}</td>'
+    '<td style="border:1px solid #111;padding:4px 3px;text-align:right">{Don_Gia}</td>'
+    '<td style="border:1px solid #111;padding:4px 3px;text-align:right">{Thanh_Tien}</td>'
+    '<td style="border:1px solid #111;padding:4px 2px;text-align:center">{Bao_Hanh}</td>'
+    '</tr><!--END_ITEMS--></tbody></table>';
+
+/// Mẫu Word / soạn thảo hay mất comment hoặc để sẵn 1 dòng mẫu (Aquafina).
+String ensurePosPrintItemLoop(String html) {
+  if (_itemLoopIsUsable(html)) return html;
+  // Comment nằm ở chú thích import — không phải vòng bảng thật.
+  html = html.replaceAll(_itemBegin, '').replaceAll(_itemEnd, '');
+  final tokenAt = html.indexOf('{Ten_Hang_Hoa}');
+  if (tokenAt >= 0) {
+    final head = html.substring(0, tokenAt).toLowerCase();
+    final trStart = head.lastIndexOf('<tr');
+    final trEnd = html.toLowerCase().indexOf('</tr>', tokenAt);
+    if (trStart >= 0 && trEnd > trStart) {
+      final after = trEnd + 5;
+      return '${html.substring(0, trStart)}$_itemBegin'
+          '${html.substring(trStart, after)}$_itemEnd${html.substring(after)}';
+    }
+  }
+  for (final table in _tableRe.allMatches(html)) {
+    final tableHtml = table.group(0)!;
+    if (!_looksLikeProductTable(tableHtml)) continue;
+    final tbody = _tbodyRe.firstMatch(tableHtml);
+    if (tbody == null) continue;
+    final inner = tbody.group(2) ?? '';
+    if (inner.contains('{Tong_Cong}')) continue;
+    String? dataRow;
+    for (final m in _trRe.allMatches(inner)) {
+      final row = m.group(0)!;
+      if (row.toLowerCase().contains('<th')) continue;
+      dataRow = row;
+      break;
+    }
+    if (dataRow == null) continue;
+    final tokenRow = _tokenizeProductRow(dataRow);
+    final newTable = tableHtml.replaceFirst(
+      tbody.group(0)!,
+      '${tbody.group(1)}$_itemBegin$tokenRow$_itemEnd${tbody.group(3)}',
+    );
+    return html.replaceRange(table.start, table.end, newTable);
+  }
+  final close = html.toLowerCase().lastIndexOf('</div>');
+  if (close >= 0) {
+    return '${html.substring(0, close)}$_defaultItemTable${html.substring(close)}';
+  }
+  return '$html$_defaultItemTable';
+}
+
+bool _itemLoopIsUsable(String html) {
+  final begin = html.indexOf(_itemBegin);
+  final end = html.indexOf(_itemEnd);
+  if (begin < 0 || end <= begin) return false;
+  final block = html.substring(begin + _itemBegin.length, end);
+  // Hint nhập Word/PDF hay có comment + {Ten_Hang_Hoa} nhưng không phải hàng bảng.
+  // Dòng Aquafina cứng có <tr> nhưng không có token — cũng không dùng được.
+  return block.contains('{Ten_Hang_Hoa}') &&
+      (block.contains('<tr') ||
+          block.contains('<TR') ||
+          block.contains('<td') ||
+          block.contains('<TD'));
+}
+
+bool _looksLikeProductTable(String tableHtml) {
+  final t = tableHtml.toLowerCase();
+  if (t.contains('{ten_hang_hoa}') || t.contains('begin_items')) return true;
+  if (t.contains('tên hàng') ||
+      t.contains('ten hang') ||
+      t.contains('hàng hóa') ||
+      t.contains('thành tiền') ||
+      t.contains('thanh tien') ||
+      t.contains('đơn giá') ||
+      t.contains('don gia')) {
+    return true;
+  }
+  if (RegExp(r'>\s*stt\s*<').hasMatch(t)) return true;
+  final firstTr = _trRe.firstMatch(tableHtml);
+  if (firstTr == null) return false;
+  return _tdRe.allMatches(firstTr.group(0)!).length >= 4;
+}
+
+String _tokenizeProductRow(String tr) {
+  final tds = _tdRe.allMatches(tr).toList();
+  if (tds.isEmpty) return tr;
+  const byCount = <int, List<String>>{
+    4: ['Ten_Hang_Hoa', 'So_Luong', 'Don_Gia', 'Thanh_Tien'],
+    5: ['STT', 'Ten_Hang_Hoa', 'So_Luong', 'Don_Gia', 'Thanh_Tien'],
+    6: ['STT', 'Ten_Hang_Hoa', 'Don_Vi_Tinh', 'So_Luong', 'Don_Gia', 'Thanh_Tien'],
+  };
+  final tokens = byCount[tds.length] ??
+      ['STT', 'Ten_Hang_Hoa', 'Don_Vi_Tinh', 'So_Luong', 'Don_Gia', 'Thanh_Tien', 'Bao_Hanh'];
+  var i = 0;
+  return tr.replaceAllMapped(_tdRe, (m) {
+    final tok = i < tokens.length ? tokens[i] : 'Ghi_Chu';
+    i++;
+    return '${m.group(1)}{$tok}${m.group(3)}';
+  });
+}
 
 /// Dữ liệu mẫu để xem trước mẫu in.
 Map<String, String> posPrintSampleData({
@@ -22,15 +164,35 @@ Map<String, String> posPrintSampleData({
 }) {
   final money = NumberFormat('#,##0', 'vi_VN');
   final profileData = posPrintCommercialProfileData(commercialProfile);
-  final shop = (storeName ?? profileData['Ten_Cua_Hang'] ?? '').trim();
-  final addr = (storeAddress ?? profileData['Dia_Chi_Chi_Nhanh'] ?? '').trim();
-  final phone =
-      (storePhone ?? profileData['Dien_Thoai_Chi_Nhanh'] ?? '').trim();
+  final shop = (storeName ?? '').trim();
+  final addr = (storeAddress ?? '').trim();
+  final phone = (storePhone ?? '').trim();
+  final company = (profileData['Ten_Cong_Ty'] ?? '').trim();
+  final companyAddr = (profileData['Dia_Chi_Cong_Ty'] ?? '').trim();
+  final companyPhone = (profileData['Dien_Thoai_Cong_Ty'] ?? '').trim();
+  final commercial = PosPrintDocumentTypes.isCommercial(documentType);
+  final legalName = company.isNotEmpty
+      ? company
+      : (shop.isNotEmpty ? shop : 'Cửa hàng');
+  final legalAddr = companyAddr.isNotEmpty
+      ? companyAddr
+      : (addr.isNotEmpty ? addr : 'Địa chỉ cửa hàng');
+  final legalPhone = companyPhone.isNotEmpty
+      ? companyPhone
+      : (phone.isNotEmpty ? phone : '0900000000');
+  final printedName = commercial ? legalName : (shop.isNotEmpty ? shop : 'Cửa hàng');
+  final printedAddr =
+      commercial ? legalAddr : (addr.isNotEmpty ? addr : 'Địa chỉ cửa hàng');
+  final printedPhone =
+      commercial ? legalPhone : (phone.isNotEmpty ? phone : '0900000000');
   final base = <String, String>{
     ...profileData,
-    'Ten_Cua_Hang': shop.isNotEmpty ? shop : 'Cửa hàng',
-    'Dia_Chi_Chi_Nhanh': addr.isNotEmpty ? addr : 'Địa chỉ cửa hàng',
-    'Dien_Thoai_Chi_Nhanh': phone.isNotEmpty ? phone : '0900000000',
+    'Ten_Cua_Hang': printedName,
+    'Ten_Cong_Ty': legalName,
+    'Dia_Chi_Chi_Nhanh': printedAddr,
+    'Dia_Chi_Cong_Ty': legalAddr,
+    'Dien_Thoai_Chi_Nhanh': printedPhone,
+    'Dien_Thoai_Cong_Ty': legalPhone,
     'Tieu_De_In': PosPrintDocumentTypes.all[documentType] ?? 'Hóa đơn',
     'Ma_Don_Hang': 'HD000050',
     'Ngay': '28/06/2026',
@@ -62,13 +224,19 @@ Map<String, String> posPrintSampleData({
     'So_Hop_Dong': 'HD0926/2026/NT-TLP',
     'Ngay_Hop_Dong': '16/09/2026',
     'Dia_Diem_Thi_Cong': 'Showroom Nghĩa Tín, Tuy Phước Tây',
-    'MST_Cua_Hang': profileData['MST_Cua_Hang'] ?? '0402207773',
+    'MST_Cua_Hang': profileData['MST_Cua_Hang'] ??
+        profileData['MST_Cong_Ty'] ??
+        '0402207773',
+    'MST_Cong_Ty': profileData['MST_Cong_Ty'] ??
+        profileData['MST_Cua_Hang'] ??
+        '0402207773',
     'Email_Cua_Hang': profileData['Email_Cua_Hang'] ?? '',
     'Tai_Khoan_Cua_Hang':
         profileData['Tai_Khoan_Cua_Hang'] ?? '512222255555',
     'Ngan_Hang_Cua_Hang': profileData['Ngan_Hang_Cua_Hang'] ??
         'Ngân hàng TMCP Quân đội (MB) — CN Đà Nẵng',
-    'Chu_Tai_Khoan_Cua_Hang': profileData['Chu_Tai_Khoan_Cua_Hang'] ?? shop,
+    'Chu_Tai_Khoan_Cua_Hang':
+        profileData['Chu_Tai_Khoan_Cua_Hang'] ?? legalName,
     'Nguoi_Dai_Dien_Cua_Hang':
         profileData['Nguoi_Dai_Dien_Cua_Hang'] ?? 'Nguyễn Hoài Sang',
     'Chuc_Vu_Cua_Hang': profileData['Chuc_Vu_Cua_Hang'] ?? 'Giám đốc',
@@ -120,15 +288,16 @@ Map<String, String> posPrintCommercialProfileData(
   final company = t('companyName', 'CompanyName');
   final rep = t('legalRepresentative', 'LegalRepresentative');
   final title = t('legalTitle', 'LegalTitle');
+  final addr = t('address', 'Address');
+  final phone = t('phone', 'Phone');
+  final tax = t('taxCode', 'TaxCode');
   return {
-    if (company.isNotEmpty) 'Ten_Cua_Hang': company,
-    if (t('address', 'Address').isNotEmpty)
-      'Dia_Chi_Chi_Nhanh': t('address', 'Address'),
-    if (t('phone', 'Phone').isNotEmpty)
-      'Dien_Thoai_Chi_Nhanh': t('phone', 'Phone'),
+    if (company.isNotEmpty) 'Ten_Cong_Ty': company,
+    if (addr.isNotEmpty) 'Dia_Chi_Cong_Ty': addr,
+    if (phone.isNotEmpty) 'Dien_Thoai_Cong_Ty': phone,
     if (t('email', 'Email').isNotEmpty) 'Email_Cua_Hang': t('email', 'Email'),
-    if (t('taxCode', 'TaxCode').isNotEmpty)
-      'MST_Cua_Hang': t('taxCode', 'TaxCode'),
+    if (tax.isNotEmpty) 'MST_Cua_Hang': tax,
+    if (tax.isNotEmpty) 'MST_Cong_Ty': tax,
     if (t('bankAccountNumber', 'BankAccountNumber').isNotEmpty)
       'Tai_Khoan_Cua_Hang': t('bankAccountNumber', 'BankAccountNumber'),
     if (t('bankName', 'BankName').isNotEmpty)
@@ -140,34 +309,34 @@ Map<String, String> posPrintCommercialProfileData(
   };
 }
 
-List<Map<String, String>> posPrintSampleLines() {
+List<Map<String, String>> posPrintSampleLines({int count = 2}) {
   final money = NumberFormat('#,##0', 'vi_VN');
+  const names = <(String, String, String)>[
+    ('MONTRASUA01', 'Trà sữa', 'Ly'),
+    ('IP15PM', 'iPhone 15 Pro Max', 'Cái'),
+    ('LAPTOP01', 'Laptop văn phòng', 'Cái'),
+    ('BANLV01', 'Bàn làm việc 1m2', 'Cái'),
+    ('GHXG01', 'Ghế xoay lưới', 'Cái'),
+    ('TULH01', 'Tủ hồ sơ 3 tầng', 'Cái'),
+    ('DENLED01', 'Đèn LED bàn', 'Cái'),
+    ('MAYIN01', 'Máy in laser A4', 'Cái'),
+  ];
+  final n = count.clamp(1, names.length);
   return [
-    {
-      'STT': '1',
-      'Ma_Hang': 'MONTRASUA01',
-      'Ten_Hang_Hoa': 'TraSua',
-      'Don_Gia': money.format(25000),
-      'So_Luong': '1',
-      'Don_Vi_Tinh': 'Ly',
-      'Chiet_Khau': '0',
-      'Thanh_Tien': money.format(38000),
-      'Bao_Hanh': '',
-      'Ghi_Chu': '+ TranChau x2 (+16.000)\n+ Thach (+5.000)',
-      'Hinh_Anh': '',
-    },
-    {
-      'STT': '2',
-      'Ma_Hang': 'IP15PM',
-      'Ten_Hang_Hoa': 'iPhone 15 Pro Max',
-      'Don_Gia': money.format(28000000),
-      'So_Luong': '1',
-      'Don_Vi_Tinh': 'Cái',
-      'Chiet_Khau': money.format(500000),
-      'Thanh_Tien': money.format(27500000),
-      'Bao_Hanh': '12 tháng',
-      'Hinh_Anh': '',
-    },
+    for (var i = 0; i < n; i++)
+      {
+        'STT': '${i + 1}',
+        'Ma_Hang': names[i].$1,
+        'Ten_Hang_Hoa': names[i].$2,
+        'Don_Gia': money.format(i == 1 ? 28000000 : 25000 + i * 150000),
+        'So_Luong': '${1 + (i % 3)}',
+        'Don_Vi_Tinh': names[i].$3,
+        'Chiet_Khau': i == 1 ? money.format(500000) : '0',
+        'Thanh_Tien': money.format(i == 1 ? 27500000 : (25000 + i * 150000) * (1 + (i % 3))),
+        'Bao_Hanh': i % 2 == 1 ? '12 tháng' : '',
+        'Ghi_Chu': i == 0 ? '+ TranChau x2\n+ Thach' : '',
+        'Hinh_Anh': '',
+      },
   ];
 }
 
@@ -190,7 +359,7 @@ String renderPosPrintTemplateHtml(
   bool wrapDocument = true,
   String paperSize = 'K80',
 }) {
-  var html = templateHtml;
+  var html = ensurePosPrintItemLoop(templateHtml);
   final begin = html.indexOf(_itemBegin);
   final end = html.indexOf(_itemEnd);
   if (begin >= 0 && end > begin) {
@@ -227,19 +396,27 @@ String renderPosPrintTemplateHtml(
   );
 }
 
-String wrapPosPrintHtmlDocument(String bodyHtml, {required String paperSize}) {
+String wrapPosPrintHtmlDocument(
+  String bodyHtml, {
+  required String paperSize,
+  PosCommercialPageSetup? pageSetup,
+}) {
+  if (!PosPrintPaperSizes.isThermal(paperSize)) {
+    final setup = pageSetup ??
+        PosCommercialPageSetup.parse(
+          bodyHtml,
+          fallbackPaper: paperSize,
+        );
+    return wrapPosCommercialPrintHtml(bodyHtml, setup);
+  }
   final width = PosPrintPaperSizes.widthMm(paperSize);
-  final pageCss = PosPrintPaperSizes.isThermal(paperSize)
-      ? '@page { size: ${width}mm auto; margin: 2mm; } body { width: ${width}mm; margin: 0 auto; }'
-      : '@page { size: $paperSize portrait; margin: 10mm; } body { max-width: ${width}mm; margin: 0 auto; }';
-
   return '''
 <!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <style>
-  $pageCss
+  @page { size: ${width}mm auto; margin: 2mm; }
   * { box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; color: #111; }
+  body { width: ${width}mm; margin: 0 auto; font-family: Arial, sans-serif; color: #111; }
   table { border-collapse: collapse; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>$bodyHtml</body></html>

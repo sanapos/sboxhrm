@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/pos_customer.dart';
 import '../../models/pos_product.dart';
 import '../../models/pos_sale_order.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../widgets/pos/pos_split_bill_sheet.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/permission_navigation.dart';
 import '../../utils/pos_owner_password_gate.dart';
 import '../../utils/pos_device_identity.dart';
 import '../../utils/pos_floor_realtime.dart';
@@ -4664,6 +4668,17 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     );
   }
 
+  bool _canOpenKds(BuildContext context) {
+    final perm = context.watch<PermissionProvider>();
+    final user = context.watch<AuthProvider>().user;
+    return PermissionNavigation.canAccessModule(
+      'PosKds',
+      allowedModules: user?.allowedModules,
+      perm: perm,
+      role: user?.role,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Đồng bộ tổng tạm tính lên top bar màn bán (embedded).
@@ -4909,15 +4924,16 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     )
                   : null,
               actions: [
-                IconButton(
-                  tooltip: tr('Màn hình bếp (KDS)'),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const PosKdsScreen()),
-                    );
-                  },
-                  icon: const Icon(Icons.kitchen_outlined),
-                ),
+                if (_canOpenKds(context))
+                  IconButton(
+                    tooltip: tr('Màn hình bếp (KDS)'),
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const PosKdsScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.kitchen_outlined),
+                  ),
                 if (widget.manageMode) ...[
                   IconButton(
                     tooltip: tr('Phiếu hủy bếp'),

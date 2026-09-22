@@ -46,7 +46,6 @@ import 'pos_sell_industry_settings_hub_screen.dart';
 import 'pos_store_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
 import '../settings_hub_screen.dart';
-import 'pos_commercial_company_screen.dart';
 import 'pos_quote_list_screen.dart';
 import 'pos_app_settings_screen.dart';
 import 'pos_accounts_screen.dart';
@@ -91,6 +90,12 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
     final auth = Provider.of<AuthProvider>(context);
     final perm = Provider.of<PermissionProvider>(context);
     final user = auth.user;
+    bool canMod(String code) => PermissionNavigation.canAccessModule(
+          code,
+          allowedModules: user?.allowedModules,
+          perm: perm,
+          role: user?.role,
+        );
 
     return ColoredBox(
       color: PosTheme.background,
@@ -128,8 +133,11 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   items: [
                     _Item('Báo giá', Icons.request_quote_outlined, 'PosQuotes',
                         const PosQuoteListScreen()),
-                    _Item('Công ty trên chứng từ', Icons.apartment_outlined,
-                        'PosQuotes', const PosCommercialCompanyScreen()),
+                    _Item('Mẫu in báo giá', Icons.article_outlined,
+                        'PosPrintTemplates',
+                        const PosPrintTemplatesScreen(
+                            initialDocumentType: 'Quote'),
+                        visible: canMod('PosQuotes')),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -141,8 +149,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                     _Item('Bán hàng', Icons.shopping_bag_outlined, 'PosSell',
                         const PosSellScreen()),
                     _Item('Đặt lịch', Icons.event_available_outlined, 'PosBooking',
-                        const PosAppointmentDayScreen(),
-                        altModules: const ['PosSell']),
+                        const PosAppointmentDayScreen()),
                     _Item('Hoá đơn', Icons.receipt_long_outlined, 'PosSaleOrders',
                         const PosSaleOrderListScreen()),
                     _Item('Trả hàng bán', Icons.assignment_return_outlined, 'PosSaleReturns',
@@ -155,23 +162,18 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                     _Item('Trả hàng nhập', Icons.undo_outlined, 'PosPurchaseReturns',
                         const WhAdaptivePurchaseReturnList()),
                     _Item('Cuối ngày', Icons.nightlight_round, 'PosReportEndOfDay',
-                        const PosEndOfDayScreen(),
-                        altModules: const ['PosSalesReport']),
+                        const PosEndOfDayScreen()),
                     _Item('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift',
                         const PosCashierShiftScreen(),
-                        altModules: const ['PosSell'],
                         visible: _shiftOn),
                     _Item('QR order bàn', Icons.qr_code_2, 'PosQrOrder',
                         const PosQrTableOrderScreen(),
-                        altModules: const ['PosSell'],
                         visible: _qrOn),
                     _Item('Menu QR / Online', Icons.restaurant_menu, 'PosQrOrder',
                         const PosQrMenuScreen(),
-                        altModules: const ['PosSell'],
                         visible: _qrOn),
                     _Item('Đơn online', Icons.delivery_dining_outlined, 'PosQrOrder',
                         const PosQrOnlineOrdersScreen(),
-                        altModules: const ['PosSell'],
                         visible: _qrOn),
                     _Item(
                       'Xác nhận CK',
@@ -181,8 +183,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                       altModules: const ['PosSell'],
                     ),
                     _Item('Màn hình bếp (KDS)', Icons.kitchen_outlined, 'PosKds',
-                        const PosKdsScreen(),
-                        altModules: const ['PosSell']),
+                        const PosKdsScreen()),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -197,8 +198,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                         const PosPriceListsScreen(),
                         altModules: const ['PosSell']),
                     _Item('Tra cứu BH', Icons.verified_outlined, 'PosWarranty',
-                        const PosWarrantyLookupScreen(),
-                        altModules: const ['PosSell', 'PosProducts']),
+                        const PosWarrantyLookupScreen()),
                     _Item('Kiểm kho', Icons.fact_check_outlined, 'PosStockCounts',
                         const WhAdaptiveStockCountList()),
                     _Item('Xuất hủy', Icons.delete_forever_outlined,
@@ -214,11 +214,9 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   title: 'Khách hàng',
                   items: [
                     _Item('Khách hàng', Icons.people_outline, 'PosCustomers',
-                        const PosCustomersScreen(),
-                        altModules: const ['PosSell', 'PosProducts']),
+                        const PosCustomersScreen()),
                     _Item('Công nợ KH', Icons.account_balance_wallet_outlined,
-                        'PosReportDebt', const PosCustomerDebtReportScreen(),
-                        altModules: const ['PosSalesReport']),
+                        'PosReportDebt', const PosCustomerDebtReportScreen()),
                     _Item('Voucher', Icons.confirmation_number_outlined, 'PosProducts',
                         const PosVouchersScreen(),
                         altModules: const ['PosSell']),

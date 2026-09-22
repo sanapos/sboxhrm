@@ -43,17 +43,28 @@ public class AttendancesController(
     {
         logger.LogWarning($"[AttendancesController] GetAttendanceByDevice: DeviceIds={string.Join(",", filter.DeviceIds)}, From={filter.FromDate}, To={filter.ToDate}, PageNumber={paginationRequest.PageNumber}, PageSize={paginationRequest.PageSize}");
         
-        // Validate DeviceIds belong to user's store (Admin can query any)
-        if (!IsAdmin && filter.DeviceIds.Any())
+        // Luôn khóa theo cửa hàng hiện tại. Cửa hàng chưa có máy thì trả rỗng,
+        // không được bỏ lọc rồi lấy công của mọi cửa hàng.
+        var storeIdForDevices = GetCurrentStoreId();
+        if (!storeIdForDevices.HasValue)
         {
-            var storeId = GetCurrentStoreId();
-            logger.LogWarning($"[AttendancesController] User StoreId={storeId}, IsAdmin={IsAdmin}");
-            var devices = await deviceRepository.GetAllAsync(d => filter.DeviceIds.Contains(d.Id));
-            if (devices.Any(d => d.StoreId != storeId))
-            {
-                logger.LogWarning("[AttendancesController] BLOCKED: Device StoreId mismatch");
-                return Ok(AppResponse<PagedResult<AttendanceDto>>.Error("Bạn không có quyền xem dữ liệu chấm công của thiết bị này"));
-            }
+            return Ok(AppResponse<PagedResult<AttendanceDto>>.Success(
+                new PagedResult<AttendanceDto>([], 0, paginationRequest.PageNumber, paginationRequest.PageSize)));
+        }
+
+        var storeDeviceIds = await dbContext.Devices.AsNoTracking()
+            .Where(d => d.StoreId == storeIdForDevices)
+            .Select(d => d.Id)
+            .ToListAsync();
+        if (filter.DeviceIds.Count == 0)
+            filter.DeviceIds = storeDeviceIds;
+        else
+            filter.DeviceIds = filter.DeviceIds.Where(storeDeviceIds.Contains).ToList();
+
+        if (filter.DeviceIds.Count == 0)
+        {
+            return Ok(AppResponse<PagedResult<AttendanceDto>>.Success(
+                new PagedResult<AttendanceDto>([], 0, paginationRequest.PageNumber, paginationRequest.PageSize)));
         }
 
         // Employee: chỉ xem chấm công của chính mình
@@ -67,16 +78,6 @@ public class AttendancesController(
                 logger.LogInformation("[AttendancesController] PIN filter applied: {Count} PINs for role {Role}", 
                     allowedPins.Count, CurrentUserRole);
             }
-        }
-
-        // Khi client không gửi deviceIds — lấy tất cả máy thuộc cửa hàng (tránh query rỗng).
-        if (filter.DeviceIds.Count == 0)
-        {
-            var storeId = GetCurrentStoreId();
-            var deviceQuery = dbContext.Devices.AsQueryable();
-            if (!IsAdmin && storeId.HasValue)
-                deviceQuery = deviceQuery.Where(d => d.StoreId == storeId);
-            filter.DeviceIds = await deviceQuery.Select(d => d.Id).ToListAsync();
         }
 
         var command = new GetAttsByDevicesQuery(paginationRequest, filter);
@@ -165,7 +166,8 @@ public class AttendancesController(
             return Ok(AppResponse<int>.Fail("Không tìm thấy thiết bị"));
         }
 
-        if (!IsAdmin && device.StoreId != GetCurrentStoreId())
+        var storeId = GetCurrentStoreId();
+        if (!storeId.HasValue || device.StoreId != storeId)
         {
             return Ok(AppResponse<int>.Fail("Bạn không có quyền xem thiết bị này"));
         }
@@ -214,18 +216,22 @@ public class AttendancesController(
             request.EmployeeIds = [employeeId.Value];
         }
         
-        // Validate EmployeeIds belong to user's store (Admin can query any)
-        if (!IsAdmin && request.EmployeeIds.Any())
+        var storeId = GetCurrentStoreId();
+        if (!storeId.HasValue)
         {
-            var storeId = GetCurrentStoreId();
+            return Ok(AppResponse<MonthlyAttendanceSummaryDto>.Error("Cửa hàng không xác định"));
+        }
+
+        if (request.EmployeeIds.Any())
+        {
             var employees = await employeeRepository.GetAllAsync(e => request.EmployeeIds.Contains(e.Id));
             if (employees.Any(e => e.StoreId != storeId))
             {
                 return Ok(AppResponse<MonthlyAttendanceSummaryDto>.Error("Bạn không có quyền xem dữ liệu của nhân viên này"));
             }
 
-            // Manager chỉ được xem NV thuộc phạm vi quản lý
-            if (IsManager && storeId.HasValue)
+            // Quản lý / trưởng phòng: chỉ NV trong phạm vi. Admin cửa hàng xem cả cửa hàng.
+            if (!IsAdmin && IsManager)
             {
                 var subordinateIds = await dataScopeService.GetSubordinateEmployeeIdsAsync(CurrentUserId, storeId.Value);
                 var unauthorizedIds = request.EmployeeIds.Except(subordinateIds).ToList();

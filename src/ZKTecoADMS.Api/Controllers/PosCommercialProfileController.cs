@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -29,7 +30,7 @@ public class PosCommercialProfileController(ZKTecoDbContext dbContext) : Authent
         string? LegalTitle);
 
     [HttpGet]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "SettingsHub", "PosQuotes", "PosSell")]
     public async Task<ActionResult<AppResponse<CommercialProfileDto>>> Get()
     {
         var storeId = RequiredStoreId;
@@ -44,18 +45,28 @@ public class PosCommercialProfileController(ZKTecoDbContext dbContext) : Authent
                 .OrderByDescending(b => b.IsHeadquarter)
                 .FirstOrDefaultAsync();
             return Ok(AppResponse<CommercialProfileDto>.Success(new CommercialProfileDto(
-                store?.Name,
+                null,
                 branch?.TaxCode,
-                branch?.Address ?? store?.Address,
+                branch?.Address,
                 branch?.Phone ?? store?.Phone,
                 branch?.Email,
-                null, null, store?.Name, null, "Giám đốc")));
+                null, null, null, null, "Giám đốc")));
         }
         return Ok(AppResponse<CommercialProfileDto>.Success(Map(p)));
     }
 
+    [HttpGet("tax-lookup")]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "SettingsHub", "PosQuotes", "PosSell")]
+    public async Task<ActionResult<AppResponse<object>>> LookupTax([FromQuery] string? taxCode)
+    {
+        var found = await VietQrBusinessLookup.LookupAsync(taxCode);
+        if (!found.Ok)
+            return Ok(AppResponse<object>.Fail(found.Message ?? "Không tra cứu được mã số thuế"));
+        return Ok(AppResponse<object>.Success(VietQrBusinessLookup.ToDto(found)));
+    }
+
     [HttpPut]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "SettingsHub", "PosQuotes", "PosSell")]
     public async Task<ActionResult<AppResponse<CommercialProfileDto>>> Save(
         [FromBody] CommercialProfileDto dto)
     {

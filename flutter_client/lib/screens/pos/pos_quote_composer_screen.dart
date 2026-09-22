@@ -9,6 +9,7 @@ import '../../models/pos_print_template.dart';
 import '../../models/pos_product.dart';
 import '../../models/pos_quote.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_html_print.dart';
 import '../../utils/pos_print_template_loader.dart';
 import '../../utils/pos_print_template_v2_codec.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
@@ -23,9 +24,12 @@ import '../../widgets/pos/pos_product_unit_view.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../../widgets/pos/pos_sell_product_grid.dart';
+import '../../widgets/pos/pos_form_keyboard.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 enum _RowExpand { note, price }
+
+enum _ComposerStage { catalog, cart, checkout }
 
 /// Dòng giỏ báo giá — cùng nghiệp vụ dòng bán: size, ghi chú, CK.
 class _QLine {
@@ -81,6 +85,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
   final _api = ApiService();
   final _custSearch = TextEditingController();
   final _discount = TextEditingController(text: '0');
+  final _deposit = TextEditingController(text: '50');
   final _note = TextEditingController();
   final _money = NumberFormat('#,##0', 'vi_VN');
 
@@ -88,51 +93,110 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
   Timer? _custDebounce;
   List<PosCustomer> _custHits = [];
   String? _printTemplateId;
-  String _payment = 'Chuyển khoản';
+  List<PosPrintTemplate> _templates = [];
+  String _depositPayment = 'Chuyển khoản';
   DateTime _validUntil = DateTime.now().add(const Duration(days: 15));
   final List<_QLine> _cart = [];
   bool _saving = false;
   bool _loading = false;
-  bool _checkoutStage = false;
+  _ComposerStage _stage = _ComposerStage.catalog;
   bool _discountIsPercent = false;
+  bool _depositIsPercent = true;
   bool _discountPresetsVisible = false;
   bool _includeImages = false;
+  Map<String, dynamic>? _commercialProfile;
+  String? _savedQuoteId;
   String _quoteNo = '';
   String? _customerId;
   String? _expandedKey;
   _RowExpand? _expandMode;
 
-  static const _payments = ['Tiền mặt', 'Chuyển khoản', 'Công nợ', 'COD'];
+  static const _depositPayments = ['Chuyển khoản', 'Tiền mặt'];
   static const _kiotBlue = PosTheme.kiotBlue;
 
   bool get _isEdit => widget.quoteId != null;
 
+  String? get _activeQuoteId => widget.quoteId ?? _savedQuoteId;
+
   String _rowKey(_QLine r) =>
       '${r.line.productId ?? r.line.productName}|${r.line.unitName ?? ''}|${identityHashCode(r)}';
 
-  String _clampPayment(String? raw) {
+  String _clampDepositPayment(String? raw) {
     final v = (raw ?? '').trim();
-    return _payments.contains(v) ? v : 'Chuyển khoản';
+    return _depositPayments.contains(v) ? v : 'Chuyển khoản';
+  }
+
+  double get _lineNetSum =>
+      _cart.fold(0.0, (a, r) => a + r.lineNet);
+
+  double get _preVatTotal =>
+      (_lineNetSum - _orderDiscount).clamp(0, double.infinity);
+
+  double get _depositInput =>
+      double.tryParse(_deposit.text.replaceAll('.', '').replaceAll(',', '')) ??
+      0;
+
+  double get _depositAmount {
+    if (_depositIsPercent) {
+      return (_preVatTotal * _depositInput / 100).clamp(0, _total);
+    }
+    return _depositInput.clamp(0, _total);
   }
 
   @override
   void initState() {
     super.initState();
     _loadDefaultTemplate();
+    _loadCommercialProfile();
     if (_isEdit) {
       _loadQuote();
     }
   }
 
+  Future<void> _loadCommercialProfile() async {
+    final res = await _api.getPosCommercialProfile();
+    if (!mounted) return;
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      setState(() {
+        _commercialProfile =
+            Map<String, dynamic>.from(res['data'] as Map);
+      });
+    }
+  }
+
+  String _profileText(String a, String b) {
+    final m = _commercialProfile;
+    if (m == null) return '';
+    return (m[a] ?? m[b] ?? '').toString().trim();
+  }
+
   Future<void> _loadDefaultTemplate() async {
     final list = await loadPosPrintTemplates(_api, PosPrintDocumentTypes.quote);
     if (!mounted) return;
-    final html = list.where((t) {
+    var html = list.where((t) {
       final raw = t.htmlContent.trim();
-      return raw.startsWith('<') && !PosPrintTemplateV2Codec.isV2Content(raw);
+      if (!raw.startsWith('<') || PosPrintTemplateV2Codec.isV2Content(raw)) {
+        return false;
+      }
+      final dt = t.documentType.toLowerCase();
+      return dt.contains('quote') || dt.contains('baogia');
     }).toList();
+    if (html.isEmpty) {
+      html = list.where((t) {
+        final raw = t.htmlContent.trim();
+        return raw.startsWith('<') &&
+            !PosPrintTemplateV2Codec.isV2Content(raw) &&
+            (raw.contains('{Ten_Hang_Hoa}') || raw.contains('BEGIN_ITEMS'));
+      }).toList();
+    }
     final def = html.where((t) => t.isDefault).firstOrNull;
-    _printTemplateId ??= def?.id;
+    setState(() {
+      _templates = html;
+      if (_printTemplateId == null ||
+          html.every((t) => t.id != _printTemplateId)) {
+        _printTemplateId = def?.id;
+      }
+    });
   }
 
   Future<void> _loadQuote() async {
@@ -160,7 +224,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         ..addAll(q.lines.map((l) => _QLine(line: l)));
       setState(() {
         _loading = false;
-        _checkoutStage = false;
+        _stage = _ComposerStage.cart;
         _discountIsPercent = false;
         _quoteNo = q.quoteNo;
         _customerId = q.customerId;
@@ -175,7 +239,14 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             companyName: q.customerName,
           );
         }
-        _payment = _clampPayment(q.paymentMethod);
+        _depositPayment = _clampDepositPayment(q.paymentMethod);
+        if (q.depositPercent != null && q.depositPercent! > 0) {
+          _depositIsPercent = true;
+          _deposit.text = q.depositPercent!.round().toString();
+        } else if (q.depositAmount > 0) {
+          _depositIsPercent = false;
+          _deposit.text = _money.format(q.depositAmount);
+        }
         _printTemplateId = q.printTemplateId ?? _printTemplateId;
         if (q.validUntil != null) _validUntil = q.validUntil!.toLocal();
       });
@@ -226,6 +297,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     _custDebounce?.cancel();
     _custSearch.dispose();
     _discount.dispose();
+    _deposit.dispose();
     _note.dispose();
     for (final r in _cart) {
       r.dispose();
@@ -344,8 +416,6 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     );
     setState(() {
       _cart.add(row);
-      _expandedKey = _rowKey(row);
-      _expandMode = _RowExpand.note;
     });
     if (views.length <= 1) {
       unawaited(_hydrateRow(row));
@@ -470,114 +540,249 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       );
       return;
     }
+    hidePosSoftKeyboard(alsoAfterMs: 0);
     setState(() {
-      _checkoutStage = true;
+      _stage = _ComposerStage.checkout;
       _expandedKey = null;
       _expandMode = null;
     });
   }
 
-  void _backToCart() => setState(() => _checkoutStage = false);
+  void _openCart() => setState(() => _stage = _ComposerStage.cart);
 
-  Future<void> _save() async {
+  void _backToCatalog() => setState(() => _stage = _ComposerStage.catalog);
+
+  void _onComposerBack({required bool wide}) {
+    setState(() {
+      if (_stage == _ComposerStage.checkout) {
+        _stage = wide ? _ComposerStage.catalog : _ComposerStage.cart;
+      } else {
+        _stage = _ComposerStage.catalog;
+      }
+    });
+  }
+
+  bool _composerBlocksPop({required bool wide}) {
+    if (_stage == _ComposerStage.checkout) return true;
+    return !wide && _stage == _ComposerStage.cart;
+  }
+
+  String get _customerDisplayName {
+    final walkIn = _custSearch.text.trim();
+    if (_customer == null) return walkIn;
+    return ((_customer!.companyName ?? '').trim().isNotEmpty
+        ? _customer!.companyName!.trim()
+        : _customer!.name);
+  }
+
+  Future<PosQuote?> _saveQuote({
+    bool printAfter = false,
+    bool popAfter = false,
+    bool notify = true,
+  }) async {
     if (_cart.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Thiếu hàng',
         message: tr('Chọn ít nhất một hàng hóa / dịch vụ'),
       );
-      return;
+      return null;
     }
-    final walkIn = _custSearch.text.trim();
-    if (_customer == null && walkIn.isEmpty) {
-      NotificationOverlayManager().showWarning(
-        title: 'Thiếu khách',
-        message: tr('Chọn khách hàng hoặc nhập tên khách lẻ'),
-      );
-      return;
+    if (_customer == null && _custSearch.text.trim().isEmpty) {
+      _custSearch.text = 'Khách lẻ';
     }
+    _flushCartEdits();
     setState(() => _saving = true);
-    final displayName = _customer == null
-        ? walkIn
-        : ((_customer!.companyName ?? '').trim().isNotEmpty
-            ? _customer!.companyName!.trim()
-            : _customer!.name);
+    final displayName = _customerDisplayName;
+    String? asGuid(String? raw) {
+      final s = (raw ?? '').trim();
+      if (s.isEmpty) return null;
+      return RegExp(
+              r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+          .hasMatch(s)
+          ? s
+          : null;
+    }
+
     try {
+      final custId = asGuid(_customer?.id ?? _customerId);
+      final tplId = asGuid(_printTemplateId);
       final body = {
-        if ((_customer?.id ?? _customerId ?? '').isNotEmpty)
-          'customerId': _customer?.id ?? _customerId,
+        if (custId != null) 'customerId': custId,
         'customerName': displayName,
         'customerPhone': _customer?.phone ?? '',
         'customerAddress': _customer?.address ?? '',
         'validUntil': _validUntil.toUtc().toIso8601String(),
         'discount': _orderDiscount,
         'note': _note.text.trim(),
-        'paymentMethod': _payment,
-        'printTemplateId': _printTemplateId,
+        'paymentMethod': _depositPayment,
+        'depositAmount': _depositAmount,
+        'depositPercent': _depositIsPercent ? _depositInput : null,
+        if (tplId != null) 'printTemplateId': tplId,
         'includeImages': _includeImages,
         'lines': _cart.map((r) => r.line.toInputJson()).toList(),
       };
-      final res = _isEdit
-          ? await _api.updatePosQuote(widget.quoteId!, body)
+      final quoteId = _activeQuoteId;
+      debugPrint(
+          'POS_QUOTE_SAVE ${quoteId != null ? 'PUT' : 'POST'} lines=${_cart.length} qty=${_cart.fold<double>(0, (a, r) => a + r.line.qty)} total=$_total');
+      final res = quoteId != null
+          ? await _api.updatePosQuote(quoteId, body)
           : await _api.createPosQuote(body);
-      if (!mounted) return;
+      debugPrint(
+          'POS_QUOTE_SAVE result success=${res['isSuccess']} msg=${res['message']}');
+      if (!mounted) return null;
       setState(() => _saving = false);
       if (res['isSuccess'] != true || res['data'] is! Map) {
         NotificationOverlayManager().showError(
-          title: _isEdit ? 'Không lưu được' : 'Không tạo được',
+          title: quoteId != null ? 'Không lưu được' : 'Không tạo được',
           message: res['message']?.toString() ?? tr('Lưu thất bại'),
         );
-        return;
+        return null;
       }
-      final q = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
-      NotificationOverlayManager().showSuccess(
-        title: _isEdit ? 'Đã lưu báo giá' : 'Đã tạo báo giá',
-        message: '${q.quoteNo} · $displayName',
-      );
-      await printPosQuoteSlip(
-        context,
-        quoteId: q.id,
-        quote: q,
-        includeImages: _includeImages,
-      );
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
+      var q = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+      final fromPut = q;
+      if (q.id.isNotEmpty) {
+        final again = await _api.getPosQuote(q.id);
+        if (again['isSuccess'] == true && again['data'] is Map) {
+          final fromGet =
+              PosQuote.fromJson(Map<String, dynamic>.from(again['data'] as Map));
+          q = fromGet.lines.length >= fromPut.lines.length ? fromGet : fromPut;
+        }
+      }
+      final cartQty = _cart.fold<double>(0, (a, r) => a + r.line.qty);
+      final savedQty = q.lines.fold<double>(0, (a, l) => a + l.qty);
+      debugPrint(
+          'POS_QUOTE_SAVE verify serverQty=$savedQty cartQty=$cartQty serverTotal=${q.total} cartTotal=$_total lines=${q.lines.length}/${_cart.length}');
+      final linesMismatch = (q.lines.length - _cart.length).abs() > 0 ||
+          (cartQty - savedQty).abs() > 0.01;
+      if (linesMismatch && notify) {
+        NotificationOverlayManager().showWarning(
+          title: 'Đã lưu tổng — kiểm tra giỏ',
+          message:
+              'Máy chủ ${_money.format(q.total)} đ / SL ${savedQty.round()} — giỏ ${_money.format(_total)} đ / SL ${cartQty.round()}.',
+        );
+      }
+      setState(() {
+        _savedQuoteId = q.id;
+        _quoteNo = q.quoteNo;
+        _adoptSavedLineIds(q.lines);
+        _printTemplateId = q.printTemplateId ?? _printTemplateId;
+        if (q.depositPercent != null && q.depositPercent! > 0) {
+          _depositIsPercent = true;
+          _deposit.text = q.depositPercent!.round().toString();
+        } else if (q.depositAmount > 0) {
+          _depositIsPercent = false;
+          _deposit.text = _money.format(q.depositAmount);
+        }
+      });
+      if (notify) {
+        NotificationOverlayManager().showSuccess(
+          title: quoteId != null ? 'Đã lưu báo giá' : 'Đã tạo báo giá',
+          message: '${q.quoteNo} · $displayName',
+        );
+      }
+      if (printAfter) {
+        final cartLines = _cart.map((r) => r.line).toList();
+        var html = '';
+        try {
+          html = bindPosQuotePrintHtmlLocal(q, cartLines);
+        } catch (_) {
+          html = '';
+        }
+        if (html.trim().isEmpty || html.contains('XEM TRƯỚC')) {
+          final buf = StringBuffer('<html><body><h2>BÁO GIÁ ${q.quoteNo}</h2><table>');
+          for (final l in cartLines) {
+            buf.write(
+                '<tr><td>${l.productName}</td><td>${l.qty}</td><td>${l.unitPrice.round()}</td></tr>');
+          }
+          buf.write('</table></body></html>');
+          html = buf.toString();
+        }
+        if (!mounted) return q;
+        await showPosHtmlPrintDialog(
+          context,
+          title: 'BÁO GIÁ',
+          htmlDocument: html,
+          a4Paper: true,
+        );
+      }
+      if (popAfter && mounted) Navigator.of(context).pop(true);
+      return q;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return null;
       setState(() => _saving = false);
       NotificationOverlayManager().showError(
         title: 'Lỗi',
         message: e.toString(),
       );
+      return null;
     }
   }
+
+  void _flushCartEdits() {
+    for (final r in _cart) {
+      _applyNote(r);
+      _applyPrice(r);
+      r.line.lineTotal = r.lineNet * (1 + r.line.vatRate / 100);
+    }
+  }
+
+  void _adoptSavedLineIds(List<PosQuoteLine> saved) {
+    if (saved.isEmpty) return;
+    final leftover = [...saved];
+    for (final r in _cart) {
+      var i = leftover.indexWhere(
+          (l) => r.line.id.isNotEmpty && l.id == r.line.id);
+      if (i < 0 && (r.line.productId ?? '').isNotEmpty) {
+        i = leftover.indexWhere((l) =>
+            l.productId == r.line.productId &&
+            (l.unitName ?? '') == (r.line.unitName ?? ''));
+      }
+      if (i < 0) {
+        i = leftover.indexWhere((l) =>
+            l.productName == r.line.productName &&
+            (l.unitName ?? '') == (r.line.unitName ?? ''));
+      }
+      if (i < 0) continue;
+      r.line.id = leftover[i].id;
+      leftover.removeAt(i);
+    }
+  }
+
+  Future<void> _save() =>
+      _saveQuote(printAfter: true, popAfter: false);
 
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 960;
+    final blocksPop = _composerBlocksPop(wide: wide);
     return PopScope(
-      canPop: !_checkoutStage,
+      canPop: !blocksPop,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _checkoutStage) _backToCart();
+        if (!didPop && blocksPop) _onComposerBack(wide: wide);
       },
       child: Scaffold(
         backgroundColor: PosTheme.background,
         appBar: AppBar(
-          leading: _checkoutStage
+          leading: blocksPop
               ? IconButton(
-                  tooltip: tr('Quay lại giỏ hàng'),
+                  tooltip: _stage == _ComposerStage.checkout
+                      ? tr('Quay lại giỏ hàng')
+                      : tr('Quay lại chọn hàng'),
                   icon: const Icon(Icons.arrow_back),
-                  onPressed: _backToCart,
+                  onPressed: () => _onComposerBack(wide: wide),
                 )
               : null,
-          title: Text(_checkoutStage
+          title: Text(_stage == _ComposerStage.checkout
               ? tr('Khách hàng & chiết khấu')
-              : (_isEdit
-                  ? (_quoteNo.isEmpty ? tr('Sửa báo giá') : _quoteNo)
-                  : tr('Thêm báo giá mới'))),
+              : (!wide && _stage == _ComposerStage.cart
+                  ? tr('Giỏ hàng')
+                  : (_isEdit
+                      ? (_quoteNo.isEmpty ? tr('Sửa báo giá') : _quoteNo)
+                      : tr('Chọn hàng báo giá')))),
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
-            : _checkoutStage
+            : _stage == _ComposerStage.checkout
                 ? _checkoutPane()
                 : _cartBody(wide: wide),
       ),
@@ -585,19 +790,84 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
   }
 
   Widget _cartBody({required bool wide}) {
-    return wide
-        ? Row(
-            children: [
-              Expanded(flex: 6, child: _catalogPane(listLayout: false)),
-              Expanded(flex: 4, child: _cartPane()),
-            ],
-          )
-        : Column(
-            children: [
-              Expanded(flex: 3, child: _catalogPane(listLayout: true)),
-              Expanded(flex: 2, child: _cartPane()),
-            ],
-          );
+    if (wide) {
+      return Row(
+        children: [
+          Expanded(flex: 6, child: _catalogPane(listLayout: false)),
+          Expanded(flex: 4, child: _cartPane()),
+        ],
+      );
+    }
+    if (_stage == _ComposerStage.cart) return _cartPane();
+    return Column(
+      children: [
+        Expanded(child: _catalogPane(listLayout: true)),
+        _mobileCartBar(),
+      ],
+    );
+  }
+
+  Widget _mobileCartBar() {
+    final n = _cart.length;
+    final qty = _cart.fold<double>(0, (a, r) => a + r.line.qty);
+    return Material(
+      color: Colors.white,
+      elevation: 10,
+      child: SafeArea(
+        top: false,
+        child: InkWell(
+          onTap: _openCart,
+          child: Container(
+            height: 64,
+            padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: PosTheme.border)),
+            ),
+            child: Row(
+              children: [
+                Badge(
+                  isLabelVisible: n > 0,
+                  label: Text(
+                    qty == qty.roundToDouble()
+                        ? '${qty.round()}'
+                        : qty.toStringAsFixed(1),
+                  ),
+                  child: const Icon(Icons.shopping_cart_outlined,
+                      color: _kiotBlue, size: 26),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        n == 0
+                            ? tr('Giỏ hàng trống')
+                            : tr('$n món · ${_money.format(_total)} đ'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          color: _kiotBlue,
+                        ),
+                      ),
+                      Text(
+                        tr('Bấm để xem giỏ hàng'),
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          color: PosTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: PosTheme.textSecondary),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _catalogPane({required bool listLayout}) {
@@ -623,25 +893,36 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         children: [
           Container(
             height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: const BoxDecoration(
               color: Color(0xFFF8FAFC),
               border: Border(bottom: BorderSide(color: PosTheme.border)),
             ),
-            child: Text(
-              tr('Báo giá · ${_cart.length} món'),
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: PosTheme.textSecondary,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    tr('Báo giá · ${_cart.length} món'),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: PosTheme.textSecondary,
+                    ),
+                  ),
+                ),
+                if (MediaQuery.sizeOf(context).width < 960)
+                  TextButton.icon(
+                    onPressed: _backToCatalog,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(tr('Thêm món')),
+                  ),
+              ],
             ),
           ),
           Expanded(
             child: _cart.isEmpty
                 ? PosEmptyCartBrand(
-                    hint: tr('Bấm hàng bên trái — chọn size trên dòng, chạm tên để ghi chú, chạm giá để chiết khấu'),
+                    hint: tr('Bấm Thêm món để chọn hàng — chạm tên để ghi chú, chạm giá để chiết khấu'),
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.fromLTRB(10, 8, 10, 12),
@@ -653,39 +934,42 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                     },
                   ),
           ),
-          Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: PosTheme.border)),
-            ),
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_lineDiscountTotal > 0)
-                  _moneyRow('Chiết khấu SP', -_lineDiscountTotal),
-                _moneyRow('Tổng tiền (${_cart.length} món)', _total, bold: true),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: _saving ? null : _enterCheckout,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _kiotBlue,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+          SafeArea(
+            top: false,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: PosTheme.border)),
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_lineDiscountTotal > 0)
+                    _moneyRow('Chiết khấu SP', -_lineDiscountTotal),
+                  _moneyRow('Tổng tiền (${_cart.length} món)', _total, bold: true),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 52,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _enterCheckout,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _kiotBlue,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      _isEdit ? tr('Tiếp tục') : tr('Tạo báo giá'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16,
+                      child: Text(
+                        tr('Tiếp tục'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -714,11 +998,12 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           ),
           clipBehavior: Clip.antiAlias,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(6, 8, 8, 8),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Material(
                       color: const Color(0xFFFEE2E2),
@@ -734,39 +1019,56 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     PosProductImage(
                       productId: row.product?.id ?? line.productId,
                       imageUrl: row.product?.imageUrl,
                       updatedAt: row.product?.updatedAt,
-                      size: 36,
+                      size: 40,
                       borderRadius: 8,
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: InkWell(
                         onTap: () => _toggleExpand(row, _RowExpand.note),
                         borderRadius: BorderRadius.circular(8),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              vertical: 4, horizontal: 2),
+                              vertical: 2, horizontal: 2),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                line.productName,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  height: 1.2,
-                                  fontWeight: FontWeight.w600,
-                                  color: noteOn ? _kiotBlue : PosTheme.textPrimary,
-                                  decoration: noteOn
-                                      ? TextDecoration.underline
-                                      : TextDecoration.none,
+                              Semantics(
+                                label: line.productName,
+                                child: Text(
+                                  line.productName.isEmpty
+                                      ? tr('Hàng hóa')
+                                      : line.productName,
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    height: 1.25,
+                                    fontWeight: FontWeight.w700,
+                                    color: noteOn
+                                        ? _kiotBlue
+                                        : PosTheme.textPrimary,
+                                    decoration: noteOn
+                                        ? TextDecoration.underline
+                                        : TextDecoration.none,
+                                  ),
                                 ),
                               ),
+                              if ((line.productCode ?? '').trim().isNotEmpty)
+                                Text(
+                                  line.productCode!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: PosTheme.textSecondary,
+                                  ),
+                                ),
                               if (!noteOn &&
                                   (line.lineNote ?? '').trim().isNotEmpty)
                                 Text(
@@ -788,42 +1090,43 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
                     _qtyStepper(i),
-                    const SizedBox(width: 4),
-                    SizedBox(width: 58, height: 36, child: _unitPicker(row)),
-                    const SizedBox(width: 2),
+                    const SizedBox(width: 8),
+                    SizedBox(width: 72, height: 36, child: _unitPicker(row)),
+                    const Spacer(),
                     InkWell(
                       onTap: () => _toggleExpand(row, _RowExpand.price),
                       borderRadius: BorderRadius.circular(8),
-                      child: SizedBox(
-                        width: 78,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 6),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                _money.format(row.lineNet),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: priceOn ? _kiotBlue : null,
-                                ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              _money.format(row.lineNet),
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: priceOn ? _kiotBlue : null,
                               ),
-                              Text(
-                                _money.format(line.unitPrice),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: _kiotBlue,
-                                  decoration: priceOn
-                                      ? TextDecoration.underline
-                                      : TextDecoration.none,
-                                ),
+                            ),
+                            Text(
+                              _money.format(line.unitPrice),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _kiotBlue,
+                                decoration: priceOn
+                                    ? TextDecoration.underline
+                                    : TextDecoration.none,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -984,7 +1287,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
               });
             },
             extraController: row.noteCtrl,
-            autofocusExtra: true,
+            autofocusExtra: false,
             onExtraChanged: () => setState(() => _applyNote(row)),
           ),
           const SizedBox(height: 8),
@@ -1157,9 +1460,12 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
   Widget _checkoutPane() {
     return Material(
       color: Colors.white,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+      child: Column(
         children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              children: [
           Text(
             tr('${_cart.length} món · ${_money.format(_total)} đ'),
             style: const TextStyle(
@@ -1231,7 +1537,49 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
               ),
             ),
           if (_customer != null) _customerCard(_customer!),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
+          if (_templates.isNotEmpty) ...[
+            ClipRect(
+              child: DropdownButtonFormField<String?>(
+              value: _templates.any((t) => t.id == _printTemplateId)
+                  ? _printTemplateId
+                  : null,
+              isExpanded: true,
+              decoration: PosTheme.inputDecoration(label: 'Mẫu in A4'),
+              selectedItemBuilder: (ctx) => [
+                SizedBox(
+                  width: double.infinity,
+                  child: Text(tr('Mẫu mặc định cửa hàng'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false),
+                ),
+                for (final t in _templates)
+                  SizedBox(
+                    width: double.infinity,
+                    child: Text(t.shortLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false),
+                  ),
+              ],
+              items: [
+                DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text(tr('Mẫu mặc định cửa hàng'),
+                      overflow: TextOverflow.ellipsis),
+                ),
+                for (final t in _templates)
+                  DropdownMenuItem<String?>(
+                    value: t.id,
+                    child: Text(t.shortLabel, overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _printTemplateId = v),
+            ),
+            ),
+            const SizedBox(height: 12),
+          ],
           _moneyRow('Tổng tiền hàng', _subTotal),
           if (_lineDiscountTotal > 0)
             _moneyRow('Chiết khấu SP', -_lineDiscountTotal),
@@ -1313,18 +1661,76 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
               child: Text(DateFormat('dd/MM/yyyy').format(_validUntil)),
             ),
           ),
+          const SizedBox(height: 12),
+          Text(
+            tr('Tiền cọc thực hiện hợp đồng'),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          Text(
+            tr('Trên giá trị trước VAT: ${_money.format(_preVatTotal)} đ'),
+            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                width: 82,
+                child: Text(tr('Tiền cọc'),
+                    style: const TextStyle(fontSize: 13)),
+              ),
+              _depositDiscChip('%', true),
+              const SizedBox(width: 4),
+              _depositDiscChip('đ', false),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _deposit,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.right,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    suffixText: _depositIsPercent ? '%' : 'đ',
+                    border: const OutlineInputBorder(),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 10),
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ],
+          ),
+          if (_depositIsPercent && _depositInput > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                tr(
+                    'Cọc: ${_money.format(_depositAmount)} đ (${_depositInput.round()}%)'),
+                textAlign: TextAlign.right,
+                style: const TextStyle(fontSize: 12, color: _kiotBlue),
+              ),
+            ),
           const SizedBox(height: 10),
+          Text(
+            tr('Hình thức thu cọc'),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 6),
           Wrap(
             spacing: 6,
             children: [
-              for (final e in _payments)
+              for (final e in _depositPayments)
                 ChoiceChip(
-                  label: Text(e),
-                  selected: _payment == e,
-                  onSelected: (_) => setState(() => _payment = e),
+                  label: Text(tr(e)),
+                  selected: _depositPayment == e,
+                  onSelected: (_) => setState(() => _depositPayment = e),
                 ),
             ],
           ),
+          _bankReceiveCard(),
           const SizedBox(height: 10),
           CheckboxListTile(
             value: _includeImages,
@@ -1353,26 +1759,83 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                 color: Colors.grey.shade700,
                 fontSize: 12),
           ),
-          const SizedBox(height: 14),
-          SizedBox(
-            height: 52,
-            child: FilledButton.icon(
-              onPressed: _saving ? null : _save,
-              icon: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.request_quote_outlined),
-              label: Text(_saving
-                  ? tr('Đang lưu…')
-                  : (_isEdit
-                      ? tr('Lưu & in phiếu')
-                      : tr('Hoàn tất & in phiếu'))),
+        ],
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Material(
+              elevation: 8,
+              color: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+                child: SizedBox(
+                  height: 52,
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.request_quote_outlined),
+                    label: Text(_saving
+                        ? tr('Đang lưu…')
+                        : (_isEdit || _savedQuoteId != null
+                            ? tr('Lưu & in phiếu')
+                            : tr('Hoàn tất & in phiếu'))),
+                  ),
+                ),
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _depositDiscChip(String label, bool percent) {
+    final on = _depositIsPercent == percent;
+    return InkWell(
+      onTap: () => setState(() => _depositIsPercent = percent),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: on ? const Color(0xFFDBEAFE) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: on ? _kiotBlue : const Color(0xFFCBD5E1)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+            color: on ? _kiotBlue : Colors.grey.shade700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _bankReceiveCard() {
+    if (_depositPayment != 'Chuyển khoản') return const SizedBox.shrink();
+    final acc = _profileText('bankAccountNumber', 'BankAccountNumber');
+    final bank = _profileText('bankName', 'BankName');
+    final holder = _profileText('bankAccountHolder', 'BankAccountHolder');
+    final bits = [bank, acc, holder].where((e) => e.isNotEmpty).join(' · ');
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(
+        bits.isEmpty
+            ? tr('Phiếu in lấy TK từ Hồ sơ thương mại — chưa cấu hình')
+            : tr('Phiếu in đính kèm TK hồ sơ: $bits'),
+        style: TextStyle(
+          fontSize: 12,
+          color: bits.isEmpty ? Colors.orange.shade800 : Colors.grey.shade700,
+        ),
       ),
     );
   }

@@ -17,6 +17,7 @@ import '../../utils/pos_qty_rules.dart';
 import '../../utils/pos_sell_stock_patch.dart';
 import '../../utils/pos_sell_unit_views.dart';
 import 'pos_catalog_sort_sheet.dart';
+import 'pos_form_keyboard.dart';
 import 'pos_h_scroll_chip_row.dart';
 import 'pos_mobile_widgets.dart';
 import 'pos_numeric_keypad.dart';
@@ -24,7 +25,7 @@ import '../pos_barcode_scanner.dart';
 import 'pos_product_image.dart';
 import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
-import 'package:sbox_pos/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 const _blue = PosTheme.kiotBlue;
 
@@ -373,6 +374,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       child: TextField(
         controller: _searchCtrl,
         onChanged: _onSearchChanged,
+        onTap: posShowSoftKeyboardOnFieldTap,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: tr('Tìm tên, mã hàng, mã vạch…'),

@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/permission_provider.dart';
+import '../../services/api_service.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_commercial_company_fields.dart';
 import '../../widgets/pos/pos_sell_fee_defaults_fields.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -24,6 +26,16 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   final _nameCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _companyCtrl = TextEditingController();
+  final _taxCtrl = TextEditingController();
+  final _companyAddressCtrl = TextEditingController();
+  final _companyPhoneCtrl = TextEditingController();
+  final _companyEmailCtrl = TextEditingController();
+  final _bankNoCtrl = TextEditingController();
+  final _bankNameCtrl = TextEditingController();
+  final _bankHolderCtrl = TextEditingController();
+  final _repCtrl = TextEditingController();
+  final _titleCtrl = TextEditingController(text: 'Giám đốc');
   final _surchargeNameCtrl = TextEditingController();
   final _surchargeDefaultCtrl = TextEditingController();
   final _deliveryDefaultCtrl = TextEditingController();
@@ -47,6 +59,16 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     _nameCtrl.dispose();
     _addressCtrl.dispose();
     _phoneCtrl.dispose();
+    _companyCtrl.dispose();
+    _taxCtrl.dispose();
+    _companyAddressCtrl.dispose();
+    _companyPhoneCtrl.dispose();
+    _companyEmailCtrl.dispose();
+    _bankNoCtrl.dispose();
+    _bankNameCtrl.dispose();
+    _bankHolderCtrl.dispose();
+    _repCtrl.dispose();
+    _titleCtrl.dispose();
     _surchargeNameCtrl.dispose();
     _surchargeDefaultCtrl.dispose();
     _deliveryDefaultCtrl.dispose();
@@ -56,6 +78,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     final s = await PosSellStoreSettings.load();
+    final profileRes = await ApiService().getPosCommercialProfile();
     if (!mounted) return;
     setState(() {
       _nameCtrl.text = s.storeName;
@@ -73,6 +96,21 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       _deliveryDefaultCtrl.text = s.deliveryFeeDefault > 0
           ? PosSellStoreSettings.formatAmount(s.deliveryFeeDefault)
           : '';
+      if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
+        final m = Map<String, dynamic>.from(profileRes['data'] as Map);
+        String t(String a, String b) => (m[a] ?? m[b] ?? '').toString();
+        _companyCtrl.text = t('companyName', 'CompanyName');
+        _taxCtrl.text = t('taxCode', 'TaxCode');
+        _companyAddressCtrl.text = t('address', 'Address');
+        _companyPhoneCtrl.text = t('phone', 'Phone');
+        _companyEmailCtrl.text = t('email', 'Email');
+        _bankNoCtrl.text = t('bankAccountNumber', 'BankAccountNumber');
+        _bankNameCtrl.text = t('bankName', 'BankName');
+        _bankHolderCtrl.text = t('bankAccountHolder', 'BankAccountHolder');
+        _repCtrl.text = t('legalRepresentative', 'LegalRepresentative');
+        _titleCtrl.text = t('legalTitle', 'LegalTitle');
+        if (_titleCtrl.text.trim().isEmpty) _titleCtrl.text = 'Giám đốc';
+      }
       _loading = false;
     });
   }
@@ -108,11 +146,31 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       ),
     );
     await next.save();
+    final profileRes = await ApiService().updatePosCommercialProfile({
+      'companyName': _companyCtrl.text.trim(),
+      'taxCode': _taxCtrl.text.trim(),
+      'address': _companyAddressCtrl.text.trim(),
+      'phone': _companyPhoneCtrl.text.trim(),
+      'email': _companyEmailCtrl.text.trim(),
+      'bankAccountNumber': _bankNoCtrl.text.trim(),
+      'bankName': _bankNameCtrl.text.trim(),
+      'bankAccountHolder': _bankHolderCtrl.text.trim(),
+      'legalRepresentative': _repCtrl.text.trim(),
+      'legalTitle': _titleCtrl.text.trim(),
+    });
     if (!mounted) return;
     setState(() => _saving = false);
+    if (profileRes['isSuccess'] != true) {
+      NotificationOverlayManager().showWarning(
+        title: 'Đã lưu cửa hàng',
+        message: profileRes['message']?.toString() ??
+            tr('Thông tin công ty chưa lưu được — kiểm tra quyền.'),
+      );
+      return;
+    }
     NotificationOverlayManager().showSuccess(
       title: 'Đã lưu',
-      message: tr('Thiết lập cửa hàng đã cập nhật'),
+      message: tr('Thiết lập cửa hàng và thông tin công ty đã cập nhật'),
     );
   }
 
@@ -167,8 +225,23 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            tr('Tài khoản ngân hàng và VietQR nằm ở Cổng thanh toán.'),
+            tr('QR thanh toán tại quầy nằm ở Cổng thanh toán. TK in trên báo giá / hợp đồng điền ở khối công ty bên dưới.'),
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const Divider(height: 28),
+          PosCommercialCompanyFields(
+            company: _companyCtrl,
+            tax: _taxCtrl,
+            address: _companyAddressCtrl,
+            phone: _companyPhoneCtrl,
+            email: _companyEmailCtrl,
+            bankNo: _bankNoCtrl,
+            bankName: _bankNameCtrl,
+            bankHolder: _bankHolderCtrl,
+            rep: _repCtrl,
+            title: _titleCtrl,
+            enabled:
+                context.watch<PermissionProvider>().canEditPosSetup(),
           ),
           const SizedBox(height: 16),
           Text(tr('Phụ phí khi thanh toán'),

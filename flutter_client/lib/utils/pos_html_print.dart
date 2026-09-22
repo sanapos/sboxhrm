@@ -1,12 +1,79 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../widgets/pos/pos_html_preview_stub.dart'
     if (dart.library.js_interop) '../widgets/pos/pos_html_preview_web.dart';
+import 'pos_print_template_defaults.dart';
 
 const _blue = Color(0xFF2563EB);
+
+/// In / chia sẻ PDF (Times + khổ/lề trong HTML). Không share raw HTML.
+Future<bool> printOrSharePosHtml({
+  required String htmlDocument,
+  required String title,
+  int copies = 1,
+}) async {
+  var html = htmlDocument.trim();
+  if (html.isEmpty) return false;
+  if (!html.toLowerCase().contains('<html')) {
+    final setup = PosCommercialPageSetup.parse(html);
+    html = wrapPosCommercialPrintHtml(html, setup);
+  }
+  final setup = PosCommercialPageSetup.parse(html);
+  final format = (setup.isA5 ? PdfPageFormat.a5 : PdfPageFormat.a4).copyWith(
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    marginRight: 0,
+  );
+  try {
+    final info = await Printing.info();
+    Uint8List? bytes;
+    if (info.canConvertHtml) {
+      bytes = await Printing.convertHtml(html: html, format: format);
+    }
+    if (bytes != null && bytes.isNotEmpty) {
+      if (info.canPrint) {
+        for (var i = 0; i < copies.clamp(1, 10); i++) {
+          await Printing.layoutPdf(
+            name: title,
+            format: format,
+            onLayout: (_) async => bytes!,
+          );
+        }
+        return true;
+      }
+      if (info.canShare) {
+        await Printing.sharePdf(bytes: bytes, filename: '$title.pdf');
+        return true;
+      }
+    }
+    if (info.canPrint) {
+      await Printing.layoutPdf(
+        name: title,
+        format: format,
+        onLayout: (_) async {
+          if (info.canConvertHtml) {
+            return Printing.convertHtml(html: html, format: format);
+          }
+          return Uint8List(0);
+        },
+      );
+      return true;
+    }
+  } catch (_) {}
+  if (!kIsWeb) {
+    try {
+      await Share.share(html, subject: title);
+      return true;
+    } catch (_) {}
+  }
+  return false;
+}
 
 /// Dialog xem trước + in HTML mẫu (K58/K80/A4/A5).
 Future<void> showPosHtmlPrintDialog(
@@ -14,6 +81,7 @@ Future<void> showPosHtmlPrintDialog(
   required String title,
   required String htmlDocument,
   int initialCopies = 1,
+  bool? a4Paper,
 }) async {
   var copies = initialCopies.clamp(1, 10);
   final screenW = MediaQuery.sizeOf(context).width;
@@ -74,15 +142,18 @@ Future<void> showPosHtmlPrintDialog(
                       icon: const Icon(Icons.print, size: 18),
                       label: Text(tr('In')),
                     )
-                  else if (isMobile)
+                  else
                     FilledButton.icon(
                       style: FilledButton.styleFrom(backgroundColor: _blue),
                       onPressed: () async {
-                        Navigator.pop(ctx);
-                        await Share.share(htmlDocument, subject: title);
+                        await printOrSharePosHtml(
+                          htmlDocument: htmlDocument,
+                          title: title,
+                          copies: copies,
+                        );
                       },
-                      icon: const Icon(Icons.share, size: 18),
-                      label: Text(tr('Chia sẻ / In')),
+                      icon: const Icon(Icons.print, size: 18),
+                      label: Text(tr(isMobile ? 'In / PDF' : 'In')),
                     ),
                 ],
               ),
@@ -96,7 +167,7 @@ Future<void> showPosHtmlPrintDialog(
                     border: Border.all(color: Colors.grey.shade300),
                     color: Colors.grey.shade100,
                   ),
-                  child: buildPosHtmlPreview(htmlDocument),
+                  child: buildPosHtmlPreview(htmlDocument, a4Paper: a4Paper),
                 ),
               ),
             ),

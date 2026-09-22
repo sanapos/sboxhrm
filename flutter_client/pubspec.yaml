@@ -3,7 +3,7 @@ description: ZKTeco ADMS Flutter Client - He thong quan ly cham cong
 
 publish_to: 'none'
 
-version: 1.0.632+14632
+version: 1.0.676+14676
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -55,7 +55,9 @@ dependencies:
   timeago: ^3.6.1
 
   # HTML rendering
-  flutter_html: ^3.0.0-beta.2
+  flutter_html: ^3.0.0
+  flutter_html_table: ^3.0.0
+  webview_flutter: ^4.10.0
 
   # PDF generation & printing
   pdf: ^3.10.8

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -81,58 +82,10 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
     [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> LookupTax([FromQuery] string? taxCode)
     {
-        var code = NormalizeTaxCode(taxCode);
-        if (code == null)
-            return BadRequest(AppResponse<object>.Fail(
-                "Mã số thuế không hợp lệ (10 số, hoặc 10-3 chi nhánh)"));
-        try
-        {
-            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-            http.DefaultRequestHeaders.TryAddWithoutValidation("Accept", "application/json");
-            using var resp = await http.GetAsync($"https://api.vietqr.io/v2/business/{code}");
-            var raw = await resp.Content.ReadAsStringAsync();
-            if (string.IsNullOrWhiteSpace(raw))
-                return Ok(AppResponse<object>.Fail("Không tra cứu được mã số thuế"));
-            using var doc = System.Text.Json.JsonDocument.Parse(raw);
-            var root = doc.RootElement;
-            var apiCode = root.TryGetProperty("code", out var cEl) ? cEl.GetString() : null;
-            if (apiCode != "00" ||
-                !root.TryGetProperty("data", out var data) ||
-                data.ValueKind != System.Text.Json.JsonValueKind.Object)
-            {
-                return Ok(AppResponse<object>.Fail("Không tìm thấy mã số thuế"));
-            }
-
-            static string? Read(System.Text.Json.JsonElement obj, string key) =>
-                obj.TryGetProperty(key, out var p) && p.ValueKind == System.Text.Json.JsonValueKind.String
-                    ? p.GetString()
-                    : null;
-
-            return Ok(AppResponse<object>.Success(new
-            {
-                taxCode = Read(data, "id") ?? code,
-                name = Read(data, "name"),
-                internationalName = Read(data, "internationalName"),
-                shortName = Read(data, "shortName"),
-                address = Read(data, "address"),
-            }));
-        }
-        catch
-        {
-            return Ok(AppResponse<object>.Fail("Không tra cứu được MST — kiểm tra mạng rồi thử lại"));
-        }
-    }
-
-    static string? NormalizeTaxCode(string? raw)
-    {
-        var s = (raw ?? "").Trim().Replace(" ", "").Replace(".", "");
-        if (s.Length == 10 && s.All(char.IsDigit)) return s;
-        if (s.Length == 14 && s[10] == '-' &&
-            s[..10].All(char.IsDigit) && s[11..].All(char.IsDigit))
-            return s;
-        if (s.Length == 13 && s.All(char.IsDigit))
-            return $"{s[..10]}-{s[10..]}";
-        return null;
+        var found = await VietQrBusinessLookup.LookupAsync(taxCode);
+        if (!found.Ok)
+            return Ok(AppResponse<object>.Fail(found.Message ?? "Không tra cứu được mã số thuế"));
+        return Ok(AppResponse<object>.Success(VietQrBusinessLookup.ToDto(found)));
     }
 
     [HttpGet("{id:guid}")]

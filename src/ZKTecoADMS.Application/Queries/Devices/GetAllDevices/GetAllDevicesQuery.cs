@@ -7,5 +7,6 @@ namespace ZKTecoADMS.Application.Queries.Devices.GetAllDevices;
 public record GetAllDevicesQuery(
     Guid? UserId = null, 
     bool IsAdminRequest = false,
-    Guid? StoreId = null
+    Guid? StoreId = null,
+    bool StoreScoped = false
 ) : IQuery<AppResponse<IEnumerable<DeviceDto>>>;

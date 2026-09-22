@@ -57,18 +57,32 @@ class PosQuoteLine {
     );
   }
 
-  Map<String, dynamic> toInputJson() => {
-        if (productId != null && productId!.isNotEmpty) 'productId': productId,
-        'productCode': productCode,
-        'productName': productName,
-        'unitName': unitName,
-        'qty': qty,
-        'unitPrice': unitPrice,
-        'discountAmount': discountAmount,
-        'vatRate': vatRate,
-        'lineNote': lineNote,
-        if (warrantyMonths != null) 'warrantyMonths': warrantyMonths,
-      };
+  static bool _isGuid(String? s) {
+    final v = (s ?? '').trim();
+    if (v.isEmpty) return false;
+    return RegExp(
+            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+        .hasMatch(v);
+  }
+
+  Map<String, dynamic> toInputJson() {
+    final net = (qty * unitPrice - discountAmount).clamp(0, double.infinity);
+    final total = lineTotal > 0 ? lineTotal : net * (1 + vatRate / 100);
+    return {
+      if (_isGuid(id)) 'id': id.trim(),
+      if (_isGuid(productId)) 'productId': productId!.trim(),
+      'productCode': productCode,
+      'productName': productName,
+      'unitName': unitName,
+      'qty': qty,
+      'unitPrice': unitPrice,
+      'discountAmount': discountAmount,
+      'vatRate': vatRate,
+      'lineTotal': total,
+      'lineNote': lineNote,
+      if (warrantyMonths != null) 'warrantyMonths': warrantyMonths,
+    };
+  }
 }
 
 class PosQuoteDocument {
@@ -146,6 +160,8 @@ class PosQuote {
     this.note,
     this.terms,
     this.paymentMethod,
+    this.depositAmount = 0,
+    this.depositPercent,
     this.printTemplateId,
     this.revision = 1,
     this.quotedBy,
@@ -174,6 +190,8 @@ class PosQuote {
   final String? note;
   final String? terms;
   final String? paymentMethod;
+  final double depositAmount;
+  final double? depositPercent;
   final String? printTemplateId;
   final int revision;
   final String? quotedBy;
@@ -250,6 +268,12 @@ class PosQuote {
       terms: (json['terms'] ?? json['Terms'])?.toString(),
       paymentMethod:
           (json['paymentMethod'] ?? json['PaymentMethod'])?.toString(),
+      depositAmount: n(json['depositAmount'] ?? json['DepositAmount']),
+      depositPercent: () {
+        final v = json['depositPercent'] ?? json['DepositPercent'];
+        if (v == null) return null;
+        return n(v);
+      }(),
       printTemplateId:
           (json['printTemplateId'] ?? json['PrintTemplateId'])?.toString(),
       revision: (json['revision'] is num

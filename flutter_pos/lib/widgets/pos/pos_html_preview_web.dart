@@ -4,8 +4,32 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
-Widget buildPosHtmlPreview(String htmlDocument) {
-  return _PosHtmlIframe(html: htmlDocument);
+Widget buildPosHtmlPreview(String htmlDocument, {bool? a4Paper}) {
+  final t = htmlDocument.toLowerCase();
+  final a4 = a4Paper ??
+      (t.contains('a4') ||
+          t.contains('210mm') ||
+          t.contains('times new roman') ||
+          t.contains('báo giá') ||
+          t.contains('hợp đồng'));
+  if (!a4) return _PosHtmlIframe(html: htmlDocument);
+  return ColoredBox(
+    color: const Color(0xFFE5E7EB),
+    child: Scrollbar(
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.all(8),
+          child: SizedBox(
+            width: 794,
+            height: 1123,
+            child: _PosHtmlIframe(html: htmlDocument),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 Future<void> printPosHtmlDocument(String htmlDocument) async {

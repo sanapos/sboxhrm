@@ -24,6 +24,9 @@ public interface IPushNotificationService
         string? actionUrl = null, IDictionary<string, string>? data = null,
         string? androidTag = null,
         CancellationToken ct = default);
+
+    /// <summary>Đưa badge iOS về 0. Android xóa khay khi app mở và gọi cancelAll.</summary>
+    Task ClearBadgeAsync(Guid userId, CancellationToken ct = default);
 }
 
 public sealed class PushNotificationService : IPushNotificationService
@@ -63,14 +66,17 @@ public sealed class PushNotificationService : IPushNotificationService
         var payload = new Dictionary<string, string>(data ?? new Dictionary<string, string>());
         if (!string.IsNullOrEmpty(actionUrl)) payload["actionUrl"] = actionUrl!;
 
-        // Per-user unread count for iOS badge + Android notification_count (inbox summary).
-        var unreadGrouped = await _db.Notifications.AsNoTracking()
-            .Where(n => n.TargetUserId.HasValue
-                        && idList.Contains(n.TargetUserId.Value)
-                        && !n.IsRead)
-            .GroupBy(n => n.TargetUserId)
-            .Select(g => new { UserId = g.Key, Count = g.Count() })
-            .ToListAsync(ct);
+        // Chỉ đếm thông báo của đúng cửa hàng người nhận (và thông báo không gắn cửa hàng).
+        var unreadGrouped = await (
+            from n in _db.Notifications.IgnoreQueryFilters().AsNoTracking()
+            join u in _db.Users.IgnoreQueryFilters().AsNoTracking() on n.TargetUserId equals u.Id
+            where n.TargetUserId.HasValue
+                  && idList.Contains(n.TargetUserId.Value)
+                  && !n.IsRead
+                  && (n.StoreId == null || n.StoreId == u.StoreId)
+            group n by n.TargetUserId into g
+            select new { UserId = g.Key, Count = g.Count() }
+        ).ToListAsync(ct);
         var unreadByUser = unreadGrouped
             .Where(x => x.UserId.HasValue)
             .ToDictionary(x => x.UserId!.Value, x => x.Count);
@@ -120,7 +126,7 @@ public sealed class PushNotificationService : IPushNotificationService
                         {
                             Tag = androidTag ?? "sbox_hrm",
                             ChannelId = "attendance_default",
-                            NotificationCount = badge > 0 ? badge : null,
+                            NotificationCount = badge,
                         },
                     },
                 };
@@ -174,5 +180,53 @@ public sealed class PushNotificationService : IPushNotificationService
         }
 
         return success;
+    }
+
+    public async Task ClearBadgeAsync(Guid userId, CancellationToken ct = default)
+    {
+        if (!_firebase.IsAvailable) return;
+
+        var tokens = await _db.UserDeviceTokens.AsNoTracking()
+            .Where(t => t.UserId == userId && !t.IsDisabled)
+            .Select(t => t.Token)
+            .ToListAsync(ct);
+        if (tokens.Count == 0) return;
+
+        var msg = new MulticastMessage
+        {
+            Tokens = tokens,
+            Data = new Dictionary<string, string>
+            {
+                ["type"] = "badge_clear",
+                ["badge"] = "0",
+            },
+            Apns = new ApnsConfig
+            {
+                Headers = new Dictionary<string, string>
+                {
+                    ["apns-priority"] = "5",
+                    ["apns-push-type"] = "background",
+                },
+                Aps = new Aps
+                {
+                    Badge = 0,
+                    ContentAvailable = true,
+                },
+            },
+            Android = new AndroidConfig
+            {
+                Priority = Priority.Normal,
+                CollapseKey = "sbox_badge",
+            },
+        };
+
+        try
+        {
+            await FirebaseMessaging.DefaultInstance.SendEachForMulticastAsync(msg, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "FCM badge clear failed for {UserId}", userId);
+        }
     }
 }

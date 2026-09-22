@@ -107,6 +107,8 @@ import 'pos/pos_session_redeem_sheet.dart';
 import 'pos_reports_screen.dart';
 import 'pos_sale_return_list_screen.dart';
 import 'pos_sale_order_list_screen.dart';
+import 'pos/pos_quote_list_screen.dart';
+import 'pos_print_templates_screen.dart';
 import '../widgets/pos/pos_cash_voucher_dialog.dart';
 import '../widgets/pos/pos_pick_sale_order_dialog.dart';
 import '../utils/navigation_notifier.dart';
@@ -1514,9 +1516,19 @@ class _PosSellScreenState extends State<PosSellScreen>
     unawaited(_bootstrapQrOnlineToolbar());
   }
 
-  Future<void> _bootstrapQrOnlineToolbar() async {
+  bool _posModuleInPackage(String code) {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
-    if (!PermissionNavigation.canNavigate(perm, 'PosQrOrder')) return;
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    return PermissionNavigation.canAccessModule(
+      code,
+      allowedModules: user?.allowedModules,
+      perm: perm,
+      role: user?.role,
+    );
+  }
+
+  Future<void> _bootstrapQrOnlineToolbar() async {
+    if (!_posModuleInPackage('PosQrOrder')) return;
     final res = await _api.getPosQrOrderTables();
     if (!mounted) return;
     if (res['isSuccess'] != true || res['data'] is! Map) return;
@@ -1579,8 +1591,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     bool labeled = true,
   }) {
     if (!_qrOnlineFeatureEnabled) return null;
-    final perm = Provider.of<PermissionProvider>(context, listen: false);
-    if (!PermissionNavigation.canNavigate(perm, 'PosQrOrder')) return null;
+    if (!_posModuleInPackage('PosQrOrder')) return null;
     return PosOnlineOrdersToolbarButton(
       pending: _qrOnlinePending,
       iconColor: iconColor,
@@ -10968,8 +10979,14 @@ class _PosSellScreenState extends State<PosSellScreen>
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final user = auth.user;
+    bool canMod(String code) => PermissionNavigation.canAccessModule(
+          code,
+          allowedModules: auth.user?.allowedModules,
+          perm: perm,
+          role: auth.user?.role,
+        );
     final canReturn = PermissionNavigation.canNavigate(perm, 'PosSaleReturns');
-    final canEod = PermissionNavigation.canNavigate(perm, 'PosSalesReport');
+    final canEod = canMod('PosSalesReport') || canMod('PosReportEndOfDay');
     final accountName = user != null && user.fullName.trim().isNotEmpty
         ? user.fullName.trim()
         : (user?.email.isNotEmpty == true ? user!.email : 'Tài khoản');
@@ -11042,17 +11059,37 @@ class _PosSellScreenState extends State<PosSellScreen>
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        PopupMenuItem(
-          value: 'sale_orders',
-          child: ListTile(
-            dense: true,
-            leading: Icon(Icons.receipt_long_outlined, size: 20),
-            title: Text(tr('Đơn hàng')),
-            contentPadding: EdgeInsets.zero,
+        if (canMod('PosSaleOrders'))
+          PopupMenuItem(
+            value: 'sale_orders',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.receipt_long_outlined, size: 20),
+              title: Text(tr('Đơn hàng')),
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
-        ),
-        if (_qrOnlineFeatureEnabled &&
-            PermissionNavigation.canNavigate(perm, 'PosQrOrder'))
+        if (canMod('PosQuotes'))
+          PopupMenuItem(
+            value: 'quotes',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.request_quote_outlined, size: 20),
+              title: Text(tr('Báo giá')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (canMod('PosQuotes') && canMod('PosPrintTemplates'))
+          PopupMenuItem(
+            value: 'quote_templates',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.article_outlined, size: 20),
+              title: Text(tr('Mẫu in báo giá')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        if (_qrOnlineFeatureEnabled && canMod('PosQrOrder'))
           PopupMenuItem(
             value: 'qr_online_orders',
             child: ListTile(
@@ -11064,7 +11101,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        if (_useFloorAsPrimary)
+        if (_useFloorAsPrimary && canMod('PosBooking'))
           PopupMenuItem(
             value: 'booking',
             child: ListTile(
@@ -11100,15 +11137,16 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        PopupMenuItem(
-          value: 'customer_display',
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.cast_connected_outlined, size: 20),
-            title: Text(tr('Màn hình khách')),
-            contentPadding: EdgeInsets.zero,
+        if (canMod('PosCustomerDisplay'))
+          PopupMenuItem(
+            value: 'customer_display',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.cast_connected_outlined, size: 20),
+              title: Text(tr('Màn hình khách')),
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
-        ),
         if (_isTableOrderMode &&
             (_tab.splitFromOrderId ?? '').isEmpty &&
             _tab.cart.isNotEmpty)
@@ -11172,9 +11210,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        // Luôn hiện trên menu ⋮ (kể cả chưa bật store) — màn ca hướng dẫn bật nếu tắt.
-        if ((PermissionNavigation.canNavigate(perm, 'PosCashierShift') ||
-                PermissionNavigation.canNavigate(perm, 'PosSell')) &&
+        if (canMod('PosCashierShift') &&
             _industrySettings?.enableCashierShift == true)
           PopupMenuItem(
             value: 'cashier_shift',
@@ -11402,6 +11438,22 @@ class _PosSellScreenState extends State<PosSellScreen>
         await _openCustomerDisplay();
       case 'sale_orders':
         await _openSaleOrdersFromFloor();
+      case 'quotes':
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PosHubScope.pushed(
+              child: const PosQuoteListScreen(),
+            ),
+          ),
+        );
+      case 'quote_templates':
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PosHubScope.pushed(
+              child: const PosPrintTemplatesScreen(initialDocumentType: 'Quote'),
+            ),
+          ),
+        );
       case 'session_redeem':
         await _openSessionRedeem();
       case 'eod':
@@ -11795,6 +11847,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     Color iconColor = Colors.white,
     bool labeled = true,
   }) {
+    if (!_posModuleInPackage('PosBooking')) return const SizedBox.shrink();
     if (!labeled) {
       return IconButton(
         constraints: _KiotLayout.topBarActionTap,
@@ -12010,8 +12063,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final tableMode = _isTableOrderMode;
     final actions = <_SellMoreAction>[];
     if (_qrOnlineFeatureEnabled) {
-      final perm = Provider.of<PermissionProvider>(context, listen: false);
-      if (PermissionNavigation.canNavigate(perm, 'PosQrOrder')) {
+      if (_posModuleInPackage('PosQrOrder')) {
         final n = _qrOnlinePending.length;
         actions.add(_SellMoreAction(
           id: 'qr_online_orders',

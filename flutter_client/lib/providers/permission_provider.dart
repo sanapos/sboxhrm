@@ -360,31 +360,21 @@ class PermissionProvider extends ChangeNotifier {
         moduleCode == 'PosInternalUseIssues') {
       if (_flag('PosProducts', action)) return true;
     }
-    // Trả hàng: thu ngân PosSell cùng action vẫn được.
+    // Trả hàng trên phiếu bán: thu ngân PosSell cùng action vẫn được.
     if (moduleCode == 'PosSaleReturns' && _flag('PosSell', action)) {
       return true;
     }
-    // Addon vận hành khi bán — khớp server: chỉ kế thừa Xem từ PosSell.
-    if ((moduleCode == 'PosKds' ||
-            moduleCode == 'PosQrOrder' ||
-            moduleCode == 'PosCashierShift' ||
-            moduleCode == 'PosCustomers' ||
-            moduleCode == 'PosBooking' ||
-            moduleCode == 'PosWarranty' ||
-            moduleCode == 'PosCustomerDisplay' ||
-            moduleCode == 'PosEInvoice') &&
+    // Tra khách / bảo hành khi bán — không mở menu (menu đòi tick riêng).
+    if ((moduleCode == 'PosCustomers' || moduleCode == 'PosWarranty') &&
         action == 'canView' &&
         _flag('PosSell', 'canView')) {
       return true;
     }
-    // ĐVVC: xem/tạo từ PosSell; sửa cấu hình từ PosSell Edit hoặc SettingsHub.
-    if (moduleCode == 'PosShipping') {
-      if (action == 'canView' && _flag('PosSell', 'canView')) return true;
-      if (action == 'canCreate' && _flag('PosSell', 'canCreate')) return true;
-      if (action == 'canEdit' &&
-          (_flag('PosSell', 'canEdit') || _flag('SettingsHub', 'canEdit'))) {
-        return true;
-      }
+    // Ca thu ngân: API thanh toán vẫn dùng được; menu đòi tick riêng.
+    if (moduleCode == 'PosCashierShift' &&
+        action == 'canView' &&
+        _flag('PosSell', 'canView')) {
+      return true;
     }
     // Xem hàng hóa / mẫu in khi có quyền bán.
     if ((moduleCode == 'PosProducts' || moduleCode == 'PosPrintTemplates') &&
@@ -395,25 +385,6 @@ class PermissionProvider extends ChangeNotifier {
     if (moduleCode == 'PosSalesReport' &&
         (action == 'canView' || action == 'canExport')) {
       if (_flag('PosProducts', action) || _flag('PosSalesReport', action)) {
-        return true;
-      }
-    }
-    if (moduleCode == 'HkdBooks' &&
-        (action == 'canView' || action == 'canExport')) {
-      if (_flag('HkdBooks', action) || _flag('PosSalesReport', action)) {
-        return true;
-      }
-    }
-    if (moduleCode.startsWith('PosReport') &&
-        (action == 'canView' || action == 'canExport')) {
-      if (_flag(moduleCode, action) || _flag('PosSalesReport', action)) {
-        return true;
-      }
-      if ((moduleCode == 'PosReportStock' ||
-              moduleCode == 'PosReportExpiry' ||
-              moduleCode == 'PosReportEndOfDay' ||
-              moduleCode == 'PosReportSoldGoods') &&
-          _flag('PosProducts', action)) {
         return true;
       }
     }

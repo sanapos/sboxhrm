@@ -29,16 +29,26 @@ public class GetAttsByDevicesHandler(
         }
 
         var deviceIds = request.Filter.DeviceIds;
-        var hasDeviceFilter = deviceIds is { Count: > 0 };
-
         var pagination = request.PaginationRequest;
+
+        // Không có máy của cửa hàng, hoặc vai trò không có PIN nào được xem → rỗng.
+        // Danh sách rỗng không được hiểu là "bỏ lọc".
+        if (deviceIds is not { Count: > 0 } || (allowedPins != null && allowedPins.Count == 0))
+        {
+            return AppResponse<PagedResult<AttendanceDto>>.Success(
+                new PagedResult<AttendanceDto>(
+                    [],
+                    0,
+                    pagination.PageNumber,
+                    pagination.PageSize));
+        }
 
         var atts = await attRepository.GetPagedResultWithProjectionAsync(
             pagination,
             filter: a => 
                 a.AttendanceTime >= fromInclusive
                 && a.AttendanceTime < toExclusive
-                && (!hasDeviceFilter || deviceIds!.Contains(a.DeviceId))
+                && deviceIds.Contains(a.DeviceId)
                 && (!hasPinFilter || allowedPins!.Contains(a.PIN)),
             projection: a => new AttendanceDto(
                 a.Id,

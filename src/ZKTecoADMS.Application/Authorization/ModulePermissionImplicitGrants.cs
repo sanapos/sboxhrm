@@ -66,8 +66,7 @@ public static class ModulePermissionImplicitGrants
     [
         "PosSell", "PosSaleOrders", "PosSaleReturns", "PosPurchaseReceipts", "PosPurchaseReturns",
         "PosStockCounts", "PosDamageIssues", "PosInternalUseIssues", "PosPrintTemplates",
-        "PosBooking", "PosCustomers", "PosWarranty", "PosCustomerDisplay", "PosEInvoice",
-        "PosKds", "PosQrOrder", "PosCashierShift", "PosShipping",
+        "PosCustomers", "PosWarranty", "PosCashierShift",
     ];
 
     public static bool TryGrant(
@@ -238,15 +237,13 @@ public static class ModulePermissionImplicitGrants
              HasAction(map, "PosProducts", ModulePermissionAction.View)))
             return true;
 
-        // POS: trả hàng — có PosSell cùng action (thu ngân) vẫn trả được; hoặc gán riêng PosSaleReturns.
+        // Trả hàng trên phiếu bán — thu ngân PosSell cùng action vẫn được.
         if (module.Equals("PosSaleReturns", StringComparison.Ordinal) &&
             HasAction(map, "PosSell", action))
             return true;
 
-        // Addon vận hành khi bán: chỉ kế thừa Xem từ PosSell — không kế thừa Sửa
-        // (thiết lập máy in / KDS / QR / ca do tick riêng, tránh thu ngân sửa hệ thống).
-        if ((module is "PosCustomers" or "PosBooking" or "PosWarranty" or "PosCustomerDisplay"
-                or "PosEInvoice" or "PosKds" or "PosQrOrder" or "PosCashierShift" or "PosShipping") &&
+        // Tra khách / bảo hành / ca khi bán. KDS, QR, báo giá, HĐĐT, ĐVVC, màn phụ: tick riêng.
+        if ((module is "PosCustomers" or "PosWarranty" or "PosCashierShift") &&
             action == ModulePermissionAction.View &&
             HasAction(map, "PosSell", ModulePermissionAction.View))
             return true;
@@ -267,17 +264,6 @@ public static class ModulePermissionImplicitGrants
             HasAction(map, "PosPrinters", action))
             return true;
 
-        // ĐVVC: thu ngân tạo/so sánh vận đơn từ PosSell; sửa cấu hình cần Edit riêng.
-        if (module.Equals("PosShipping", StringComparison.Ordinal) &&
-            action == ModulePermissionAction.Create &&
-            HasAction(map, "PosSell", ModulePermissionAction.Create))
-            return true;
-        if (module.Equals("PosShipping", StringComparison.Ordinal) &&
-            action == ModulePermissionAction.Edit &&
-            (HasAction(map, "PosSell", ModulePermissionAction.Edit) ||
-             HasAction(map, "SettingsHub", ModulePermissionAction.Edit)))
-            return true;
-
         // POS: có quyền trên PosProducts (kho/SP) → submodule cùng action (QL hàng được bán/nhập…).
         // Không ngược lại: PosSell Create không còn cấp PosProducts Create.
         if (PosSubmoduleCodes.Contains(module) && HasAction(map, "PosProducts", action))
@@ -294,26 +280,6 @@ public static class ModulePermissionImplicitGrants
                 || HasAction(map, "PosReportStaffRevenue", action)
                 || HasAction(map, "PosReportStaffCommission", action)
                 || HasAction(map, "PosReportProfit", action))
-                return true;
-        }
-
-        if (PosPackageDefaults.IsReportModule(module) &&
-            action is ModulePermissionAction.View or ModulePermissionAction.Export)
-        {
-            if (HasAction(map, module, action) || HasAction(map, "PosSalesReport", action))
-                return true;
-            if (module is "PosReportStock" or "PosReportExpiry" or "PosReportEndOfDay" or "PosReportSoldGoods"
-                && HasAction(map, "PosProducts", action))
-                return true;
-        }
-
-        // Sổ sách HKD: quyền riêng, hoặc kế thừa từ báo cáo POS / thu chi.
-        if (module.Equals("HkdBooks", StringComparison.Ordinal) &&
-            action is ModulePermissionAction.View or ModulePermissionAction.Export or ModulePermissionAction.Edit)
-        {
-            if (HasAction(map, "HkdBooks", action)
-                || (action != ModulePermissionAction.Edit && HasAction(map, "PosSalesReport", action))
-                || (action != ModulePermissionAction.Edit && HasAction(map, "CashReport", action)))
                 return true;
         }
 

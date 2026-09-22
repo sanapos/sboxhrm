@@ -50,6 +50,12 @@ public class PosQuote : AuditableEntity<Guid>
     [MaxLength(100)]
     public string? PaymentMethod { get; set; }
 
+    /// <summary>Tiền cọc thực hiện HĐ (đã quy đổi nếu nhập %).</summary>
+    public decimal DepositAmount { get; set; }
+
+    /// <summary>% cọc trên giá trị trước VAT — null/0 khi nhập số tiền cố định.</summary>
+    public decimal? DepositPercent { get; set; }
+
     public Guid? PrintTemplateId { get; set; }
 
     public int Revision { get; set; } = 1;

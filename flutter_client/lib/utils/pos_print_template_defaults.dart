@@ -1,12 +1,162 @@
 import '../models/pos_print_template.dart';
 
+/// Khổ + lề (mm) mẫu báo giá / hợp đồng — lưu trong `<!--POS_A4_V6 …-->`.
+class PosCommercialPageSetup {
+  const PosCommercialPageSetup({
+    this.paperSize = PosPrintPaperSizes.a4,
+    this.topMm = defaultMm,
+    this.rightMm = defaultMm,
+    this.bottomMm = defaultMm,
+    this.leftMm = defaultMm,
+  });
+
+  static const defaultMm = 12.0;
+  static const minMm = 5.0;
+  static const maxMm = 30.0;
+
+  final String paperSize;
+  final double topMm;
+  final double rightMm;
+  final double bottomMm;
+  final double leftMm;
+
+  bool get isA5 => paperSize == PosPrintPaperSizes.a5;
+
+  /// CSS @ 96dpi — A4 210×297, A5 148×210.
+  double get cssWidth => isA5 ? 559.0 : 794.0;
+  double get cssHeight => isA5 ? 794.0 : 1123.0;
+
+  String get paddingCss =>
+      '${_fmt(topMm)}mm ${_fmt(rightMm)}mm ${_fmt(bottomMm)}mm ${_fmt(leftMm)}mm';
+
+  PosCommercialPageSetup copyWith({
+    String? paperSize,
+    double? topMm,
+    double? rightMm,
+    double? bottomMm,
+    double? leftMm,
+  }) {
+    return PosCommercialPageSetup(
+      paperSize: paperSize ?? this.paperSize,
+      topMm: topMm ?? this.topMm,
+      rightMm: rightMm ?? this.rightMm,
+      bottomMm: bottomMm ?? this.bottomMm,
+      leftMm: leftMm ?? this.leftMm,
+    );
+  }
+
+  static String _fmt(double v) {
+    if (v == v.roundToDouble()) return '${v.round()}';
+    return v.toStringAsFixed(1);
+  }
+
+  static double _clampMm(double? v, [double fallback = defaultMm]) {
+    final n = v ?? fallback;
+    if (n.isNaN) return fallback;
+    return n.clamp(minMm, maxMm);
+  }
+
+  static PosCommercialPageSetup parse(
+    String html, {
+    String? fallbackPaper,
+  }) {
+    final paper = PosPrintPaperSizes.normalizeCommercialPaper(
+      _attr(html, 'paper') ?? fallbackPaper,
+    );
+    final margin = _attr(html, 'margin');
+    if (margin != null) {
+      final parts = margin.split(RegExp(r'[,\s]+')).where((s) => s.isNotEmpty);
+      final nums = parts.map((s) => double.tryParse(s)).toList();
+      if (nums.length >= 4 && nums.every((n) => n != null)) {
+        return PosCommercialPageSetup(
+          paperSize: paper,
+          topMm: _clampMm(nums[0]),
+          rightMm: _clampMm(nums[1]),
+          bottomMm: _clampMm(nums[2]),
+          leftMm: _clampMm(nums[3]),
+        );
+      }
+    }
+    return PosCommercialPageSetup(
+      paperSize: paper,
+      topMm: _clampMm(double.tryParse(_attr(html, 'mt') ?? '')),
+      rightMm: _clampMm(double.tryParse(_attr(html, 'mr') ?? '')),
+      bottomMm: _clampMm(double.tryParse(_attr(html, 'mb') ?? '')),
+      leftMm: _clampMm(double.tryParse(_attr(html, 'ml') ?? '')),
+    );
+  }
+
+  static String? _attr(String html, String name) {
+    final m = RegExp(
+      '''<!--POS_A4_V\\d+[^>]*\\b$name=["']([^"']+)["']''',
+      caseSensitive: false,
+    ).firstMatch(html);
+    return m?.group(1);
+  }
+
+  /// Gắn / ghi đè comment khổ + lề ở đầu HTML (không đụng nội dung).
+  String applyToHtml(String html) {
+    final body = html
+        .replaceFirst(RegExp(r'<!--POS_A4_V\d+[^>]*-->'), '')
+        .replaceFirst(RegExp(r'<!--POS_PAGE[^>]*-->'), '');
+    return '<!--POS_A4_V6 paper="$paperSize" mt="${_fmt(topMm)}" '
+        'mr="${_fmt(rightMm)}" mb="${_fmt(bottomMm)}" '
+        'ml="${_fmt(leftMm)}"-->$body';
+  }
+}
+
+/// HTML in A4/A5 — Times + lề (trùng Soạn / Xem / In thử).
+String wrapPosCommercialPrintHtml(
+  String bodyHtml,
+  PosCommercialPageSetup setup,
+) {
+  final inner = bodyHtml
+      .replaceAll(RegExp(r'</script', caseSensitive: false), '<\\/script')
+      .replaceAll(RegExp(r'</body', caseSensitive: false), '<\\/body');
+  final page = setup.isA5 ? 'A5' : 'A4';
+  final maxW = setup.isA5 ? '148mm' : '210mm';
+  return '''
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  @page { size: $page portrait; margin: 0; }
+  html,body{margin:0;background:#fff;}
+  body{
+    font-family:"Times New Roman",Times,serif;
+    font-size:13px;line-height:1.45;color:#111;
+    padding:${setup.paddingCss};
+    box-sizing:border-box;
+    max-width:$maxW;
+    margin:0 auto;
+    word-wrap:break-word;
+    overflow-wrap:anywhere;
+    overflow-x:hidden;
+  }
+  h1,h2,h3{text-align:center;margin:8px 0;}
+  h2{font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;}
+  h3{font-size:14px;font-weight:700;text-align:left;margin:0 0 2px;text-transform:uppercase;}
+  p{margin:6px 0;text-align:justify;}
+  b,strong{font-weight:700;}
+  table{border-collapse:collapse;width:100%;max-width:100%;table-layout:fixed;margin:8px 0;}
+  th,td{padding:5px 6px;vertical-align:top;word-wrap:break-word;overflow-wrap:anywhere;}
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style>
+</head><body>$inner</body></html>
+''';
+}
+
 /// HTML mẫu in mặc định (fallback khi API chưa có dữ liệu).
 String posPrintDefaultHtml({
   String documentType = PosPrintDocumentTypes.saleInvoice,
   String paperSize = PosPrintPaperSizes.k80,
 }) {
   if (PosPrintDocumentTypes.isCommercial(documentType)) {
-    return _commercialA4(documentType);
+    final setup = PosCommercialPageSetup(
+      paperSize: PosPrintPaperSizes.normalizeCommercialPaper(paperSize),
+    );
+    return setup.applyToHtml(_commercialA4(documentType));
   }
   final title = _docTitle(documentType);
   if (PosPrintPaperSizes.isThermal(paperSize)) {
@@ -131,86 +281,92 @@ String _sheetHtml(String title, String paperSize) {
 </div>''';
 }
 
-/// Bảng hạng mục 7 cột dùng cho báo giá / bàn giao / đề nghị thanh toán.
+/// Bảng hạng mục 7 cột — width trên từng ô (flutter_html bỏ qua colgroup).
 const _itemTable = '''
-<table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:12.5px">
-<thead><tr style="background:#f0f0f0">
-<th style="border:1px solid #000;padding:5px 4px;width:6%">STT</th>
-<th style="border:1px solid #000;padding:5px 4px">Tên hàng hóa / dịch vụ</th>
-<th style="border:1px solid #000;padding:5px 4px;width:8%">ĐVT</th>
-<th style="border:1px solid #000;padding:5px 4px;width:8%">SL</th>
-<th style="border:1px solid #000;padding:5px 4px;width:14%;text-align:right">Đơn giá</th>
-<th style="border:1px solid #000;padding:5px 4px;width:16%;text-align:right">Thành tiền</th>
-<th style="border:1px solid #000;padding:5px 4px;width:12%">Bảo hành</th>
+<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin:8px 0;font-size:12px;line-height:1.3">
+<colgroup>
+<col width="46"/><col width="293"/><col width="62"/><col width="62"/>
+<col width="123"/><col width="123"/><col width="61"/>
+</colgroup>
+<thead><tr style="background:#f3f4f6">
+<th style="width:6%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>STT</b></th>
+<th style="width:38%;border:1px solid #111;padding:5px 4px;text-align:left"><b>Tên hàng</b></th>
+<th style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>ĐVT</b></th>
+<th style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>SL</b></th>
+<th style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;white-space:nowrap"><b>Đơn giá</b></th>
+<th style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;white-space:nowrap"><b>Thành tiền</b></th>
+<th style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>BH</b></th>
 </tr></thead>
 <tbody><!--BEGIN_ITEMS-->
 <tr>
-<td style="border:1px solid #000;padding:4px;text-align:center">{STT}</td>
-<td style="border:1px solid #000;padding:4px">{Ten_Hang_Hoa}</td>
-<td style="border:1px solid #000;padding:4px;text-align:center">{Don_Vi_Tinh}</td>
-<td style="border:1px solid #000;padding:4px;text-align:center">{So_Luong}</td>
-<td style="border:1px solid #000;padding:4px;text-align:right">{Don_Gia}</td>
-<td style="border:1px solid #000;padding:4px;text-align:right">{Thanh_Tien}</td>
-<td style="border:1px solid #000;padding:4px">{Bao_Hanh}</td>
+<td style="width:6%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle">{STT}</td>
+<td style="width:38%;border:1px solid #111;padding:5px 4px;text-align:left;vertical-align:middle">{Ten_Hang_Hoa}</td>
+<td style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle">{Don_Vi_Tinh}</td>
+<td style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle">{So_Luong}</td>
+<td style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;vertical-align:middle;white-space:nowrap">{Don_Gia}</td>
+<td style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;vertical-align:middle;white-space:nowrap">{Thanh_Tien}</td>
+<td style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle;white-space:nowrap">{Bao_Hanh}</td>
 </tr><!--END_ITEMS-->
 </tbody>
 <tfoot>
-<tr><td colspan="5" style="border:1px solid #000;padding:5px 8px;text-align:right"><b>Tổng tiền hàng</b></td>
-<td style="border:1px solid #000;padding:5px 8px;text-align:right"><b>{Tong_Tien_Hang}</b></td><td style="border:1px solid #000"></td></tr>
-<tr><td colspan="5" style="border:1px solid #000;padding:5px 8px;text-align:right">Chiết khấu</td>
-<td style="border:1px solid #000;padding:5px 8px;text-align:right">{Chiet_Khau_Hoa_Don}</td><td style="border:1px solid #000"></td></tr>
-<tr><td colspan="5" style="border:1px solid #000;padding:5px 8px;text-align:right">Thuế GTGT</td>
-<td style="border:1px solid #000;padding:5px 8px;text-align:right">{Tien_Thue}</td><td style="border:1px solid #000"></td></tr>
-<tr style="background:#fafafa"><td colspan="5" style="border:1px solid #000;padding:6px 8px;text-align:right"><b>TỔNG CỘNG</b></td>
-<td style="border:1px solid #000;padding:6px 8px;text-align:right;font-size:14px"><b>{Tong_Cong}</b></td><td style="border:1px solid #000"></td></tr>
+<tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Tổng tiền hàng</td>
+<td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap"><b>{Tong_Tien_Hang}</b></td></tr>
+<tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Chiết khấu</td>
+<td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap">{Chiet_Khau_Hoa_Don}</td></tr>
+<tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Thuế GTGT</td>
+<td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap">{Tien_Thue}</td></tr>
+<tr style="background:#f8fafc"><td colspan="5" style="border:1px solid #111;padding:6px 6px;text-align:right"><b>TỔNG CỘNG</b></td>
+<td colspan="2" style="border:1px solid #111;padding:6px 6px;text-align:right;white-space:nowrap"><b>{Tong_Cong}</b></td></tr>
 </tfoot></table>''';
 
-/// Bảng nghiệm thu 5 cột (STT · Tên · ĐVT · KL HĐ · KL Thực tế · Ghi chú).
+/// Bảng nghiệm thu 6 cột, không rowspan (tránh lệch cột trên điện thoại).
 const _acceptanceTable = '''
-<table style="width:100%;border-collapse:collapse;margin:8px 0;font-size:12.5px">
-<thead>
-<tr style="background:#f0f0f0">
-<th rowspan="2" style="border:1px solid #000;padding:5px 4px;width:6%">STT</th>
-<th rowspan="2" style="border:1px solid #000;padding:5px 4px">Tên hàng hóa / hạng mục</th>
-<th rowspan="2" style="border:1px solid #000;padding:5px 4px;width:10%">ĐVT</th>
-<th colspan="2" style="border:1px solid #000;padding:5px 4px;width:24%">Khối lượng</th>
-<th rowspan="2" style="border:1px solid #000;padding:5px 4px;width:20%">Ghi chú</th>
-</tr>
-<tr style="background:#f0f0f0">
-<th style="border:1px solid #000;padding:5px 4px">Hợp đồng</th>
-<th style="border:1px solid #000;padding:5px 4px">Thực tế</th>
-</tr>
-</thead>
+<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin:8px 0;font-size:11px;line-height:1.3">
+<colgroup>
+<col width="62"/><col width="277"/><col width="77"/>
+<col width="100"/><col width="100"/><col width="154"/>
+</colgroup>
+<thead><tr style="background:#f3f4f6">
+<th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">STT</th>
+<th style="width:36%;border:1px solid #111;padding:4px 4px;text-align:left">Hạng mục</th>
+<th style="width:10%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">ĐVT</th>
+<th style="width:13%;border:1px solid #111;padding:4px 2px;text-align:center">KL HĐ</th>
+<th style="width:13%;border:1px solid #111;padding:4px 2px;text-align:center">KL thực tế</th>
+<th style="width:20%;border:1px solid #111;padding:4px 4px;text-align:left">Ghi chú</th>
+</tr></thead>
 <tbody><!--BEGIN_ITEMS-->
 <tr>
-<td style="border:1px solid #000;padding:4px;text-align:center">{STT}</td>
-<td style="border:1px solid #000;padding:4px">{Ten_Hang_Hoa}</td>
-<td style="border:1px solid #000;padding:4px;text-align:center">{Don_Vi_Tinh}</td>
-<td style="border:1px solid #000;padding:4px;text-align:center">{So_Luong}</td>
-<td style="border:1px solid #000;padding:4px;text-align:center">{So_Luong}</td>
-<td style="border:1px solid #000;padding:4px">{Ghi_Chu}</td>
+<td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{STT}</td>
+<td style="width:36%;border:1px solid #111;padding:4px 4px;text-align:left;vertical-align:middle">{Ten_Hang_Hoa}</td>
+<td style="width:10%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{Don_Vi_Tinh}</td>
+<td style="width:13%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{So_Luong}</td>
+<td style="width:13%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{So_Luong}</td>
+<td style="width:20%;border:1px solid #111;padding:4px 4px;vertical-align:middle">{Ghi_Chu}</td>
 </tr><!--END_ITEMS-->
 </tbody></table>''';
 
+/// Quốc hiệu — chỉ div (không table) để preview/in không nhân đôi.
 const _motto = '''
-<div style="text-align:center;line-height:1.35">
-<div style="font-weight:bold;font-size:13px">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
-<div style="font-weight:bold;font-size:13px">Độc lập – Tự do – Hạnh phúc</div>
-<div style="border-bottom:1px solid #000;width:180px;margin:2px auto 6px"></div>
+<div style="text-align:center;line-height:1.35;font-size:13px">
+<b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br/>
+<b><i>Độc lập – Tự do – Hạnh phúc</i></b>
+<div style="letter-spacing:1px;margin:2px 0 4px">________________</div>
 </div>''';
 
-/// Header 2 cột: tên công ty bên trái, quốc hiệu bên phải + ngày.
-String _twoColHeader(String rightExtra) => '''
-<table style="width:100%;border-collapse:collapse;margin-bottom:8px"><tr>
-<td style="width:50%;vertical-align:top;padding-right:8px">
-<div style="font-weight:bold;font-size:13px;text-transform:uppercase">{Ten_Cua_Hang}</div>
-<div>MST: {MST_Cua_Hang}</div>
-<div style="font-style:italic">Số: {So_Chung_Tu}</div>
+String _center(String inner, {int fontSize = 13}) =>
+    '<div style="text-align:center;font-size:${fontSize}px;line-height:1.35;margin:8px 0 6px">$inner</div>';
+
+/// Header 2 cột: công ty trái — quốc hiệu + ngày phải (BBNT, đề nghị TT).
+String _twoColHeader({String leftExtra = '', String dateLine = 'Ngày {Ngay}'}) => '''
+<table style="width:100%;border-collapse:collapse;border:none;margin:0 0 10px">
+<tr>
+<td style="width:50%;vertical-align:top;padding:0 12px 0 0;border:none;line-height:1.35">
+<div style="font-size:14px;font-weight:700;text-transform:uppercase">{Ten_Cong_Ty}</div>
+$leftExtra
 </td>
-<td style="width:50%;vertical-align:top">
+<td style="width:50%;vertical-align:top;border:none;padding:0">
 $_motto
-<div style="text-align:center">{Dia_Chi_Chi_Nhanh}, ngày {Ngay}</div>
-$rightExtra
+<div style="text-align:center;font-size:13px">$dateLine</div>
 </td></tr></table>''';
 
 String _commercialA4(String documentType) {
@@ -219,8 +375,8 @@ String _commercialA4(String documentType) {
       return '''
 <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:8px 12px">
 $_motto
-<h2 style="text-align:center;font-size:16px;text-transform:uppercase;margin:6px 0">HỢP ĐỒNG THI CÔNG</h2>
-<div style="text-align:center;margin-bottom:6px">Số HĐ: <b>{So_Hop_Dong}</b> · Theo báo giá: <b>{Ma_Bao_Gia}</b></div>
+${_center('<b>HỢP ĐỒNG THI CÔNG</b>', fontSize: 18)}
+${_center('Số HĐ: <b>{So_Hop_Dong}</b> · Theo báo giá: <b>{Ma_Bao_Gia}</b>')}
 
 <p>- Căn cứ Bộ luật Dân sự số 91/2015/QH13 ngày 24/11/2015;<br/>
 - Căn cứ Luật Thương mại số 36/2005/QH11 ngày 14/6/2005;<br/>
@@ -235,10 +391,10 @@ Mã số thuế: {MST_Khach_Hang}<br/>
 Tài khoản số: {Tai_Khoan_Khach_Hang} — {Ngan_Hang_Khach_Hang}<br/>
 Đại diện: <b>{Nguoi_Dai_Dien_Khach}</b> — Chức vụ: {Chuc_Vu_Khach}</p>
 
-<p style="margin:6px 0"><b>BÊN B (Nhà thầu): {Ten_Cua_Hang}</b><br/>
+<p style="margin:6px 0"><b>BÊN B (Nhà thầu): {Ten_Cong_Ty}</b><br/>
 Mã số thuế: {MST_Cua_Hang}<br/>
-Địa chỉ: {Dia_Chi_Chi_Nhanh}<br/>
-Điện thoại: {Dien_Thoai_Chi_Nhanh}<br/>
+Địa chỉ: {Dia_Chi_Cong_Ty}<br/>
+Điện thoại: {Dien_Thoai_Cong_Ty}<br/>
 Tài khoản số: {Tai_Khoan_Cua_Hang} — {Ngan_Hang_Cua_Hang}<br/>
 Đại diện: <b>{Nguoi_Dai_Dien_Cua_Hang}</b> — Chức vụ: {Chuc_Vu_Cua_Hang}</p>
 
@@ -269,7 +425,7 @@ Bên B: đảm bảo chất lượng, tiến độ, hồ sơ hợp lệ, bảo h
 <p><b>Điều 6: Điều khoản chung</b><br/>
 Hợp đồng lập thành 02 bản, mỗi bên giữ 01 bản, có giá trị pháp lý như nhau. Hai bên cam kết thực hiện đúng thỏa thuận.</p>
 
-<table style="width:100%;margin-top:32px"><tr>
+<table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i>
 <div style="height:70px"></div>
@@ -283,8 +439,8 @@ Hợp đồng lập thành 02 bản, mỗi bên giữ 01 bản, có giá trị p
     case PosPrintDocumentTypes.acceptance:
       return '''
 <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:8px 12px">
-${_twoColHeader('')}
-<h2 style="text-align:center;font-size:16px;text-transform:uppercase;margin:6px 0">BIÊN BẢN NGHIỆM THU HOÀN THÀNH<br/>BÀN GIAO SẢN PHẨM ĐƯA VÀO SỬ DỤNG</h2>
+${_twoColHeader()}
+${_center('<b>BIÊN BẢN NGHIỆM THU HOÀN THÀNH</b><br/><b>BÀN GIAO SẢN PHẨM ĐƯA VÀO SỬ DỤNG</b>', fontSize: 16)}
 
 <p><b>1. Đối tượng nghiệm thu</b><br/>
 - Tên hạng mục công trình: {Ten_Hang_Hoa}<br/>
@@ -296,9 +452,9 @@ ${_twoColHeader('')}
 - Mã số thuế: {MST_Khach_Hang}<br/>
 - Địa chỉ: {Dia_Chi_Khach_Hang}<br/>
 - Đại diện: {Nguoi_Dai_Dien_Khach} — Chức vụ: {Chuc_Vu_Khach}</p>
-<p>● <b>Nhà thầu thi công: {Ten_Cua_Hang}</b><br/>
+<p>● <b>Nhà thầu thi công: {Ten_Cong_Ty}</b><br/>
 - Mã số thuế: {MST_Cua_Hang}<br/>
-- Địa chỉ: {Dia_Chi_Chi_Nhanh}<br/>
+- Địa chỉ: {Dia_Chi_Cong_Ty}<br/>
 - Đại diện: {Nguoi_Dai_Dien_Cua_Hang} — Chức vụ: {Chuc_Vu_Cua_Hang}</p>
 
 <p><b>3. Thời gian nghiệm thu</b><br/>
@@ -322,7 +478,7 @@ Tổng giá trị quyết toán: <b>{Tong_Cong} VNĐ</b><br/>
 - Các bên trực tiếp nghiệm thu chịu trách nhiệm trước pháp luật về quyết định nghiệm thu và quyết toán này.<br/>
 - Biên bản nghiệm thu này được lập thành 02 (hai) bản, mỗi bên 01 (một) bản, có giá trị pháp lý như nhau.</p>
 
-<table style="width:100%;margin-top:32px"><tr>
+<table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN CHỦ ĐẦU TƯ</b><br/>{Chuc_Vu_Khach}
 <div style="height:70px"></div>
@@ -336,13 +492,13 @@ Tổng giá trị quyết toán: <b>{Tong_Cong} VNĐ</b><br/>
     case PosPrintDocumentTypes.handover:
       return '''
 <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:8px 12px">
-${_twoColHeader('')}
-<h2 style="text-align:center;font-size:16px;text-transform:uppercase;margin:6px 0">BIÊN BẢN BÀN GIAO CÔNG TRÌNH</h2>
-<div style="text-align:center;margin-bottom:6px">Số: <b>{So_Chung_Tu}</b> · Theo HĐ: {So_Hop_Dong} · Báo giá: {Ma_Bao_Gia}</div>
+${_twoColHeader()}
+${_center('<b>BIÊN BẢN BÀN GIAO CÔNG TRÌNH</b>', fontSize: 18)}
+${_center('Số: <b>{So_Chung_Tu}</b> · Theo HĐ: {So_Hop_Dong} · Báo giá: {Ma_Bao_Gia}')}
 
-<p><b>Bên giao (Nhà thầu): {Ten_Cua_Hang}</b><br/>
-Mã số thuế: {MST_Cua_Hang} · ĐT: {Dien_Thoai_Chi_Nhanh}<br/>
-Địa chỉ: {Dia_Chi_Chi_Nhanh}<br/>
+<p><b>Bên giao (Nhà thầu): {Ten_Cong_Ty}</b><br/>
+Mã số thuế: {MST_Cua_Hang} · ĐT: {Dien_Thoai_Cong_Ty}<br/>
+Địa chỉ: {Dia_Chi_Cong_Ty}<br/>
 Đại diện: {Nguoi_Dai_Dien_Cua_Hang} — {Chuc_Vu_Cua_Hang}</p>
 
 <p><b>Bên nhận (Chủ đầu tư): {Ten_Cong_Ty_Khach}</b><br/>
@@ -362,7 +518,7 @@ Ghi chú: {Ghi_Chu}</p>
 
 <p>Biên bản lập thành 02 bản, mỗi bên giữ 01 bản có giá trị pháp lý như nhau.</p>
 
-<table style="width:100%;margin-top:32px"><tr>
+<table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>BÊN NHẬN (Chủ đầu tư)</b><br/><i>(Ký, ghi rõ họ tên)</i>
 <div style="height:70px"></div>
@@ -376,13 +532,13 @@ Ghi chú: {Ghi_Chu}</p>
     case PosPrintDocumentTypes.paymentRequest:
       return '''
 <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:8px 12px">
-${_twoColHeader('')}
-<h2 style="text-align:center;font-size:16px;text-transform:uppercase;margin:6px 0">ĐỀ NGHỊ THANH TOÁN</h2>
-<div style="text-align:center;font-style:italic;margin-bottom:8px">V/v: Thanh toán theo hợp đồng số {So_Hop_Dong}</div>
+${_twoColHeader(leftExtra: '<div style="font-style:italic;margin-top:4px">Số: {So_Chung_Tu}</div>')}
+${_center('<b>ĐỀ NGHỊ THANH TOÁN</b>', fontSize: 18)}
+${_center('<i>V/v: Thanh toán theo hợp đồng số {So_Hop_Dong}</i>')}
 
 <p><b>Kính gửi:</b> {Ten_Cong_Ty_Khach}</p>
 
-<p>Căn cứ theo hợp đồng số <b>{So_Hop_Dong}</b> ký ngày {Ngay_Hop_Dong} giữa {Ten_Cong_Ty_Khach} và {Ten_Cua_Hang} về việc {Ten_Hang_Hoa}.</p>
+<p>Căn cứ theo hợp đồng số <b>{So_Hop_Dong}</b> ký ngày {Ngay_Hop_Dong} giữa {Ten_Cong_Ty_Khach} và {Ten_Cong_Ty} về việc {Ten_Hang_Hoa}.</p>
 
 <p>Đến nay, Công ty chúng tôi đã hoàn tất triển khai / bàn giao theo danh sách chi tiết dưới đây (đính kèm biên bản nghiệm thu / đối soát):</p>
 
@@ -394,47 +550,56 @@ $_itemTable
 - Hình thức thanh toán: {Hinh_Thuc_Thanh_Toan}<br/>
 &nbsp;&nbsp;+ Số tài khoản: <b>{Tai_Khoan_Cua_Hang}</b><br/>
 &nbsp;&nbsp;+ Ngân hàng: {Ngan_Hang_Cua_Hang}<br/>
-&nbsp;&nbsp;+ Chủ tài khoản: {Ten_Cua_Hang}</p>
+&nbsp;&nbsp;+ Chủ tài khoản: {Chu_Tai_Khoan_Cua_Hang}</p>
 
 <p>Rất mong Quý Công ty xem xét, đối chiếu và thanh toán theo đúng tiến độ đã thỏa thuận.</p>
 
 <p><b>Trân trọng!</b></p>
 
-<table style="width:100%;margin-top:32px"><tr>
+<table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%"></td>
 <td style="width:50%;text-align:center;vertical-align:top">
-<b>ĐẠI DIỆN {Ten_Cua_Hang}</b><br/>{Chuc_Vu_Cua_Hang}
+<b>ĐẠI DIỆN {Ten_Cong_Ty}</b><br/>{Chuc_Vu_Cua_Hang}
 <div style="height:70px"></div>
 {Nguoi_Dai_Dien_Cua_Hang}</td>
 </tr></table></div>''';
 
-    default: // quote
+    default: // quote — letterhead công ty, không quốc hiệu (giống BBG).
       return '''
 <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:8px 12px">
-<table style="width:100%;border-collapse:collapse;margin-bottom:6px"><tr>
-<td style="width:50%;vertical-align:top">
-<div style="font-weight:bold;font-size:14px;text-transform:uppercase">{Ten_Cua_Hang}</div>
+<div style="line-height:1.35;margin-bottom:8px">
+<div style="font-size:15px;font-weight:700;text-transform:uppercase">{Ten_Cong_Ty}</div>
 <div>MST: {MST_Cua_Hang}</div>
-<div>{Dia_Chi_Chi_Nhanh}</div>
-<div>ĐT: {Dien_Thoai_Chi_Nhanh} · Email: {Email_Cua_Hang}</div>
-<div>TK: {Tai_Khoan_Cua_Hang} — {Ngan_Hang_Cua_Hang}</div>
-<div>Chủ TK: {Chu_Tai_Khoan_Cua_Hang}</div>
-<div>Đại diện: {Nguoi_Dai_Dien_Cua_Hang} — {Chuc_Vu_Cua_Hang}</div>
-</td>
-<td style="width:50%;vertical-align:top">
-$_motto
-<div style="text-align:center">{Dia_Chi_Chi_Nhanh}, ngày {Ngay}</div>
-</td></tr></table>
+<div>Trụ sở: {Dia_Chi_Cong_Ty}</div>
+<div>ĐT: {Dien_Thoai_Cong_Ty} · Email: {Email_Cua_Hang}</div>
+</div>
+${_center('<b>BẢNG BÁO GIÁ</b>', fontSize: 18)}
+${_center('Số: <b>{So_Chung_Tu}</b> · Ngày {Ngay} · Hiệu lực đến: <b>{Han_Bao_Gia}</b>')}
 
-<h2 style="text-align:center;font-size:16px;text-transform:uppercase;margin:6px 0">BẢNG BÁO GIÁ</h2>
-<div style="text-align:center;margin-bottom:8px">Số: <b>{So_Chung_Tu}</b> · Có hiệu lực đến: <b>{Han_Bao_Gia}</b></div>
+<table style="width:100%;border-collapse:collapse;border:none;margin:8px 0 10px">
+<tr>
+<td style="width:28%;border:none;padding:2px 8px 2px 0;vertical-align:top"><b>Khách hàng</b></td>
+<td style="border:none;padding:2px 0;vertical-align:top">{Ten_Cong_Ty_Khach} (đại diện: {Nguoi_Dai_Dien_Khach})</td>
+</tr>
+<tr>
+<td style="border:none;padding:2px 8px 2px 0;vertical-align:top"><b>Địa chỉ</b></td>
+<td style="border:none;padding:2px 0;vertical-align:top">{Dia_Chi_Khach_Hang}</td>
+</tr>
+<tr>
+<td style="border:none;padding:2px 8px 2px 0;vertical-align:top"><b>Điện thoại</b></td>
+<td style="border:none;padding:2px 0;vertical-align:top">{SDT}</td>
+</tr>
+<tr>
+<td style="border:none;padding:2px 8px 2px 0;vertical-align:top"><b>Hạng mục</b></td>
+<td style="border:none;padding:2px 0;vertical-align:top">{Ten_Hang_Hoa}</td>
+</tr>
+<tr>
+<td style="border:none;padding:2px 8px 2px 0;vertical-align:top"><b>Thanh toán</b></td>
+<td style="border:none;padding:2px 0;vertical-align:top">{Hinh_Thuc_Thanh_Toan}</td>
+</tr>
+</table>
 
-<p><b>Kính gửi:</b> {Ten_Cong_Ty_Khach} (đại diện: {Nguoi_Dai_Dien_Khach})<br/>
-MST: {MST_Khach_Hang} · Điện thoại: {SDT}<br/>
-Địa chỉ: {Dia_Chi_Khach_Hang}<br/>
-Hình thức thanh toán: {Hinh_Thuc_Thanh_Toan} — Hạn báo giá: {Han_Bao_Gia}</p>
-
-<p>Công ty chúng tôi xin trân trọng gửi Quý khách hàng bảng báo giá hàng hóa / dịch vụ như sau:</p>
+<p>Công ty chúng tôi xin gửi Quý khách hàng bảng báo giá chi tiết như sau:</p>
 $_itemTable
 
 <p><b>Điều khoản:</b><br/>{Dieu_Khoan}<br/>
@@ -443,17 +608,29 @@ Ghi chú: {Ghi_Chu}</p>
 
 <p>Rất mong nhận được sự hợp tác của Quý khách hàng.<br/><b>Trân trọng!</b></p>
 
-<table style="width:100%;margin-top:32px"><tr>
+<table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>KHÁCH HÀNG</b><br/><i>(Ký, ghi rõ họ tên)</i>
 <div style="height:60px"></div>
 {Nguoi_Dai_Dien_Khach}</td>
 <td style="width:50%;text-align:center;vertical-align:top">
-<b>ĐẠI DIỆN {Ten_Cua_Hang}</b><br/>{Chuc_Vu_Cua_Hang}
+<b>ĐẠI DIỆN {Ten_Cong_Ty}</b><br/>{Chuc_Vu_Cua_Hang}
 <div style="height:60px"></div>
 {Nguoi_Dai_Dien_Cua_Hang}</td>
 </tr></table></div>''';
   }
+}
+
+/// Mẫu A4 cũ / quốc hiệu nhân đôi / báo giá còn gắn quốc hiệu — thay mẫu chuẩn.
+bool posCommercialHtmlLooksStale(String html) {
+  if (!html.contains('{Ten_Hang_Hoa}') && !html.contains('BEGIN_ITEMS')) {
+    return false;
+  }
+  const motto = 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM';
+  if (motto.allMatches(html).length >= 2) return true;
+  // BBG mẫu thật không có quốc hiệu — mẫu V5 2 cột còn gắn.
+  if (html.contains('BẢNG BÁO GIÁ') && html.contains(motto)) return true;
+  return !RegExp(r'<!--POS_A4_V\d+', caseSensitive: false).hasMatch(html);
 }
 
 String posPrintDefaultTemplateName(String paperSize, {String? documentType}) {

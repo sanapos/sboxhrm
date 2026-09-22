@@ -17952,6 +17952,8 @@ class ApiService {
   Future<Map<String, dynamic>> getPosQuotes({
     String? search,
     String? status,
+    String? commercialStage,
+    String? documentKind,
     String? employeeId,
     DateTime? from,
     DateTime? to,
@@ -17962,6 +17964,12 @@ class ApiService {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
       if (status != null && status.isNotEmpty) q['status'] = status;
+      if (commercialStage != null && commercialStage.isNotEmpty) {
+        q['commercialStage'] = commercialStage;
+      }
+      if (documentKind != null && documentKind.isNotEmpty) {
+        q['documentKind'] = documentKind;
+      }
       if (employeeId != null && employeeId.isNotEmpty) {
         q['employeeId'] = employeeId;
       }
@@ -18142,6 +18150,39 @@ class ApiService {
     }
   }
 
+  Future<List<int>?> downloadPosQuoteExport(
+    String id,
+    String format, {
+    bool includeImages = false,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/quotes/$id/export/$format')
+          .replace(queryParameters: {'includeImages': '$includeImages'});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+      if (response.statusCode != 200) return null;
+      return response.bodyBytes;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<String?> fetchPosQuoteExportHtml(
+    String id, {
+    bool includeImages = false,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/quotes/$id/export/html')
+          .replace(queryParameters: {'includeImages': '$includeImages'});
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+      if (response.statusCode != 200) return null;
+      return response.body;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>> getPosQuoteActivities(String id) async {
     try {
       final response = await http
@@ -18185,6 +18226,19 @@ class ApiService {
           .post(Uri.parse('$baseUrl/api/pos/quotes/$id/close'),
               headers: _headers)
           .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> lookupPosCommercialTax(String taxCode) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/commercial-profile/tax-lookup')
+          .replace(queryParameters: {'taxCode': taxCode});
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

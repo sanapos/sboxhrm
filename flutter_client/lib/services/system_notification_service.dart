@@ -227,6 +227,15 @@ class SystemNotificationService {
     );
   }
 
+  /// Xóa mọi thông báo trên khay của app (kể cả FCM đã hiện).
+  Future<void> cancelAll() async {
+    try {
+      await _plugin.cancelAll();
+    } catch (e) {
+      debugPrint('cancelAll notifications failed: $e');
+    }
+  }
+
   /// Thông báo chung
   Future<void> showGeneral({
     required String title,

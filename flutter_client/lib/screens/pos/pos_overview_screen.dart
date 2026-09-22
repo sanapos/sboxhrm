@@ -200,24 +200,34 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     // Tổng quan = điều hướng tab chính + QR hay dùng.
     // Module đầy đủ nằm ở tab «Nhiều hơn».
     final perm = Provider.of<PermissionProvider>(context, listen: false);
-    final canQr = PermissionNavigation.canNavigate(perm, 'PosQrOrder');
-    final canKds = PermissionNavigation.canNavigate(perm, 'PosKds');
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    bool canMod(String code) => PermissionNavigation.canAccessModule(
+          code,
+          allowedModules: auth.user?.allowedModules,
+          perm: perm,
+          role: auth.user?.role,
+        );
+    final canQr = canMod('PosQrOrder');
+    final canKds = canMod('PosKds');
     final items = <PosMobileHubGridItem>[
-      PosMobileHubGridItem(
-        label: 'Bán hàng',
-        icon: Icons.shopping_bag_outlined,
-        onTap: () => _goHubTab(2),
-      ),
-      PosMobileHubGridItem(
-        label: 'Hàng hoá',
-        icon: Icons.inventory_2_outlined,
-        onTap: () => _goHubTab(1),
-      ),
-      PosMobileHubGridItem(
-        label: 'Hoá đơn',
-        icon: Icons.receipt_long_outlined,
-        onTap: () => _goHubTab(3),
-      ),
+      if (canMod('PosSell'))
+        PosMobileHubGridItem(
+          label: 'Bán hàng',
+          icon: Icons.shopping_bag_outlined,
+          onTap: () => _goHubTab(2),
+        ),
+      if (canMod('PosProducts'))
+        PosMobileHubGridItem(
+          label: 'Hàng hoá',
+          icon: Icons.inventory_2_outlined,
+          onTap: () => _goHubTab(1),
+        ),
+      if (canMod('PosSaleOrders'))
+        PosMobileHubGridItem(
+          label: 'Hoá đơn',
+          icon: Icons.receipt_long_outlined,
+          onTap: () => _goHubTab(3),
+        ),
       if (canKds)
         PosMobileHubGridItem(
           label: 'Màn hình bếp',

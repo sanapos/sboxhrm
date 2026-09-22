@@ -112,10 +112,11 @@ public static class PosQuoteDocumentHtml
         if (quote.PrintTemplateId is Guid tid)
         {
             var picked = await db.PosPrintTemplates.AsNoTracking()
-                .Where(t => t.Id == tid && t.StoreId == quote.StoreId && t.Deleted == null)
+                .Where(t => t.Id == tid && t.StoreId == quote.StoreId && t.Deleted == null
+                            && t.DocumentType == docType)
                 .Select(t => t.HtmlContent)
                 .FirstOrDefaultAsync();
-            if (IsCompleteA4(picked)) return picked!;
+            if (IsUsableHtml(picked)) return picked!;
         }
         var def = await db.PosPrintTemplates.AsNoTracking()
             .Where(t => t.StoreId == quote.StoreId && t.DocumentType == docType
@@ -124,7 +125,7 @@ public static class PosQuoteDocumentHtml
             .ThenBy(t => t.SortOrder)
             .Select(t => t.HtmlContent)
             .FirstOrDefaultAsync();
-        if (IsCompleteA4(def)) return def!;
+        if (IsUsableHtml(def)) return def!;
         return DefaultA4For(kindFromDocType(docType));
     }
 
@@ -147,12 +148,6 @@ public static class PosQuoteDocumentHtml
         return t.StartsWith("<", StringComparison.Ordinal) && !t.StartsWith("{", StringComparison.Ordinal);
     }
 
-    /// <summary>Mẫu cũ thiếu MST / đại diện shop — dùng mặc định A4 đầy đủ.</summary>
-    static bool IsCompleteA4(string? html) =>
-        IsUsableHtml(html) &&
-        html!.Contains("{MST_Cua_Hang}", StringComparison.Ordinal) &&
-        html.Contains("{Nguoi_Dai_Dien_Cua_Hang}", StringComparison.Ordinal);
-
     static string FirstText(params string?[] values)
     {
         foreach (var v in values)
@@ -174,27 +169,48 @@ public static class PosQuoteDocumentHtml
     {
         var vn = CultureInfo.GetCultureInfo("vi-VN");
         var now = DateTime.Now;
-        var shopName = FirstText(profile?.CompanyName, store?.Name);
-        var storeAddress = FirstText(profile?.Address, branch?.Address, store?.Address);
-        var storePhone = FirstText(profile?.Phone, branch?.Phone, store?.Phone);
+        var shopName = FirstText(store?.Name);
+        var companyName = FirstText(profile?.CompanyName, shopName);
+        var storeAddress = FirstText(branch?.Address, store?.Address);
+        var companyAddress = FirstText(profile?.Address, storeAddress);
+        var storePhone = FirstText(branch?.Phone, store?.Phone);
+        var companyPhone = FirstText(profile?.Phone, storePhone);
         var storeTaxCode = FirstText(profile?.TaxCode, branch?.TaxCode);
         var storeEmail = FirstText(profile?.Email, branch?.Email);
         var storeBankNo = FirstText(profile?.BankAccountNumber);
         var storeBankName = FirstText(profile?.BankName);
-        var storeBankHolder = FirstText(profile?.BankAccountHolder, shopName);
+        var storeBankHolder = FirstText(profile?.BankAccountHolder, companyName);
         var storeRep = FirstText(profile?.LegalRepresentative);
         var storeTitle = FirstText(profile?.LegalTitle, "Giám đốc");
         var customerCompany = FirstText(customer?.CompanyName, quote.CustomerName);
         var customerTaxCode = customer?.TaxCode ?? "";
-        var deposit = quote.Total * 0.5m;
+        var lines = quote.Lines.Where(l => l.Deleted == null).ToList();
+        var preVat = Math.Max(0, lines.Sum(l => Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount)) - quote.Discount);
+        var deposit = quote.DepositAmount;
+        if (deposit <= 0 && quote.DepositPercent is > 0)
+            deposit = Math.Round(preVat * quote.DepositPercent.Value / 100m, 0, MidpointRounding.AwayFromZero);
+        if (deposit <= 0)
+            deposit = Math.Round(quote.Total * 0.5m, 0, MidpointRounding.AwayFromZero);
+        deposit = Math.Min(deposit, quote.Total);
+        var depositPct = quote.DepositPercent is > 0
+            ? quote.DepositPercent.Value.ToString("0.##", vn)
+            : (preVat > 0 ? Math.Round(deposit / preVat * 100m, 2).ToString("0.##", vn) : "0");
+        var payMethod = quote.PaymentMethod ?? "Chuyển khoản";
+        var depositPayText = string.IsNullOrWhiteSpace(storeBankNo)
+            ? payMethod
+            : $"{payMethod} — TK {storeBankNo} ({storeBankName}), chủ TK {storeBankHolder}";
         return new Dictionary<string, string>
         {
             ["PaperSize"] = "A4",
-            ["Ten_Cua_Hang"] = shopName,
-            ["Dia_Chi_Chi_Nhanh"] = storeAddress,
-            ["Dien_Thoai_Chi_Nhanh"] = storePhone,
+            ["Ten_Cua_Hang"] = companyName,
+            ["Ten_Cong_Ty"] = companyName,
+            ["Dia_Chi_Chi_Nhanh"] = companyAddress,
+            ["Dia_Chi_Cong_Ty"] = companyAddress,
+            ["Dien_Thoai_Chi_Nhanh"] = companyPhone,
+            ["Dien_Thoai_Cong_Ty"] = companyPhone,
             ["Email_Cua_Hang"] = storeEmail,
             ["MST_Cua_Hang"] = storeTaxCode,
+            ["MST_Cong_Ty"] = storeTaxCode,
             ["Tai_Khoan_Cua_Hang"] = storeBankNo,
             ["Ngan_Hang_Cua_Hang"] = storeBankName,
             ["Chu_Tai_Khoan_Cua_Hang"] = storeBankHolder,
@@ -229,11 +245,14 @@ public static class PosQuoteDocumentHtml
             ["Tong_Cong"] = quote.Total.ToString("#,##0", vn),
             ["Khach_Can_Tra"] = quote.Total.ToString("#,##0", vn),
             ["Tam_Ung"] = deposit.ToString("#,##0", vn),
+            ["Tien_Coc"] = deposit.ToString("#,##0", vn),
+            ["Phan_Tram_Coc"] = depositPct,
+            ["Gia_Tri_Truoc_VAT"] = preVat.ToString("#,##0", vn),
             ["Con_Lai_Hop_Dong"] = (quote.Total - deposit).ToString("#,##0", vn),
             ["Ky_Han_Thi_Cong"] = "Theo thỏa thuận",
             ["Ky_Han_Thanh_Toan"] = "10 ngày kể từ ký hợp đồng",
             ["Tong_Cong_Bang_Chu"] = PosVietnameseMoney.InWords(quote.Total),
-            ["Hinh_Thuc_Thanh_Toan"] = quote.PaymentMethod ?? "",
+            ["Hinh_Thuc_Thanh_Toan"] = depositPayText,
             ["Dieu_Khoan"] = quote.Terms ?? "",
             ["Bao_Hanh"] = "12 tháng",
             ["Ghi_Chu"] = string.Join("\n", new[] { quote.Note, extraNote }.Where(s => !string.IsNullOrWhiteSpace(s))),
@@ -325,29 +344,41 @@ public static class PosQuoteDocumentHtml
 
     static string ItemTable() =>
         """
-        <table style="width:100%;border-collapse:collapse;margin:8px 0">
-          <thead><tr>
-            <th style="border:1px solid #000;padding:5px;width:36px">STT</th>
-            <th style="border:1px solid #000;padding:5px;width:3.2cm">Hình</th>
-            <th style="border:1px solid #000;padding:5px">Tên hàng hóa / sản phẩm</th>
-            <th style="border:1px solid #000;padding:5px">ĐVT</th>
-            <th style="border:1px solid #000;padding:5px">SL</th>
-            <th style="border:1px solid #000;padding:5px">Đơn giá (VNĐ)</th>
-            <th style="border:1px solid #000;padding:5px">Thành tiền (VNĐ)</th>
-            <th style="border:1px solid #000;padding:5px">Bảo hành</th>
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin:8px 0;font-size:11px;line-height:1.3">
+          <colgroup>
+            <col width="46"/><col width="293"/><col width="62"/><col width="62"/>
+            <col width="123"/><col width="123"/><col width="61"/>
+          </colgroup>
+          <thead><tr style="background:#f3f4f6">
+            <th style="width:6%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">STT</th>
+            <th style="width:38%;border:1px solid #111;padding:4px 4px;text-align:left">Tên hàng</th>
+            <th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">ĐVT</th>
+            <th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">SL</th>
+            <th style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">Đơn giá</th>
+            <th style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">Thành tiền</th>
+            <th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">BH</th>
           </tr></thead>
           <tbody><!--BEGIN_ITEMS-->
             <tr>
-              <td style="border:1px solid #000;padding:4px;text-align:center">{STT}</td>
-              <td style="border:1px solid #000;padding:2px;text-align:center;vertical-align:middle">{Hinh_Anh}</td>
-              <td style="border:1px solid #000;padding:4px">{Ten_Hang_Hoa}</td>
-              <td style="border:1px solid #000;padding:4px;text-align:center">{Don_Vi_Tinh}</td>
-              <td style="border:1px solid #000;padding:4px;text-align:center">{So_Luong}</td>
-              <td style="border:1px solid #000;padding:4px;text-align:right">{Don_Gia}</td>
-              <td style="border:1px solid #000;padding:4px;text-align:right">{Thanh_Tien}</td>
-              <td style="border:1px solid #000;padding:4px">{Bao_Hanh}</td>
+              <td style="width:6%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{STT}</td>
+              <td style="width:38%;border:1px solid #111;padding:4px 4px;text-align:left;vertical-align:middle">{Ten_Hang_Hoa}</td>
+              <td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{Don_Vi_Tinh}</td>
+              <td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{So_Luong}</td>
+              <td style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;vertical-align:middle;white-space:nowrap">{Don_Gia}</td>
+              <td style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;vertical-align:middle;white-space:nowrap">{Thanh_Tien}</td>
+              <td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{Bao_Hanh}</td>
             </tr><!--END_ITEMS-->
           </tbody>
+          <tfoot>
+            <tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Tổng tiền hàng</td>
+            <td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap"><b>{Tong_Tien_Hang}</b></td></tr>
+            <tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Chiết khấu</td>
+            <td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap">{Chiet_Khau_Hoa_Don}</td></tr>
+            <tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Thuế GTGT</td>
+            <td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap">{Tien_Thue}</td></tr>
+            <tr style="background:#f8fafc"><td colspan="5" style="border:1px solid #111;padding:6px 6px;text-align:right"><b>TỔNG CỘNG</b></td>
+            <td colspan="2" style="border:1px solid #111;padding:6px 6px;text-align:right;white-space:nowrap"><b>{Tong_Cong}</b></td></tr>
+          </tfoot>
         </table>
         """;
 
@@ -356,15 +387,15 @@ public static class PosQuoteDocumentHtml
         <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:12px">
           <table style="width:100%"><tr>
             <td style="width:50%;vertical-align:top">
-              <div style="font-weight:bold;text-transform:uppercase">{Ten_Cua_Hang}</div>
+              <div style="font-weight:bold;text-transform:uppercase">{Ten_Cong_Ty}</div>
               <div>MST: {MST_Cua_Hang}</div>
-              <div>{Dia_Chi_Chi_Nhanh}</div>
-              <div>ĐT: {Dien_Thoai_Chi_Nhanh} &nbsp; Email: {Email_Cua_Hang}</div>
+              <div>{Dia_Chi_Cong_Ty}</div>
+              <div>ĐT: {Dien_Thoai_Cong_Ty} &nbsp; Email: {Email_Cua_Hang}</div>
               <div>TK: {Tai_Khoan_Cua_Hang} — {Ngan_Hang_Cua_Hang}</div>
               <div>Chủ TK: {Chu_Tai_Khoan_Cua_Hang}</div>
               <div>Đại diện: {Nguoi_Dai_Dien_Cua_Hang} — {Chuc_Vu_Cua_Hang}</div>
             </td>
-            <td>{{Motto()}}<div style="text-align:center">{Dia_Chi_Chi_Nhanh}, ngày {Ngay}</div></td>
+            <td>{{Motto()}}<div style="text-align:center">{Dia_Chi_Cong_Ty}, ngày {Ngay}</div></td>
           </tr></table>
           <h2 style="text-align:center;margin:12px 0 4px">BẢNG BÁO GIÁ</h2>
           <div style="text-align:center">Số: <b>{So_Chung_Tu}</b> &nbsp; Theo BG: {Ma_Bao_Gia} &nbsp; Hiệu lực đến: <b>{Han_Bao_Gia}</b></div>
@@ -375,18 +406,17 @@ public static class PosQuoteDocumentHtml
           Hình thức thanh toán: {Hinh_Thuc_Thanh_Toan}</p>
           <p>Công ty chúng tôi xin trân trọng gửi Quý khách hàng bảng báo giá hàng hóa / dịch vụ như sau:</p>
           {{ItemTable()}}
-          <div style="text-align:right">
-            <div>Tổng tiền hàng: <b>{Tong_Tien_Hang}</b></div>
-            <div>Chiết khấu: <b>{Chiet_Khau_Hoa_Don}</b></div>
-            <div>Thuế GTGT: <b>{Tien_Thue}</b></div>
-            <div style="font-size:15px;font-weight:bold">Tổng cộng: {Tong_Cong} VNĐ</div>
-            <div><i>Bằng chữ: {Tong_Cong_Bang_Chu}</i></div>
-          </div>
+          <div style="text-align:right;margin:4px 0 10px"><i>Bằng chữ: {Tong_Cong_Bang_Chu}</i></div>
+          <p><b>Tiền cọc thực hiện hợp đồng:</b> <b>{Tien_Coc} VNĐ</b>
+          ({Phan_Tram_Coc}% trên giá trị trước VAT: {Gia_Tri_Truoc_VAT} VNĐ).<br/>
+          <b>Tài khoản nhận cọc:</b> {Tai_Khoan_Cua_Hang} — {Ngan_Hang_Cua_Hang} — Chủ TK: {Chu_Tai_Khoan_Cua_Hang}<br/>
+          <b>Hình thức thanh toán cọc:</b> {Hinh_Thuc_Thanh_Toan}<br/>
+          <b>Còn lại sau cọc:</b> {Con_Lai_Hop_Dong} VNĐ</p>
           <p><b>Điều khoản:</b><br/>{Dieu_Khoan}<br/>Bảo hành: {Bao_Hanh}<br/>{Ghi_Chu}</p>
           <p>Rất mong nhận được sự hợp tác của Quý khách hàng.<br/><b>Trân trọng!</b></p>
           <table style="width:100%;margin-top:28px"><tr>
             <td style="width:50%;text-align:center">KHÁCH HÀNG<br/><i>Ký, ghi rõ họ tên</i><div style="height:56px"></div>{Nguoi_Dai_Dien_Khach}</td>
-            <td style="width:50%;text-align:center">ĐẠI DIỆN {Ten_Cua_Hang}<br/>{Chuc_Vu_Cua_Hang}<div style="height:56px"></div>{Nguoi_Dai_Dien_Cua_Hang}</td>
+            <td style="width:50%;text-align:center">ĐẠI DIỆN {Ten_Cong_Ty}<br/>{Chuc_Vu_Cua_Hang}<div style="height:56px"></div>{Nguoi_Dai_Dien_Cua_Hang}</td>
           </tr></table>
         </div>
         """;
@@ -407,10 +437,10 @@ public static class PosQuoteDocumentHtml
           Điện thoại: {SDT}<br/>
           Tài khoản: {Tai_Khoan_Khach_Hang} — {Ngan_Hang_Khach_Hang}<br/>
           Đại diện: {Nguoi_Dai_Dien_Khach} — Chức vụ: {Chuc_Vu_Khach}</p>
-          <p><b>BÊN B (Nhà thầu / shop): {Ten_Cua_Hang}</b><br/>
+          <p><b>BÊN B (Nhà thầu / shop): {Ten_Cong_Ty}</b><br/>
           Mã số thuế: {MST_Cua_Hang}<br/>
-          Địa chỉ: {Dia_Chi_Chi_Nhanh}<br/>
-          Điện thoại: {Dien_Thoai_Chi_Nhanh} &nbsp; Email: {Email_Cua_Hang}<br/>
+          Địa chỉ: {Dia_Chi_Cong_Ty}<br/>
+          Điện thoại: {Dien_Thoai_Cong_Ty} &nbsp; Email: {Email_Cua_Hang}<br/>
           Tài khoản: {Tai_Khoan_Cua_Hang} tại {Ngan_Hang_Cua_Hang}<br/>
           Chủ tài khoản: {Chu_Tai_Khoan_Cua_Hang}<br/>
           Đại diện: {Nguoi_Dai_Dien_Cua_Hang} — Chức vụ: {Chuc_Vu_Cua_Hang}</p>
@@ -441,10 +471,10 @@ public static class PosQuoteDocumentHtml
         $$"""
         <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:12px">
           <table style="width:100%"><tr>
-            <td style="width:42%;font-weight:bold">{Ten_Cua_Hang}</td>
+            <td style="width:42%;font-weight:bold">{Ten_Cong_Ty}</td>
             <td>{{Motto()}}</td>
           </tr></table>
-          <div style="text-align:right">{Dia_Chi_Chi_Nhanh}, ngày {Ngay}</div>
+          <div style="text-align:right">{Dia_Chi_Cong_Ty}, ngày {Ngay}</div>
           <h2 style="text-align:center;margin:10px 0 4px">BIÊN BẢN NGHIỆM THU HOÀN THÀNH<br/>BÀN GIAO SẢN PHẨM ĐƯA VÀO SỬ DỤNG</h2>
           <div style="text-align:center">Số: <b>{So_Chung_Tu}</b> &nbsp; Theo HĐ/BG: {Ma_Bao_Gia}</div>
           <p><b>1. Đối tượng nghiệm thu</b><br/>
@@ -453,7 +483,7 @@ public static class PosQuoteDocumentHtml
           - Căn cứ hợp đồng / báo giá: {Ma_Bao_Gia}</p>
           <p><b>2. Thành phần trực tiếp nghiệm thu</b><br/>
           ● Chủ đầu tư: {Khach_Hang} — ĐT {SDT} — {Dia_Chi_Khach_Hang}<br/>
-          ● Nhà thầu: {Ten_Cua_Hang} — {Dia_Chi_Chi_Nhanh}</p>
+          ● Nhà thầu: {Ten_Cong_Ty} — {Dia_Chi_Cong_Ty}</p>
           <p><b>3. Thời gian nghiệm thu:</b> ngày {Ngay} tại hiện trường.</p>
           <p><b>4. Đánh giá khối lượng / chất lượng</b></p>
           {{ItemTable()}}
@@ -472,14 +502,14 @@ public static class PosQuoteDocumentHtml
         $$"""
         <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:12px">
           <table style="width:100%"><tr>
-            <td style="width:42%;font-weight:bold">{Ten_Cua_Hang}</td>
+            <td style="width:42%;font-weight:bold">{Ten_Cong_Ty}</td>
             <td>{{Motto()}}</td>
           </tr></table>
-          <div style="text-align:right">{Dia_Chi_Chi_Nhanh}, ngày {Ngay}</div>
+          <div style="text-align:right">{Dia_Chi_Cong_Ty}, ngày {Ngay}</div>
           <h2 style="text-align:center;margin:10px 0 4px">BIÊN BẢN BÀN GIAO CÔNG TRÌNH</h2>
           <div style="text-align:center">Số: <b>{So_Chung_Tu}</b> &nbsp; Theo HĐ/BG: {Ma_Bao_Gia}</div>
           <p>Hôm nay, các bên tiến hành bàn giao hạng mục đã thi công:</p>
-          <p><b>Bên giao (Nhà thầu):</b> {Ten_Cua_Hang} — {Dia_Chi_Chi_Nhanh}<br/>
+          <p><b>Bên giao (Nhà thầu):</b> {Ten_Cong_Ty} — {Dia_Chi_Cong_Ty}<br/>
           <b>Bên nhận (Chủ đầu tư):</b> {Khach_Hang} — {Dia_Chi_Khach_Hang} — ĐT {SDT}</p>
           {{ItemTable()}}
           <p>Tổng giá trị: <b>{Tong_Cong} VNĐ</b> ({Tong_Cong_Bang_Chu}).</p>
@@ -497,7 +527,7 @@ public static class PosQuoteDocumentHtml
         <div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:12px">
           <table style="width:100%"><tr>
             <td style="width:42%;vertical-align:top">
-              <div style="font-weight:bold">{Ten_Cua_Hang}</div>
+              <div style="font-weight:bold">{Ten_Cong_Ty}</div>
               <div>Số: {So_Chung_Tu}</div>
             </td>
             <td>{{Motto()}}</td>
@@ -506,7 +536,7 @@ public static class PosQuoteDocumentHtml
           <h2 style="text-align:center;margin:12px 0 4px">ĐỀ NGHỊ THANH TOÁN</h2>
           <div style="text-align:center">V/v: Thanh toán theo báo giá / hợp đồng {Ma_Bao_Gia}</div>
           <p><b>Kính gửi:</b> {Khach_Hang}</p>
-          <p>Căn cứ hợp đồng / báo giá số {Ma_Bao_Gia} ngày {Ngay} giữa {Khach_Hang} và {Ten_Cua_Hang}.</p>
+          <p>Căn cứ hợp đồng / báo giá số {Ma_Bao_Gia} ngày {Ngay} giữa {Khach_Hang} và {Ten_Cong_Ty}.</p>
           <p>Đến nay chúng tôi đã hoàn tất hạng mục theo danh sách:</p>
           {{ItemTable()}}
           <p>Nay kính đề nghị Quý Công ty thanh toán:</p>
@@ -516,7 +546,7 @@ public static class PosQuoteDocumentHtml
           <p>Trân trọng!</p>
           <table style="width:100%;margin-top:28px"><tr>
             <td style="width:50%"></td>
-            <td style="width:50%;text-align:center"><b>ĐẠI DIỆN {Ten_Cua_Hang}</b><br/>{Chuc_Vu_Cua_Hang}</td>
+            <td style="width:50%;text-align:center"><b>ĐẠI DIỆN {Ten_Cong_Ty}</b><br/>{Chuc_Vu_Cua_Hang}</td>
           </tr></table>
         </div>
         """;

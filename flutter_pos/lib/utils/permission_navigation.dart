@@ -10,35 +10,10 @@ class PermissionNavigation {
 
   static const Map<String, List<String>> _viewAliases = {
     'PosSaleReturns': ['PosSell', 'PosProducts'],
-    'PosCustomers': ['PosSell'],
-    'PosBooking': ['PosSell'],
-    'PosWarranty': ['PosSell'],
-    'PosEInvoice': ['PosSell'],
-    // Vận hành khi bán — thu ngân vẫn vào được nếu đã có PosSell.
-    // Thiết lập (máy in / hub / tài khoản / phân quyền) KHÔNG alias.
-    'PosKds': ['PosSell'],
-    'PosQrOrder': ['PosSell'],
-    'PosCashierShift': ['PosSell'],
-    'PosCustomerDisplay': ['PosSell'],
-    'PosShipping': ['PosSell'],
-    'HkdBooks': ['PosSalesReport'],
   };
 
-  /// Gói có module A → coi như mở menu B (khớp middleware package).
-  /// PosKds hiện trên hub / menu khi gói có Bán hàng (tick riêng vẫn dùng cho gói KDS-only).
-  static const Map<String, List<String>> _packageAliases = {
-    'PosSaleReturns': ['PosSell'],
-    'PosEInvoice': ['PosSell'],
-    'PosQrOrder': ['PosSell'],
-    'PosKds': ['PosSell'],
-    'PosCashierShift': ['PosSell'],
-    'PosShipping': ['PosSell'],
-    'PosPrinters': ['PosSell'],
-    'PosStorePrinters': ['PosSell'],
-    'PosPrintTemplates': ['PosSell'],
-    'SettingsHub': ['PosSell'],
-    'HkdBooks': ['PosSalesReport', 'PosSell'],
-  };
+  /// Gói không suy ra module con từ Bán hàng — Super Admin tick từng chức năng.
+  static const Map<String, List<String>> _packageAliases = <String, List<String>>{};
 
   static bool canNavigate(PermissionProvider perm, String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;
@@ -63,10 +38,6 @@ class PermissionNavigation {
     if (bypassPackageFilter) return true;
     if (moduleCode == null || moduleCode.isEmpty) return true;
     if (PermissionModules.selfServiceModules.contains(moduleCode)) {
-      return true;
-    }
-    if (moduleCode == 'PosKds' &&
-        (perm.canViewNav('PosKds') || perm.canViewNav('PosSell'))) {
       return true;
     }
     if (allowedModules == null || allowedModules.isEmpty) {

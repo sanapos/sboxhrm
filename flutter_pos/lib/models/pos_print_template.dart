@@ -26,13 +26,13 @@ class PosPrintTemplate {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
-  /// Tên ngắn trên UI thiết lập: `K80 ★`, `HĐ K80`.
+  /// Tên ngắn trên UI thiết lập: `Hợp đồng 1 · A4 ★`.
   String get shortLabel {
     final paper = PosPrintPaperSizes.shortLabel(paperSize);
     final n = name.trim();
-    if (n.isEmpty) return isDefault ? '$paper ★' : paper;
-    if (n.length <= 14) return isDefault && !n.contains('★') ? '$n ★' : n;
-    return isDefault ? '$paper ★' : paper;
+    final star = isDefault && !n.contains('★') && !paper.contains('★') ? ' ★' : '';
+    if (n.isEmpty) return '$paper$star';
+    return '$n · $paper$star';
   }
 
   /// Tên hiển thị rõ loại + khổ (đổi tên cũ «Khổ K80 - Mẫu 1»).
@@ -432,6 +432,13 @@ abstract final class PosPrintPaperSizes {
   /// Phiếu nhiệt cuộn (không gồm tem nhãn).
   static bool isThermal(String size) => size == k58 || size == k80;
 
+  /// Báo giá / HĐ / biên bản — chỉ A4 hoặc A5 (K80 cũ → A4).
+  static String normalizeCommercialPaper(String? size) {
+    final u = (size ?? '').trim().toUpperCase();
+    if (u == a5) return a5;
+    return a4;
+  }
+
   /// Khổ máy in nhiệt từ cấu hình (K58 / K80 / 58mm…).
   static String fromPrinterName(String raw) {
     final p = raw.trim().toUpperCase();
@@ -494,7 +501,7 @@ abstract final class PosPrintTokens {
   static const store = [
     ('Ten_Cua_Hang', 'Tên cửa hàng'),
     ('Dia_Chi_Chi_Nhanh', 'Địa chỉ chi nhánh'),
-    ('Dien_Thoai_Chi_Nhanh', 'Điện thoại'),
+    ('Dien_Thoai_Chi_Nhanh', 'Điện thoại cửa hàng'),
   ];
 
   static const order = [
@@ -535,6 +542,10 @@ abstract final class PosPrintTokens {
     ('So_Hop_Dong', 'Số hợp đồng'),
     ('Ngay_Hop_Dong', 'Ngày ký HĐ'),
     ('Dia_Diem_Thi_Cong', 'Địa điểm thi công'),
+    ('Ten_Cong_Ty', 'Tên công ty (pháp lý)'),
+    ('Dia_Chi_Cong_Ty', 'Địa chỉ công ty'),
+    ('Dien_Thoai_Cong_Ty', 'Điện thoại công ty'),
+    ('MST_Cong_Ty', 'MST công ty'),
     ('MST_Cua_Hang', 'MST công ty shop'),
     ('Email_Cua_Hang', 'Email cửa hàng'),
     ('Tai_Khoan_Cua_Hang', 'Số TK cửa hàng'),
@@ -549,6 +560,9 @@ abstract final class PosPrintTokens {
     ('Nguoi_Dai_Dien_Khach', 'Đại diện khách hàng'),
     ('Chuc_Vu_Khach', 'Chức vụ đại diện KH'),
     ('Tam_Ung', 'Tạm ứng đợt 1'),
+    ('Tien_Coc', 'Tiền cọc thực hiện HĐ'),
+    ('Phan_Tram_Coc', '% cọc trên giá trị trước VAT'),
+    ('Gia_Tri_Truoc_VAT', 'Giá trị trước VAT'),
     ('Con_Lai_Hop_Dong', 'Còn lại sau tạm ứng'),
     ('Ky_Han_Thi_Cong', 'Kỳ hạn thi công'),
     ('Ky_Han_Thanh_Toan', 'Kỳ hạn thanh toán'),

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pos_sell_industry.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
+import '../../utils/permission_navigation.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../services/api_service.dart';
 import '../../widgets/hrm_page_chrome.dart';
@@ -66,7 +68,15 @@ class _PosSellIndustrySettingsHubScreenState
 
   @override
   Widget build(BuildContext context) {
-    final canEdit = context.watch<PermissionProvider>().canEditPosSetup();
+    final perm = context.watch<PermissionProvider>();
+    final auth = context.watch<AuthProvider>();
+    final canEdit = perm.canEditPosSetup();
+    bool canMod(String code) => PermissionNavigation.canAccessModule(
+          code,
+          allowedModules: auth.user?.allowedModules,
+          perm: perm,
+          role: auth.user?.role,
+        );
     final body = ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 48),
       children: [
@@ -136,6 +146,7 @@ class _PosSellIndustrySettingsHubScreenState
               ),
             ),
           ),
+        if (canMod('PosQrOrder'))
         _tile(
           context,
           icon: Icons.qr_code_2,
@@ -148,8 +159,9 @@ class _PosSellIndustrySettingsHubScreenState
             const PosQrTableOrderScreen(),
           ),
         ),
-        if (_settings?.sellProfile.usesKitchenNotify == true ||
-            _settings?.enableQrTableOrder == true)
+        if (canMod('PosKds') &&
+            (_settings?.sellProfile.usesKitchenNotify == true ||
+                _settings?.enableQrTableOrder == true))
           _tile(
             context,
             icon: Icons.kitchen_outlined,

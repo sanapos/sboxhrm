@@ -5,6 +5,7 @@ import '../../l10n/app_tr.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_commercial_company_fields.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 /// Điền mặc định thông tin công ty shop in trên báo giá / hợp đồng A4.
@@ -108,7 +109,7 @@ class _PosCommercialCompanyScreenState
   @override
   Widget build(BuildContext context) {
     final perm = context.watch<PermissionProvider>();
-    final canEdit = perm.canEdit('PosQuotes');
+    final canEdit = perm.canEditPosSetup() || perm.canEdit('PosQuotes');
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(title: Text(tr('Thông tin công ty shop'))),
@@ -117,73 +118,18 @@ class _PosCommercialCompanyScreenState
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Text(
-                  tr('Đây là thông tin công ty bên shop (Bên A trên báo giá, Bên B trên hợp đồng thi công). In sẵn trên phiếu A4.'),
-                  style: TextStyle(color: Colors.grey.shade700),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _company,
+                PosCommercialCompanyFields(
+                  company: _company,
+                  tax: _tax,
+                  address: _address,
+                  phone: _phone,
+                  email: _email,
+                  bankNo: _bankNo,
+                  bankName: _bankName,
+                  bankHolder: _bankHolder,
+                  rep: _rep,
+                  title: _title,
                   enabled: canEdit,
-                  decoration:
-                      PosTheme.inputDecoration(label: 'Tên công ty / cửa hàng'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _tax,
-                  enabled: canEdit,
-                  decoration: PosTheme.inputDecoration(label: 'Mã số thuế'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _address,
-                  enabled: canEdit,
-                  maxLines: 2,
-                  decoration: PosTheme.inputDecoration(label: 'Địa chỉ'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _phone,
-                  enabled: canEdit,
-                  decoration: PosTheme.inputDecoration(label: 'Điện thoại'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _email,
-                  enabled: canEdit,
-                  decoration: PosTheme.inputDecoration(label: 'Email'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _bankNo,
-                  enabled: canEdit,
-                  decoration: PosTheme.inputDecoration(label: 'Số tài khoản'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _bankName,
-                  enabled: canEdit,
-                  decoration: PosTheme.inputDecoration(label: 'Ngân hàng'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _bankHolder,
-                  enabled: canEdit,
-                  decoration:
-                      PosTheme.inputDecoration(label: 'Chủ tài khoản'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _rep,
-                  enabled: canEdit,
-                  decoration: PosTheme.inputDecoration(
-                      label: 'Người đại diện pháp luật'),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _title,
-                  enabled: canEdit,
-                  decoration: PosTheme.inputDecoration(label: 'Chức vụ'),
                 ),
                 const SizedBox(height: 20),
                 if (canEdit)

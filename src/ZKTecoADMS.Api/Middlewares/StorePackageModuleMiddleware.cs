@@ -90,6 +90,8 @@ public class StorePackageModuleMiddleware
         // Ledger / phiếu nhập nhanh / điều chỉnh tồn — thuộc kho hàng (PosProducts).
         ("/api/pos/stock", "PosProducts"),
         ("/api/pos/print-templates", "PosPrintTemplates"),
+        ("/api/pos/quotes", "PosQuotes"),
+        ("/api/pos/commercial-profile", "PosQuotes"),
         ("/api/pos/printers", "PosStorePrinters"),
         ("/api/pos/print-jobs", "PosSell"),
         ("/api/pos/product-printers", "PosStorePrinters"),
@@ -220,21 +222,14 @@ public class StorePackageModuleMiddleware
     private static bool IsImplicitlyAllowed(
         string path, string method, string module, IReadOnlyList<string> allowed)
     {
-        // Gói có PosSell → coi như có Trả hàng bán (API + menu).
+        // Trả hàng trên phiếu bán đi cùng gói Bán hàng.
         if (module.Equals("PosSaleReturns", StringComparison.OrdinalIgnoreCase) &&
             allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase))
             return true;
 
-        // Màn hình phụ: GET + PUT state khi bán (máy khác mở link) nếu gói có PosSell.
-        if (module.Equals("PosCustomerDisplay", StringComparison.OrdinalIgnoreCase) &&
-            allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase) &&
-            path.StartsWith("/api/pos/customer-display", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        // Gói có PosSell → QR / KDS / ca / máy in thiết bị / HĐĐT / ĐVVC (gói cũ chưa tick addon).
-        if (allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase) &&
-            module is "PosQrOrder" or "PosKds" or "PosCashierShift" or "PosPrinters"
-                or "PosEInvoice" or "PosShipping")
+        // Ca thu ngân: thanh toán vẫn kiểm tra ca khi cửa hàng bật ca, dù menu đã tick riêng.
+        if (module.Equals("PosCashierShift", StringComparison.OrdinalIgnoreCase) &&
+            allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase))
             return true;
 
         // Máy in cloud: Super Admin tick PosStorePrinters. Gói cũ chỉ có PosPrinters vẫn dùng được.
@@ -246,14 +241,6 @@ public class StorePackageModuleMiddleware
         // POS A6: tạo thu ngân + phân quyền báo cáo (API /permission-management).
         if (allowed.Contains("PosSell", StringComparer.OrdinalIgnoreCase) &&
             module.Equals("Role", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        // Sổ thuế HKD: gói có báo cáo POS (gói cũ chưa tick HkdBooks).
-        if (module.Equals("HkdBooks", StringComparison.OrdinalIgnoreCase) &&
-            (allowed.Contains("HkdBooks", StringComparer.OrdinalIgnoreCase) ||
-             allowed.Contains("PosSalesReport", StringComparer.OrdinalIgnoreCase) ||
-             PosPackageDefaults.ReportModules.Any(m =>
-                 allowed.Contains(m, StringComparer.OrdinalIgnoreCase))))
             return true;
 
         if (!HttpMethods.IsGet(method) && !HttpMethods.IsHead(method))

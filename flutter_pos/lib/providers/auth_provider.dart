@@ -355,7 +355,6 @@ class AuthProvider extends ChangeNotifier {
   /// Module POS tối thiểu cho app thu ngân độc lập.
   static const _posPackageDefaults = <String>[
     'PosSell',
-    'PosKds',
     'PosProducts',
     'PosSaleOrders',
     'PosSalesReport',

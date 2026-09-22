@@ -37,6 +37,16 @@ abstract final class MobileQuickActionsCatalog {
       icon: Icons.receipt_long_outlined,
     ),
     MobileQuickActionDef(
+      moduleCode: 'PosQuotes',
+      label: 'Báo giá',
+      icon: Icons.request_quote_outlined,
+    ),
+    MobileQuickActionDef(
+      moduleCode: 'PosPrintTemplates',
+      label: 'Mẫu in báo giá',
+      icon: Icons.article_outlined,
+    ),
+    MobileQuickActionDef(
       moduleCode: 'PosSalesReport',
       label: 'Báo cáo POS',
       icon: Icons.bar_chart_outlined,

@@ -27,7 +27,6 @@ import '../widgets/pos/pos_print_template_v2_editor.dart';
 import '../widgets/pos/pos_commercial_a4_editor.dart';
 import '../utils/pos_html_print.dart';
 import '../utils/responsive_helper.dart';
-import '../widgets/hrm/hrm_settings_mobile_kit.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -64,6 +63,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   PosPrintTemplateV2? _v2Template;
   /// Khi khác null: lưu HTML thuần (legacy), không encode V2.
   String? _legacyHtml;
+  String _commercialPaper = PosPrintPaperSizes.a4;
   bool _loading = true;
   bool _saving = false;
   bool _testingPrint = false;
@@ -177,6 +177,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   void _applyLocalDefault({String? paperSize}) {
     _selected = null;
     if (_isCommercialDoc) {
+      _commercialPaper = PosPrintPaperSizes.a4;
       _legacyHtml = posPrintDefaultHtml(
         documentType: _docType,
         paperSize: PosPrintPaperSizes.a4,
@@ -217,15 +218,20 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   void _bindTemplateContent(PosPrintTemplate? t) {
     if (_isCommercialDoc) {
       final raw = (t?.htmlContent ?? '').trim();
-      _legacyHtml = raw.startsWith('<')
+      // JSON V2 (`<!--POS_TEMPLATE_V2-->…`) cũng khởi đầu bằng `<`; phải loại
+      // trước khi dán vào editor Word, nếu không editor sẽ hiển thị raw JSON.
+      final looksLikeHtml =
+          raw.startsWith('<') && !PosPrintTemplateV2Codec.isV2Content(raw);
+      _commercialPaper = PosPrintPaperSizes.normalizeCommercialPaper(t?.paperSize);
+      _legacyHtml = looksLikeHtml
           ? t!.htmlContent
           : posPrintDefaultHtml(
               documentType: _docType,
-              paperSize: PosPrintPaperSizes.a4,
+              paperSize: _commercialPaper,
             );
       _v2Template = PosPrintTemplateV2Presets.build(
         documentType: _docType,
-        paperSize: PosPrintPaperSizes.a4,
+        paperSize: _commercialPaper,
         printerProfile: PosPrintPrinterProfiles.sunmiK80,
         name: t?.name,
       );
@@ -304,36 +310,46 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     if (changed) _templates = next;
   }
 
-  /// Mẫu báo giá/HĐ từng bị lưu JSON V2 — đổi lại HTML A4 để in được.
+  /// Mẫu báo giá/HĐ: K80/K58 cũ → A4; HTML V2/stale → mẫu chuẩn.
   Future<void> _upgradeCommercialToA4Html() async {
-    var changed = false;
     final next = <PosPrintTemplate>[];
     for (final t in _templates) {
       final raw = t.htmlContent.trim();
-      if (raw.startsWith('<')) {
+      final isV2 = PosPrintTemplateV2Codec.isV2Content(raw);
+      final looksLikeHtml = raw.startsWith('<') && !isV2;
+      final paperOk = t.paperSize == PosPrintPaperSizes.a4 ||
+          t.paperSize == PosPrintPaperSizes.a5;
+      final staleHtml = looksLikeHtml && posCommercialHtmlLooksStale(raw);
+      final needPaper = !paperOk;
+      final needHtml = isV2 || !looksLikeHtml || staleHtml;
+      if (!needPaper && !needHtml) {
         next.add(t);
         continue;
       }
-      final html = posPrintDefaultHtml(
-        documentType: _docType,
-        paperSize: PosPrintPaperSizes.a4,
-      );
+      final paper = paperOk
+          ? t.paperSize
+          : PosPrintPaperSizes.a4;
+      final baseHtml = needHtml
+          ? posPrintDefaultHtml(documentType: _docType, paperSize: paper)
+          : raw;
+      final setup = PosCommercialPageSetup.parse(baseHtml, fallbackPaper: paper)
+          .copyWith(paperSize: paper);
+      final html = setup.applyToHtml(baseHtml);
       final res = await _api.updatePosPrintTemplate(
         t.id,
         t.copyWith(
           htmlContent: html,
-          paperSize: PosPrintPaperSizes.a4,
+          paperSize: paper,
         ).toSaveJson(),
       );
       if (res['isSuccess'] == true && res['data'] is Map) {
         next.add(PosPrintTemplate.fromJson(
           Map<String, dynamic>.from(res['data'] as Map),
         ));
-        changed = true;
       } else {
         next.add(t.copyWith(
           htmlContent: html,
-          paperSize: PosPrintPaperSizes.a4,
+          paperSize: paper,
         ));
       }
     }
@@ -402,18 +418,22 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     }
     setState(() => _saving = true);
     if (_isCommercialDoc) {
-      final html = (_legacyHtml ?? '').trim().isEmpty
+      final paper = PosPrintPaperSizes.normalizeCommercialPaper(_commercialPaper);
+      final rawHtml = (_legacyHtml ?? '').trim().isEmpty
           ? posPrintDefaultHtml(
               documentType: _docType,
-              paperSize: PosPrintPaperSizes.a4,
+              paperSize: paper,
             )
           : _legacyHtml!;
+      final setup = PosCommercialPageSetup.parse(rawHtml, fallbackPaper: paper)
+          .copyWith(paperSize: paper);
+      final html = ensurePosPrintItemLoop(setup.applyToHtml(rawHtml));
       final body = _selected!
           .copyWith(
             name: name,
             htmlContent: html,
             documentType: _docType,
-            paperSize: PosPrintPaperSizes.a4,
+            paperSize: paper,
             isDefault: true,
           )
           .toSaveJson();
@@ -491,6 +511,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     if (_isCommercialDoc) {
       return [
         (PosPrintPaperSizes.a4, PosPrintPaperSizes.labels[PosPrintPaperSizes.a4]!),
+        (PosPrintPaperSizes.a5, PosPrintPaperSizes.labels[PosPrintPaperSizes.a5]!),
       ];
     }
     return [
@@ -688,24 +709,30 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
   Future<void> _testPrintTemplate() async {
     if (_isCommercialDoc) {
-      final html = renderPosPrintTemplateHtml(
-        (_legacyHtml ?? '').trim().isEmpty
-            ? posPrintDefaultHtml(
-                documentType: _docType,
-                paperSize: PosPrintPaperSizes.a4,
-              )
-            : _legacyHtml!,
+      final paper = PosPrintPaperSizes.normalizeCommercialPaper(_commercialPaper);
+      final raw = (_legacyHtml ?? '').trim().isEmpty
+          ? posPrintDefaultHtml(
+              documentType: _docType,
+              paperSize: paper,
+            )
+          : _legacyHtml!;
+      final setup = PosCommercialPageSetup.parse(raw, fallbackPaper: paper)
+          .copyWith(paperSize: paper);
+      final body = renderPosPrintTemplateHtml(
+        raw,
         data: posPrintSampleData(documentType: _docType),
-        lineItems: posPrintSampleLines(),
+        lineItems: posPrintSampleLines(count: 8),
+        wrapDocument: false,
+        paperSize: paper,
       );
       if (!mounted) return;
       await showPosHtmlPrintDialog(
         context,
         title: _nameCtrl.text.trim().isEmpty
-            ? tr('Xem trước A4')
+            ? tr('Xem trước ${setup.paperSize}')
             : _nameCtrl.text.trim(),
-        htmlDocument:
-            '<!DOCTYPE html><html><head><meta charset="utf-8"><style>@page{size:A4;margin:12mm}body{margin:0}</style></head><body>$html</body></html>',
+        htmlDocument: wrapPosCommercialPrintHtml(body, setup),
+        a4Paper: true,
       );
       return;
     }
@@ -1069,12 +1096,15 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   Widget build(BuildContext context) {
     final hubBody = widget.embeddedInSettings &&
         !HrmPageChrome.showInPageAppBar(context);
+    final hideInnerBar = hubBody ||
+        (Responsive.isMobile(context) &&
+            (ModalRoute.of(context)?.isFirst ?? true));
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: hubBody
           ? HrmPageChrome.scaffoldBackground(context)
           : const Color(0xFFF3F4F6),
-      appBar: hubBody
+      appBar: hideInnerBar
           ? null
           : AppBar(
               title: Text(tr('Mẫu in')),
@@ -1085,69 +1115,27 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                 tooltip: tr('Quay lại'),
                 onPressed: () => Navigator.maybePop(context),
               ),
+              actions: Responsive.isMobile(context)
+                  ? [
+                      TextButton(
+                        onPressed: _saving || _selected == null ? null : _save,
+                        child: Text(
+                          _dirty ? tr('Lưu*') : tr('Lưu'),
+                          style: const TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ]
+                  : null,
             ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!hubBody)
+          if (!hubBody && !Responsive.isMobile(context))
             const PosModuleToolbar(activeModule: 'PosSell'),
-          Material(
-            color: Colors.white,
-            child: Container(
-              height: 48,
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: PosTheme.border)),
-              ),
-              child: Scrollbar(
-                controller: _docTypeScrollCtrl,
-                thumbVisibility: true,
-                trackVisibility: true,
-                scrollbarOrientation: ScrollbarOrientation.bottom,
-                child: SingleChildScrollView(
-                  controller: _docTypeScrollCtrl,
-                  scrollDirection: Axis.horizontal,
-                  primary: false,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    children: PosPrintDocumentTypes.all.entries.map((e) {
-                      final active = e.key == _docType;
-                      final isLabel = PosPrintPaperSizes.isLabelDoc(e.key);
-                      final chipLabel = isLabel ? 'Tem · ${e.value}' : e.value;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: TextButton(
-                          onPressed: () {
-                            if (e.key == _docType) return;
-                            _docType = e.key;
-                            _load();
-                          },
-                          style: TextButton.styleFrom(
-                            foregroundColor:
-                                active ? _blue : PosTheme.textPrimary,
-                            backgroundColor:
-                                active ? const Color(0xFFE8F0FE) : null,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                            minimumSize: const Size(0, 40),
-                          ),
-                          child: Text(
-                            tr(chipLabel),
-                            style: TextStyle(
-                              fontWeight:
-                                  active ? FontWeight.w600 : FontWeight.normal,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          if (PosPrintDocumentTypes.usageHint(_docType).isNotEmpty)
+          if (!Responsive.isMobile(context)) _buildDocTypeBar(),
+          if (!Responsive.isMobile(context) &&
+              PosPrintDocumentTypes.usageHint(_docType).isNotEmpty)
             Material(
               color: const Color(0xFFEFF6FF),
               child: Padding(
@@ -1172,7 +1160,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                 ),
               ),
             ),
-          _buildCatalogBar(),
+          if (!Responsive.isMobile(context)) _buildCatalogBar(),
           _buildTemplateSelectorBar(),
           Expanded(
             child: _loading
@@ -1222,9 +1210,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                                   html: _legacyHtml ??
                                       posPrintDefaultHtml(
                                         documentType: _docType,
-                                        paperSize: PosPrintPaperSizes.a4,
+                                        paperSize: _commercialPaper,
                                       ),
                                   documentType: _docType,
+                                  paperSize: _commercialPaper,
+                                  onPageSetupChanged: (s) => setState(() {
+                                    _commercialPaper = s.paperSize;
+                                    _dirty = true;
+                                  }),
                                   onChanged: (html) => setState(() {
                                     _legacyHtml = html;
                                     _dirty = true;
@@ -1257,19 +1250,6 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-            child: TextField(
-              controller: _nameCtrl,
-              decoration: InputDecoration(
-                labelText: tr('Tên mẫu'),
-                hintText: tr('vd. HĐ K80'),
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              onChanged: (_) => setState(() => _dirty = true),
-            ),
-          ),
           if (_legacyHtml != null && !_isCommercialDoc)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
@@ -1293,14 +1273,21 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           Expanded(
             child: _isCommercialDoc
                 ? Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                    padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
                     child: PosCommercialA4Editor(
+                      compact: true,
+                      initialTab: 1,
                       html: _legacyHtml ??
                           posPrintDefaultHtml(
                             documentType: _docType,
-                            paperSize: PosPrintPaperSizes.a4,
+                            paperSize: _commercialPaper,
                           ),
                       documentType: _docType,
+                      paperSize: _commercialPaper,
+                      onPageSetupChanged: (s) => setState(() {
+                        _commercialPaper = s.paperSize;
+                        _dirty = true;
+                      }),
                       onChanged: (html) => setState(() {
                         _legacyHtml = html;
                         _dirty = true;
@@ -1321,6 +1308,118 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDocTypeBar() {
+    final mobile = Responsive.isMobile(context);
+    final hint = PosPrintDocumentTypes.usageHint(_docType);
+    if (mobile) {
+      return Material(
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: _docType,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: tr('Loại phiếu'),
+                    isDense: true,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  ),
+                  items: [
+                    for (final e in PosPrintDocumentTypes.all.entries)
+                      DropdownMenuItem(
+                        value: e.key,
+                        child: Text(
+                          tr(PosPrintPaperSizes.isLabelDoc(e.key)
+                              ? 'Tem · ${e.value}'
+                              : e.value),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v == null || v == _docType) return;
+                    _docType = v;
+                    _load();
+                  },
+                ),
+              ),
+              if (hint.isNotEmpty)
+                IconButton(
+                  tooltip: hint,
+                  onPressed: () => NotificationOverlayManager().showInfo(
+                    title: PosPrintPaperSizes.categoryLabel(_docType),
+                    message: hint,
+                  ),
+                  icon: const Icon(Icons.info_outline),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Material(
+      color: Colors.white,
+      child: Container(
+        height: 48,
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: PosTheme.border)),
+        ),
+        child: Scrollbar(
+          controller: _docTypeScrollCtrl,
+          thumbVisibility: true,
+          trackVisibility: true,
+          scrollbarOrientation: ScrollbarOrientation.bottom,
+          child: SingleChildScrollView(
+            controller: _docTypeScrollCtrl,
+            scrollDirection: Axis.horizontal,
+            primary: false,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: PosPrintDocumentTypes.all.entries.map((e) {
+                final active = e.key == _docType;
+                final isLabel = PosPrintPaperSizes.isLabelDoc(e.key);
+                final chipLabel = isLabel ? 'Tem · ${e.value}' : e.value;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: TextButton(
+                    onPressed: () {
+                      if (e.key == _docType) return;
+                      _docType = e.key;
+                      _load();
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: active ? _blue : PosTheme.textPrimary,
+                      backgroundColor:
+                          active ? const Color(0xFFE8F0FE) : null,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      minimumSize: const Size(0, 40),
+                    ),
+                    child: Text(
+                      tr(chipLabel),
+                      style: TextStyle(
+                        fontWeight:
+                            active ? FontWeight.w600 : FontWeight.normal,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1387,12 +1486,25 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   Widget _buildTemplateSelectorBar() {
     final selector = DropdownButtonFormField<String>(
       value: _dropdownValue,
+      isExpanded: true,
       decoration: InputDecoration(
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
         hintText: trN(_templates.isEmpty ? 'Chưa có mẫu — bấm +' : null),
       ),
+      selectedItemBuilder: (ctx) => [
+        for (final t in _templates)
+          SizedBox(
+            width: double.infinity,
+            child: Text(
+              tr('${t.shortLabel}${t.isDefault && !t.shortLabel.contains('★') ? ' ★' : ''}'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+            ),
+          ),
+      ],
       items: _templates
           .map((t) => DropdownMenuItem(
                 value: t.id,
@@ -1409,126 +1521,102 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     );
 
     if (Responsive.isMobile(context)) {
-      final embeddedKit =
-          widget.embeddedInSettings && HrmSettingsMobileKit.active(context);
       return Padding(
-        padding: EdgeInsets.fromLTRB(
-            12, 8, 12, embeddedKit ? 6 : 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+        child: Row(
           children: [
-            if (!embeddedKit)
-              Text(tr('Mẫu in'), style: TextStyle(fontWeight: FontWeight.w600)),
-            if (!embeddedKit) const SizedBox(height: 8),
-            selector,
-            const SizedBox(height: 8),
-            if (embeddedKit)
-              Row(
-                children: [
-                  HrmSettingsAddButton(
-                    label: 'Thêm',
-                    compact: true,
-                    onPressed: _addTemplate,
-                  ),
-                  if (_isCommercialDoc)
-                    IconButton(
-                      tooltip: tr('Tải Word / PDF'),
-                      onPressed: _importCustomerTemplate,
-                      icon: const Icon(Icons.upload_file_outlined),
-                    ),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: tr('Xóa mẫu'),
-                    onPressed: _selected == null ? null : _deleteTemplate,
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  ),
-                  IconButton(
-                    tooltip: tr('In thử'),
-                    onPressed: _testingPrint || _v2Template == null ? null : _testPrintTemplate,
-                    icon: _testingPrint
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.print_outlined, color: _blue),
-                  ),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: _blue),
-                    onPressed: _saving || _selected == null ? null : _save,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.save, size: 16),
-                    label: Text(tr('Lưu')),
-                  ),
-                ],
-              )
-            else
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _addTemplate,
-                      icon: const Icon(Icons.add_circle_outline, size: 18),
-                      label: Text(tr('Thêm')),
-                    ),
-                    if (_isCommercialDoc) ...[
-                      const SizedBox(width: 8),
-                      OutlinedButton.icon(
-                        onPressed: _importCustomerTemplate,
-                        icon: const Icon(Icons.upload_file_outlined, size: 18),
-                        label: Text(tr('Tải Word / PDF')),
-                      ),
-                    ],
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: _selected == null ? null : _deleteTemplate,
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: Text(tr('Xóa')),
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: _testingPrint || _v2Template == null ? null : _testPrintTemplate,
-                      icon: _testingPrint
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.print_outlined, size: 18),
-                      label: Text(tr('In thử')),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton.icon(
-                      onPressed: (_selected == null || _selected!.isDefault)
-                          ? null
-                          : _setStoreDefault,
-                      icon: const Icon(Icons.storefront_outlined, size: 18),
-                      label: Text(tr('Mặc định CH')),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(backgroundColor: _blue),
-                      onPressed: _saving || _selected == null ? null : _save,
-                      icon: _saving
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.save, size: 16),
-                      label: Text(tr('Lưu')),
-                    ),
-                  ],
+            SizedBox(
+              width: 108,
+              child: ClipRect(
+                child: DropdownButtonFormField<String>(
+                value: _docType,
+                isExpanded: true,
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(6)),
                 ),
+                selectedItemBuilder: (ctx) => [
+                  for (final e in PosPrintDocumentTypes.all.entries)
+                    Text(
+                      tr(PosPrintPaperSizes.isLabelDoc(e.key)
+                          ? 'Tem · ${e.value}'
+                          : e.value),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      softWrap: false,
+                    ),
+                ],
+                items: [
+                  for (final e in PosPrintDocumentTypes.all.entries)
+                    DropdownMenuItem(
+                      value: e.key,
+                      child: Text(
+                        tr(PosPrintPaperSizes.isLabelDoc(e.key)
+                            ? 'Tem · ${e.value}'
+                            : e.value),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (v) {
+                  if (v == null || v == _docType) return;
+                  _docType = v;
+                  _load();
+                },
               ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: ClipRect(child: selector),
+            ),
+            TextButton(
+              onPressed: _saving || _selected == null ? null : _save,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                _dirty ? tr('Lưu*') : tr('Lưu'),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: tr('Thao tác mẫu'),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onSelected: (v) {
+                switch (v) {
+                  case 'add':
+                    _addTemplate();
+                  case 'import':
+                    _importCustomerTemplate();
+                  case 'print':
+                    _testPrintTemplate();
+                  case 'default':
+                    _setStoreDefault();
+                  case 'delete':
+                    _deleteTemplate();
+                }
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'add', child: Text(tr('Thêm mẫu'))),
+                if (_isCommercialDoc)
+                  PopupMenuItem(
+                      value: 'import', child: Text(tr('Tải Word / PDF'))),
+                PopupMenuItem(value: 'print', child: Text(tr('In thử'))),
+                if (_selected != null && !_selected!.isDefault)
+                  PopupMenuItem(
+                      value: 'default', child: Text(tr('Đặt mặc định CH'))),
+                if (_selected != null)
+                  PopupMenuItem(
+                      value: 'delete', child: Text(tr('Xóa mẫu'))),
+              ],
+            ),
           ],
         ),
       );
@@ -1540,7 +1628,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         children: [
           Text(tr('Mẫu cửa hàng:'), style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(width: 8),
-          Expanded(child: selector),
+          Expanded(child: ClipRect(child: selector)),
           IconButton(
             tooltip: tr('Thêm mẫu'),
             onPressed: _addTemplate,

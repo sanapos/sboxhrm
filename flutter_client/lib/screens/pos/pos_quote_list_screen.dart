@@ -7,15 +7,20 @@ import '../../models/pos_quote.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_quote_commercial.dart';
+import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_form_keyboard.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
-import 'pos_commercial_company_screen.dart';
+import 'pos_contract_detail_screen.dart';
 import 'pos_quote_composer_screen.dart';
 import 'pos_quote_editor_screen.dart';
 
 class PosQuoteListScreen extends StatefulWidget {
-  const PosQuoteListScreen({super.key});
+  const PosQuoteListScreen({super.key, this.initialTab = 0});
+
+  final int initialTab;
 
   @override
   State<PosQuoteListScreen> createState() => _PosQuoteListScreenState();
@@ -35,7 +40,11 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
   bool _loading = true;
   String? _error;
   bool _canViewAll = false;
+  late int _tab = widget.initialTab.clamp(0, 3);
   List<PosQuote> _items = [];
+  List<PosQuote> _contracts = [];
+  List<PosQuote> _payments = [];
+  List<PosQuote> _accepts = [];
   List<_EmpOpt> _employees = [];
 
   bool _isManagerRole(String role) {
@@ -63,7 +72,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
   }
 
   Future<void> _bootstrap() async {
-    await Future.wait([_loadEmployees(), _load()]);
+    await Future.wait([_loadEmployees(), _reloadAll()]);
   }
 
   Future<void> _loadEmployees() async {
@@ -129,28 +138,151 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     });
   }
 
+  Future<void> _loadContracts() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final res = await ApiService().getPosQuotes(
+      search: _search.text.trim().isEmpty ? null : _search.text.trim(),
+      commercialStage: 'minContracted',
+      employeeId: _employeeId,
+      pageSize: 80,
+    );
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      setState(() {
+        _loading = false;
+        _error = res['message']?.toString() ?? 'Không tải được hợp đồng';
+      });
+      return;
+    }
+    final data = res['data'];
+    final raw = data is Map ? (data['items'] as List? ?? []) : <dynamic>[];
+    setState(() {
+      _loading = false;
+      _contracts = raw
+          .whereType<Map>()
+          .map((e) => PosQuote.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    });
+  }
+
+  Future<void> _loadByDocKind(String kind) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final res = await ApiService().getPosQuotes(
+      search: _search.text.trim().isEmpty ? null : _search.text.trim(),
+      documentKind: kind,
+      employeeId: _employeeId,
+      pageSize: 80,
+    );
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      setState(() {
+        _loading = false;
+        _error = res['message']?.toString() ?? 'Không tải được chứng từ';
+      });
+      return;
+    }
+    final data = res['data'];
+    final raw = data is Map ? (data['items'] as List? ?? []) : <dynamic>[];
+    final list = raw
+        .whereType<Map>()
+        .map((e) => PosQuote.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    setState(() {
+      _loading = false;
+      if (kind == 'PaymentRequest') {
+        _payments = list;
+      } else {
+        _accepts = list;
+      }
+    });
+  }
+
+  Future<void> _reloadAll() async {
+    hidePosSoftKeyboard(alsoAfterMs: 0);
+    switch (_tab) {
+      case 1:
+        await _loadContracts();
+      case 2:
+        await _loadByDocKind('PaymentRequest');
+      case 3:
+        await _loadByDocKind('Acceptance');
+      default:
+        await _load();
+    }
+  }
+
   Future<void> _openComposer() async {
     final ok = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => const PosQuoteComposerScreen()),
     );
-    if (mounted && ok == true) _load();
-    else if (mounted) _load();
+    if (mounted) await _reloadAll();
   }
 
   Future<void> _openEditor(PosQuote q) async {
+    hidePosSoftKeyboard(alsoAfterMs: 0);
+    FocusManager.instance.primaryFocus?.unfocus();
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PosQuoteComposerScreen(quoteId: q.id),
       ),
     );
-    if (mounted) _load();
+    if (mounted) await _reloadAll();
   }
 
   Future<void> _openDocs(PosQuote q) async {
+    hidePosSoftKeyboard(alsoAfterMs: 0);
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => PosQuoteEditorScreen(quoteId: q.id)),
     );
-    if (mounted) _load();
+    if (mounted) await _reloadAll();
+  }
+
+  Future<void> _openContract(PosQuote q) async {
+    hidePosSoftKeyboard(alsoAfterMs: 0);
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PosContractDetailScreen(quoteId: q.id),
+      ),
+    );
+    if (mounted) await _reloadAll();
+  }
+
+  Future<void> _createContract(PosQuote q) async {
+    hidePosSoftKeyboard(alsoAfterMs: 0);
+    final doc = await createPosQuoteCommercialDoc(
+      context,
+      quote: q,
+      kind: 'Contract',
+    );
+    if (!mounted) return;
+    await _reloadAll();
+    if (doc != null && mounted) await _openContract(q);
+  }
+
+  Future<void> _createPackage(PosQuote q) async {
+    hidePosSoftKeyboard(alsoAfterMs: 0);
+    final ok = await createPosQuoteCommercialPackage(context, quote: q);
+    if (!mounted) return;
+    await _reloadAll();
+    if (ok && mounted) await _openContract(q);
+  }
+
+  Future<void> _createKind(PosQuote q, String kind) async {
+    hidePosSoftKeyboard(alsoAfterMs: 0);
+    final doc = await createPosQuoteCommercialDoc(
+      context,
+      quote: q,
+      kind: kind,
+    );
+    if (!mounted) return;
+    await _reloadAll();
+    if (doc != null && mounted) await _openContract(q);
   }
 
   Future<void> _delete(PosQuote q) async {
@@ -183,7 +315,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
       title: 'Đã xóa',
       message: q.quoteNo,
     );
-    _load();
+    await _reloadAll();
   }
 
   @override
@@ -198,9 +330,10 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     final canCreate = perm.canCreate('PosQuotes') || perm.canEdit('PosQuotes');
     final canEdit = perm.canEdit('PosQuotes');
     final canDelete = perm.canDelete('PosQuotes');
+    final narrow = MediaQuery.sizeOf(context).width < 720;
     return Scaffold(
       backgroundColor: PosTheme.background,
-      floatingActionButton: canCreate
+      floatingActionButton: canCreate && _tab == 0
           ? FloatingActionButton.extended(
               onPressed: _openComposer,
               icon: const Icon(Icons.add),
@@ -213,221 +346,464 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
             color: Colors.white,
             elevation: 1,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: Text(
-                      tr('Báo giá'),
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w800),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 4, 8, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: SegmentedButton<int>(
+                      segments: [
+                        ButtonSegment(
+                            value: 0,
+                            label: Text(tr('Báo giá')),
+                            icon: const Icon(Icons.request_quote_outlined,
+                                size: 18)),
+                        ButtonSegment(
+                            value: 1,
+                            label: Text(tr('Hợp đồng')),
+                            icon: const Icon(Icons.handshake_outlined,
+                                size: 18)),
+                        ButtonSegment(
+                            value: 2,
+                            label: Text(tr('Đề nghị TT')),
+                            icon: const Icon(Icons.payments_outlined,
+                                size: 18)),
+                        ButtonSegment(
+                            value: 3,
+                            label: Text(tr('Nghiệm thu')),
+                            icon: const Icon(Icons.fact_check_outlined,
+                                size: 18)),
+                      ],
+                      selected: {_tab},
+                      onSelectionChanged: (s) {
+                        setState(() => _tab = s.first);
+                        _reloadAll();
+                      },
+                      showSelectedIcon: false,
                     ),
-                  ),
-                  IconButton(
-                    tooltip: tr('Tải lại'),
-                    onPressed: _load,
-                    icon: const Icon(Icons.refresh),
-                  ),
-                  IconButton(
-                    tooltip: tr('Thông tin công ty shop'),
-                    onPressed: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const PosCommercialCompanyScreen(),
+                          ),
                         ),
-                      );
-                    },
-                    icon: const Icon(Icons.apartment_outlined),
-                  ),
-                  if (canCreate)
-                    FilledButton.icon(
-                      onPressed: _openComposer,
-                      icon: const Icon(Icons.add, size: 20),
-                      label: Text(tr('Thêm báo giá mới')),
+                        if (canCreate && !narrow)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: FilledButton.icon(
+                              onPressed: _openComposer,
+                              icon: const Icon(Icons.add, size: 20),
+                              label: Text(tr('Thêm báo giá mới')),
+                            ),
+                          ),
+                      ],
                     ),
+                  ),
                 ],
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            child: Column(
               children: [
-                SizedBox(
-                  width: 280,
-                  child: TextField(
-                    controller: _search,
-                    decoration: PosTheme.inputDecoration(
-                      label: 'Số BG / khách / SĐT',
-                    ),
-                    onSubmitted: (_) => _load(),
-                  ),
-                ),
-                DropdownButton<String?>(
-                  value: _status,
-                  hint: Text(tr('Trạng thái')),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Tất cả')),
-                    for (final s in const [
-                      'Draft',
-                      'Sent',
-                      'Revised',
-                      'Accepted',
-                      'Rejected',
-                      'Expired',
-                      'Cancelled',
-                    ])
-                      DropdownMenuItem(
-                        value: s,
-                        child: Text(PosQuote.statusLabel(s)),
-                      ),
-                  ],
-                  onChanged: (v) {
-                    setState(() => _status = v);
-                    _load();
-                  },
-                ),
-                if (_canViewAll)
-                  DropdownButton<String?>(
-                    value: _employeeId,
-                    hint: Text(tr('Nhân viên')),
-                    items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text('Tất cả NV')),
-                      for (final e in _employees)
-                        DropdownMenuItem(value: e.id, child: Text(e.label)),
-                    ],
-                    onChanged: (v) {
-                      setState(() => _employeeId = v);
-                      _load();
+                TextField(
+                  controller: _search,
+                  onTap: posShowSoftKeyboardOnFieldTap,
+                  decoration: PosTheme.inputDecoration(
+                    label: switch (_tab) {
+                      1 => 'Số HĐ / khách / SĐT',
+                      2 => 'Số ĐN / khách / SĐT',
+                      3 => 'Số NT / khách / SĐT',
+                      _ => 'Số BG / khách / SĐT',
                     },
                   ),
+                  onSubmitted: (_) => _reloadAll(),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    if (_tab == 0)
+                      Expanded(
+                        child: DropdownButtonFormField<String?>(
+                          value: _status,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                          ),
+                          items: [
+                            DropdownMenuItem(
+                                value: null, child: Text(tr('Tất cả'))),
+                            for (final s in const [
+                              'Draft',
+                              'Sent',
+                              'Revised',
+                              'Accepted',
+                              'Rejected',
+                              'Expired',
+                              'Cancelled',
+                            ])
+                              DropdownMenuItem(
+                                value: s,
+                                child: Text(PosQuote.statusLabel(s)),
+                              ),
+                          ],
+                          onChanged: (v) {
+                            setState(() => _status = v);
+                            _load();
+                          },
+                        ),
+                      ),
+                    if (_tab == 0 && _canViewAll) const SizedBox(width: 8),
+                    if (_canViewAll)
+                      Expanded(
+                        child: DropdownButtonFormField<String?>(
+                          value: _employeeId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                          ),
+                          items: [
+                            DropdownMenuItem(
+                                value: null, child: Text(tr('Tất cả NV'))),
+                            for (final e in _employees)
+                              DropdownMenuItem(
+                                  value: e.id, child: Text(e.label)),
+                          ],
+                          onChanged: (v) {
+                            setState(() => _employeeId = v);
+                            _reloadAll();
+                          },
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(child: Text(_error!))
-                    : _items.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(tr(
-                                    'Chưa có báo giá — chọn hàng hóa / dịch vụ rồi nhập khách.')),
-                                if (canCreate) ...[
-                                  const SizedBox(height: 12),
-                                  FilledButton.icon(
-                                    onPressed: _openComposer,
-                                    icon: const Icon(Icons.add),
-                                    label: Text(tr('Thêm báo giá mới')),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          )
-                        : RefreshIndicator(
-                            onRefresh: _load,
-                            child: ListView.separated(
-                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
-                              itemCount: _items.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 8),
-                              itemBuilder: (_, i) {
-                                final q = _items[i];
-                                final until = q.validUntil;
-                                final staff = q.staffLabel;
-                                return Material(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: ListTile(
-                                    title: Text(
-                                      '${q.quoteNo} · ${q.customerName?.isNotEmpty == true ? q.customerName : 'Chưa chọn khách'}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700),
-                                    ),
-                                    subtitle: Text([
-                                      PosQuote.statusLabel(q.status),
-                                      if (q.status == 'Accepted')
-                                        PosQuote.stageLabel(q.commercialStage),
-                                      if (until != null)
-                                        'Hạn ${DateFormat('dd/MM/yyyy').format(until.toLocal())}',
-                                      '${_money.format(q.total)} đ',
-                                      if (staff.isNotEmpty) staff,
-                                    ].join('  ·  ')),
-                                    onTap: () => _openEditor(q),
-                                    trailing: PopupMenuButton<String>(
-                                      tooltip: tr('Thao tác'),
-                                      onSelected: (v) async {
-                                        switch (v) {
-                                          case 'edit':
-                                            await _openEditor(q);
-                                          case 'docs':
-                                            await _openDocs(q);
-                                          case 'print':
-                                            await printPosQuoteSlip(
-                                              context,
-                                              quoteId: q.id,
-                                              quote: q,
-                                            );
-                                          case 'call':
-                                            await callPosQuoteCustomer(
-                                                q.customerPhone);
-                                          case 'care':
-                                            await showPosQuoteCareSheet(
-                                              context,
-                                              quoteId: q.id,
-                                              quoteNo: q.quoteNo,
-                                              customerName: q.customerName,
-                                              customerPhone: q.customerPhone,
-                                            );
-                                          case 'delete':
-                                            await _delete(q);
-                                        }
-                                      },
-                                      itemBuilder: (_) => [
-                                        if (canEdit && !q.isLocked)
-                                          PopupMenuItem(
-                                            value: 'edit',
-                                            child: Text(tr('Sửa báo giá')),
-                                          ),
-                                        PopupMenuItem(
-                                          value: 'docs',
-                                          child: Text(tr('Hồ sơ HĐ / nghiệm thu')),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'print',
-                                          child: Text(tr('In phiếu báo giá')),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'call',
-                                          child: Text(tr('Gọi khách')),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'care',
-                                          child: Text(tr('Lịch CSKH')),
-                                        ),
-                                        if (canDelete && q.canDelete)
-                                          PopupMenuItem(
-                                            value: 'delete',
-                                            child: Text(tr('Xóa nháp')),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
+            child: switch (_tab) {
+              1 => _stageList(
+                  _contracts,
+                  canEdit,
+                  empty:
+                      'Chưa có hợp đồng. Mở báo giá → menu → Tạo hợp đồng hoặc trọn bộ hồ sơ.',
+                ),
+              2 => _stageList(
+                  _payments,
+                  canEdit,
+                  empty: 'Chưa có đề nghị thanh toán / tạm ứng.',
+                ),
+              3 => _stageList(
+                  _accepts,
+                  canEdit,
+                  empty: 'Chưa có biên bản nghiệm thu.',
+                ),
+              _ => _quoteList(canCreate, canEdit, canDelete),
+            },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _quoteList(bool canCreate, bool canEdit, bool canDelete) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!));
+    if (_items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(tr(
+                'Chưa có báo giá — chọn hàng hóa / dịch vụ rồi nhập khách.')),
+            if (canCreate) ...[
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _openComposer,
+                icon: const Icon(Icons.add),
+                label: Text(tr('Thêm báo giá mới')),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _reloadAll,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
+        itemCount: _items.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (_, i) => _quoteCard(_items[i], canEdit, canDelete),
+      ),
+    );
+  }
+
+  Widget _stageList(List<PosQuote> rows, bool canEdit, {required String empty}) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return Center(child: Text(_error!));
+    if (rows.isEmpty) {
+      return Center(child: Text(tr(empty)));
+    }
+    return RefreshIndicator(
+      onRefresh: _reloadAll,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
+        itemCount: rows.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (_, i) {
+          final q = rows[i];
+          return Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            child: ListTile(
+              title: Text(
+                '${q.quoteNo} · ${q.customerName ?? ''}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text([
+                PosQuote.stageLabel(q.commercialStage),
+                '${_money.format(q.total)} đ',
+                if (q.staffLabel.isNotEmpty) q.staffLabel,
+              ].join(' · ')),
+              onTap: () => _openContract(q),
+              trailing: PopupMenuButton<String>(
+                tooltip: tr('Thao tác'),
+                onSelected: (v) async {
+                  switch (v) {
+                    case 'open':
+                      await _openContract(q);
+                    case 'package':
+                      await _createPackage(q);
+                    case 'payment':
+                      await _createKind(q, 'PaymentRequest');
+                    case 'handover':
+                      await _createKind(q, 'Handover');
+                    case 'acceptance':
+                      await _createKind(q, 'Acceptance');
+                  }
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'open',
+                    child: Text(tr('Mở hồ sơ')),
+                  ),
+                  if (canEdit) ...[
+                    PopupMenuItem(
+                      value: 'package',
+                      child: Text(tr('Tạo trọn bộ hồ sơ')),
+                    ),
+                    PopupMenuItem(
+                      value: 'payment',
+                      child: Text(tr('Tạo đề nghị TT')),
+                    ),
+                    PopupMenuItem(
+                      value: 'handover',
+                      child: Text(tr('Tạo bàn giao')),
+                    ),
+                    PopupMenuItem(
+                      value: 'acceptance',
+                      child: Text(tr('Tạo nghiệm thu')),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _quoteCard(PosQuote q, bool canEdit, bool canDelete) {
+    final until = q.validUntil;
+    final staff = q.staffLabel;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(8),
+      child: ListTile(
+        title: Text(
+          '${q.quoteNo} · ${q.customerName?.isNotEmpty == true ? q.customerName : 'Chưa chọn khách'}',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: Text([
+          PosQuote.statusLabel(q.status),
+          if (q.status == 'Accepted')
+            PosQuote.stageLabel(q.commercialStage),
+          if (until != null)
+            'Hạn ${DateFormat('dd/MM/yyyy').format(until.toLocal())}',
+          '${_money.format(q.total)} đ',
+          if (staff.isNotEmpty) staff,
+        ].join('  ·  ')),
+        onTap: () => _openEditor(q),
+        trailing: PopupMenuButton<String>(
+          tooltip: tr('Thao tác'),
+          onSelected: (v) async {
+            switch (v) {
+              case 'edit':
+                await _openEditor(q);
+              case 'contract':
+                if (q.commercialStage == 'None' ||
+                    q.commercialStage == 'Accepted') {
+                  await _createContract(q);
+                } else {
+                  await _openContract(q);
+                }
+              case 'package':
+                await _createPackage(q);
+              case 'docs':
+                await _openDocs(q);
+              case 'print':
+                await printPosQuoteSlip(
+                  context,
+                  quoteId: q.id,
+                  quote: q,
+                );
+              case 'excel':
+                await PosQuoteExport.exportExcel(
+                  context,
+                  quoteId: q.id,
+                  quoteNo: q.quoteNo,
+                );
+              case 'word':
+                await PosQuoteExport.exportWord(
+                  context,
+                  quoteId: q.id,
+                  quoteNo: q.quoteNo,
+                );
+              case 'pdf':
+                await PosQuoteExport.exportPdf(
+                  context,
+                  quoteId: q.id,
+                  quoteNo: q.quoteNo,
+                );
+              case 'email':
+                await PosQuoteExport.shareQuote(
+                  context,
+                  quoteId: q.id,
+                  quoteNo: q.quoteNo,
+                  customerName: q.customerName ?? '',
+                  channel: 'email',
+                );
+              case 'zalo':
+                await PosQuoteExport.shareQuote(
+                  context,
+                  quoteId: q.id,
+                  quoteNo: q.quoteNo,
+                  customerName: q.customerName ?? '',
+                  channel: 'zalo',
+                );
+              case 'facebook':
+                await PosQuoteExport.shareQuote(
+                  context,
+                  quoteId: q.id,
+                  quoteNo: q.quoteNo,
+                  customerName: q.customerName ?? '',
+                  channel: 'facebook',
+                );
+              case 'call':
+                await callPosQuoteCustomer(q.customerPhone);
+              case 'care':
+                await showPosQuoteCareSheet(
+                  context,
+                  quoteId: q.id,
+                  quoteNo: q.quoteNo,
+                  customerName: q.customerName,
+                  customerPhone: q.customerPhone,
+                );
+              case 'delete':
+                await _delete(q);
+            }
+          },
+          itemBuilder: (_) => [
+            if (canEdit && !q.isLocked)
+              PopupMenuItem(
+                value: 'edit',
+                child: Text(tr('Sửa báo giá')),
+              ),
+            if (canEdit)
+              PopupMenuItem(
+                value: 'contract',
+                child: Text(q.commercialStage == 'None' ||
+                        q.commercialStage == 'Accepted'
+                    ? tr('Tạo hợp đồng')
+                    : tr('Mở hợp đồng')),
+              ),
+            if (canEdit)
+              PopupMenuItem(
+                value: 'package',
+                child: Text(tr('Tạo trọn bộ hồ sơ')),
+              ),
+            PopupMenuItem(
+              value: 'docs',
+              child: Text(tr('Hồ sơ HĐ / nghiệm thu')),
+            ),
+            PopupMenuItem(
+              value: 'print',
+              child: Text(tr('In phiếu báo giá')),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              enabled: false,
+              height: 32,
+              child: Text(
+                tr('Xuất & chia sẻ'),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ),
+            PopupMenuItem(
+              value: 'excel',
+              child: Text(tr('Xuất Excel')),
+            ),
+            PopupMenuItem(
+              value: 'word',
+              child: Text(tr('Xuất Word')),
+            ),
+            PopupMenuItem(
+              value: 'pdf',
+              child: Text(tr('Xuất PDF')),
+            ),
+            PopupMenuItem(
+              value: 'email',
+              child: Text(tr('Gửi Email')),
+            ),
+            PopupMenuItem(
+              value: 'zalo',
+              child: Text(tr('Chia sẻ Zalo')),
+            ),
+            PopupMenuItem(
+              value: 'facebook',
+              child: Text(tr('Chia sẻ Facebook')),
+            ),
+            PopupMenuItem(
+              value: 'call',
+              child: Text(tr('Gọi khách')),
+            ),
+            PopupMenuItem(
+              value: 'care',
+              child: Text(tr('Lịch CSKH')),
+            ),
+            if (canDelete && q.canDelete)
+              PopupMenuItem(
+                value: 'delete',
+                child: Text(tr('Xóa nháp')),
+              ),
+          ],
+        ),
       ),
     );
   }

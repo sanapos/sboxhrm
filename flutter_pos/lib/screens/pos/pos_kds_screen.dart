@@ -1006,7 +1006,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   bool _canKdsAct() {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
-    return perm.canCreate('PosKds') || perm.canEdit('PosProducts');
+    return perm.canCreate('PosKds');
   }
 
   void _denyKdsAct() {

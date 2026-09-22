@@ -53,6 +53,8 @@ public partial class PosQuotesController(
         string? Note,
         string? Terms,
         string? PaymentMethod,
+        decimal DepositAmount,
+        decimal? DepositPercent,
         Guid? PrintTemplateId,
         int Revision,
         string? QuotedBy,
@@ -65,7 +67,7 @@ public partial class PosQuotesController(
         List<QuoteDocumentDto>? Documents);
 
     public record QuoteLineInput(
-        Guid? ProductId,
+        string? ProductId,
         string? ProductCode,
         string ProductName,
         string? UnitName,
@@ -74,10 +76,11 @@ public partial class PosQuotesController(
         decimal DiscountAmount = 0,
         decimal VatRate = 0,
         string? LineNote = null,
-        int? WarrantyMonths = null);
+        int? WarrantyMonths = null,
+        string? Id = null);
 
     public record QuoteSaveDto(
-        Guid? CustomerId,
+        string? CustomerId,
         string? CustomerName,
         string? CustomerPhone,
         string? CustomerAddress,
@@ -85,16 +88,20 @@ public partial class PosQuotesController(
         string? Note,
         string? Terms,
         string? PaymentMethod,
-        Guid? PrintTemplateId,
+        string? PrintTemplateId,
         List<QuoteLineInput>? Lines,
         decimal Discount = 0,
-        bool IncludeImages = false);
+        bool IncludeImages = false,
+        decimal DepositAmount = 0,
+        decimal? DepositPercent = null);
 
     [HttpGet]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> List(
         [FromQuery] string? search,
         [FromQuery] string? status,
+        [FromQuery] string? commercialStage,
+        [FromQuery] string? documentKind,
         [FromQuery] Guid? employeeId,
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
@@ -118,6 +125,19 @@ public partial class PosQuotesController(
         if (!string.IsNullOrWhiteSpace(status) &&
             Enum.TryParse<PosQuoteStatus>(status, true, out var st))
             q = q.Where(x => x.Status == st);
+        if (!string.IsNullOrWhiteSpace(commercialStage))
+        {
+            var stageRaw = commercialStage.Trim();
+            if (stageRaw.Equals("minContracted", StringComparison.OrdinalIgnoreCase))
+                q = q.Where(x => x.CommercialStage >= PosQuoteCommercialStage.Contracted);
+            else if (Enum.TryParse<PosQuoteCommercialStage>(stageRaw, true, out var cs))
+                q = q.Where(x => x.CommercialStage == cs);
+        }
+        if (!string.IsNullOrWhiteSpace(documentKind) &&
+            Enum.TryParse<PosQuoteDocumentKind>(documentKind, true, out var dk))
+        {
+            q = q.Where(x => x.Documents.Any(d => d.Deleted == null && d.Kind == dk));
+        }
         if (CanViewAllQuotes && employeeId.HasValue && employeeId.Value != Guid.Empty)
             q = q.Where(x => x.QuotedByEmployeeId == employeeId);
         if (from.HasValue) q = q.Where(x => x.CreatedAt >= from.Value);
@@ -145,19 +165,19 @@ public partial class PosQuotesController(
         var storeId = RequiredStoreId;
         await ExpireOverdueAsync(storeId);
         var quote = await dbContext.PosQuotes.AsNoTracking()
+            .IgnoreQueryFilters()
             .Include(x => x.Lines)
             .Include(x => x.Documents)
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<QuoteDto>.Fail("Không tìm thấy báo giá"));
-        if (!quote.Lines.Any(l => l.Deleted == null))
-        {
-            var extra = await dbContext.PosQuoteLines.AsNoTracking()
-                .Where(l => l.QuoteId == id && l.StoreId == storeId && l.Deleted == null)
-                .OrderBy(l => l.SortOrder)
-                .ToListAsync();
-            foreach (var line in extra) quote.Lines.Add(line);
-        }
+        var dbLines = await dbContext.PosQuoteLines.AsNoTracking()
+            .IgnoreQueryFilters()
+            .Where(l => l.QuoteId == id && l.Deleted == null)
+            .OrderBy(l => l.SortOrder)
+            .ToListAsync();
+        quote.Lines.Clear();
+        foreach (var line in dbLines) quote.Lines.Add(line);
         var names = await EmployeeNamesAsync([quote.QuotedByEmployeeId]);
         return Ok(AppResponse<QuoteDto>.Success(Map(quote, names)));
     }
@@ -183,6 +203,7 @@ public partial class PosQuotesController(
         };
         ApplyHeader(quote, dto);
         ApplyLines(quote, storeId, dto.Lines);
+        ApplyDeposit(quote, dto);
         Recalc(quote);
         dbContext.PosQuotes.Add(quote);
         await AttachQuoteSlipAsync(quote, dto.IncludeImages);
@@ -197,9 +218,7 @@ public partial class PosQuotesController(
     public async Task<ActionResult<AppResponse<QuoteDto>>> Update(Guid id, [FromBody] QuoteSaveDto dto)
     {
         var storeId = RequiredStoreId;
-        var quote = await dbContext.PosQuotes
-            .Include(x => x.Lines)
-            .Include(x => x.Documents.Where(d => d.Deleted == null))
+        var quote = await dbContext.PosQuotes.IgnoreQueryFilters()
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<QuoteDto>.Fail("Không tìm thấy báo giá"));
@@ -210,23 +229,44 @@ public partial class PosQuotesController(
             return BadRequest(AppResponse<QuoteDto>.Fail("Báo giá đã khóa — không sửa được"));
         if (dto.Lines == null || dto.Lines.Count == 0)
             return BadRequest(AppResponse<QuoteDto>.Fail("Báo giá cần ít nhất một dòng"));
+        var now = DateTime.UtcNow;
+        await dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $@"UPDATE ""PosQuoteLines"" SET ""Deleted"" = {now}, ""DeletedBy"" = {CurrentUserEmail}, ""UpdatedAt"" = {now}, ""UpdatedBy"" = {CurrentUserEmail} WHERE ""QuoteId"" = {id} AND ""Deleted"" IS NULL");
+        dbContext.ChangeTracker.Clear();
+        quote = await dbContext.PosQuotes.IgnoreQueryFilters()
+            .FirstAsync(x => x.Id == id);
         ApplyHeader(quote, dto);
-        foreach (var line in quote.Lines.Where(l => l.Deleted == null))
-        {
-            line.Deleted = DateTime.UtcNow;
-            line.DeletedBy = CurrentUserEmail;
-        }
-        ApplyLines(quote, storeId, dto.Lines);
+        InsertLines(quote, storeId, dto.Lines);
+        ApplyDeposit(quote, dto);
         if (quote.Status == PosQuoteStatus.Sent)
         {
             quote.Status = PosQuoteStatus.Revised;
             quote.Revision++;
         }
         Recalc(quote);
-        quote.UpdatedAt = DateTime.UtcNow;
+        quote.UpdatedAt = now;
         quote.UpdatedBy = CurrentUserEmail;
-        await RefreshQuoteSlipAsync(quote, dto.IncludeImages);
-        AddActivity(quote, "Edit", $"Sửa báo giá (lần {quote.Revision})");
+        await dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $@"UPDATE ""PosQuotes"" SET
+                ""SubTotal"" = {quote.SubTotal},
+                ""VatAmount"" = {quote.VatAmount},
+                ""Total"" = {quote.Total},
+                ""Discount"" = {quote.Discount},
+                ""CustomerName"" = {quote.CustomerName},
+                ""CustomerPhone"" = {quote.CustomerPhone},
+                ""CustomerAddress"" = {quote.CustomerAddress},
+                ""ValidUntil"" = {quote.ValidUntil},
+                ""Note"" = {quote.Note},
+                ""PaymentMethod"" = {quote.PaymentMethod},
+                ""DepositAmount"" = {quote.DepositAmount},
+                ""DepositPercent"" = {quote.DepositPercent},
+                ""PrintTemplateId"" = {quote.PrintTemplateId},
+                ""CustomerId"" = {quote.CustomerId},
+                ""UpdatedAt"" = {now},
+                ""UpdatedBy"" = {CurrentUserEmail},
+                ""Revision"" = {quote.Revision}
+              WHERE ""Id"" = {quote.Id}");
+        dbContext.Entry(quote).State = EntityState.Unchanged;
         await dbContext.SaveChangesAsync();
         var names = await EmployeeNamesAsync([quote.QuotedByEmployeeId]);
         return Ok(AppResponse<QuoteDto>.Success(Map(quote, names)));
@@ -362,9 +402,13 @@ public partial class PosQuotesController(
         return prefix + (max + 1).ToString("D4");
     }
 
+    static Guid? ParseGuid(string? s) =>
+        Guid.TryParse(s, out var g) && g != Guid.Empty ? g : null;
+
     static void ApplyHeader(PosQuote quote, QuoteSaveDto dto)
     {
-        quote.CustomerId = dto.CustomerId;
+        if (dto.CustomerId != null)
+            quote.CustomerId = ParseGuid(dto.CustomerId);
         quote.CustomerName = dto.CustomerName?.Trim();
         quote.CustomerPhone = dto.CustomerPhone?.Trim();
         quote.CustomerAddress = dto.CustomerAddress?.Trim();
@@ -373,10 +417,34 @@ public partial class PosQuotesController(
         quote.Note = dto.Note?.Trim();
         quote.Terms = dto.Terms?.Trim();
         quote.PaymentMethod = dto.PaymentMethod?.Trim();
-        quote.PrintTemplateId = dto.PrintTemplateId;
+        if (dto.PrintTemplateId != null)
+        {
+            var tpl = ParseGuid(dto.PrintTemplateId);
+            if (tpl != null || string.IsNullOrWhiteSpace(dto.PrintTemplateId))
+                quote.PrintTemplateId = tpl;
+        }
     }
 
-    void ApplyLines(PosQuote quote, Guid storeId, List<QuoteLineInput> inputs)
+    static void ApplyDeposit(PosQuote quote, QuoteSaveDto dto)
+    {
+        quote.DepositPercent = dto.DepositPercent is > 0 and <= 100 ? dto.DepositPercent : null;
+        quote.DepositAmount = Math.Max(0, dto.DepositAmount);
+        if (quote.DepositPercent is > 0)
+        {
+            var preVat = PreVatTotal(quote);
+            quote.DepositAmount = Math.Round(preVat * quote.DepositPercent.Value / 100m, 0,
+                MidpointRounding.AwayFromZero);
+        }
+    }
+
+    static decimal PreVatTotal(PosQuote quote)
+    {
+        var lines = quote.Lines.Where(l => l.Deleted == null).ToList();
+        var lineNet = lines.Sum(l => Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount));
+        return Math.Max(0, lineNet - quote.Discount);
+    }
+
+    void InsertLines(PosQuote quote, Guid storeId, List<QuoteLineInput> inputs)
     {
         var sort = 0;
         foreach (var input in inputs)
@@ -386,16 +454,98 @@ public partial class PosQuotesController(
             var disc = Math.Max(0, input.DiscountAmount);
             var vat = Math.Clamp(input.VatRate, 0, 100);
             var net = Math.Max(0, qty * price - disc);
+            var line = new PosQuoteLine
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                QuoteId = quote.Id,
+                ProductId = ParseGuid(input.ProductId),
+                ProductCode = input.ProductCode?.Trim(),
+                ProductName = (input.ProductName ?? "").Trim(),
+                UnitName = input.UnitName?.Trim(),
+                Qty = qty,
+                UnitPrice = price,
+                DiscountAmount = disc,
+                VatRate = vat,
+                LineTotal = Math.Round(net * (1 + vat / 100m), 0, MidpointRounding.AwayFromZero),
+                LineNote = input.LineNote?.Trim(),
+                WarrantyMonths = input.WarrantyMonths,
+                SortOrder = sort++,
+                CreatedBy = CurrentUserEmail,
+                IsActive = true,
+            };
+            quote.Lines.Add(line);
+            dbContext.PosQuoteLines.Add(line);
+        }
+        FillWarranty(quote);
+    }
+
+    void ApplyLines(PosQuote quote, Guid storeId, List<QuoteLineInput> inputs)
+    {
+        var active = quote.Lines.Where(l => l.Deleted == null).ToList();
+        var used = new HashSet<Guid>();
+        var sort = 0;
+        foreach (var input in inputs)
+        {
+            var qty = input.Qty <= 0 ? 1 : input.Qty;
+            var price = Math.Max(0, input.UnitPrice);
+            var disc = Math.Max(0, input.DiscountAmount);
+            var vat = Math.Clamp(input.VatRate, 0, 100);
+            var net = Math.Max(0, qty * price - disc);
             var lineTotal = Math.Round(net * (1 + vat / 100m), 0, MidpointRounding.AwayFromZero);
+            var productId = ParseGuid(input.ProductId);
+            var name = (input.ProductName ?? "").Trim();
+            var unit = input.UnitName?.Trim();
+
+            PosQuoteLine? line = null;
+            if (ParseGuid(input.Id) is Guid lid)
+                line = active.FirstOrDefault(l => l.Id == lid && !used.Contains(l.Id));
+            if (line == null && productId != null)
+            {
+                line = active.FirstOrDefault(l =>
+                    !used.Contains(l.Id) &&
+                    l.ProductId == productId &&
+                    string.Equals(l.UnitName ?? "", unit ?? "", StringComparison.OrdinalIgnoreCase));
+                line ??= active.FirstOrDefault(l =>
+                    !used.Contains(l.Id) && l.ProductId == productId);
+            }
+            if (line == null && name.Length > 0)
+            {
+                line = active.FirstOrDefault(l =>
+                    !used.Contains(l.Id) &&
+                    string.Equals(l.ProductName, name, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(l.UnitName ?? "", unit ?? "", StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (line != null)
+            {
+                used.Add(line.Id);
+                line.ProductId = productId;
+                line.ProductCode = input.ProductCode?.Trim();
+                line.ProductName = name;
+                line.UnitName = unit;
+                line.Qty = qty;
+                line.UnitPrice = price;
+                line.DiscountAmount = disc;
+                line.VatRate = vat;
+                line.LineTotal = lineTotal;
+                line.LineNote = input.LineNote?.Trim();
+                line.WarrantyMonths = input.WarrantyMonths;
+                line.SortOrder = sort++;
+                line.UpdatedAt = DateTime.UtcNow;
+                line.UpdatedBy = CurrentUserEmail;
+                continue;
+            }
+
             quote.Lines.Add(new PosQuoteLine
             {
                 Id = Guid.NewGuid(),
                 StoreId = storeId,
                 QuoteId = quote.Id,
-                ProductId = input.ProductId,
+                ProductId = productId,
                 ProductCode = input.ProductCode?.Trim(),
-                ProductName = (input.ProductName ?? "").Trim(),
-                UnitName = input.UnitName?.Trim(),
+                ProductName = name,
+                UnitName = unit,
                 Qty = qty,
                 UnitPrice = price,
                 DiscountAmount = disc,
@@ -408,24 +558,34 @@ public partial class PosQuotesController(
                 IsActive = true,
             });
         }
+
+        foreach (var line in active.Where(l => !used.Contains(l.Id)))
+        {
+            line.Deleted = DateTime.UtcNow;
+            line.DeletedBy = CurrentUserEmail;
+        }
+
+        FillWarranty(quote);
+    }
+
+    void FillWarranty(PosQuote quote)
+    {
         var needWarranty = quote.Lines
             .Where(l => l.Deleted == null && l.ProductId.HasValue && l.WarrantyMonths == null)
             .Select(l => l.ProductId!.Value)
             .Distinct()
             .ToList();
-        if (needWarranty.Count > 0)
+        if (needWarranty.Count == 0) return;
+        var months = dbContext.PosProducts.AsNoTracking()
+            .Where(p => needWarranty.Contains(p.Id) && p.Deleted == null)
+            .Select(p => new { p.Id, p.WarrantyMonths })
+            .ToList()
+            .ToDictionary(p => p.Id, p => p.WarrantyMonths);
+        foreach (var line in quote.Lines.Where(l => l.Deleted == null && l.ProductId.HasValue))
         {
-            var months = dbContext.PosProducts.AsNoTracking()
-                .Where(p => needWarranty.Contains(p.Id) && p.Deleted == null)
-                .Select(p => new { p.Id, p.WarrantyMonths })
-                .ToList()
-                .ToDictionary(p => p.Id, p => p.WarrantyMonths);
-            foreach (var line in quote.Lines.Where(l => l.Deleted == null && l.ProductId.HasValue))
-            {
-                if (line.WarrantyMonths == null &&
-                    months.TryGetValue(line.ProductId!.Value, out var m))
-                    line.WarrantyMonths = m;
-            }
+            if (line.WarrantyMonths == null &&
+                months.TryGetValue(line.ProductId!.Value, out var m))
+                line.WarrantyMonths = m;
         }
     }
 
@@ -541,8 +701,13 @@ public partial class PosQuotesController(
             await AttachQuoteSlipAsync(quote, includeImages);
             return;
         }
+        var docNo = slip.DocNo;
+        if (string.IsNullOrWhiteSpace(docNo) ||
+            docNo.Equals("XEM TRƯỚC", StringComparison.OrdinalIgnoreCase))
+            docNo = quote.QuoteNo;
+        slip.DocNo = docNo;
         slip.HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
-            dbContext, quote, PosQuoteDocumentKind.Quote, slip.DocNo, quote.Note,
+            dbContext, quote, PosQuoteDocumentKind.Quote, docNo, quote.Note,
             includeImages, webHostEnvironment.ContentRootPath);
         slip.PrintTemplateId = quote.PrintTemplateId;
         slip.Note = quote.Note;
@@ -554,7 +719,7 @@ public partial class PosQuotesController(
         x.Id, x.QuoteNo, x.Status.ToString(), x.CustomerId, x.CustomerName,
         x.CustomerPhone, x.CustomerAddress, x.ValidUntil, x.IssuedAt, x.IssuedBy,
         x.SubTotal, x.Discount, x.VatAmount, x.Total, x.Note, x.Terms,
-        x.PaymentMethod, x.PrintTemplateId, x.Revision, x.QuotedBy,
+        x.PaymentMethod, x.DepositAmount, x.DepositPercent, x.PrintTemplateId, x.Revision, x.QuotedBy,
         x.QuotedByEmployeeId,
         x.QuotedByEmployeeId is Guid eid ? names?.GetValueOrDefault(eid) : null,
         x.CommercialStage.ToString(),
@@ -564,7 +729,7 @@ public partial class PosQuotesController(
         x.Id, x.QuoteNo, x.Status.ToString(), x.CustomerId, x.CustomerName,
         x.CustomerPhone, x.CustomerAddress, x.ValidUntil, x.IssuedAt, x.IssuedBy,
         x.SubTotal, x.Discount, x.VatAmount, x.Total, x.Note, x.Terms,
-        x.PaymentMethod, x.PrintTemplateId, x.Revision, x.QuotedBy,
+        x.PaymentMethod, x.DepositAmount, x.DepositPercent, x.PrintTemplateId, x.Revision, x.QuotedBy,
         x.QuotedByEmployeeId,
         x.QuotedByEmployeeId is Guid eid ? names?.GetValueOrDefault(eid) : null,
         x.CommercialStage.ToString(),

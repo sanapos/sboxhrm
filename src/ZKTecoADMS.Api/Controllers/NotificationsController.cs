@@ -15,6 +15,7 @@ using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
 using ZKTecoADMS.Infrastructure.Helpers;
+using ZKTecoADMS.Infrastructure.Services.Push;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -24,6 +25,7 @@ public class NotificationsController(
     IMediator mediator,
     ZKTecoDbContext db,
     IHubContext<AttendanceHub> hubContext,
+    IPushNotificationService push,
     ILogger<NotificationsController> logger) : AuthenticatedControllerBase
 {
     private readonly ILogger<NotificationsController> _logger = logger;
@@ -36,9 +38,8 @@ public class NotificationsController(
         [FromQuery] bool? isRead = null,
         [FromQuery] NotificationType? type = null)
     {
-        var crossStore = IsCrossStoreNotificationUser;
-        var storeId = CurrentStoreId;
-        var query = new GetUserNotificationsQuery(CurrentUserId, storeId, crossStore, page, pageSize, isRead, type);
+        var query = new GetUserNotificationsQuery(
+            CurrentUserId, CurrentStoreId, NotificationCrossStore, page, pageSize, isRead, type);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -48,9 +49,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<NotificationSummaryDto>>> GetNotificationSummary()
     {
-        var crossStore = IsCrossStoreNotificationUser;
-        var storeId = CurrentStoreId;
-        var query = new GetNotificationSummaryQuery(CurrentUserId, storeId, crossStore);
+        var query = new GetNotificationSummaryQuery(CurrentUserId, CurrentStoreId, NotificationCrossStore);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -60,7 +59,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<int>>> GetUnreadCount()
     {
-        var query = new GetUnreadCountQuery(CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser);
+        var query = new GetUnreadCountQuery(CurrentUserId, CurrentStoreId, NotificationCrossStore);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -70,7 +69,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<NotificationDto>>> GetNotificationById(Guid id)
     {
-        var query = new GetNotificationByIdQuery(id, CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser);
+        var query = new GetNotificationByIdQuery(id, CurrentUserId, CurrentStoreId, NotificationCrossStore);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -118,7 +117,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<NotificationDto>>> MarkNotificationAsRead(Guid id)
     {
-        var command = new MarkNotificationReadCommand(id, CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser);
+        var command = new MarkNotificationReadCommand(id, CurrentUserId, CurrentStoreId, NotificationCrossStore);
         var result = await mediator.Send(command);
         if (result.IsSuccess)
         {
@@ -134,13 +133,30 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<int>>> MarkAllNotificationsAsRead()
     {
-        var command = new MarkAllNotificationsReadCommand(CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser);
-        var result = await mediator.Send(command);
-        if (result.IsSuccess)
+        var now = DateTime.UtcNow;
+        var userId = CurrentUserId;
+        var storeId = CurrentStoreId;
+        var crossStore = NotificationCrossStore;
+        var unread = db.Notifications.Where(n => n.TargetUserId == userId && !n.IsRead);
+        if (!crossStore)
+            unread = unread.Where(n => n.StoreId == storeId || n.StoreId == null);
+
+        var count = await unread.ExecuteUpdateAsync(s => s
+            .SetProperty(n => n.IsRead, true)
+            .SetProperty(n => n.ReadAt, now)
+            .SetProperty(n => n.UpdatedAt, now));
+
+        await BroadcastToUserAsync("NotificationRead", new { id = (string?)null, all = true });
+        try
         {
-            await BroadcastToUserAsync("NotificationRead", new { id = (string?)null, all = true });
+            await push.ClearBadgeAsync(userId);
         }
-        return Ok(result);
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Clear FCM badge failed for {UserId}", userId);
+        }
+
+        return Ok(AppResponse<int>.Success(count));
     }
 
     [HttpDelete("{id}")]
@@ -148,7 +164,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteNotification(Guid id)
     {
-        var command = new DeleteNotificationCommand(id, CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser);
+        var command = new DeleteNotificationCommand(id, CurrentUserId, CurrentStoreId, NotificationCrossStore);
         var result = await mediator.Send(command);
         if (result.IsSuccess)
         {
@@ -162,7 +178,7 @@ public class NotificationsController(
     [RequireModulePermission("Notification", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<int>>> DeleteAllNotifications([FromQuery] bool? isRead = null)
     {
-        var command = new DeleteAllNotificationsCommand(CurrentUserId, CurrentStoreId, IsCrossStoreNotificationUser, isRead);
+        var command = new DeleteAllNotificationsCommand(CurrentUserId, CurrentStoreId, NotificationCrossStore, isRead);
         var result = await mediator.Send(command);
         if (result.IsSuccess)
         {
@@ -170,6 +186,10 @@ public class NotificationsController(
         }
         return Ok(result);
     }
+
+    /// <summary>Super Admin chỉ xem mọi cửa hàng khi token không gắn một cửa hàng.</summary>
+    private bool NotificationCrossStore =>
+        IsCrossStoreNotificationUser && !CurrentStoreId.HasValue;
 
     /// <summary>
     /// Push a sync event to every connection of the current user. Best-effort:

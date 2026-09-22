@@ -44,7 +44,8 @@ public class DevicesController(
         var query = new GetAllDevicesQuery(
             UserId: CurrentUserId,
             IsAdminRequest: IsAdmin,
-            StoreId: storeOnly == true ? GetCurrentStoreId() : null
+            StoreId: storeOnly == true ? GetCurrentStoreId() : null,
+            StoreScoped: storeOnly == true
         );
         
         return Ok(await bus.Send(query));
