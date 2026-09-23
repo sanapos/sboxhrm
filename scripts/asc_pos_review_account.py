@@ -92,6 +92,13 @@ def token() -> str:
     return (signing + b"." + b64(der_to_raw(der))).decode()
 
 
+class ApiError(Exception):
+    def __init__(self, code: int, detail: str):
+        super().__init__(f"{code} {detail[:800]}")
+        self.code = code
+        self.detail = detail
+
+
 def api(method: str, path: str, body: dict | None, jwt: str) -> dict:
     data = None if body is None else json.dumps(body).encode()
     req = urllib.request.Request(
@@ -108,35 +115,103 @@ def api(method: str, path: str, body: dict | None, jwt: str) -> dict:
             raw = resp.read().decode()
     except urllib.error.HTTPError as ex:
         detail = ex.read().decode("utf-8", "replace")
-        raise SystemExit(f"App Store Connect {method} {path} -> {ex.code} {detail[:800]}")
+        raise ApiError(ex.code, detail)
     return json.loads(raw) if raw else {}
+
+
+REVIEW_ATTRS = {
+    "demoAccountRequired": True,
+    "demoAccountName": USERNAME,
+    "demoAccountPassword": PASSWORD,
+    "notes": NOTES,
+    "contactFirstName": "Linh",
+    "contactLastName": "Nguyen",
+    "contactEmail": "sanapos.vn@gmail.com",
+    "contactPhone": "+84973024042",
+}
+
+# Prefer a version Apple can still attach review notes to.
+_EDITABLE_STATES = (
+    "PREPARE_FOR_SUBMISSION",
+    "DEVELOPER_REJECTED",
+    "REJECTED",
+    "METADATA_REJECTED",
+    "WAITING_FOR_REVIEW",
+    "IN_REVIEW",
+)
+
+
+def pick_version(versions: list[dict]) -> dict:
+    for state in _EDITABLE_STATES:
+        for version in versions:
+            if (version.get("attributes") or {}).get("appStoreState") == state:
+                return version
+    if not versions:
+        raise SystemExit("No iOS App Store version found for this app")
+    return versions[0]
 
 
 def main() -> None:
     jwt = token()
-    detail = api("GET", f"/v1/apps/{APP_ID}/appStoreReviewDetail", None, jwt)
-    review_id = detail["data"]["id"]
-    patched = api(
-        "PATCH",
-        f"/v1/appStoreReviewDetails/{review_id}",
-        {
-            "data": {
-                "type": "appStoreReviewDetails",
-                "id": review_id,
-                "attributes": {
-                    "demoAccountRequired": True,
-                    "demoAccountName": USERNAME,
-                    "demoAccountPassword": PASSWORD,
-                    "notes": NOTES,
-                    "contactFirstName": "Linh",
-                    "contactLastName": "Nguyen",
-                    "contactEmail": "sanapos.vn@gmail.com",
-                    "contactPhone": "+84973024042",
-                },
-            }
-        },
+    # Review details hang off the App Store version, not the app.
+    listed = api(
+        "GET",
+        f"/v1/apps/{APP_ID}/appStoreVersions?filter[platform]=IOS&limit=20",
+        None,
         jwt,
     )
+    version = pick_version(listed.get("data") or [])
+    version_id = version["id"]
+    attrs = version.get("attributes") or {}
+    print(
+        "Using App Store version"
+        f" {attrs.get('versionString')} state={attrs.get('appStoreState')} id={version_id}"
+    )
+
+    try:
+        existing = api(
+            "GET",
+            f"/v1/appStoreVersions/{version_id}/appStoreReviewDetail",
+            None,
+            jwt,
+        )
+    except ApiError as ex:
+        if ex.code != 404:
+            raise SystemExit(f"App Store Connect GET review detail -> {ex}")
+        existing = {}
+
+    review = existing.get("data") if isinstance(existing, dict) else None
+    if review and review.get("id"):
+        review_id = review["id"]
+        patched = api(
+            "PATCH",
+            f"/v1/appStoreReviewDetails/{review_id}",
+            {
+                "data": {
+                    "type": "appStoreReviewDetails",
+                    "id": review_id,
+                    "attributes": REVIEW_ATTRS,
+                }
+            },
+            jwt,
+        )
+    else:
+        patched = api(
+            "POST",
+            "/v1/appStoreReviewDetails",
+            {
+                "data": {
+                    "type": "appStoreReviewDetails",
+                    "attributes": REVIEW_ATTRS,
+                    "relationships": {
+                        "appStoreVersion": {
+                            "data": {"type": "appStoreVersions", "id": version_id}
+                        }
+                    },
+                }
+            },
+            jwt,
+        )
     name = patched.get("data", {}).get("attributes", {}).get("demoAccountName")
     print(f"Updated App Review demo account to {name} for app {APP_ID}")
 
