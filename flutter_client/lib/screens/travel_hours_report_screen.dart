@@ -364,7 +364,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
     ];
   }
 
-  Future<void> _exportExcel() async {
+  Future<void> _exportExcel({bool png = false}) async {
     final rows = _viewTab == 0
         ? _filtered.asMap().entries.map((e) {
             final r = e.value;
@@ -391,6 +391,35 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
             ];
           }).toList();
 
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: 'Báo cáo đi đường',
+        filePrefix: 'DiDuong',
+        headers: _viewTab == 0
+            ? [
+                'STT',
+                'Ngày',
+                if (_teamView) 'Nhân viên',
+                if (_teamView) 'Mã NV',
+                'Bắt đầu đi',
+                'Đến điểm làm',
+                'Giờ đi đường',
+                'Trạng thái',
+              ]
+            : [
+                'STT',
+                'Nhân viên',
+                'Mã NV',
+                'Số chuyến',
+                'Tổng giờ',
+                'Thiếu chấm',
+              ],
+        rows: rows,
+        periodLabel: reportPeriodSubtitle(_from, _to, team: _teamView),
+      );
+      return;
+    }
     await ClientExcelExport.export(
       context: context,
       title: 'Báo cáo đi đường',
@@ -420,13 +449,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
     );
   }
 
-  Future<void> _exportPng() async {
-    await ClientPngExport.capture(
-      context: context,
-      key: _pngKey,
-      filePrefix: 'DiDuong',
-    );
-  }
+  Future<void> _exportPng() => _exportExcel(png: true);
 
   Future<void> _showSupplementDialog({
     String? employeeId,

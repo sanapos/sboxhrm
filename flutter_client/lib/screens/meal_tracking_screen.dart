@@ -1,10 +1,11 @@
 import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' hide Border, BorderStyle;
+import '../utils/excel_report_builder.dart';
+import '../utils/report_screen_helpers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
@@ -1218,7 +1219,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         }
       }
 
-      final bytes = excelLib.encode();
+      final bytes = ExcelReportBuilder.encodeReport(excelLib);
       if (bytes == null) return;
       final dir = await getTemporaryDirectory();
       final filePath =
@@ -1234,29 +1235,49 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   }
 
   Future<void> _exportMenuAsPng() async {
-    try {
-      final boundary = _menuRepaintKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) {
-        NotificationOverlayManager()
-            .showError(title: 'Lỗi', message: tr('Không thể chụp ảnh menu'));
-        return;
+    final rows = <List<dynamic>>[];
+    for (int i = 0; i < 7; i++) {
+      final dayDate = _menuWeekStart.add(Duration(days: i));
+      final dayMenus = _weeklyMenus
+          .where((m) =>
+              m.date.year == dayDate.year &&
+              m.date.month == dayDate.month &&
+              m.date.day == dayDate.day)
+          .toList();
+      if (dayMenus.isEmpty) {
+        rows.add([
+          DateFormat('dd/MM/yyyy').format(dayDate),
+          _dayNames[i],
+          '',
+          'Chưa có thực đơn',
+          '',
+          '',
+        ]);
+        continue;
       }
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
-      final bytes = byteData.buffer.asUint8List();
-      final dir = await getTemporaryDirectory();
-      final filePath =
-          '${dir.path}/menu_${DateFormat('dd-MM-yyyy').format(_menuWeekStart)}.png';
-      final file = File(filePath);
-      await file.writeAsBytes(bytes);
-      await Share.shareXFiles([XFile(filePath)],
-          text: tr('Thực đơn tuần ${DateFormat('dd/MM').format(_menuWeekStart)}'));
-    } catch (e) {
-      NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: tr('Không thể xuất PNG: $e'));
+      for (final menu in dayMenus) {
+        for (final item in menu.items) {
+          rows.add([
+            DateFormat('dd/MM/yyyy').format(dayDate),
+            _dayNames[i],
+            menu.mealSessionName ?? '',
+            item.dishName,
+            item.category ?? '',
+            menu.note ?? '',
+          ]);
+        }
+      }
     }
+    if (!mounted) return;
+    await ClientPngExport.table(
+      context: context,
+      title: 'Thực đơn tuần',
+      filePrefix: 'ThucDon',
+      headers: const ['Ngày', 'Thứ', 'Buổi ăn', 'Món ăn', 'Nhóm', 'Ghi chú'],
+      rows: rows,
+      periodLabel:
+          'Tuần ${DateFormat('dd/MM').format(_menuWeekStart)}',
+    );
   }
 
   // ==================== DISH MANAGEMENT ====================

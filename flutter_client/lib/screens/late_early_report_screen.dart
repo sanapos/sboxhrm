@@ -1006,7 +1006,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     );
   }
 
-  Future<void> _exportExcel() async {
+  Future<void> _exportExcel({bool png = false}) async {
     final occ = _occurrenceIndexByEntry;
     final totals = _violationCountByEmp;
     final rows = _viewTab == 0
@@ -1054,6 +1054,45 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
             })
             .toList();
 
+    final headers = _viewTab == 0
+        ? [
+            'STT',
+            'Ngày',
+            if (_teamView) 'Nhân viên',
+            if (_teamView) 'Mã NV',
+            'Ca',
+            'Giờ vào',
+            'Giờ ra',
+            'Đi trễ (phút)',
+            'Về sớm (phút)',
+            'Lần trong kỳ',
+            'Tái phạm',
+            'Đã phạt',
+            'Giải trình',
+          ]
+        : [
+            'STT',
+            'Nhân viên',
+            'Mã NV',
+            'Tổng lần',
+            'Số lần trễ',
+            'Tổng phút trễ',
+            'Số lần về sớm',
+            'Tổng phút sớm',
+            'Số lần tái phạm',
+          ];
+    final periodLabel = reportPeriodSubtitle(_from, _to, team: _teamView);
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: 'Báo cáo đi trễ / về sớm',
+        filePrefix: 'DiTreVeSom',
+        headers: headers,
+        rows: rows,
+        periodLabel: periodLabel,
+      );
+      return;
+    }
     await ClientExcelExport.export(
       context: context,
       title: 'Báo cáo đi trễ / về sớm',
@@ -1091,13 +1130,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     );
   }
 
-  Future<void> _exportPng() async {
-    await ClientPngExport.capture(
-      context: context,
-      key: _pngKey,
-      filePrefix: 'DiTreVeSom',
-    );
-  }
+  Future<void> _exportPng() => _exportExcel(png: true);
 
   @override
   Widget build(BuildContext context) {

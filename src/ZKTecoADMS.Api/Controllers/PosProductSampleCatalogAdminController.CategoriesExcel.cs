@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
@@ -275,7 +276,8 @@ public partial class PosProductSampleCatalogAdminController
             items.Select(x => new SampleCatalogExcelRow(
                 x.Id, x.Name, x.Barcode, x.UnitName, x.BrandName, x.CategoryName,
                 x.Kind, x.ProductType, x.DefaultPrice, x.DefaultCostPrice,
-                x.VatRate, x.VatExempt, x.Description, x.SortOrder, x.IsActive, x.SellProfiles)).ToList(),
+                x.VatRate, x.VatExempt, x.Description, x.SortOrder, x.IsActive, x.SellProfiles,
+                PosPublicFileUrl.ForPath(Request, x.ImageUrl))).ToList(),
             cats.Select(c => (
                 c.Name,
                 c.Kind.HasValue ? PosProductSampleCatalogExcel.KindLabel(c.Kind.Value) : "",

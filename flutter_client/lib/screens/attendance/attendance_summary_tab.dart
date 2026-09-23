@@ -2965,7 +2965,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         );
       }
 
-      final bytes = excelFile.encode();
+      final bytes = ExcelReportBuilder.encodeReport(excelFile);
       if (bytes != null) {
         final fileName =
             'Bang_cham_cong_chi_tiet_${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}.xlsx';

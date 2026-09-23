@@ -1247,6 +1247,21 @@ class _RegisterScreenState extends State<RegisterScreen>
                 height: 1.4,
               ),
             ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => _showPackageModulesDialog(package),
+              style: TextButton.styleFrom(
+                foregroundColor: _brand,
+                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              icon: const Icon(Icons.checklist_rounded, size: 16),
+              label: Text(
+                tr('Xem chi tiết ${package.features.length} chức năng'),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+            ),
             const SizedBox(height: 10),
             InkWell(
               onTap: _openLandingPricing,
@@ -1279,7 +1294,10 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   void _showPackageModulesDialog(_PublicServicePackage package) {
-    final modules = package.allowedModules;
+    final groups = <String, List<String>>{};
+    for (final feature in package.features) {
+      groups.putIfAbsent(feature.category, () => []).add(feature.name);
+    }
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1299,39 +1317,61 @@ class _RegisterScreenState extends State<RegisterScreen>
           ],
         ),
         content: SizedBox(
-          width: 420,
-          child: modules.isEmpty
+          width: 460,
+          child: groups.isEmpty
               ? Text(tr(_isPos
                   ? 'Gói này bao gồm các chức năng cơ bản của SBOX POS.'
                   : 'Gói này bao gồm các chức năng cơ bản của SBOX HRM.'),
-                  style: TextStyle(fontSize: 14, height: 1.5),
+                  style: const TextStyle(fontSize: 14, height: 1.5),
                 )
-              : SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              : SizedBox(
+                  height: 420,
+                  child: ListView(
                     children: [
-                      for (final code in modules)
+                      Text(
+                        tr('${package.features.length} chức năng'),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF7A8790),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      for (final entry in groups.entries) ...[
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.check_circle_rounded,
-                                  size: 18, color: Color(0xFF16A34A)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  tr(PermissionNavigation.label(code)),
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    height: 1.4,
-                                    color: Color(0xFF2B3437),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          padding: const EdgeInsets.only(top: 8, bottom: 6),
+                          child: Text(
+                            tr(entry.key),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: _brand,
+                            ),
                           ),
                         ),
+                        for (final name in entry.value)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.check_circle_rounded,
+                                    size: 16, color: Color(0xFF16A34A)),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    tr(name),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      height: 1.35,
+                                      color: Color(0xFF2B3437),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
                     ],
                   ),
                 ),
@@ -1533,6 +1573,13 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 }
 
+class _PackageFeature {
+  const _PackageFeature({required this.name, required this.category});
+
+  final String name;
+  final String category;
+}
+
 class _PublicServicePackage {
   const _PublicServicePackage({
     required this.id,
@@ -1546,6 +1593,7 @@ class _PublicServicePackage {
     required this.allowWeb,
     required this.allowMobile,
     required this.allowedModules,
+    required this.features,
   });
 
   final String id;
@@ -1559,19 +1607,13 @@ class _PublicServicePackage {
   final bool allowWeb;
   final bool allowMobile;
   final List<String> allowedModules;
+  final List<_PackageFeature> features;
 
   String get displayLabel => '$name - $defaultDurationDays ngày';
 
   String get moduleSummary {
-    if (allowedModules.isEmpty) return 'Chức năng cơ bản';
-    final labels = allowedModules
-        .take(8)
-        .map((c) => PermissionNavigation.label(c))
-        .toList();
-    final extra = allowedModules.length > 8
-        ? ' +${allowedModules.length - 8} chức năng'
-        : '';
-    return '${labels.join(', ')}$extra';
+    if (features.isEmpty) return 'Chức năng cơ bản';
+    return '${features.length} chức năng';
   }
 
   String _cap(int n, String unit) =>
@@ -1617,6 +1659,29 @@ class _PublicServicePackage {
       return v.toString().toLowerCase() != 'false';
     }
 
+    final features = <_PackageFeature>[];
+    final rawFeatures = map['modules'];
+    if (rawFeatures is List) {
+      for (final item in rawFeatures) {
+        if (item is! Map) continue;
+        final row = Map<String, dynamic>.from(item);
+        final label = (row['displayName'] ?? row['name'] ?? '').toString().trim();
+        if (label.isEmpty) continue;
+        final category = (row['category'] ?? 'Khác').toString().trim();
+        features.add(_PackageFeature(
+          name: label,
+          category: category.isEmpty ? 'Khác' : category,
+        ));
+      }
+    }
+    if (features.isEmpty) {
+      for (final code in modules) {
+        final label = PermissionNavigation.label(code);
+        if (label == code) continue;
+        features.add(_PackageFeature(name: label, category: 'Chức năng'));
+      }
+    }
+
     return _PublicServicePackage(
       id: map['id']?.toString() ?? '',
       name: map['name']?.toString() ?? '',
@@ -1629,6 +1694,7 @@ class _PublicServicePackage {
       allowWeb: asBool(map['allowWeb']),
       allowMobile: asBool(map['allowMobile']),
       allowedModules: modules,
+      features: features,
     );
   }
 

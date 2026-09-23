@@ -562,7 +562,26 @@ public partial class AgentController : AuthenticatedControllerBase
                 .Take(pageSize)
                 .ToListAsync();
 
-            var items = stores.Select(AgentStoreMapper.ToStoreDetailDto).ToList();
+            var mapped = stores.Select(AgentStoreMapper.ToStoreDetailDto).ToList();
+            var ids = stores.Select(s => s.Id).ToList();
+            var usedMap = new Dictionary<Guid, int>();
+            if (ids.Count > 0)
+            {
+                var usedRows = await _dbContext.StoreAccessDevices.AsNoTracking()
+                    .Where(d => ids.Contains(d.StoreId) && d.IsActive)
+                    .GroupBy(d => d.StoreId)
+                    .Select(g => new { StoreId = g.Key, Count = g.Count() })
+                    .ToListAsync();
+                usedMap = usedRows.ToDictionary(x => x.StoreId, x => x.Count);
+            }
+            var storeById = stores.ToDictionary(s => s.Id);
+            var items = mapped.Select(dto =>
+            {
+                storeById.TryGetValue(dto.Id, out var store);
+                var max = store?.ServicePackage?.MaxAccessDevices ?? store?.MaxAccessDevices ?? 0;
+                usedMap.TryGetValue(dto.Id, out var used);
+                return dto with { AccessDeviceUsed = used, MaxAccessDevices = max };
+            }).ToList();
             return Ok(AppResponse<object>.Success(new { items, totalCount, pageNumber, pageSize }));
         }
         catch (Exception ex)

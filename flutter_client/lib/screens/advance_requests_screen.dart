@@ -1,4 +1,5 @@
 import 'package:excel/excel.dart' as excel_lib;
+import '../utils/excel_report_builder.dart';
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
@@ -1373,7 +1374,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
       wb.delete('Sheet1');
 
-      final bytes = wb.encode();
+      final bytes = ExcelReportBuilder.encodeReport(wb);
       if (bytes != null) {
         await file_saver.saveFileBytes(
             bytes,

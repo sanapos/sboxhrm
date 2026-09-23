@@ -103,7 +103,9 @@ public record StoreDetailDto(
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     // Activity
-    DateTime? LastActivityAt = null
+    DateTime? LastActivityAt = null,
+    int AccessDeviceUsed = 0,
+    int MaxAccessDevices = 0
 );
 
 /// <summary>
@@ -214,7 +216,10 @@ public record ServicePackageDto(
     List<string> AllowedModules,
     int StoreCount,
     DateTime CreatedAt,
-    DateTime? UpdatedAt
+    DateTime? UpdatedAt,
+    int RetentionRunHour = 3,
+    int AttendanceRetentionMonths = 0,
+    int SaleOrderRetentionMonths = 0
 );
 
 public record CreateServicePackageRequest(
@@ -230,7 +235,10 @@ public record CreateServicePackageRequest(
     int MaxBranches = 0,
     bool AllowFcm = true,
     List<string>? AllowedFcmCategories = null,
-    bool IsPublic = true
+    bool IsPublic = true,
+    int RetentionRunHour = 3,
+    int AttendanceRetentionMonths = 0,
+    int SaleOrderRetentionMonths = 0
 );
 
 public record UpdateServicePackageRequest(
@@ -247,7 +255,10 @@ public record UpdateServicePackageRequest(
     int MaxBranches = 0,
     bool AllowFcm = true,
     List<string>? AllowedFcmCategories = null,
-    bool IsPublic = true
+    bool IsPublic = true,
+    int RetentionRunHour = 3,
+    int AttendanceRetentionMonths = 0,
+    int SaleOrderRetentionMonths = 0
 );
 
 /// <summary>

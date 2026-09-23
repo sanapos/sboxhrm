@@ -346,7 +346,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         ws.Cell(row, 4).Value = total;
         ws.Cell(row, 4).Style.Font.Bold = true;
         ws.Cell(row, 4).Style.NumberFormat.Format = "#,##0";
-        ws.Columns(1, headers.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, headerRow);
     }
 
     private void WriteS2a(
@@ -415,7 +415,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         ws.Cell(row, 7).Value = pitEst;
         ws.Cell(row, 7).Style.Font.Bold = true;
         ws.Cell(row, 7).Style.NumberFormat.Format = "#,##0";
-        ws.Columns(1, headers.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, headerRow);
     }
 
     private void WriteS2b(
@@ -476,7 +476,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         ws.Cell(row, 6).Value = vatEst;
         ws.Cell(row, 6).Style.Font.Bold = true;
         ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";
-        ws.Columns(1, headers.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, headerRow);
     }
 
     private void WriteS2c(
@@ -594,7 +594,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         ws.Cell(row, 6).Value = pitEst;
         ws.Cell(row, 6).Style.Font.Bold = true;
         ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";
-        ws.Columns(1, headers.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, headerRow);
     }
 
     private void WriteS2d(
@@ -740,7 +740,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             row += 2;
         }
 
-        ws.Columns(1, headers.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, headerRow);
     }
 
     private static string BuildStockDescription(PosStockTransaction t)
@@ -832,7 +832,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         ws.Cell(row, 6).Value = totalOut;
         ws.Cell(row, 6).Style.Font.Bold = true;
         ws.Cell(row, 6).Style.NumberFormat.Format = "#,##0";
-        ws.Columns(1, headers.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, headerRow);
     }
 
     private const int PreviewRowLimit = 800;

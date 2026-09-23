@@ -222,6 +222,7 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<PenaltyAutoApproveBackgroundService>();
         services.AddHostedService<NotificationCleanupBackgroundService>();
         services.AddHostedService<RawAttendanceCleanupBackgroundService>();
+        services.AddHostedService<PackageDataRetentionBackgroundService>();
         services.AddHostedService<FieldDataCleanupBackgroundService>();
 
         // Phase 2 jobs

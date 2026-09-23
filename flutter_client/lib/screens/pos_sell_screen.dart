@@ -99,6 +99,7 @@ import 'pos/pos_printer_settings_hub_screen.dart';
 import 'pos/pos_payment_gateway_settings_screen.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_numeric_keypad.dart';
+import '../widgets/pos/pos_qty_area_dialog.dart';
 import 'pos/pos_end_of_day_screen.dart';
 import 'pos/pos_split_report_screens.dart';
 import 'pos/pos_resource_floor_screen.dart';
@@ -802,6 +803,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Bản nháp chọn hàng (chưa vào đơn) — chỉ đồng bộ khi bấm xác nhận.
   final Map<String, double> _pickerDraftQty = {};
   final Map<String, PosPurchaseLookupPick> _pickerDraftPicks = {};
+  final Map<String, String> _pickerDraftAreaNotes = {};
   List<PosCustomer> _customerSuggestions = [];
   List<_PosPaymentSource> _paymentSources = const [_PosPaymentSource.cash];
   List<BankAccount> _bankAccounts = [];
@@ -2101,14 +2103,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     return _sellProfile.usesFloorPlan;
   }
 
-  /// Tab Bán nhanh / Bán thường / Giao hàng chỉ cho bán lẻ — F&B dùng bàn + đơn online.
-  bool get _showRetailSellModeBar {
-    if (_sellProfile.usesFloorPlan) return false;
-    if (_sellProfile == PosSellProfile.restaurant) return false;
-    if (_useFloorAsPrimary || _industryUsesTables) return false;
-    if (_isTableOrderMode) return false;
-    return true;
-  }
+  /// Bán lẻ không còn tab Bán nhanh / Bán thường / Giao hàng.
+  bool get _showRetailSellModeBar => false;
 
   /// Dựng lưới món Offstage khi đang xem sơ đồ — lần nhấn bàn không mount lần đầu.
   void _scheduleCatalogPrefetch() {
@@ -8397,71 +8393,90 @@ class _PosSellScreenState extends State<PosSellScreen>
   Future<void> _editLineQty(_SellCartLine line) async {
     if (!await _ensureCanEditActiveDraft()) return;
     if (!mounted) return;
-    final allowDec = PosQtyRules.allowsDecimal(line.product);
-    final initial = PosQtyRules.isWhole(line.qty)
-        ? line.qty.toStringAsFixed(0)
-        : line.qty.toString();
-    final ctrl = TextEditingController(text: tr(initial));
-    final result = await showDialog<double>(
+    final productNow = await PosQtyRules.withFreshQtyFlags(_api, line.product);
+    if (!mounted) return;
+    line.product = productNow;
+    final storeId = _storeId?.trim() ?? '';
+    if (storeId.isNotEmpty) {
+      PosSellCatalogCache.instance.patchMemoryProducts(
+        storeId,
+        {productNow.id},
+        (_) => productNow,
+      );
+    }
+    final canToggle = !productNow.requiresSerial;
+    final byArea = productNow.allowAreaQty && canToggle;
+    final result = await showPosLineQtyDialog(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(tr('Số lượng')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(tr(line.product.name),
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Text(
-                tr(allowDec
-                    ? 'Cho phép thập phân (vd 0.5)'
-                    : 'Chỉ số nguyên — bật «SL thập phân» trên hàng hóa nếu cần'),
-                style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
-              ),
-              const SizedBox(height: 10),
-              PosNoSoftKeyboardField(
-                controller: ctrl,
-                allowDecimal: allowDec,
-                autofocus: true,
-                keypadTitle: 'Số lượng',
-                decoration: InputDecoration(
-                  labelText: tr('Số lượng'),
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(tr('Hủy')),
-            ),
-            FilledButton(
-              onPressed: () {
-                final raw = ctrl.text.trim().replaceAll(',', '.');
-                final v = double.tryParse(raw);
-                if (v == null || v <= 0) return;
-                Navigator.pop(ctx, v);
-              },
-              child: Text(tr('Áp dụng')),
-            ),
-          ],
-        );
-      },
+      productName: productNow.name,
+      unitName: line.unitLabel,
+      initialQty: line.qty,
+      allowDecimal: PosQtyRules.allowsDecimal(productNow) && !byArea,
+      enterByArea: byArea,
+      serialOnly: productNow.requiresSerial,
+      existingNote: line.lineNote,
     );
-    ctrl.dispose();
     if (result == null || !mounted) return;
-    final err = PosQtyRules.validate(line.product, result, action: 'Đổi SL');
+    var product = line.product;
+    if (canToggle && result.decimal != product.allowDecimalQty) {
+      final saved = await PosQtyRules.persistAllowDecimal(
+        _api,
+        product,
+        result.decimal,
+      );
+      if (!mounted) return;
+      if (saved.product == null) {
+        NotificationOverlayManager().showError(
+          title: 'Số lượng',
+          message: tr(saved.error ?? 'Không lưu được bán số lẻ'),
+        );
+        if (!PosQtyRules.isWhole(result.qty)) return;
+      } else {
+        product = saved.product!;
+        _stampProductAllowDecimal(product);
+      }
+    }
+    final err = PosQtyRules.validate(product, result.qty, action: 'Đổi SL');
     if (err != null) {
       NotificationOverlayManager().showError(title: 'Số lượng', message: tr(err));
       return;
     }
-    final delta = result - line.qty;
-    if (delta == 0) return;
+    line.product = product;
+    if (result.areaNote != null) {
+      line.lineNote = mergePosAreaLineNote(line.lineNote, result.areaNote!);
+      _initLineNoteSelection(line);
+      _commitLineNote(line);
+    }
+    final delta = result.qty - line.qty;
+    if (delta == 0) {
+      if (mounted) setState(() {});
+      return;
+    }
     await _adjustQty(line, delta);
+  }
+
+  void _stampProductAllowDecimal(PosProduct product) {
+    for (final tab in _tabs) {
+      for (final line in tab.cart) {
+        if (line.product.id == product.id) {
+          line.product = line.product.copyWith(
+            allowDecimalQty: product.allowDecimalQty,
+          );
+        }
+      }
+    }
+    for (final e in _pickerDraftPicks.entries.toList()) {
+      if (e.value.product.id != product.id) continue;
+      _pickerDraftPicks[e.key] = PosPurchaseLookupPick(
+        product: e.value.product.copyWith(
+          allowDecimalQty: product.allowDecimalQty,
+        ),
+        variantId: e.value.variantId,
+        unitId: e.value.unitId,
+        unitLabel: e.value.unitLabel,
+        qty: e.value.qty,
+      );
+    }
   }
 
   Future<void> _switchUnit(_SellCartLine line, PosProductUnitView view) async {
@@ -14879,8 +14894,10 @@ class _PosSellScreenState extends State<PosSellScreen>
                 onDecrement: (product) {
                   _pickerDraftDecrement(product);
                 },
-                onSetQty: (product, qty) {
-                  unawaited(_pickerDraftSetQty(product, qty));
+                onSetQty: (product, qty, {areaNote}) {
+                  unawaited(
+                    _pickerDraftSetQty(product, qty, areaNote: areaNote),
+                  );
                 },
               ),
             ),
@@ -14943,12 +14960,14 @@ class _PosSellScreenState extends State<PosSellScreen>
   void _openMobileProductPicker() {
     _pickerDraftQty.clear();
     _pickerDraftPicks.clear();
+    _pickerDraftAreaNotes.clear();
     setState(() => _mobileProductPickerOpen = true);
   }
 
   void _closeMobileProductPicker() {
     _pickerDraftQty.clear();
     _pickerDraftPicks.clear();
+    _pickerDraftAreaNotes.clear();
     setState(() => _mobileProductPickerOpen = false);
   }
 
@@ -14983,23 +15002,39 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (next <= 0) {
         _pickerDraftQty.remove(id);
         _pickerDraftPicks.remove(id);
+        _pickerDraftAreaNotes.remove(id);
       } else {
         _pickerDraftQty[id] = next;
       }
     });
   }
 
-  Future<void> _pickerDraftSetQty(PosProduct product, double qty) async {
+  Future<void> _pickerDraftSetQty(
+    PosProduct product,
+    double qty, {
+    String? areaNote,
+  }) async {
     final id = product.id;
     if (qty <= 0) {
       setState(() {
         _pickerDraftQty.remove(id);
         _pickerDraftPicks.remove(id);
+        _pickerDraftAreaNotes.remove(id);
       });
       return;
     }
-    final pick = _pickerDraftPicks[id];
+    var pick = _pickerDraftPicks[id];
     if (pick == null) return;
+    if (product.allowDecimalQty != pick.product.allowDecimalQty) {
+      pick = PosPurchaseLookupPick(
+        product: product,
+        variantId: pick.variantId,
+        unitId: pick.unitId,
+        unitLabel: pick.unitLabel,
+        qty: pick.qty,
+      );
+      _pickerDraftPicks[id] = pick;
+    }
     final err = PosQtyRules.validate(pick.product, qty, action: 'Đổi SL');
     if (err != null) {
       NotificationOverlayManager().showError(title: 'Số lượng', message: tr(err));
@@ -15019,6 +15054,12 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!_validateStockForAdd(pick.product, view, addQty: qty)) return;
     setState(() {
       _pickerDraftQty[id] = qty;
+      final note = areaNote?.trim() ?? '';
+      if (note.isEmpty) {
+        _pickerDraftAreaNotes.remove(id);
+      } else {
+        _pickerDraftAreaNotes[id] = note;
+      }
     });
   }
 
@@ -15040,9 +15081,20 @@ class _PosSellScreenState extends State<PosSellScreen>
         addQty: e.value,
       );
       if (!mounted) return;
+      final note = _pickerDraftAreaNotes[e.key];
+      if (note != null && note.isNotEmpty) {
+        for (final line in _tab.cart.reversed) {
+          if (line.product.id != e.key) continue;
+          line.lineNote = mergePosAreaLineNote(line.lineNote, note);
+          _initLineNoteSelection(line);
+          _commitLineNote(line, scheduleSave: false);
+          break;
+        }
+      }
     }
     _pickerDraftQty.clear();
     _pickerDraftPicks.clear();
+    _pickerDraftAreaNotes.clear();
     if (!mounted) return;
     // Giữ chế độ bàn + đánh dấu dirty trước khi đóng picker / autosave.
     _markTabDirty(_tab);

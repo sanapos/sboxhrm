@@ -625,7 +625,7 @@ class StoresTabState extends State<StoresTab> {
             Text(tr(store['phone']),
                 style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           const SizedBox(height: 4),
-          Row(children: [
+          Wrap(spacing: 6, runSpacing: 4, children: [
             AdminHelpers.statusChip(
                 isLocked
                     ? 'Bị khóa'
@@ -637,19 +637,21 @@ class StoresTabState extends State<StoresTab> {
                     : isActive
                         ? AdminHelpers.success
                         : Colors.grey),
-            const SizedBox(width: 6),
             if (store['licenseType'] != null)
               AdminHelpers.statusChip(
                   AdminHelpers.licenseTypeChipLabel(
                       store['licenseType']?.toString()),
                   AdminHelpers.primaryDark),
-            if (store['servicePackageName'] != null) ...[              const SizedBox(width: 6),
+            if (store['servicePackageName'] != null)
               AdminHelpers.statusChip(
                   store['servicePackageName'], HrmPageChrome.chipMid),
-            ],
-            if (_getTrialStatus(store) != null) ...[              const SizedBox(width: 6),
-              _getTrialStatus(store)!,
-            ],
+            if (_getTrialStatus(store) != null) _getTrialStatus(store)!,
+            AdminHelpers.statusChip(
+              _accessDeviceLabel(store),
+              _accessDeviceAtLimit(store)
+                  ? AdminHelpers.danger
+                  : HrmPageChrome.chipMid,
+            ),
             () {
               final days = _getInactiveDays(store);
               final Color chipColor;
@@ -708,6 +710,7 @@ class StoresTabState extends State<StoresTab> {
                   'Users: ${store['userCount'] ?? store['totalUsers'] ?? 'N/A'}'),
               AdminHelpers.infoRow(Icons.router,
                   'Devices: ${store['deviceCount'] ?? store['totalDevices'] ?? 'N/A'}'),
+              AdminHelpers.infoRow(Icons.devices_other, _accessDeviceLabel(store)),
               if (store['servicePackageName'] != null)
                 AdminHelpers.infoRow(Icons.inventory,
                     'Gói DV: ${store['servicePackageName']}'),
@@ -816,13 +819,20 @@ class StoresTabState extends State<StoresTab> {
                       color: HrmPageChrome.chipMid,
                       onTap: () => _showExtendDays(store),
                     ),
-                    if (!widget.agentMode)
+                    if (!widget.agentMode) ...[
+                      _actionButton(
+                        icon: Icons.devices_other,
+                        label: 'Reset thiết bị',
+                        color: AdminHelpers.warning,
+                        onTap: () => _resetAccessDevices(store),
+                      ),
                       _actionButton(
                         icon: Icons.restart_alt,
                         label: 'Khôi phục gốc',
                         color: AdminHelpers.warning,
                         onTap: () => _resetStoreData(store),
                       ),
+                    ],
                   ],
                   if (context.systemAdminCanDelete)
                     _actionButton(
@@ -934,6 +944,12 @@ class StoresTabState extends State<StoresTab> {
         ),
       ]);
       if (!widget.agentMode) {
+        actions.add(AdminActionSheetItem(
+          icon: Icons.devices_other,
+          label: 'Reset thiết bị truy cập',
+          color: AdminHelpers.warning,
+          onTap: () => _resetAccessDevices(store),
+        ));
         actions.add(AdminActionSheetItem(
           icon: Icons.restart_alt,
           label: 'Khôi phục gốc',
@@ -1259,6 +1275,7 @@ class StoresTabState extends State<StoresTab> {
               'Max Users', d['maxUsers']?.toString()),
           _detailRow(
               'Máy chấm công', d['maxDevices']?.toString()),
+          _detailRow('Thiết bị truy cập', _accessDeviceLabel(store)),
         ]),
         _detailSection('Thống kê', [
           _detailRow(
@@ -1547,6 +1564,67 @@ class StoresTabState extends State<StoresTab> {
     }
   }
 
+  Future<void> _resetAccessDevices(Map<String, dynamic> store) async {
+    final name = store['name'] ?? 'N/A';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => ScrollableAlertDialog(
+        title: Row(children: [
+          Icon(Icons.devices_other, color: AdminHelpers.warning, size: 24),
+          const SizedBox(width: 8),
+          Expanded(child: Text(tr('Reset thiết bị truy cập'))),
+        ]),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width < 600
+              ? MediaQuery.of(context).size.width - 32
+              : 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr('Cửa hàng "$name".')),
+              const SizedBox(height: 12),
+              Text(tr('• Số thiết bị truy cập đang dùng trở về 0, cửa hàng đăng nhập lại được trong hạn mức gói.')),
+              const SizedBox(height: 6),
+              Text(tr('• Mọi tài khoản của cửa hàng bị đăng xuất trên web và ứng dụng, phải đăng nhập lại.')),
+              const SizedBox(height: 6),
+              Text(tr('Dữ liệu chấm công, bán hàng và nhân viên được giữ nguyên.')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('Hủy'))),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.logout, size: 16),
+            label: Text(tr('Reset và đăng xuất')),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AdminHelpers.warning),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    final storeId = store['id']?.toString() ?? '';
+    final res = await _apiService.resetStoreAccessDevices(storeId);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      final data = res['data'];
+      final released = data is Map ? data['releasedDevices'] : null;
+      final users = data is Map ? data['loggedOutUsers'] : null;
+      AdminHelpers.showSuccess(
+        context,
+        'Đã giải phóng ${released ?? 0} thiết bị và đăng xuất ${users ?? 0} tài khoản của "$name"',
+      );
+      loadData();
+    } else {
+      AdminHelpers.showApiError(context, res);
+    }
+  }
+
   // ═══════════════════════ DELETE STORE ═══════════════════════
   Future<void> _deleteStore(Map<String, dynamic> store) async {
     final name = store['name'] ?? 'N/A';
@@ -1664,6 +1742,24 @@ class StoresTabState extends State<StoresTab> {
       await _apiService.unlockStore(store['id']?.toString() ?? '');
     }
     loadData();
+  }
+
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _accessDeviceLabel(Map<String, dynamic> store) {
+    final used = _asInt(store['accessDeviceUsed']);
+    final max = _asInt(store['maxAccessDevices']);
+    if (max <= 0) return 'Thiết bị truy cập: $used (không giới hạn)';
+    return 'Thiết bị truy cập: $used/$max';
+  }
+
+  bool _accessDeviceAtLimit(Map<String, dynamic> store) {
+    final max = _asInt(store['maxAccessDevices']);
+    if (max <= 0) return false;
+    return _asInt(store['accessDeviceUsed']) >= max;
   }
 
   // ═══════════════════════ TRIAL STATUS HELPER ═══════════════════════
@@ -1904,11 +2000,35 @@ class StoresTabState extends State<StoresTab> {
     }
 
     String? selectedId = currentPackageId;
+    bool? visibility; // null = đang bật, true = đăng ký, false = gán tay
+
+    bool pkgPublic(dynamic p) {
+      if (p is! Map) return true;
+      final v = p['isPublic'];
+      if (v == null) return true;
+      if (v is bool) return v;
+      return v.toString().toLowerCase() != 'false';
+    }
+
+    bool pkgActive(dynamic p) => p is Map && p['isActive'] == true;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => ScrollableAlertDialog(
+        builder: (ctx, setDlgState) {
+          final visible = packages.where((p) {
+            final id = p['id']?.toString() ?? '';
+            final active = pkgActive(p);
+            final isCurrent = id.isNotEmpty && id == currentPackageId;
+            if (!active && !isCurrent) return false;
+            if (visibility == true) return pkgPublic(p) && active;
+            if (visibility == false) return !pkgPublic(p);
+            return true;
+          }).toList();
+          final dropdownValue = visible.any((p) => p['id']?.toString() == selectedId)
+              ? selectedId
+              : null;
+          return ScrollableAlertDialog(
           title: Row(children: [
             Icon(Icons.inventory_2_outlined, color: HrmPageChrome.chipLight, size: 22),
             SizedBox(width: 8),
@@ -1926,22 +2046,63 @@ class StoresTabState extends State<StoresTab> {
                   [const SizedBox(height: 4),
                   Text(tr('${tr('Gói hiện tại: ')}${store['servicePackageName']}'),
                       style: const TextStyle(color: Colors.grey, fontSize: 13))],
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    FilterChip(
+                      label: Text(tr('Đang bật'),
+                          style: const TextStyle(fontSize: 12)),
+                      selected: visibility == null,
+                      onSelected: (_) =>
+                          setDlgState(() => visibility = null),
+                    ),
+                    FilterChip(
+                      label: Text(tr('Công khai đăng ký'),
+                          style: const TextStyle(fontSize: 12)),
+                      selected: visibility == true,
+                      onSelected: (_) =>
+                          setDlgState(() => visibility = true),
+                    ),
+                    FilterChip(
+                      label: Text(tr('Gán tay'),
+                          style: const TextStyle(fontSize: 12)),
+                      selected: visibility == false,
+                      onSelected: (_) =>
+                          setDlgState(() => visibility = false),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  tr(visibility == true
+                      ? 'Các gói khách thấy khi tự đăng ký.'
+                      : (visibility == false
+                          ? 'Gói nội bộ, không hiện trên form đăng ký.'
+                          : 'Mọi gói đang bật. Gói đã tắt chỉ giữ nếu cửa hàng đang dùng.')),
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: selectedId,
+                  initialValue: dropdownValue,
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: tr('Chọn gói dịch vụ'),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
-                  items: packages.map((p) {
+                  items: visible.map((p) {
                     final pid = p['id']?.toString() ?? '';
                     final pname = p['name']?.toString() ?? pid;
                     final maxU = p['maxUsers'];
                     final maxD = p['maxDevices'];
                     final dur = p['defaultDurationDays'];
-                    final public = p is! Map || p['isPublic'] != false;
+                    final public = pkgPublic(p);
+                    final active = pkgActive(p);
+                    final tag = !active
+                        ? 'đã tắt'
+                        : (public ? 'đăng ký' : 'gán tay');
                     return DropdownMenuItem<String>(
                       value: pid,
                       child: Column(
@@ -1950,7 +2111,7 @@ class StoresTabState extends State<StoresTab> {
                         children: [
                           Text(tr(pname), style: const TextStyle(fontWeight: FontWeight.w600)),
                           Text(
-                            tr('${public ? 'Công khai' : 'Nội bộ'} · Users: $maxU | Devices: $maxD | ${dur ?? '?'} ngày'),
+                            tr('$tag · Users: $maxU | Máy CC: $maxD | ${dur ?? '?'} ngày'),
                             style: const TextStyle(fontSize: 11, color: Colors.grey),
                           ),
                         ],
@@ -1971,14 +2132,20 @@ class StoresTabState extends State<StoresTab> {
                 onPressed: () => Navigator.pop(ctx, false),
                 child: Text(tr('Hủy'))),
             FilledButton.icon(
-              onPressed: selectedId == null ? null : () => Navigator.pop(ctx, true),
+              onPressed: dropdownValue == null
+                  ? null
+                  : () {
+                      selectedId = dropdownValue;
+                      Navigator.pop(ctx, true);
+                    },
               icon: const Icon(Icons.check, size: 16),
               label: Text(tr('Xác nhận')),
               style: ElevatedButton.styleFrom(
                   backgroundColor: HrmPageChrome.chipLight),
             ),
           ],
-        ),
+        );
+        },
       ),
     );
 

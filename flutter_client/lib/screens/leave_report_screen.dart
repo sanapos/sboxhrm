@@ -331,7 +331,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     ];
   }
 
-  Future<void> _exportExcel() async {
+  Future<void> _exportExcel({bool png = false}) async {
     final data = _filtered;
     final rows = <List<dynamic>>[];
     for (int i = 0; i < data.length; i++) {
@@ -350,34 +350,43 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         l['approvedByName']?.toString() ?? '',
       ]);
     }
+    final title = _teamView ? 'Báo cáo nghỉ phép' : 'Ngày nghỉ của tôi';
+    const filePrefix = 'BaoCaoNghiPhep';
+    final headers = [
+      'STT',
+      if (_teamView) 'Nhân viên',
+      'Loại phép',
+      'Từ ngày',
+      'Đến ngày',
+      'Số ngày',
+      'Lý do',
+      'Trạng thái',
+      'Người duyệt',
+    ];
+    final periodLabel = reportPeriodSubtitle(_from, _to, team: _teamView);
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: title,
+        filePrefix: filePrefix,
+        headers: headers,
+        rows: rows,
+        periodLabel: periodLabel,
+      );
+      return;
+    }
     await ClientExcelExport.export(
       context: context,
-      title: _teamView ? 'Báo cáo nghỉ phép' : 'Ngày nghỉ của tôi',
+      title: title,
       sheetName: 'Bao cao nghi phep',
-      filePrefix: 'BaoCaoNghiPhep',
-      headers: [
-        'STT',
-        if (_teamView) 'Nhân viên',
-        'Loại phép',
-        'Từ ngày',
-        'Đến ngày',
-        'Số ngày',
-        'Lý do',
-        'Trạng thái',
-        'Người duyệt',
-      ],
+      filePrefix: filePrefix,
+      headers: headers,
       rows: rows,
-      periodLabel: reportPeriodSubtitle(_from, _to, team: _teamView),
+      periodLabel: periodLabel,
     );
   }
 
-  Future<void> _exportPng() async {
-    await ClientPngExport.capture(
-      context: context,
-      key: _pngKey,
-      filePrefix: 'NghiPhep',
-    );
-  }
+  Future<void> _exportPng() => _exportExcel(png: true);
 
   @override
   Widget build(BuildContext context) {

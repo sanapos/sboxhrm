@@ -182,10 +182,36 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   bool _isPublic(Map<String, dynamic> pkg) =>
       _pkgBool(pkg, 'isPublic', fallback: true);
 
+  /// Khớp API đăng ký: chỉ gói đang bật và bật hiện trên form đăng ký.
+  bool _showsOnRegistration(Map<String, dynamic> pkg) =>
+      _isPublic(pkg) && pkg['isActive'] == true;
+
+  /// Gán tay: không xuất hiện trên form đăng ký.
+  bool _isManualPackage(Map<String, dynamic> pkg) => !_isPublic(pkg);
+
+  String _nextCopyName(String source) {
+    final stem = source
+        .trim()
+        .replaceAll(RegExp(r'\s*\(bản sao(?: \d+)?\)$'), '');
+    final taken = _packages
+        .map((p) => (p['name'] ?? '').toString().trim().toLowerCase())
+        .toSet();
+    var candidate = '$stem (bản sao)';
+    var n = 2;
+    while (taken.contains(candidate.toLowerCase())) {
+      candidate = '$stem (bản sao $n)';
+      n++;
+    }
+    return candidate;
+  }
+
   List<Map<String, dynamic>> get _filteredPackages {
     final q = _searchCtrl.text.trim().toLowerCase();
     return _packages.where((p) {
-      if (_visibilityFilter != null && _isPublic(p) != _visibilityFilter) {
+      if (_visibilityFilter == true && !_showsOnRegistration(p)) {
+        return false;
+      }
+      if (_visibilityFilter == false && !_isManualPackage(p)) {
         return false;
       }
       if (_activeFilter != null && (p['isActive'] == true) != _activeFilter) {
@@ -213,6 +239,9 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     required List<String> fcmCategories,
     required bool isActive,
     required bool isPublic,
+    required int retentionRunHour,
+    required int attendanceRetentionMonths,
+    required int saleOrderRetentionMonths,
   }) {
     return {
       'name': name,
@@ -229,7 +258,16 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       'allowedModules': modules,
       'isActive': isActive,
       'isPublic': isPublic,
+      'retentionRunHour': retentionRunHour.clamp(0, 23),
+      'attendanceRetentionMonths': attendanceRetentionMonths.clamp(0, 120),
+      'saleOrderRetentionMonths': saleOrderRetentionMonths.clamp(0, 120),
     };
+  }
+
+  int _pkgInt(Map<String, dynamic> pkg, String key, int fallback) {
+    final v = pkg[key];
+    if (v is int) return v;
+    return int.tryParse(v?.toString() ?? '') ?? fallback;
   }
 
   Widget _posPresetChip(
@@ -305,8 +343,8 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   }
 
   Widget _buildToolbar() {
-    final publicCount = _packages.where(_isPublic).length;
-    final internalCount = _packages.length - publicCount;
+    final publicCount = _packages.where(_showsOnRegistration).length;
+    final internalCount = _packages.where(_isManualPackage).length;
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
       child: Column(
@@ -319,9 +357,9 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               AdminHelpers.countBadge(
                   'Tổng gói', _packages.length, AdminHelpers.info),
               AdminHelpers.countBadge(
-                  'Công khai', publicCount, AdminHelpers.success),
+                  'Đăng ký', publicCount, AdminHelpers.success),
               AdminHelpers.countBadge(
-                  'Nội bộ', internalCount, AdminHelpers.warning),
+                  'Gán tay', internalCount, AdminHelpers.warning),
               AdminHelpers.countBadge(
                   'Hoạt động',
                   _packages.where((p) => p['isActive'] == true).length,
@@ -374,13 +412,15 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                 onSelected: (_) => setState(() => _visibilityFilter = null),
               ),
               FilterChip(
-                label: Text(tr('Công khai (đăng ký)')),
+                label: Text(tr('Công khai đăng ký ($publicCount)')),
                 selected: _visibilityFilter == true,
-                onSelected: (_) =>
-                    setState(() => _visibilityFilter = true),
+                onSelected: (_) => setState(() {
+                  _visibilityFilter = true;
+                  if (_activeFilter == false) _activeFilter = null;
+                }),
               ),
               FilterChip(
-                label: Text(tr('Nội bộ (gán tay)')),
+                label: Text(tr('Gán tay ($internalCount)')),
                 selected: _visibilityFilter == false,
                 onSelected: (_) =>
                     setState(() => _visibilityFilter = false),
@@ -398,10 +438,22 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               FilterChip(
                 label: Text(tr('Đã tắt')),
                 selected: _activeFilter == false,
-                onSelected: (_) => setState(() => _activeFilter = false),
+                onSelected: (_) => setState(() {
+                  _activeFilter = false;
+                  if (_visibilityFilter == true) _visibilityFilter = null;
+                }),
               ),
             ],
           ),
+          if (_visibilityFilter != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              tr(_visibilityFilter == true
+                  ? 'Đúng danh sách khách thấy khi đăng ký: gói đang bật và bật «Hiện trên màn hình đăng ký».'
+                  : 'Gói không hiện lúc đăng ký. Super Admin gán tay cho từng cửa hàng.'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+          ],
         ],
       ),
     );
@@ -444,7 +496,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              tr(isPublic ? 'Công khai' : 'Nội bộ'),
+              tr(isPublic ? 'Đăng ký' : 'Gán tay'),
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -452,6 +504,15 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               ),
             ),
           ),
+          if (context.systemAdminCanEdit) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: tr('Sao chép'),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => _showCreateEditDialog(pkg, asCopy: true),
+              icon: const Icon(Icons.copy_rounded, size: 18),
+            ),
+          ],
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -490,8 +551,18 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                 style: const TextStyle(
                     fontWeight: FontWeight.w700, fontSize: 15)),
           ),
+          if (context.systemAdminCanEdit)
+            TextButton.icon(
+              onPressed: () => _showCreateEditDialog(pkg, asCopy: true),
+              icon: const Icon(Icons.copy_rounded, size: 16),
+              label: Text(tr('Sao chép'), style: const TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                foregroundColor: AdminHelpers.primary,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
           AdminHelpers.statusChip(
-              isPublic ? 'Công khai' : 'Nội bộ',
+              isPublic ? 'Đăng ký' : 'Gán tay',
               isPublic ? AdminHelpers.info : AdminHelpers.warning),
           const SizedBox(width: 6),
           AdminHelpers.statusChip(
@@ -518,7 +589,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               runSpacing: 4,
               children: [
                 AdminHelpers.statusChip(
-                    isPublic ? 'Hiện đăng ký' : 'Ẩn đăng ký — gán tay',
+                    isPublic ? 'Hiện lúc đăng ký' : 'Chỉ gán tay',
                     isPublic ? AdminHelpers.info : AdminHelpers.warning),
                 AdminHelpers.statusChip(
                     _pkgBool(pkg, 'allowWeb') ? 'Web' : 'Không web',
@@ -589,6 +660,15 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
             children: [
               if (context.systemAdminCanEdit) ...[
                 OutlinedButton.icon(
+                  onPressed: () => _showCreateEditDialog(pkg, asCopy: true),
+                  icon: const Icon(Icons.copy_rounded, size: 14),
+                  label: Text(tr('Sao chép'), style: const TextStyle(fontSize: 12)),
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: AdminHelpers.primary,
+                      side: BorderSide(
+                          color: AdminHelpers.primary.withValues(alpha: 0.3))),
+                ),
+                OutlinedButton.icon(
                   onPressed: () => _showCreateEditDialog(pkg),
                   icon: const Icon(Icons.edit, size: 14),
                   label: Text(tr('Sửa'), style: TextStyle(fontSize: 12)),
@@ -655,10 +735,13 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   }
 
   // ═══════════════════════ CREATE / EDIT DIALOG ═══════════════════════
-  Future<void> _showCreateEditDialog(Map<String, dynamic>? existing) async {
-    final isEdit = existing != null;
-    final nameCtrl =
-        TextEditingController(text: tr(existing?['name']?.toString() ?? ''));
+  Future<void> _showCreateEditDialog(Map<String, dynamic>? existing,
+      {bool asCopy = false}) async {
+    final isEdit = existing != null && !asCopy;
+    final nameCtrl = TextEditingController(
+        text: asCopy
+            ? _nextCopyName(existing?['name']?.toString() ?? '')
+            : tr(existing?['name']?.toString() ?? ''));
     final descCtrl = TextEditingController(
         text: tr(existing?['description']?.toString() ?? ''));
     final daysCtrl = TextEditingController(
@@ -671,13 +754,28 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
         text: (existing?['maxAccessDevices'] ?? 0).toString());
     final branchesCtrl = TextEditingController(
         text: (existing?['maxBranches'] ?? 0).toString());
+    final retentionHourCtrl = TextEditingController(
+        text: (existing == null
+                ? 3
+                : _pkgInt(existing, 'retentionRunHour', 3))
+            .toString());
+    final attendanceKeepCtrl = TextEditingController(
+        text: (existing == null
+                ? 0
+                : _pkgInt(existing, 'attendanceRetentionMonths', 0))
+            .toString());
+    final saleKeepCtrl = TextEditingController(
+        text: (existing == null
+                ? 0
+                : _pkgInt(existing, 'saleOrderRetentionMonths', 0))
+            .toString());
 
     final selectedModules = <String>{};
     final selectedFcm = <String>{};
     var allowWeb = existing == null || _pkgBool(existing, 'allowWeb');
     var allowMobile = existing == null || _pkgBool(existing, 'allowMobile');
     var allowFcm = existing == null || _pkgBool(existing, 'allowFcm');
-    var isPublic = existing == null || _isPublic(existing);
+    var isPublic = asCopy ? false : (existing == null || _isPublic(existing));
     if (existing != null) {
       selectedModules
           .addAll(List<String>.from(existing['allowedModules'] ?? []));
@@ -692,11 +790,21 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
           final grouped = _groupedModules;
           return ScrollableAlertDialog(
             title: Row(children: [
-              Icon(isEdit ? Icons.edit : Icons.add_circle,
-                  color: AdminHelpers.primary, size: 24),
+              Icon(
+                  asCopy
+                      ? Icons.copy_rounded
+                      : (isEdit ? Icons.edit : Icons.add_circle),
+                  color: AdminHelpers.primary,
+                  size: 24),
               const SizedBox(width: 8),
-              Text(tr(isEdit ? 'Sửa gói dịch vụ' : 'Tạo gói dịch vụ mới'),
-                  style: const TextStyle(fontSize: 17)),
+              Expanded(
+                child: Text(
+                  tr(asCopy
+                      ? 'Sao chép gói — đổi tên rồi lưu'
+                      : (isEdit ? 'Sửa gói dịch vụ' : 'Tạo gói dịch vụ mới')),
+                  style: const TextStyle(fontSize: 17),
+                ),
+              ),
             ]),
             content: SizedBox(
               width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 600,
@@ -705,7 +813,23 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Basic info
+                    if (asCopy) ...[
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF7ED),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFDBA74)),
+                        ),
+                        child: Text(
+                          tr('Bản sao không gắn cửa hàng nào. Đổi số máy hoặc chức năng trước khi lưu. Mặc định ẩn khỏi đăng ký để gán tay.'),
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.orange.shade900),
+                        ),
+                      ),
+                    ],
                     AdminHelpers.dialogField(
                         nameCtrl, 'Tên gói dịch vụ', Icons.label),
                     const SizedBox(height: 12),
@@ -759,6 +883,30 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                         style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                       ),
                     ),
+                    const Divider(),
+                    Text(tr('Xóa dữ liệu định kỳ'),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
+                    const SizedBox(height: 4),
+                    Text(
+                      tr('Chỉ cửa hàng đang dùng gói này. 0 tháng = không xóa. Giờ theo Việt Nam, ví dụ 3 là 3 giờ sáng.'),
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      Expanded(
+                          child: AdminHelpers.dialogField(retentionHourCtrl,
+                              'Giờ chạy (0-23)', Icons.schedule)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: AdminHelpers.dialogField(attendanceKeepCtrl,
+                              'Chấm công (tháng)', Icons.fingerprint)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                          child: AdminHelpers.dialogField(saleKeepCtrl,
+                              'Hóa đơn (tháng)', Icons.receipt_long)),
+                    ]),
+                    const SizedBox(height: 8),
                     SwitchListTile(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
@@ -1012,8 +1160,10 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                   }
                   Navigator.pop(ctx, true);
                 },
-                icon: Icon(isEdit ? Icons.save : Icons.add, size: 16),
-                label: Text(tr(isEdit ? 'Lưu' : 'Tạo')),
+                icon: Icon(
+                    asCopy ? Icons.copy_rounded : (isEdit ? Icons.save : Icons.add),
+                    size: 16),
+                label: Text(tr(asCopy ? 'Tạo bản sao' : (isEdit ? 'Lưu' : 'Tạo'))),
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AdminHelpers.primary),
               ),
@@ -1040,6 +1190,9 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       fcmCategories: selectedFcm.toList(),
       isActive: isEdit ? (existing['isActive'] ?? true) == true : true,
       isPublic: isPublic,
+      retentionRunHour: int.tryParse(retentionHourCtrl.text) ?? 3,
+      attendanceRetentionMonths: int.tryParse(attendanceKeepCtrl.text) ?? 0,
+      saleOrderRetentionMonths: int.tryParse(saleKeepCtrl.text) ?? 0,
     );
     if (!isEdit) data.remove('isActive');
 
@@ -1050,8 +1203,13 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
 
     if (!mounted) return;
     if (res['isSuccess'] == true) {
-      AdminHelpers.showSuccess(context,
-          isEdit ? 'Đã cập nhật gói dịch vụ' : 'Đã tạo gói dịch vụ mới');
+      AdminHelpers.showSuccess(
+          context,
+          asCopy
+              ? 'Đã tạo bản sao. Gói gốc và các cửa hàng đang dùng không đổi.'
+              : (isEdit
+                  ? 'Đã cập nhật gói dịch vụ'
+                  : 'Đã tạo gói dịch vụ mới'));
       loadData();
     } else {
       AdminHelpers.showApiError(context, res);
@@ -1086,6 +1244,9 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       fcmCategories: List<String>.from(pkg['allowedFcmCategories'] ?? []),
       isActive: !isActive,
       isPublic: _isPublic(pkg),
+      retentionRunHour: _pkgInt(pkg, 'retentionRunHour', 3),
+      attendanceRetentionMonths: _pkgInt(pkg, 'attendanceRetentionMonths', 0),
+      saleOrderRetentionMonths: _pkgInt(pkg, 'saleOrderRetentionMonths', 0),
     );
 
     final res = await _apiService.updateServicePackage(
@@ -1127,6 +1288,9 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       fcmCategories: List<String>.from(pkg['allowedFcmCategories'] ?? []),
       isActive: pkg['isActive'] == true,
       isPublic: !isPublic,
+      retentionRunHour: _pkgInt(pkg, 'retentionRunHour', 3),
+      attendanceRetentionMonths: _pkgInt(pkg, 'attendanceRetentionMonths', 0),
+      saleOrderRetentionMonths: _pkgInt(pkg, 'saleOrderRetentionMonths', 0),
     );
 
     final res = await _apiService.updateServicePackage(

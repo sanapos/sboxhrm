@@ -246,8 +246,6 @@ public class ExecutiveReportsController(
                 AddRow("Tiền ăn phát sinh", r.Finance.MealCharge, isMoney: true);
                 AddRow("Tiền ăn đã thu", r.Finance.MealPayment, isMoney: true);
                 AddRow("Tiền ăn còn nợ", r.Finance.MealOutstanding, isMoney: true);
-
-                ws.Columns().AdjustToContents();
             },
             $"executive-summary-{r.Year}-{r.Month:D2}.xlsx", user: user);
     }

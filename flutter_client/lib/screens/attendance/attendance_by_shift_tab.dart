@@ -4089,7 +4089,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         );
       }
 
-      final bytes = excelFile.encode();
+      final bytes = ExcelReportBuilder.encodeReport(excelFile);
       if (bytes != null) {
         final fileName =
             'Bang_cham_cong_theo_ca_${DateFormat('ddMMyyyy').format(range.start)}_${DateFormat('ddMMyyyy').format(range.end)}.xlsx';

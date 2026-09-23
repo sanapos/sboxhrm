@@ -39,9 +39,9 @@ class PosProductImageCacheManager {
     int cacheEpoch = 0,
   }) {
     final etag = updatedAt?.millisecondsSinceEpoch ?? cacheEpoch;
-    final id = productId?.trim();
-    if (id != null && id.isNotEmpty) return 'pid_${id}_$etag';
     final p = (path ?? imageUrl ?? 'none').trim();
+    final id = productId?.trim();
+    if (id != null && id.isNotEmpty) return 'pid_${id}_${p.hashCode}_$etag';
     return 'path_${p.hashCode}_$etag';
   }
 
@@ -54,6 +54,21 @@ class PosProductImageCacheManager {
       _memory.remove(first);
     }
     _memory[key] = bytes;
+  }
+
+  Future<void> invalidateProduct(String productId) async {
+    final id = productId.trim();
+    if (id.isEmpty) return;
+    final prefix = 'pid_${id}_';
+    final keys = _memory.keys.where((k) => k.startsWith(prefix)).toList();
+    for (final key in keys) {
+      _memory.remove(key);
+      if (!kIsWeb) {
+        try {
+          await manager.removeFile(key);
+        } catch (_) {}
+      }
+    }
   }
 
   Future<void> removeKey(String key) async {

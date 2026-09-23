@@ -25,6 +25,38 @@ public static class StorePackageHelper
         return set.ToList();
     }
 
+    public sealed record PackageDataRetention(int RunHour, int AttendanceMonths, int SaleOrderMonths);
+
+    public static PackageDataRetention ParseRetention(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return new PackageDataRetention(3, 0, 0);
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            var hour = root.TryGetProperty("runHour", out var h) && h.TryGetInt32(out var hv) ? hv : 3;
+            var att = root.TryGetProperty("attendanceMonths", out var a) && a.TryGetInt32(out var av) ? av : 0;
+            var sales = root.TryGetProperty("saleOrderMonths", out var s) && s.TryGetInt32(out var sv) ? sv : 0;
+            return new PackageDataRetention(Math.Clamp(hour, 0, 23), Math.Clamp(att, 0, 120), Math.Clamp(sales, 0, 120));
+        }
+        catch
+        {
+            return new PackageDataRetention(3, 0, 0);
+        }
+    }
+
+    public static string SerializeRetention(int runHour, int attendanceMonths, int saleOrderMonths)
+    {
+        var payload = new
+        {
+            runHour = Math.Clamp(runHour, 0, 23),
+            attendanceMonths = Math.Clamp(attendanceMonths, 0, 120),
+            saleOrderMonths = Math.Clamp(saleOrderMonths, 0, 120),
+        };
+        return JsonSerializer.Serialize(payload, JsonOpts);
+    }
+
     public static List<string> DeserializeModules(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return [];

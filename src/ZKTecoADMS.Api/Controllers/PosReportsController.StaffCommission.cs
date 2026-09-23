@@ -168,7 +168,7 @@ public partial class PosReportsController
             r++;
         }
         ws.SheetView.FreezeRows(1);
-        ws.Columns().AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, 1);
         using var stream = new MemoryStream();
         wb.SaveAs(stream);
         return File(

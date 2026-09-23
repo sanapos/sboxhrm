@@ -46,6 +46,12 @@ public class ServicePackage : Entity<Guid>
     public string AllowedModules { get; set; } = "[]";
 
     /// <summary>
+    /// Xóa dữ liệu cũ theo gói. JSON: runHour, attendanceMonths, saleOrderMonths.
+    /// Tháng = 0 nghĩa là không xóa loại đó.
+    /// </summary>
+    public string DataRetentionJson { get; set; } = "{}";
+
+    /// <summary>
     /// Stores đang sử dụng gói này
     /// </summary>
     public virtual ICollection<Store> Stores { get; set; } = [];

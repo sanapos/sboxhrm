@@ -16,7 +16,8 @@ public static class PosQtyRules
         if (qty <= 0)
             return $"{actionLabel}: số lượng phải > 0 («{product.Name}»).";
 
-        var mustBeWhole = product.RequiresSerial || !product.AllowDecimalQty;
+        var mustBeWhole = product.RequiresSerial ||
+            !(product.AllowDecimalQty || product.AllowAreaQty);
         if (mustBeWhole && !IsWhole(qty))
         {
             if (product.RequiresSerial)

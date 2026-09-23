@@ -46,6 +46,36 @@ public class ZKTecoDbInitializer(
                     logger.LogInformation("Database is up to date. No pending migrations.");
                 }
 
+                try
+                {
+                    await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"ServicePackages\" ADD COLUMN IF NOT EXISTS \"DataRetentionJson\" text NOT NULL DEFAULT '{}';");
+                }
+                catch (Exception retentionEx)
+                {
+                    logger.LogError(retentionEx, "Could not add ServicePackages.DataRetentionJson");
+                }
+
+                try
+                {
+                    await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"Stores\" ADD COLUMN IF NOT EXISTS \"SessionsRevokedAt\" timestamp without time zone NULL;");
+                }
+                catch (Exception sessionEx)
+                {
+                    logger.LogError(sessionEx, "Could not add Stores.SessionsRevokedAt");
+                }
+
+                try
+                {
+                    await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"PosProducts\" ADD COLUMN IF NOT EXISTS \"AllowAreaQty\" boolean NOT NULL DEFAULT false;");
+                }
+                catch (Exception areaQtyEx)
+                {
+                    logger.LogError(areaQtyEx, "Could not add PosProducts.AllowAreaQty");
+                }
+
                 await context.Database.ExecuteSqlRawAsync(
                     "ALTER TABLE \"Employees\" ADD COLUMN IF NOT EXISTS \"DirectManagerEmployeeId\" uuid NULL;");
 
@@ -73,6 +103,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowFcm"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowedFcmCategories"" text NOT NULL DEFAULT '[]';
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""IsPublic"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""DataRetentionJson"" text NOT NULL DEFAULT '{}';
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""Province"" character varying(120) NULL;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
@@ -159,6 +190,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AutoOpenToppingPopup"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ShowComboComponentsOnSell"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowDecimalQty"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaQty"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SortOrder"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""LengthCm"" numeric(18,2) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WidthCm"" numeric(18,2) NULL;
@@ -1657,6 +1689,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AutoOpenToppingPopup"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ShowComboComponentsOnSell"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowDecimalQty"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaQty"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DailySoldOutOn"" timestamp without time zone NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionMode"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionPercent"" numeric(18,2) NOT NULL DEFAULT 0;
@@ -2214,6 +2247,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowFcm"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowedFcmCategories"" text NOT NULL DEFAULT '[]';
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""IsPublic"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""DataRetentionJson"" text NOT NULL DEFAULT '{}';
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowMobile"" boolean NOT NULL DEFAULT true;

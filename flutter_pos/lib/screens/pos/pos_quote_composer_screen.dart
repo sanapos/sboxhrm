@@ -13,12 +13,14 @@ import '../../utils/pos_html_print.dart';
 import '../../utils/pos_print_template_loader.dart';
 import '../../utils/pos_print_template_v2_codec.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
+import '../../utils/pos_qty_rules.dart';
 import '../../utils/pos_sell_unit_views.dart';
 import '../../utils/pos_vietnamese_money_words.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_customer_form_dialog.dart';
 import '../../widgets/pos/pos_discount_editor_dialog.dart';
 import '../../widgets/pos/pos_empty_cart_brand.dart';
+import '../../widgets/pos/pos_qty_area_dialog.dart';
 import '../../widgets/pos/pos_product_image.dart';
 import '../../widgets/pos/pos_product_unit_view.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
@@ -440,6 +442,102 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       return;
     }
     setState(() => _cart[i].line.qty = next);
+  }
+
+  Future<void> _promptLineQty(int i) async {
+    if (i < 0 || i >= _cart.length || !mounted) return;
+    final row = _cart[i];
+    var product = row.product;
+    if (product != null) {
+      product = await PosQtyRules.withFreshQtyFlags(_api, product);
+      if (!mounted) return;
+      row.product = product;
+    }
+    final canToggle = product != null && !product.requiresSerial;
+    final byArea = product != null && product.allowAreaQty && canToggle;
+    final result = await showPosLineQtyDialog(
+      context: context,
+      productName: row.line.productName,
+      unitName: row.line.unitName ?? '',
+      initialQty: row.line.qty,
+      allowDecimal: product != null &&
+          PosQtyRules.allowsDecimal(product) &&
+          !byArea,
+      enterByArea: byArea,
+      serialOnly: product?.requiresSerial == true,
+      existingNote: row.line.lineNote,
+    );
+    if (result == null || !mounted) return;
+    final v = result.qty;
+    var subject = product;
+    if (product != null &&
+        canToggle &&
+        result.decimal != product.allowDecimalQty) {
+      final saved = await PosQtyRules.persistAllowDecimal(_api, product, result.decimal);
+      if (!mounted) return;
+      if (saved.product == null) {
+        if (!PosQtyRules.isWhole(v)) {
+          NotificationOverlayManager().showError(
+            title: 'Số lượng',
+            message: tr(saved.error ?? 'Không lưu được bán số lẻ'),
+          );
+          return;
+        }
+      } else {
+        subject = saved.product;
+        row.product = subject;
+      }
+    }
+    if (subject != null) {
+      final err = PosQtyRules.validate(subject, v, action: 'Đổi SL');
+      if (err != null) {
+        NotificationOverlayManager().showError(
+          title: 'Số lượng',
+          message: tr(err),
+        );
+        return;
+      }
+    }
+    setState(() {
+      row.line.qty = v;
+      if (result.areaNote != null) {
+        row.noteCtrl.text =
+            mergePosAreaLineNote(row.noteCtrl.text, result.areaNote!);
+        _applyNote(row);
+      }
+    });
+  }
+
+  void _setLineQty(PosProduct product, double qty, {String? areaNote}) {
+    final i = _cart.indexWhere((r) => r.line.productId == product.id);
+    if (qty <= 0) {
+      if (i >= 0) _removeRow(i);
+      return;
+    }
+    if (i < 0) {
+      _addPick(PosPurchaseLookupPick(product: product, qty: qty));
+      if (areaNote != null) {
+        final j = _cart.indexWhere((r) => r.line.productId == product.id);
+        if (j >= 0) {
+          final added = _cart[j];
+          setState(() {
+            added.noteCtrl.text =
+                mergePosAreaLineNote(added.noteCtrl.text, areaNote);
+            _applyNote(added);
+          });
+        }
+      }
+      return;
+    }
+    setState(() {
+      _cart[i].product = product;
+      _cart[i].line.qty = qty;
+      if (areaNote != null) {
+        _cart[i].noteCtrl.text =
+            mergePosAreaLineNote(_cart[i].noteCtrl.text, areaNote);
+        _applyNote(_cart[i]);
+      }
+    });
   }
 
   void _toggleExpand(_QLine row, _RowExpand mode) {
@@ -872,6 +970,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       sellListLayout: listLayout,
       cartQtyByProductId: _cartQty,
       onPick: _addPick,
+      onSetQty: _setLineQty,
       onDecrement: (p) {
         final i = _cart.indexWhere((r) => r.line.productId == p.id);
         if (i < 0) return;
@@ -1160,22 +1259,25 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     }
 
     final qty = _cart[i].line.qty;
-    final qtyText = qty == qty.roundToDouble() ? '${qty.round()}' : '$qty';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         btn(Icons.remove_rounded, () => _adjustQty(i, -1)),
-        SizedBox(
-          width: 32,
-          height: 36,
-          child: Center(
-            child: Text(
-              qtyText,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                decoration: TextDecoration.underline,
-                decorationStyle: TextDecorationStyle.dotted,
+        InkWell(
+          onTap: () => unawaited(_promptLineQty(i)),
+          borderRadius: BorderRadius.circular(8),
+          child: SizedBox(
+            width: 52,
+            height: 36,
+            child: Center(
+              child: Text(
+                PosQtyRules.format(qty, product: _cart[i].product),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  decoration: TextDecoration.underline,
+                  decorationStyle: TextDecorationStyle.dotted,
+                ),
               ),
             ),
           ),

@@ -296,7 +296,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         excel_lib.TextCellValue(r['location']?.toString() ?? ''),
       ]);
     }
-    final bytes = wb.encode();
+    final bytes = ExcelReportBuilder.encodeReport(wb);
     if (bytes == null) return;
     await file_saver.saveFileBytes(
       bytes,
@@ -306,10 +306,156 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   }
 
   Future<void> _exportPng() async {
-    await ClientPngExport.capture(
+    final tab = _tabs.index;
+    late final String title;
+    late final String filePrefix;
+    late final List<String> headers;
+    late final List<List<dynamic>> rows;
+    var summaryLines = const <String>[];
+    switch (tab) {
+      case 0:
+        {
+        title = 'Tài sản — tổng hợp';
+        filePrefix = 'TaiSan_TongHop';
+        headers = ['Nhóm', 'Tên', 'Số lượng'];
+        rows = [
+          ['Giá trị', 'Tổng giá mua', _money(_summary['totalPurchaseValue'])],
+          ['Giá trị', 'Giá trị hiện tại', _money(_summary['totalCurrentValue'])],
+        ];
+        void addGroups(String group, dynamic groups) {
+          if (groups is! List) return;
+          for (final g in groups) {
+            if (g is! Map) continue;
+            final m = Map<String, dynamic>.from(g);
+            rows.add([
+              group,
+              m['statusName'] ?? m['assetTypeName'] ?? m['categoryName'] ?? '-',
+              m['count'] ?? 0,
+            ]);
+          }
+        }
+        addGroups('Trạng thái', _summary['byStatus']);
+        addGroups('Loại', _summary['byType']);
+        addGroups('Danh mục', _summary['byCategory']);
+        }
+      case 1:
+        title = 'Danh mục tài sản';
+        filePrefix = 'TaiSan_DanhMuc';
+        headers = ['Mã TS', 'Tên', 'Loại', 'Danh mục', 'Trạng thái', 'Người giữ', 'Giá trị'];
+        rows = [
+          for (final r in _register)
+            [
+              r['assetCode']?.toString() ?? '',
+              r['name']?.toString() ?? '',
+              r['assetTypeName']?.toString() ?? '',
+              r['categoryName']?.toString() ?? '',
+              r['statusName']?.toString() ?? '',
+              r['assigneeName']?.toString() ?? '-',
+              _money(r['currentValue'] ?? r['purchasePrice']),
+            ],
+        ];
+      case 2:
+        title = 'Cấp phát tài sản';
+        filePrefix = 'TaiSan_CapPhat';
+        headers = ['Mã TS', 'Tên TS', 'NV', 'Phòng ban', 'Trạng thái', 'Giá trị'];
+        rows = [
+          for (final r in _assignments)
+            [
+              r['assetCode']?.toString() ?? '',
+              r['assetName']?.toString() ?? '',
+              r['employeeName']?.toString() ?? '',
+              r['department']?.toString() ?? '',
+              r['statusName']?.toString() ?? '',
+              _money(r['value']),
+            ],
+        ];
+      case 3:
+        title = 'Chuyển giao tài sản';
+        filePrefix = 'TaiSan_ChuyenGiao';
+        headers = ['Ngày', 'Loại', 'Mã TS', 'Tên', 'Từ', 'Đến', 'SL'];
+        rows = [
+          for (final r in _transfers)
+            [
+              assetReportFormatDate(r['transferDate']),
+              r['transferTypeName']?.toString() ?? '',
+              r['assetCode']?.toString() ?? '',
+              r['assetName']?.toString() ?? '',
+              r['fromUserName']?.toString() ?? '-',
+              r['toUserName']?.toString() ?? '-',
+              r['quantity'] ?? 1,
+            ],
+        ];
+      case 4:
+        title = 'Nhập xuất kho tài sản';
+        filePrefix = 'TaiSan_Kho';
+        headers = ['Ngày', 'Loại', 'Mã TS', 'Tên', 'SL', 'Tồn sau', 'Phiếu', 'Người TH'];
+        summaryLines = [
+          'Giao dịch: ${_stockSummary['totalCount'] ?? 0}',
+          'Nhập: ${_stockSummary['totalStockIn'] ?? 0} · Xuất: ${_stockSummary['totalStockOut'] ?? 0}',
+        ];
+        rows = [
+          for (final r in _stockLedger)
+            [
+              assetReportFormatDate(r['transactionDate']),
+              r['transactionTypeName']?.toString() ?? '',
+              r['assetCode']?.toString() ?? '',
+              r['assetName']?.toString() ?? '',
+              r['quantity'] ?? 0,
+              r['balanceAfter'] ?? 0,
+              r['referenceCode']?.toString() ?? '',
+              r['performedByName']?.toString() ?? '',
+            ],
+        ];
+      case 5:
+        title = 'Kiểm kê tài sản';
+        filePrefix = 'TaiSan_KiemKe';
+        headers = ['Đợt KK', 'Mã TS', 'Tên', 'Kỳ vọng', 'Thực tế', 'Chênh', 'TT', 'Vấn đề'];
+        summaryLines = [
+          'Dòng: ${_invVarianceSummary['totalCount'] ?? 0}',
+          'SL lệch: ${_invVarianceSummary['varianceCount'] ?? 0} · Có vấn đề: ${_invVarianceSummary['issueCount'] ?? 0}',
+        ];
+        rows = [
+          for (final r in _inventoryVariance)
+            [
+              r['inventoryCode']?.toString() ?? '',
+              r['assetCode']?.toString() ?? '',
+              r['assetName']?.toString() ?? '',
+              r['expectedQuantity'] ?? 0,
+              r['actualQuantity'] ?? '-',
+              r['variance'] ?? 0,
+              r['conditionName']?.toString() ?? '',
+              r['hasIssue'] == true ? (r['issueDescription']?.toString() ?? 'Có') : '',
+            ],
+        ];
+      default:
+        title = 'Bảo hành tài sản';
+        filePrefix = 'TaiSan_BaoHanh';
+        headers = ['Mã TS', 'Tên', 'Danh mục', 'Hết BH', 'Còn (ngày)', 'Người giữ'];
+        summaryLines = [
+          'Tổng: ${_warrantySummary['totalCount'] ?? 0}',
+          'Sắp hết: ${_warrantySummary['expiringSoonCount'] ?? 0} · Đã hết: ${_warrantySummary['expiredCount'] ?? 0}',
+        ];
+        rows = [
+          for (final r in _warrantyItems)
+            [
+              r['assetCode']?.toString() ?? '',
+              r['name']?.toString() ?? '',
+              r['categoryName']?.toString() ?? '',
+              assetReportFormatDate(r['warrantyExpiry']),
+              r['daysRemaining'] is num
+                  ? (r['daysRemaining'] as num).toInt()
+                  : (r['isExpired'] == true ? 'Hết' : '-'),
+              r['assigneeName']?.toString() ?? '-',
+            ],
+        ];
+    }
+    await ClientPngExport.table(
       context: context,
-      key: _pngKey,
-      filePrefix: 'TaiSan',
+      title: title,
+      filePrefix: filePrefix,
+      headers: headers,
+      rows: rows,
+      summaryLines: summaryLines,
     );
   }
 

@@ -45,8 +45,8 @@ class PosProductImage extends StatelessWidget {
       child: _PosProductImageLoader(
         productId: productId,
         paths: [
-          if (hasId) ApiService.posProductImagePath(productId!),
           if (hasUrl) url,
+          if (hasId) ApiService.posProductImagePath(productId!),
         ],
         cacheEpoch: updatedAt?.millisecondsSinceEpoch ?? 0,
         updatedAt: updatedAt,

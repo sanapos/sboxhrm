@@ -883,33 +883,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     }
   }
 
-  Future<void> _importBarcodeCatalog(PermissionProvider perm) async {
-    if (!perm.canCreate('PosProducts')) return;
-    final fileResult = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['xlsx', 'xls'],
-      withData: true,
-    );
-    if (fileResult == null || fileResult.files.isEmpty) return;
-    final file = fileResult.files.first;
-    if (file.bytes == null) return;
-    final res = await _api.importPosBarcodeCatalogExcel(file.bytes!, file.name);
-    if (!mounted) return;
-    if (res['isSuccess'] == true) {
-      final data = res['data'] as Map<String, dynamic>?;
-      NotificationOverlayManager().showSuccess(
-        title: 'Đã nhập từ điển mã vạch',
-        message: tr(
-            'Thêm ${data?['created'] ?? 0}, cập nhật ${data?['updated'] ?? 0}. Quét mã chưa có hàng → gợi ý tên, chỉ nhập giá.'),
-      );
-    } else {
-      NotificationOverlayManager().showError(
-        title: 'Import từ điển lỗi',
-        message: tr((res['message'] ?? 'Cần cột Mã vạch và Tên hàng').toString()),
-      );
-    }
-  }
-
   Future<void> _downloadProductTemplate(PosProductType type) async {
     final res = await _api.exportPosProductsExcelTemplate(type);
     if (res['isSuccess'] != true || res['data'] == null) {
@@ -961,21 +934,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       case PosProductTypePickAction.downloadTemplate:
         await _downloadProductTemplate(pick.type);
     }
-  }
-
-  Future<void> _downloadBarcodeCatalogTemplate() async {
-    final res = await _api.exportPosBarcodeCatalogTemplate();
-    if (res['isSuccess'] != true || res['data'] == null) return;
-    final bytes = Uint8List.fromList(List<int>.from(res['data']));
-    await file_saver.saveFileBytes(
-      bytes,
-      'Mau_tu_dien_ma_vach.xlsx',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    );
-    NotificationOverlayManager().showSuccess(
-      title: 'Mẫu Excel',
-      message: tr('Đã tải mẫu: Mã vạch + Tên hàng (+ ĐVT, nhóm, hãng)'),
-    );
   }
 
   Future<void> _batchPrintLabels() async {
@@ -1394,12 +1352,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           } else if (v == 'create_hub' &&
                               perm.canCreate('PosProducts')) {
                             _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
-                          } else if (v == 'import_catalog' &&
-                              perm.canCreate('PosProducts')) {
-                            _importBarcodeCatalog(perm);
-                          } else if (v == 'catalog_template' &&
-                              perm.canCreate('PosProducts')) {
-                            _downloadBarcodeCatalogTemplate();
                           } else if (v == 'topping_groups') {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -1437,12 +1389,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             PopupMenuItem(
                                 value: 'import',
                                 child: Text(tr('Import hỗn hợp (cột Loại hàng)'))),
-                            PopupMenuItem(
-                                value: 'import_catalog',
-                                child: Text(tr('Import từ điển mã vạch'))),
-                            PopupMenuItem(
-                                value: 'catalog_template',
-                                child: Text(tr('Tải mẫu từ điển mã vạch'))),
                           ],
                           PopupMenuItem(
                               value: 'refresh', child: Text(tr('Làm mới'))),
@@ -1588,10 +1534,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                       showCreate: false,
                     );
                   }
-                  if (v == 'import_catalog') _importBarcodeCatalog(perm);
-                  if (v == 'catalog_template') {
-                    _downloadBarcodeCatalogTemplate();
-                  }
                 },
                 itemBuilder: (_) => [
                   PopupMenuItem(
@@ -1600,12 +1542,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   PopupMenuItem(
                       value: 'import',
                       child: Text(tr('Import hỗn hợp (cột Loại hàng)'))),
-                  PopupMenuItem(
-                      value: 'import_catalog',
-                      child: Text(tr('Import từ điển mã vạch'))),
-                  PopupMenuItem(
-                      value: 'catalog_template',
-                      child: Text(tr('Tải mẫu từ điển mã vạch'))),
                 ],
                 child: Container(
                   padding:

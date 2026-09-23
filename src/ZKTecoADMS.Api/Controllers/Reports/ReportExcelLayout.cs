@@ -83,7 +83,49 @@ internal static class ReportExcelLayout
 
     public static void FinishSheet(IXLWorksheet ws, int headerRow)
     {
-        ws.Columns().AdjustToContents();
-        ws.SheetView.FreezeRows(headerRow);
+        var lastCol = Math.Max(1, ws.LastColumnUsed()?.ColumnNumber() ?? 1);
+        var lastRow = Math.Max(1, ws.LastRowUsed()?.RowNumber() ?? 1);
+        for (var r = 1; r <= lastRow; r++)
+        {
+            for (var c = 1; c <= lastCol; c++)
+            {
+                var cell = ws.Cell(r, c);
+                if (cell.DataType != XLDataType.Number) continue;
+                var fmt = cell.Style.NumberFormat.Format ?? "";
+                var bare = string.IsNullOrEmpty(fmt)
+                    || fmt == "General"
+                    || fmt == "0"
+                    || fmt == "0.00";
+                if (!bare) continue;
+                var rounded = Math.Round(cell.GetDouble(), 1, MidpointRounding.AwayFromZero);
+                if (Math.Abs(rounded - Math.Round(rounded)) < 0.0000001)
+                {
+                    cell.Value = (double)Math.Round(rounded);
+                    cell.Style.NumberFormat.Format = "#,##0";
+                }
+                else
+                {
+                    cell.Value = rounded;
+                    cell.Style.NumberFormat.Format = "#,##0.0";
+                }
+            }
+        }
+
+        var width = Math.Max(8d, 145d / lastCol);
+        for (var c = 1; c <= lastCol; c++)
+            ws.Column(c).Width = width;
+
+        if (headerRow > 0 && headerRow <= lastRow)
+        {
+            ws.Row(headerRow).Height = 32;
+            ws.Row(headerRow).Style.Alignment.WrapText = true;
+            ws.SheetView.FreezeRows(headerRow);
+        }
+
+        ws.PageSetup.PaperSize = XLPaperSize.A4Paper;
+        ws.PageSetup.PageOrientation = XLPageOrientation.Landscape;
+        ws.PageSetup.PagesWide = 1;
+        ws.PageSetup.PagesTall = 0;
+        ws.PageSetup.CenterHorizontally = true;
     }
 }

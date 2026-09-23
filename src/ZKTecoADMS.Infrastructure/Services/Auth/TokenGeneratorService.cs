@@ -15,11 +15,18 @@ public class TokenGeneratorService(JwtSettings jwtSettings, ILogger<TokenGenerat
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
         var signInCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
+        var now = DateTime.UtcNow;
+        var claimList = (claims ?? []).ToList();
+        claimList.Add(new Claim(
+            JwtRegisteredClaimNames.Iat,
+            new DateTimeOffset(now).ToUnixTimeSeconds().ToString(),
+            ClaimValueTypes.Integer64));
         var tokenOptions = new JwtSecurityToken(
             issuer: jwtSettings.Issuer,
             audience: jwtSettings.Audience,
-            claims: claims ?? [],
-            expires: DateTime.UtcNow.AddMinutes(expires),
+            claims: claimList,
+            notBefore: now,
+            expires: now.AddMinutes(expires),
             signingCredentials: signInCredentials
         );
 

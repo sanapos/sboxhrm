@@ -82,6 +82,7 @@ public partial class PosProductsController(
         bool AllowToppings = false,
         bool AutoOpenToppingPopup = true,
         bool AllowDecimalQty = false,
+        bool AllowAreaQty = false,
         List<PosProductToppingOptionDto>? ToppingOptions = null,
         List<Guid>? ToppingGroupIds = null,
         List<PosProductToppingGroupDto>? ToppingGroups = null,
@@ -183,6 +184,7 @@ public partial class PosProductsController(
         bool AllowToppings = false,
         bool AutoOpenToppingPopup = true,
         bool AllowDecimalQty = false,
+        bool AllowAreaQty = false,
         List<PosProductToppingInput>? Toppings = null,
         List<Guid>? ToppingGroupIds = null,
         bool ShowComboComponentsOnSell = false,
@@ -357,6 +359,7 @@ public partial class PosProductsController(
                 p.ShowComboComponentsOnSell,
                 p.ComboTrackStock,
                 p.AllowDecimalQty,
+                p.AllowAreaQty,
                 p.ServiceBillingMode,
                 p.MinBillMinutes,
                 p.BillRoundMinutes,
@@ -430,6 +433,7 @@ public partial class PosProductsController(
                 AllowToppings: r.AllowToppings,
                 AutoOpenToppingPopup: r.AutoOpenToppingPopup,
                 AllowDecimalQty: r.AllowDecimalQty,
+                AllowAreaQty: r.AllowAreaQty,
                 SellableQty: r.ProductType == PosProductType.Combo
                     ? comboSellable.GetValueOrDefault(r.Id)
                     : null,
@@ -493,7 +497,7 @@ public partial class PosProductsController(
     /// <summary>Phục vụ ảnh sản phẩm POS (auth + store scope). Không khóa PosProducts —
     /// thu ngân chỉ có PosSell vẫn cần xem ảnh trên màn bán.</summary>
     [HttpGet("{id:guid}/image")]
-    [ResponseCache(Duration = 3600)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> GetProductImage(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -533,10 +537,14 @@ public partial class PosProductsController(
             return BadRequest(AppResponse<object>.Fail("Chưa chọn ảnh"));
 
         var storeId = RequiredStoreId;
-        var exists = await dbContext.PosProducts
+        var previousUrl = await dbContext.PosProducts
             .AsNoTracking()
-            .AnyAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
-        if (!exists)
+            .Where(p => p.Id == id && p.StoreId == storeId && p.Deleted == null)
+            .Select(p => p.ImageUrl)
+            .FirstOrDefaultAsync();
+        if (previousUrl == null && !await dbContext.PosProducts
+                .AsNoTracking()
+                .AnyAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null))
             return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa"));
 
         var ext = ResolveImageExtension(file);
@@ -579,6 +587,20 @@ public partial class PosProductsController(
                 logger.LogInformation(
                     "POS product image saved (optimized): {ProductId} -> {ImageUrl} ({Bytes} bytes)",
                     id, imagePath, optimized.Length);
+
+                if (!string.IsNullOrWhiteSpace(previousUrl))
+                {
+                    var oldPath = previousUrl.Trim().TrimStart('/');
+                    if (!string.Equals(oldPath, imagePath, StringComparison.OrdinalIgnoreCase)
+                        && oldPath.Contains("uploads/pos-products/", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { await fileStorageService.DeleteAsync(previousUrl); }
+                        catch (Exception delEx)
+                        {
+                            logger.LogWarning(delEx, "Could not delete previous product image {Path}", previousUrl);
+                        }
+                    }
+                }
 
                 return Ok(AppResponse<object>.Success(new { imageUrl = imagePath }));
             }
@@ -666,8 +688,9 @@ public partial class PosProductsController(
             SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes),
             DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId),
             WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null,
-            RequiresSerial = dto.RequiresSerial && !dto.AllowDecimalQty,
-            AllowDecimalQty = dto.AllowDecimalQty && !dto.RequiresSerial,
+            RequiresSerial = dto.RequiresSerial && !dto.AllowDecimalQty && !dto.AllowAreaQty,
+            AllowDecimalQty = (dto.AllowDecimalQty || dto.AllowAreaQty) && !dto.RequiresSerial,
+            AllowAreaQty = dto.AllowAreaQty && !dto.RequiresSerial,
             TrackExpiry = dto.TrackExpiry,
             ExpiryWarningDays = dto.ExpiryWarningDays > 0 ? dto.ExpiryWarningDays : 30,
             ServiceBillingMode = dto.ProductType == PosProductType.Service
@@ -792,8 +815,9 @@ public partial class PosProductsController(
         entity.SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes);
         entity.DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId);
         entity.WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null;
-        entity.RequiresSerial = dto.RequiresSerial && !dto.AllowDecimalQty;
-        entity.AllowDecimalQty = dto.AllowDecimalQty && !dto.RequiresSerial;
+        entity.RequiresSerial = dto.RequiresSerial && !dto.AllowDecimalQty && !dto.AllowAreaQty;
+        entity.AllowDecimalQty = (dto.AllowDecimalQty || dto.AllowAreaQty) && !dto.RequiresSerial;
+        entity.AllowAreaQty = dto.AllowAreaQty && !dto.RequiresSerial;
         entity.TrackExpiry = dto.TrackExpiry;
         entity.ExpiryWarningDays = dto.ExpiryWarningDays > 0 ? dto.ExpiryWarningDays : 30;
         entity.ServiceBillingMode = dto.ProductType == PosProductType.Service
@@ -918,6 +942,7 @@ public partial class PosProductsController(
             WarrantyMonths = source.WarrantyMonths,
             RequiresSerial = source.RequiresSerial,
             AllowDecimalQty = source.AllowDecimalQty,
+            AllowAreaQty = source.AllowAreaQty,
             TrackExpiry = source.TrackExpiry,
             ExpiryWarningDays = source.ExpiryWarningDays,
             IsTopping = source.IsTopping,
@@ -1010,6 +1035,32 @@ public partial class PosProductsController(
         entity.UpdatedAt = DateTime.UtcNow;
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<object>.Success(new { entity.Id, entity.IsFavorite }));
+    }
+
+    public sealed class SetAllowDecimalQtyBody
+    {
+        public bool Allow { get; set; }
+    }
+
+    /// <summary>Bật/tắt bán số lẻ (1,5 · 1,45) mà không gửi full PUT.</summary>
+    [HttpPost("{id:guid}/allow-decimal")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> SetAllowDecimalQty(
+        Guid id, [FromBody] SetAllowDecimalQtyBody? body)
+    {
+        var storeId = RequiredStoreId;
+        var entity = await dbContext.PosProducts
+            .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
+        if (entity == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa"));
+        var allow = body?.Allow == true;
+        if (allow && entity.RequiresSerial)
+            return BadRequest(AppResponse<object>.Fail("Hàng bắt buộc seri chỉ bán số nguyên."));
+        entity.AllowDecimalQty = allow && !entity.RequiresSerial;
+        entity.UpdatedAt = DateTime.UtcNow;
+        entity.UpdatedBy = CurrentUserEmail;
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { entity.Id, entity.AllowDecimalQty }));
     }
 
     private async Task<PosProductDto?> MapProductAsync(Guid id, Guid storeId)
@@ -1149,7 +1200,7 @@ public partial class PosProductsController(
             p.DefaultDurationMinutes, p.SessionPackCount,
             p.OpeningFee, p.OpeningMinutes, p.SessionPackValidDays,
             p.IsTopping, p.AllowToppings, p.AutoOpenToppingPopup,
-            p.AllowDecimalQty, toppingOpts,
+            p.AllowDecimalQty, p.AllowAreaQty, toppingOpts,
             groupIds, toppingGroups,
             SellableQty: sellableQty,
             ComboLines: comboLines,
@@ -1430,6 +1481,7 @@ public partial class PosProductsController(
             entity.WarrantyMonths = null;
             entity.RequiresSerial = false;
             entity.AllowDecimalQty = false;
+            entity.AllowAreaQty = false;
             entity.TrackExpiry = false;
             entity.ShowComboComponentsOnSell = false;
             entity.IsTopping = false;
@@ -1442,6 +1494,7 @@ public partial class PosProductsController(
             entity.WarrantyMonths = null;
             entity.RequiresSerial = false;
             entity.AllowDecimalQty = false;
+            entity.AllowAreaQty = false;
             entity.TrackExpiry = false;
             entity.ServiceBillingMode = PosServiceBillingMode.Flat;
             entity.MinBillMinutes = null;

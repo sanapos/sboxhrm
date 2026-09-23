@@ -5,6 +5,9 @@
 set -u
 GC_DIR="${SBOX_GC_DIR:-/opt/zkteco/gc}"
 mkdir -p "$GC_DIR"
+# API container runs as uid 1654 and must be able to create gc/request.
+chown 1654:1654 "$GC_DIR" 2>/dev/null || true
+chmod 775 "$GC_DIR" 2>/dev/null || true
 STATUS="$GC_DIR/status.json"
 LOG="$GC_DIR/last.log"
 : > "$LOG"

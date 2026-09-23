@@ -448,6 +448,7 @@ class PosProduct {
   final int? warrantyMonths;
   final bool requiresSerial;
   final bool allowDecimalQty;
+  final bool allowAreaQty;
   final bool trackExpiry;
   final int expiryWarningDays;
   final String serviceBillingMode;
@@ -528,6 +529,7 @@ class PosProduct {
     this.warrantyMonths,
     this.requiresSerial = false,
     this.allowDecimalQty = false,
+    this.allowAreaQty = false,
     this.trackExpiry = false,
     this.expiryWarningDays = 30,
     this.serviceBillingMode = 'Flat',
@@ -701,6 +703,8 @@ class PosProduct {
           json['requiresSerial'] == true || json['RequiresSerial'] == true,
       allowDecimalQty:
           json['allowDecimalQty'] == true || json['AllowDecimalQty'] == true,
+      allowAreaQty:
+          json['allowAreaQty'] == true || json['AllowAreaQty'] == true,
       trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
       expiryWarningDays:
           (json['expiryWarningDays'] ?? json['ExpiryWarningDays'] as num?)?.toInt() ?? 30,
@@ -816,6 +820,7 @@ class PosProduct {
       if (warrantyMonths != null && warrantyMonths! > 0) 'warrantyMonths': warrantyMonths,
       if (requiresSerial) 'requiresSerial': true,
       if (allowDecimalQty) 'allowDecimalQty': true,
+      if (allowAreaQty) 'allowAreaQty': true,
       if (trackExpiry) 'trackExpiry': true,
       if (trackExpiry) 'expiryWarningDays': expiryWarningDays,
       'serviceBillingMode': serviceBillingMode,
@@ -887,6 +892,8 @@ class PosProduct {
     List<PosComboLine>? recipeLines,
     double? sellableQty,
     List<String>? saleQuickNotes,
+    bool? allowDecimalQty,
+    bool? allowAreaQty,
   }) {
     return PosProduct(
       id: id ?? this.id,
@@ -924,7 +931,8 @@ class PosProduct {
       sortOrder: sortOrder ?? this.sortOrder,
       isDailySoldOut: isDailySoldOut ?? this.isDailySoldOut,
       requiresSerial: this.requiresSerial,
-      allowDecimalQty: this.allowDecimalQty,
+      allowDecimalQty: allowDecimalQty ?? this.allowDecimalQty,
+      allowAreaQty: allowAreaQty ?? this.allowAreaQty,
       trackExpiry: this.trackExpiry,
       warrantyMonths: this.warrantyMonths,
       units: units ?? this.units,
@@ -983,6 +991,7 @@ class PosProduct {
         'isDailySoldOut': isDailySoldOut,
         'requiresSerial': requiresSerial,
         'allowDecimalQty': allowDecimalQty,
+        'allowAreaQty': allowAreaQty,
         'variantCount': variantCount,
         'saleQuickNotes': saleQuickNotes,
         'isTopping': isTopping,

@@ -247,7 +247,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     }
   }
 
-  Future<void> _exportExcel() async {
+  Future<void> _exportExcel({bool png = false}) async {
     final data = _filtered;
     final rows = <List<dynamic>>[];
     for (int i = 0; i < data.length; i++) {
@@ -267,35 +267,43 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         r.approvedByName ?? '',
       ]);
     }
+    final title = _teamView ? 'Báo cáo ứng lương' : 'Lịch sử ứng lương';
+    final headers = [
+      'STT',
+      if (_teamView) 'Nhân viên',
+      if (_teamView) 'Mã NV',
+      'Tháng/Năm',
+      'Ngày tạo',
+      'Số tiền yêu cầu (đ)',
+      'Số tiền đã duyệt (đ)',
+      'Lý do',
+      'Trạng thái',
+      'Người duyệt',
+    ];
+    final periodLabel = reportPeriodSubtitle(_from, _to, team: _teamView);
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: title,
+        filePrefix: 'BaoCaoUngLuong',
+        headers: headers,
+        rows: rows,
+        periodLabel: periodLabel,
+      );
+      return;
+    }
     await ClientExcelExport.export(
       context: context,
-      title: _teamView ? 'Báo cáo ứng lương' : 'Lịch sử ứng lương',
+      title: title,
       sheetName: 'Bao cao ung luong',
       filePrefix: 'BaoCaoUngLuong',
-      headers: [
-        'STT',
-        if (_teamView) 'Nhân viên',
-        if (_teamView) 'Mã NV',
-        'Tháng/Năm',
-        'Ngày tạo',
-        'Số tiền yêu cầu (đ)',
-        'Số tiền đã duyệt (đ)',
-        'Lý do',
-        'Trạng thái',
-        'Người duyệt',
-      ],
+      headers: headers,
       rows: rows,
-      periodLabel: reportPeriodSubtitle(_from, _to, team: _teamView),
+      periodLabel: periodLabel,
     );
   }
 
-  Future<void> _exportPng() async {
-    await ClientPngExport.capture(
-      context: context,
-      key: _pngKey,
-      filePrefix: 'TamUng',
-    );
-  }
+  Future<void> _exportPng() => _exportExcel(png: true);
 
   @override
   Widget build(BuildContext context) {

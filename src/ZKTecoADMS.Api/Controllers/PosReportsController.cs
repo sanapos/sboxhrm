@@ -419,7 +419,7 @@ public partial class PosReportsController(
             row++;
         }
 
-        ws.Columns(1, headers.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, headerRow);
 
         var payWs = workbook.Worksheets.Add("Theo PTTT");
         var payHeaders = new[] { "Phương thức", "Số HĐ", "Tổng", "Đã thu" };
@@ -439,7 +439,7 @@ public partial class PosReportsController(
             payWs.Cell(payRow, 4).Value = g.Sum(x => x.PaidAmount);
             payRow++;
         }
-        payWs.Columns(1, payHeaders.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(payWs, payHeaderRow);
 
         var staffWs = workbook.Worksheets.Add("Theo NV");
         var staffHeaders = new[] { "Người bán", "Số HĐ", "Doanh thu", "Đã thu" };
@@ -459,7 +459,7 @@ public partial class PosReportsController(
             staffWs.Cell(staffRow, 4).Value = g.Sum(x => x.PaidAmount);
             staffRow++;
         }
-        staffWs.Columns(1, staffHeaders.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(staffWs, staffHeaderRow);
 
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
@@ -1011,7 +1011,7 @@ public partial class PosReportsController(
             row++;
         }
 
-        ws.Columns(1, headers.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, headerRow);
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return File(stream.ToArray(),

@@ -84,6 +84,14 @@ class LicensesTabState extends State<LicensesTab> {
     if (mounted) setState(() => _isLoading = false);
   }
 
+  String _packagePickLabel(Map<String, dynamic> p) {
+    final name = p['name']?.toString() ?? '';
+    final pub = p['isPublic'] != false;
+    final active = p['isActive'] == true;
+    final tag = !active ? 'đã tắt' : (pub ? 'đăng ký' : 'gán tay');
+    return '$name · $tag';
+  }
+
   String _getStatus(Map<String, dynamic> l) {
     if (l['isActive'] == false) return 'revoked';
     if (l['isUsed'] == true) return 'activated';
@@ -331,7 +339,7 @@ class LicensesTabState extends State<LicensesTab> {
             DropdownMenuItem(value: null, child: Text(tr('Tất cả gói'))),
             ..._servicePackages.map((p) => DropdownMenuItem(
                 value: p['id']?.toString(),
-                child: Text(tr(p['name']?.toString() ?? '')))),
+                child: Text(tr(_packagePickLabel(p))))),
           ],
           onChanged: (v) {
             _packageFilter = v;
@@ -797,7 +805,7 @@ class LicensesTabState extends State<LicensesTab> {
                       .where((p) => p['isActive'] == true)
                       .map((p) => DropdownMenuItem(
                           value: p['id']?.toString(),
-                          child: Text(tr(p['name']?.toString() ?? '')))),
+                          child: Text(tr(_packagePickLabel(p))))),
                 ],
                 onChanged: (v) {
                   setSt(() {
@@ -924,7 +932,7 @@ class LicensesTabState extends State<LicensesTab> {
                       .where((p) => p['isActive'] == true)
                       .map((p) => DropdownMenuItem(
                           value: p['id']?.toString(),
-                          child: Text(tr(p['name']?.toString() ?? '')))),
+                          child: Text(tr(_packagePickLabel(p))))),
                 ],
                 onChanged: (v) {
                   setSt(() {
@@ -1104,7 +1112,7 @@ class LicensesTabState extends State<LicensesTab> {
                         .where((p) => p['isActive'] == true)
                         .map((p) => DropdownMenuItem(
                             value: p['id']?.toString(),
-                            child: Text(tr(p['name']?.toString() ?? '')))),
+                            child: Text(tr(_packagePickLabel(p))))),
                   ],
                   onChanged: (v) => setSt(() => selectedPackageId = v),
                 ),

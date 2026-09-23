@@ -2650,19 +2650,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     if (style != null) cell.cellStyle = style;
   }
 
-  String _excelColLetter(int colIndex) {
-    var col = colIndex + 1;
-    final buf = StringBuffer();
-    while (col > 0) {
-      final rem = (col - 1) % 26;
-      buf.write(String.fromCharCode(65 + rem));
-      col = (col - 1) ~/ 26;
-    }
-    return buf.toString().split('').reversed.join();
-  }
-
-  String _excelRef(int col, int row) => '${_excelColLetter(col)}${row + 1}';
-
   excel_lib.CellStyle _excelCenterStyle({
     bool bold = false,
     int fontSize = 11,
@@ -2715,7 +2702,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         style: sigTitleStyle,
       );
     }
-    row += 4;
+    row += 2;
     for (var i = 0; i < _payrollFooterSignatureLabels.length; i++) {
       final start = i * part;
       final end = i == _payrollFooterSignatureLabels.length - 1
@@ -2743,17 +2730,29 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
       final visibleCols = _visiblePayrollColumns(data);
       final colCount = visibleCols.length;
+      final fit = _excelPayrollFit(visibleCols, data);
+      final bodyFont = fit.font;
       final wb = ExcelReportBuilder.createWorkbook(sheetName: 'Tổng hợp lương');
       final sheet = wb['Tổng hợp lương'];
-      final headerStyle = ExcelReportBuilder.headerStyle();
-      final dataStyle = _excelCenterStyle();
-      final leftStyle = _excelLeftStyle();
+      sheet.setDefaultRowHeight(15);
+      final headerStyle = excel_lib.CellStyle(
+        bold: true,
+        fontSize: bodyFont,
+        backgroundColorHex: excel_lib.ExcelColor.fromHexString('#6366F1'),
+        fontColorHex: excel_lib.ExcelColor.white,
+        horizontalAlign: excel_lib.HorizontalAlign.Center,
+        verticalAlign: excel_lib.VerticalAlign.Center,
+        textWrapping: excel_lib.TextWrapping.WrapText,
+      );
+      final leftStyle = _excelLeftStyle(fontSize: bodyFont);
       final totalStyle = _excelCenterStyle(
         bold: true,
+        fontSize: bodyFont,
         backgroundHex: '#EFF6FF',
+        numberFormat: excel_lib.NumFormat.standard_49,
       );
-      for (var i = 0; i < colCount; i++) {
-        sheet.setColumnWidth(i, _payrollColWidth(visibleCols[i]) / 7);
+      for (var i = 0; i < fit.widths.length; i++) {
+        sheet.setColumnWidth(i, fit.widths[i]);
       }
 
       var row = 0;
@@ -2764,7 +2763,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         colStart: 0,
         colEnd: lastCol,
         text: tr('BẢNG TỔNG HỢP LƯƠNG'),
-        style: ExcelReportBuilder.titleStyle(),
+        style: _excelCenterStyle(bold: true, fontSize: bodyFont + 4),
       );
       row++;
       _excelMergedText(
@@ -2774,7 +2773,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         colEnd: lastCol,
         text:
             tr('Kỳ lương: ${DateFormat('dd/MM/yyyy').format(_fromDate)} – ${DateFormat('dd/MM/yyyy').format(_toDate)}'),
-        style: _excelCenterStyle(fontSize: 12),
+        style: _excelCenterStyle(fontSize: bodyFont + 1),
       );
       row++;
       _excelMergedText(
@@ -2784,21 +2783,33 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         colEnd: lastCol,
         text:
             tr('Xuất lúc: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}  |  ${data.length} nhân viên'),
-        style: _excelCenterStyle(fontSize: 10, italic: true),
+        style: _excelCenterStyle(fontSize: bodyFont, italic: true),
       );
-      row += 2;
+      row++;
+      _excelMergedText(
+        sheet,
+        row: row,
+        colStart: 0,
+        colEnd: lastCol,
+        text: 'CB: cơ bản    HT: hoàn thành    TC: tăng ca    PC: phụ cấp',
+        style: _excelCenterStyle(fontSize: math.max(6, bodyFont - 1), italic: true),
+      );
+      row++;
 
       final headerRow = row;
       ExcelReportBuilder.applyHeaderRow(
         sheet,
         headerRow,
-        visibleCols.map((c) => c.label).toList(),
+        visibleCols
+            .map((c) => _excelPayrollHeader(c.key, c.label))
+            .toList(),
         style: headerStyle,
       );
+      sheet.setRowHeight(headerRow, bodyFont * 2 + 14);
       row++;
 
       final firstDataRow = row;
-      final signStyle = _excelCenterStyle();
+      final signStyle = _excelCenterStyle(fontSize: bodyFont);
       for (var i = 0; i < data.length; i++) {
         final emp = data[i];
         for (var c = 0; c < visibleCols.length; c++) {
@@ -2812,15 +2823,19 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               style: signStyle,
             );
           } else {
+            final value = _excelCellValue(col.key, emp, i);
             _excelSetCell(
               sheet,
               row,
               c,
-              _excelCellValue(col.key, emp, i),
-              style: _isPayrollLeftAlignKey(col.key) ? leftStyle : dataStyle,
+              value,
+              style: _isPayrollLeftAlignKey(col.key)
+                  ? leftStyle
+                  : _excelNumericStyle(col.key, value, fontSize: bodyFont),
             );
           }
         }
+        sheet.setRowHeight(row, 15);
         row++;
       }
       final lastDataRow = row - 1;
@@ -2841,17 +2856,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _excelSetCell(sheet, totalRow, c, excel_lib.TextCellValue(''),
               style: totalStyle);
         } else if (_isPayrollNumericKey(col.key) && lastDataRow >= firstDataRow) {
-          final refStart = _excelRef(c, firstDataRow);
-          final refEnd = _excelRef(c, lastDataRow);
+          final totalValue = _excelTotalCellValue(col.key, data);
           _excelSetCell(
             sheet,
             totalRow,
             c,
-            excel_lib.FormulaCellValue('=SUM($refStart:$refEnd)'),
-            style: _excelCenterStyle(
+            totalValue,
+            style: _excelNumericStyle(
+              col.key,
+              totalValue,
               bold: true,
+              fontSize: bodyFont,
               backgroundHex: '#EFF6FF',
-              numberFormat: excel_lib.NumFormat.standard_0,
             ),
           );
         } else {
@@ -2860,10 +2876,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         }
       }
 
+      sheet.setRowHeight(totalRow, 15);
       row = totalRow + 2;
       _excelWritePayrollSignatures(sheet, row: row, colCount: colCount);
 
-      final bytes = wb.encode();
+      final encoded = wb.encode();
+      final pagesTall = math.max(1, (data.length / 32).ceil());
+      final bytes = encoded == null
+          ? null
+          : ExcelReportBuilder.fitSheetToA4Landscape(
+              encoded,
+              pagesTall: pagesTall,
+            );
       if (bytes != null) {
         final fn =
             'Bang_tong_hop_luong_${DateFormat('ddMMyyyy').format(_fromDate)}_${DateFormat('ddMMyyyy').format(_toDate)}.xlsx';
@@ -2901,11 +2925,220 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       case 'lateMinutes':
       case 'earlyMinutes':
       case 'absentDays':
-      case 'standardDays':
         return excel_lib.IntCellValue((row[key] as num?)?.toInt() ?? 0);
+      case 'standardDays':
+        return _excelDayValue((row[key] as num?)?.toDouble() ?? 0);
       default:
-        return excel_lib.DoubleCellValue((row[key] as num?)?.toDouble() ?? 0);
+        return _excelMeasureCell(key, (row[key] as num?)?.toDouble() ?? 0);
     }
+  }
+
+  static const _payrollHourKeys = {
+    'totalHours',
+    'standardHours',
+    'otTotalHours',
+    'travelHours',
+    'otHoursWeekday',
+    'otHoursWeekend',
+    'otHoursHoliday',
+  };
+
+  static const _payrollDeductionKeys = {
+    'penalty',
+    'bhxh',
+    'bhyt',
+    'bhtn',
+    'unionFee',
+    'totalInsurance',
+    'pit',
+  };
+
+  excel_lib.CellValue _excelDayValue(double value) {
+    if (value == value.roundToDouble()) {
+      return excel_lib.IntCellValue(value.toInt());
+    }
+    return excel_lib.DoubleCellValue(double.parse(value.toStringAsFixed(1)));
+  }
+
+  excel_lib.CellValue _excelMeasureCell(String key, double value) {
+    if (_payrollHourKeys.contains(key)) {
+      return excel_lib.DoubleCellValue(double.parse(value.toStringAsFixed(1)));
+    }
+    if (_payrollDeductionKeys.contains(key)) {
+      if (value == 0) return excel_lib.IntCellValue(0);
+      return excel_lib.IntCellValue(-value.round());
+    }
+    return excel_lib.IntCellValue(value.round());
+  }
+
+  excel_lib.NumFormat _excelNumberFormat(
+      String key, excel_lib.CellValue value) {
+    if (_payrollHourKeys.contains(key) || value is excel_lib.DoubleCellValue) {
+      return excel_lib.NumFormat.standard_48;
+    }
+    if (_payrollDeductionKeys.contains(key) || _isPayrollMoneyKey(key)) {
+      return excel_lib.NumFormat.standard_3;
+    }
+    return excel_lib.NumFormat.standard_1;
+  }
+
+  excel_lib.CellStyle _excelNumericStyle(
+    String key,
+    excel_lib.CellValue value, {
+    bool bold = false,
+    int fontSize = 11,
+    String? backgroundHex,
+  }) {
+    return _excelCenterStyle(
+      bold: bold,
+      fontSize: fontSize,
+      backgroundHex: backgroundHex,
+      numberFormat: _excelNumberFormat(key, value),
+    );
+  }
+
+  excel_lib.CellValue _excelTotalCellValue(
+      String key, List<Map<String, dynamic>> data) {
+    final total = data.fold<double>(
+        0, (s, r) => s + ((r[key] as num?) ?? 0).toDouble());
+    if (key == 'standardDays' ||
+        key == 'workDays' ||
+        key == 'paidLeaveDays' ||
+        key == 'absentDays' ||
+        key == 'lateCount' ||
+        key == 'earlyCount' ||
+        key == 'lateMinutes' ||
+        key == 'earlyMinutes') {
+      return _excelDayValue(total);
+    }
+    return _excelMeasureCell(key, total);
+  }
+
+  bool _isPayrollMoneyKey(String key) {
+    return _isPayrollNumericKey(key) &&
+        !_payrollHourKeys.contains(key) &&
+        !_payrollDeductionKeys.contains(key) &&
+        key != 'standardDays' &&
+        key != 'workDays' &&
+        key != 'paidLeaveDays' &&
+        key != 'absentDays' &&
+        key != 'lateCount' &&
+        key != 'earlyCount' &&
+        key != 'lateMinutes' &&
+        key != 'earlyMinutes';
+  }
+
+  /// Tiêu đề Excel: xuống dòng, viết tắt chỗ tên dài hơn bề rộng cột số.
+  static const _excelPayrollHeaderByKey = <String, String>{
+    'stt': 'STT',
+    'name': 'Họ tên',
+    'code': 'Mã\nNV',
+    'department': 'Phòng\nban',
+    'position': 'Chức\nvụ',
+    'salaryType': 'Loại\nlương',
+    'standardDays': 'Công\nchuẩn',
+    'workDays': 'Tổng\ncông',
+    'totalHours': 'Tổng\ngiờ',
+    'otTotalHours': 'Giờ\nTC',
+    'travelHours': 'Giờ\nđi đường',
+    'travelSalary': 'Lương\nđi đường',
+    'baseSalary': 'Lương\nCB',
+    'workSalary': 'Lương\ncông',
+    'completionSalary': 'Lương\nHT',
+    'dailySalary': 'Lương\nngày',
+    'shiftSalary': 'Lương\nca',
+    'hourlySalary': 'Lương\ngiờ',
+    'otSalary': 'Lương\nTC',
+    'allowanceFixed': 'PC\ncố định',
+    'allowanceDaily': 'PC\ntheo ngày',
+    'totalAllowance': 'Tổng\nPC',
+    'bonus': 'Thưởng',
+    'kpiSalary': 'Lương\nKPI',
+    'productionAmount': 'Sản\nlượng',
+    'totalSalary': 'Tổng\nlương',
+    'penalty': 'Phạt',
+    'bhxh': 'BHXH',
+    'bhyt': 'BHYT',
+    'bhtn': 'BHTN',
+    'unionFee': 'Phí\nCĐ',
+    'totalInsurance': 'Tổng\nBH',
+    'pit': 'TNCN',
+    'advance': 'Ứng\nlương',
+    'netSalary': 'Thực\nnhận',
+    'employeeSign': 'Ký\ntên',
+  };
+
+  String _excelPayrollHeader(String key, String label) {
+    final preset = _excelPayrollHeaderByKey[key];
+    if (preset != null) return preset;
+    final words = label.trim().split(RegExp(r'\s+'));
+    if (words.length < 2 || label.length <= 8) return label;
+    var best = 1;
+    var bestDiff = 1 << 30;
+    var leftLen = 0;
+    for (var i = 0; i < words.length - 1; i++) {
+      leftLen += words[i].length + (i == 0 ? 0 : 1);
+      final rightLen = label.length - leftLen - 1;
+      final diff = (leftLen - rightLen).abs();
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = i + 1;
+      }
+    }
+    return '${words.take(best).join(' ')}\n${words.skip(best).join(' ')}';
+  }
+
+  /// Cỡ chữ và bề rộng cột để cả bảng vừa khổ A4 ngang, số không bị ######.
+  ({int font, List<double> widths}) _excelPayrollFit(
+    List<PayrollColumn> cols,
+    List<Map<String, dynamic>> data,
+  ) {
+    final totals = _pngPayrollTotalCells(data, cols);
+    final chars = <int>[];
+    for (var c = 0; c < cols.length; c++) {
+      final col = cols[c];
+      var longest = 1;
+      for (var i = 0; i < data.length; i++) {
+        final text = _pngPayrollCellText(col.key, data[i], i);
+        if (text.length > longest) longest = text.length;
+      }
+      if (c < totals.length && totals[c].length > longest) {
+        longest = totals[c].length;
+      }
+      final header = _excelPayrollHeader(col.key, col.label);
+      var headerNeed = 1;
+      for (final line in header.split('\n')) {
+        if (line.length > headerNeed) headerNeed = line.length;
+      }
+      headerNeed = headerNeed.clamp(3, 12);
+      final textCol = _isPayrollLeftAlignKey(col.key) ||
+          col.key == 'stt' ||
+          col.key == _employeeSignColumnKey;
+      final valueNeed = textCol ? longest.clamp(3, 16) : longest.clamp(3, 14);
+      chars.add(math.max(headerNeed, valueNeed));
+    }
+    const budget = 145.0;
+    double widthSum(int font) {
+      final scale = font / 11.0;
+      var sum = 0.0;
+      for (final n in chars) {
+        sum += n * scale + 1.1;
+      }
+      return sum;
+    }
+
+    var font = 10;
+    while (font > 6 && widthSum(font) > budget) {
+      font--;
+    }
+    final scale = font / 11.0;
+    final raw = [for (final n in chars) n * scale + 1.1];
+    final sum = raw.fold<double>(0, (a, b) => a + b);
+    final fitScale = sum <= 0 ? 1.0 : budget / sum;
+    return (
+      font: font,
+      widths: [for (final w in raw) w * fitScale],
+    );
   }
 
   String _pngPayrollCellText(String key, Map<String, dynamic> row, int index) {
@@ -2957,16 +3190,17 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     required List<PayrollColumn> visibleCols,
     required List<double> colWidths,
     required double tableWidth,
+    required double fontPx,
   }) {
-    const rowH = 28.0;
-    const headerH = 34.0;
+    final rowH = 16 + fontPx;
+    final headerH = 20 + fontPx;
     const titleH = 34.0;
     const periodH = 26.0;
     const gap = 10.0;
     const sigBlockH = 88.0;
     const pad = _pngPad;
-    const cellFont = '11px Arial, sans-serif';
-    const cellFontBold = 'bold 11px Arial, sans-serif';
+    final cellFont = '${fontPx.round()}px Arial, sans-serif';
+    final cellFontBold = 'bold ${fontPx.round()}px Arial, sans-serif';
 
     final headers = visibleCols.map((c) => c.label).toList();
     final tableLeft = pad;
@@ -3099,23 +3333,27 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
       final rawColWidths = <double>[];
       for (var c = 0; c < visibleCols.length; c++) {
-        var w = visibleCols[c].label.length * 8.0 + 20;
+        var w = visibleCols[c].label.length * 7.2 + 16;
         for (final row in sampleRows) {
           if (c < row.length) {
-            final cw = row[c].length * 7.0 + 20;
+            final cw = row[c].length * 6.6 + 14;
             if (cw > w) w = cw;
           }
         }
-        rawColWidths.add(w.clamp(52, _payrollColWidth(visibleCols[c])));
+        final cap = math.max(40.0, w);
+        rawColWidths.add(w.clamp(40.0, cap));
       }
       final naturalTableW = rawColWidths.fold<double>(0, (s, w) => s + w);
-      final totalWidth = math.max(1100.0, naturalTableW + 2 * _pngPad);
-      final tableWidth = totalWidth - 2 * _pngPad;
-      final scale = tableWidth / naturalTableW;
+      const maxTableW = 2200.0;
+      final fittedTableW = naturalTableW.clamp(960.0, maxTableW);
+      final scale = naturalTableW <= 0 ? 1.0 : fittedTableW / naturalTableW;
+      final fontPx = (11.0 * math.min(1.0, scale)).clamp(6.0, 11.0);
       final colWidths = rawColWidths.map((w) => w * scale).toList();
+      final totalWidth = fittedTableW + 2 * _pngPad;
+      final tableWidth = fittedTableW;
 
-      const rowH = 28.0;
-      const headerH = 34.0;
+      final rowH = 16 + fontPx;
+      final headerH = 20 + fontPx;
       const titleH = 34.0;
       const periodH = 26.0;
       const gap = 10.0;
@@ -3140,6 +3378,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             visibleCols: visibleCols,
             colWidths: colWidths,
             tableWidth: tableWidth,
+            fontPx: fontPx,
           );
 
       final fileName =

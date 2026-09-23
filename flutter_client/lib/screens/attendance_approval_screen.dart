@@ -7,6 +7,7 @@ import '../utils/file_saver.dart' as file_saver;
 import '../utils/web_canvas.dart' as web_canvas;
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' as excel_lib;
+import '../utils/excel_report_builder.dart';
 import '../services/api_service.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
@@ -2449,7 +2450,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         ]);
       }
 
-      final bytes = wb.encode();
+      final bytes = ExcelReportBuilder.encodeReport(wb);
       if (bytes != null) {
         await file_saver.saveFileBytes(
             bytes,

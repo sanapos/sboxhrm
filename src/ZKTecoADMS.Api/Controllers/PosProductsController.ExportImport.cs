@@ -3,6 +3,7 @@ using ZKTecoADMS.Api.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Controllers.Reports;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -64,7 +65,7 @@ public partial class PosProductsController
         foreach (var type in typesToWrite)
         {
             var slice = products.Where(p => p.ProductType == type).ToList();
-            WriteProductExportSheet(workbook, User, type, slice, products.Count);
+            WriteProductExportSheet(workbook, User, Request, type, slice, products.Count);
         }
 
         var comboProductIds = products
@@ -116,6 +117,7 @@ public partial class PosProductsController
     private static void WriteProductExportSheet(
         XLWorkbook workbook,
         System.Security.Claims.ClaimsPrincipal user,
+        HttpRequest request,
         PosProductType type,
         List<PosProduct> products,
         int catalogTotal)
@@ -134,7 +136,7 @@ public partial class PosProductsController
             "STT", "Mã hàng", "Mã vạch", "Tên hàng", "Nhóm hàng", "Thương hiệu", "Nhà cung cấp",
             "Giá vốn", "Giá bán", "Tồn kho", "Tồn thấp nhất", "Tồn cao nhất",
             "Đơn vị", "Loại hàng", "Bán trực tiếp", "Trọng lượng", "Vị trí", "Mô tả", "Máy in",
-            "Đang KD",
+            "Đang KD", "Link ảnh",
         };
         var typeName = PosProductTypeRules.DisplayName(type);
         var meta = ReportExcelMeta.FromUser(
@@ -174,9 +176,14 @@ public partial class PosProductsController
             ws.Cell(row, 18).Value = p.Description ?? "";
             ws.Cell(row, 19).Value = p.DefaultPrinter?.Name ?? "";
             ws.Cell(row, 20).Value = p.IsActive ? "Có" : "Không";
+            var imageLink = PosPublicFileUrl.ForPath(request, p.ImageUrl);
+            ws.Cell(row, 21).Value = imageLink;
+            if (imageLink.Length > 0)
+                ws.Cell(row, 21).SetHyperlink(new XLHyperlink(imageLink));
             row++;
         }
         ws.Columns(1, headers.Length).AdjustToContents();
+        if (ws.Column(21).Width > 48) ws.Column(21).Width = 48;
     }
 
     [HttpGet("excel-template")]

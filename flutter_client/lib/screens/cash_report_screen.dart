@@ -238,7 +238,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
     }
   }
 
-  Future<void> _exportExcel() async {
+  Future<void> _exportExcel({bool png = false}) async {
     final data = _filtered;
     final rows = <List<dynamic>>[];
     for (int i = 0; i < data.length; i++) {
@@ -260,6 +260,39 @@ class _CashReportScreenState extends State<CashReportScreen> {
         _paymentLabel(t['paymentMethod']),
         t['createdByUserName']?.toString() ?? '',
       ]);
+    }
+    const headers = [
+      'STT',
+      'Mã GD',
+      'Danh mục',
+      'Loại',
+      'Ngày',
+      'Số tiền (đ)',
+      'Trạng thái',
+      'Số dư quỹ',
+      'Mô tả',
+      'Phương thức',
+      'Người tạo',
+    ];
+    final summaryLines = [
+      'Đã thu: ${_fmtMoney.format(_summary.paidIncome)} đ',
+      'Đã chi: ${_fmtMoney.format(_summary.paidExpense)} đ',
+      'Số dư quỹ: ${_fmtMoney.format(_summary.fundBalance)} đ',
+      'Chờ thu: ${_fmtMoney.format(_summary.pendingIncome)} đ',
+      'Chờ chi: ${_fmtMoney.format(_summary.pendingExpense)} đ',
+    ];
+    final periodLabel = '${_fmtDate.format(_from)} – ${_fmtDate.format(_to)}';
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: 'Báo cáo thu chi',
+        filePrefix: 'BaoCaoThuChi',
+        headers: headers,
+        rows: rows,
+        periodLabel: periodLabel,
+        summaryLines: summaryLines,
+      );
+      return;
     }
     await ClientExcelExport.export(
       context: context,
@@ -291,13 +324,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
     );
   }
 
-  Future<void> _exportPng() async {
-    await ClientPngExport.capture(
-      context: context,
-      key: _pngKey,
-      filePrefix: 'QuyTien',
-    );
-  }
+  Future<void> _exportPng() => _exportExcel(png: true);
 
   String _paymentLabel(dynamic v) {
     final val = (v is num) ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 1;

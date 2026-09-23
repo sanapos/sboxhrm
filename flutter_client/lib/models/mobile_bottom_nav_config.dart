@@ -66,44 +66,39 @@ class MobileBottomNavLayout {
   MobileBottomNavLayout copyWith({List<String>? slots}) =>
       MobileBottomNavLayout(slots: slots ?? this.slots);
 
-  /// Chuẩn hóa đúng 5 ô, không trùng module (giữ lần đầu), điền mặc định nếu thiếu.
+  /// Đúng 5 vị trí. Ô không có trong gói để trống tại chỗ, không kéo chức năng khác vào.
+  /// Ô cuối luôn là «Thêm» (app) hoặc «Nhiều hơn» (POS).
   MobileBottomNavLayout normalized({
     required List<String> defaultSlots,
     required Set<String> allowedIds,
   }) {
-    final seen = <String>{};
-    final out = <String>[];
-    for (final id in slots) {
-      if (out.length >= slotCount) break;
-      if (!allowedIds.contains(id) || seen.contains(id)) continue;
-      seen.add(id);
-      out.add(id);
-    }
-    for (final id in defaultSlots) {
-      if (out.length >= slotCount) break;
-      if (!allowedIds.contains(id) || seen.contains(id)) continue;
-      seen.add(id);
-      out.add(id);
-    }
-    // POS hub: luôn giữ «Nhiều hơn» nếu bị thay khi tùy chỉnh.
     const moreId = '_posMore';
-    if (allowedIds.contains(moreId) && !seen.contains(moreId)) {
-      if (out.length >= slotCount) {
-        out[slotCount - 1] = moreId;
-      } else {
-        out.add(moreId);
+    const drawerId = '_drawer';
+    final source = slots.length == slotCount ? slots : defaultSlots;
+    final out = <String>[];
+    for (var i = 0; i < slotCount; i++) {
+      final id = i < source.length ? source[i] : '_empty';
+      if (id == drawerId || id == moreId) {
+        out.add(id);
+        continue;
       }
-      seen.add(moreId);
+      if (id != '_empty' && allowedIds.contains(id)) {
+        out.add(id);
+      } else {
+        out.add('_empty');
+      }
     }
-    for (final id in allowedIds) {
-      if (out.length >= slotCount) break;
-      if (seen.contains(id)) continue;
-      seen.add(id);
-      out.add(id);
+    if (allowedIds.contains(moreId)) {
+      out[slotCount - 1] = moreId;
+    } else if (allowedIds.contains(drawerId)) {
+      out[slotCount - 1] = drawerId;
     }
-    while (out.length < slotCount) {
-      out.add('_empty');
+    final seen = <String>{};
+    for (var i = 0; i < out.length; i++) {
+      final id = out[i];
+      if (id == '_empty' || id == drawerId || id == moreId) continue;
+      if (!seen.add(id)) out[i] = '_empty';
     }
-    return MobileBottomNavLayout(slots: out.take(slotCount).toList());
+    return MobileBottomNavLayout(slots: out);
   }
 }

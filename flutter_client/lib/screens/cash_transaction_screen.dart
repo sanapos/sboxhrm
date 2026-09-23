@@ -1,5 +1,6 @@
 import '../utils/file_saver.dart' as file_saver;
 import 'package:excel/excel.dart' as excel_lib;
+import '../utils/excel_report_builder.dart';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -750,7 +751,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       // Remove default sheet
       wb.delete('Sheet1');
 
-      final bytes = wb.encode();
+      final bytes = ExcelReportBuilder.encodeReport(wb);
       if (bytes != null) {
         final blob = bytes;
         await file_saver.saveFileBytes(blob, 'thu_chi_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

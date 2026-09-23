@@ -1,5 +1,4 @@
 ﻿import 'dart:math' as math;
-import 'dart:ui' as ui;
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -25,6 +24,7 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/copy_biometrics_dialog.dart';
 import '../widgets/app_responsive_dialog.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/report_screen_helpers.dart';
 import '../utils/safe_navigator.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -4081,37 +4081,35 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       _showError('Không có dữ liệu để xuất');
       return;
     }
-
-    setState(() => _isExporting = true);
-
-    try {
-      final boundary = _tableKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) {
-        _showError('Không tìm thấy bảng dữ liệu để chụp');
-        return;
-      }
-
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-        _showError('Không thể tạo ảnh');
-        return;
-      }
-      final pngBytes = byteData.buffer.asUint8List();
-
-      final fileName =
-          'NhanSuADMS_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-      await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
-
-      if (mounted) {
-        _showSuccess('Đã xuất ảnh PNG: $fileName');
-      }
-    } catch (e) {
-      _showError('Lỗi xuất PNG: $e');
-    } finally {
-      if (mounted) setState(() => _isExporting = false);
-    }
+    await ClientPngExport.table(
+      context: context,
+      title: 'Danh sách nhân sự chấm công',
+      filePrefix: 'NhanSuADMS',
+      headers: const [
+        'STT',
+        'ID',
+        'Quyền',
+        'Tên thiết bị',
+        'Tên trong máy',
+        'Tên nhân viên',
+        'Mật khẩu',
+        'Mã thẻ từ',
+      ],
+      rows: [
+        for (var i = 0; i < data.length; i++)
+          [
+            i + 1,
+            data[i].pin,
+            data[i].privilege == 14 ? 'Quản trị viên' : 'Người dùng',
+            data[i].deviceName ?? '-',
+            data[i].name,
+            _getFullEmployeeName(data[i]),
+            data[i].password ?? '-',
+            data[i].cardNumber ?? '-',
+          ],
+      ],
+      summaryLines: ['${data.length} nhân viên'],
+    );
   }
 
   Widget _buildPrivilegeChip(int privilege, {bool compact = false}) {

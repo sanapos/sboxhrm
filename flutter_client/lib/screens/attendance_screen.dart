@@ -10,6 +10,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' as excel_lib;
+import '../utils/excel_report_builder.dart';
 import '../models/attendance.dart';
 import '../models/device.dart';
 import '../models/employee.dart';
@@ -1614,7 +1615,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         excel.setDefaultSheet(sheetName);
       } catch (_) {}
 
-      final bytes = excel.encode();
+      final bytes = templateOnly
+          ? excel.encode()
+          : ExcelReportBuilder.encodeReport(excel);
       if (bytes != null) {
         final prefix = templateOnly ? 'MauChamCong' : 'ChamCong';
         final fileName =

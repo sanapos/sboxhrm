@@ -1,11 +1,11 @@
-import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' as excel_lib;
+import '../utils/excel_report_builder.dart';
+import '../utils/report_screen_helpers.dart';
 import '../services/api_service.dart';
 import '../models/hrm.dart';
 import '../models/employee.dart';
@@ -7170,74 +7170,6 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     );
   }
 
-  Widget _buildCompactLegend() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
-      ),
-      child: Row(
-        children: [
-          Text(tr('Chú thích: '),
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF71717A))),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Wrap(
-              spacing: 16,
-              runSpacing: 4,
-              children: [
-                ..._shifts.map((s) => Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                                color: _colorForShift(s),
-                                borderRadius: BorderRadius.circular(4))),
-                        const SizedBox(width: 4),
-                        Text(
-                            tr('${s.name}: ${_formatTime(s.startTime)}-${_formatTime(s.endTime)}'),
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: _colorForShift(s),
-                                fontWeight: FontWeight.w600)),
-                      ],
-                    )),
-                _buildCompactLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
-                _buildCompactLegendDot(const Color(0xFFEF4444), 'Từ chối'),
-                _buildCompactLegendDot(const Color(0xFF94A3B8), 'Chờ gửi'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompactLegendDot(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-                color: color, borderRadius: BorderRadius.circular(4))),
-        const SizedBox(width: 4),
-        Text(tr(label),
-            style: TextStyle(
-                fontSize: 11, color: color, fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
-
   // ignore: unused_element
   Widget _buildLegend() {
     return Container(
@@ -7411,217 +7343,175 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   // ==================== EXPORT METHODS ====================
 
-  Future<void> _exportTableToPng(
-      GlobalKey tableKey, String fileNamePrefix) async {
-    try {
-      final boundary =
-          tableKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) {
-        appNotification.showError(
-            title: 'Lỗi', message: tr('Không tìm thấy bảng dữ liệu để chụp'));
-        return;
-      }
-      const pixelRatio = kIsWeb ? 2.0 : 3.0;
-      final image = await boundary.toImage(pixelRatio: pixelRatio);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-        appNotification.showError(title: 'Lỗi', message: tr('Không thể tạo ảnh'));
-        return;
-      }
-      final pngBytes = byteData.buffer.asUint8List();
-      final fileName =
-          '${fileNamePrefix}_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-      await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
-      appNotification.showSuccess(
-          title: 'Xuất PNG', message: tr('Đã xuất ảnh $fileName'));
-    } catch (e) {
-      appNotification.showError(title: 'Lỗi xuất PNG', message: '$e');
+  String _pngShiftName(String? id) {
+    if (id == null || id.isEmpty) return 'Ca';
+    for (final s in _shifts) {
+      if (s.id == id) return s.name;
     }
+    return 'Ca';
   }
 
-  /// Export shift-centric table as PNG with full employee names (using offscreen overlay)
-  Future<void> _exportShiftCentricPng() async {
-    final exportKey = GlobalKey();
-    final overlayState = Overlay.of(context);
-    late OverlayEntry entry;
-    entry = OverlayEntry(
-      builder: (ctx) => Positioned(
-        left: -5000, top: -5000, // offscreen
-        child: Material(
-          color: Colors.white,
-          child: RepaintBoundary(
-            key: exportKey,
-            child: SizedBox(
-              width: 800,
-              child: Container(
-                color: Colors.white,
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildExportHeader(
-                          'THEO CA LÀM VIỆC', HrmPageChrome.chipLight),
-                      _buildShiftCentricExportView(),
-                      const SizedBox(height: 8),
-                      _buildCompactLegend(),
-                    ]),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-
-    overlayState.insert(entry);
-    // Wait for layout — web (CanvasKit) needs more time
-    await Future.delayed(const Duration(milliseconds: kIsWeb ? 500 : 200));
-
-    try {
-      final boundary = exportKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) {
-        appNotification.showError(title: 'Lỗi', message: tr('Không thể tạo ảnh'));
-        entry.remove();
-        return;
+  String _pngShiftDetail(String? id) {
+    if (id == null || id.isEmpty) return 'Ca';
+    for (final s in _shifts) {
+      if (s.id == id) {
+        return '${s.name} (${_formatTime(s.startTime)}-${_formatTime(s.endTime)})';
       }
-      const pixelRatio = kIsWeb ? 2.0 : 3.0;
-      final image = await boundary.toImage(pixelRatio: pixelRatio);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-        appNotification.showError(title: 'Lỗi', message: tr('Không thể tạo ảnh'));
-        entry.remove();
-        return;
-      }
-      final pngBytes = byteData.buffer.asUint8List();
-      final fileName =
-          'TheoCalamViec_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-      await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
-      appNotification.showSuccess(
-          title: 'Xuất PNG', message: tr('Đã xuất ảnh $fileName'));
-    } catch (e) {
-      appNotification.showError(title: 'Lỗi xuất PNG', message: '$e');
-    } finally {
-      entry.remove();
     }
+    return 'Ca';
   }
 
-  /// Full detail view for export: shows all 7 days with employee names per shift
-  Widget _buildShiftCentricExportView() {
+  String _pngEmpName(dynamic id) {
+    return _employees
+        .firstWhere((e) => _effectiveUserId(e) == id,
+            orElse: () => Employee.empty())
+        .fullName;
+  }
+
+  List<String> _pngWeekHeaders() {
     final days =
         List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
-    final dayLabels = [
-      'Thứ 2',
-      'Thứ 3',
-      'Thứ 4',
-      'Thứ 5',
-      'Thứ 6',
-      'Thứ 7',
-      'CN'
-    ];
+    const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
     final dateFormat = DateFormat('dd/MM');
+    return [
+      for (var i = 0; i < 7; i++) '${dayNames[i]} ${dateFormat.format(days[i])}',
+    ];
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: List.generate(7, (di) {
-        final day = days[di];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE4E4E7)),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Day header
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: HrmPageChrome.chipLight.withValues(alpha: 0.1),
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(8)),
-                ),
-                child: Text(tr('${dayLabels[di]} ${dateFormat.format(day)}'),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                        color: HrmPageChrome.chipLight)),
-              ),
-              // Shift rows for this day
-              ..._shifts.map((shift) {
-                final schedules = _getSchedulesForShiftDay(shift.id, day);
-                final pendingLocal = _getPendingForShiftDay(shift.id, day);
-                final submittedRegs =
-                    _getRegistrationsForShiftDay(shift.id, day);
-                final uniqueRegs = submittedRegs
-                    .where((r) => schedules
-                        .every((s) => s.employeeUserId != r.employeeUserId))
-                    .toList();
-                final names = <String>[];
-                for (final ws in schedules) {
-                  names.add(_employees
-                      .firstWhere(
-                          (e) => _effectiveUserId(e) == ws.employeeUserId,
-                          orElse: () => Employee.empty())
-                      .fullName);
-                }
-                for (final r in uniqueRegs) {
-                  names.add(_employees
-                      .firstWhere(
-                          (e) => _effectiveUserId(e) == r.employeeUserId,
-                          orElse: () => Employee.empty())
-                      .fullName);
-                }
-                for (final p in pendingLocal) {
-                  names.add(_employees
-                      .firstWhere((e) => _effectiveUserId(e) == p['employeeId'],
-                          orElse: () => Employee.empty())
-                      .fullName);
-                }
+  String _pngWeekLabel() {
+    final weekEnd = _selectedWeekStart.add(const Duration(days: 6));
+    final weekNumber = _getWeekNumber(_selectedWeekStart);
+    final dept = _selectedDepartment != null
+        ? ' | Phòng ban: $_selectedDepartment'
+        : '';
+    return 'Tuần $weekNumber: ${DateFormat('dd/MM/yyyy').format(_selectedWeekStart)} - ${DateFormat('dd/MM/yyyy').format(weekEnd)}$dept';
+  }
 
-                return Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 120,
-                        child: Text(
-                            tr('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})'),
-                            style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF18181B))),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(tr(names.isEmpty ? '—' : names.join(', ')),
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: names.isEmpty
-                                    ? Colors.grey
-                                    : const Color(0xFF18181B))),
-                      ),
-                      SizedBox(
-                          width: 30,
-                          child: Text(tr('${names.length}'),
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: HrmPageChrome.chipLight))),
-                    ],
-                  ),
-                );
-              }),
-              const SizedBox(height: 4),
-            ],
-          ),
-        );
-      }),
+  Future<void> _exportTableToPng(
+      GlobalKey tableKey, String fileNamePrefix) async {
+    final approved = fileNamePrefix == 'LichDaDuyet';
+    final days =
+        List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final rows = <List<dynamic>>[];
+    for (final employee in _filteredEmployees) {
+      final effectiveId = _effectiveUserId(employee);
+      final cells = <dynamic>[
+        '${employee.fullName} (${employee.employeeCode})',
+      ];
+      var total = 0;
+      for (final day in days) {
+        final items = <String>[];
+        if (approved) {
+          final confirmed = _getSchedulesForDay(effectiveId, day);
+          final approvedRegs = _getRegistrationsForDay(effectiveId, day)
+              .where((r) => r.status == ScheduleRegistrationStatus.approved)
+              .toList();
+          for (final ws in confirmed) {
+            if (ws.isDayOff) {
+              items.add('Nghỉ');
+            } else {
+              items.add(_pngShiftDetail(ws.shiftId));
+              total++;
+            }
+          }
+          for (final reg in approvedRegs.where((r) => confirmed.every((s) =>
+              s.shiftId != r.shiftId || s.employeeUserId != r.employeeUserId))) {
+            if (reg.isDayOff) {
+              items.add(reg.note ?? 'Nghỉ');
+            } else {
+              items.add(_pngShiftDetail(reg.shiftId));
+              total++;
+            }
+          }
+        } else {
+          final schedules = _getSchedulesForDay(effectiveId, day);
+          final pendingRegs = _getPendingRegistrations(effectiveId, day);
+          final submittedRegs = _getRegistrationsForDay(effectiveId, day);
+          for (final ws in schedules) {
+            if (ws.isDayOff) {
+              items.add('Nghỉ');
+            } else {
+              items.add(_pngShiftName(ws.shiftId));
+              total++;
+            }
+          }
+          for (final p in pendingRegs) {
+            if (p['isDayOff'] == true) {
+              items.add('Nghỉ (chờ)');
+            } else {
+              items.add('${_pngShiftName(p['shiftId']?.toString())} (chờ)');
+              total++;
+            }
+          }
+          for (final r in submittedRegs.where((r) => schedules.isEmpty)) {
+            if (r.isDayOff) {
+              items.add('Nghỉ');
+            } else {
+              final statusLabel = r.status == ScheduleRegistrationStatus.approved
+                  ? '✓'
+                  : r.status == ScheduleRegistrationStatus.rejected
+                      ? '✗'
+                      : '⏳';
+              items.add('${_pngShiftName(r.shiftId)} $statusLabel');
+              if (r.status == ScheduleRegistrationStatus.approved &&
+                  !r.isDayOff) {
+                total++;
+              }
+            }
+          }
+        }
+        cells.add(items.join(', '));
+      }
+      cells.add(total);
+      rows.add(cells);
+    }
+    if (!mounted) return;
+    await ClientPngExport.table(
+      context: context,
+      title: approved
+          ? 'Lịch làm việc đã duyệt'
+          : 'Đăng ký chờ duyệt',
+      filePrefix: fileNamePrefix,
+      headers: ['Nhân viên', ..._pngWeekHeaders(), 'Tổng ca'],
+      rows: rows,
+      periodLabel: _pngWeekLabel(),
+    );
+  }
+
+  Future<void> _exportShiftCentricPng() async {
+    final days =
+        List.generate(7, (i) => _selectedWeekStart.add(Duration(days: i)));
+    final rows = <List<dynamic>>[];
+    for (final shift in _shifts) {
+      final cells = <dynamic>[
+        '${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})',
+      ];
+      var total = 0;
+      for (final day in days) {
+        final schedules = _getSchedulesForShiftDay(shift.id, day);
+        final pendingLocal = _getPendingForShiftDay(shift.id, day);
+        final submittedRegs = _getRegistrationsForShiftDay(shift.id, day);
+        final names = <String>[
+          for (final ws in schedules) _pngEmpName(ws.employeeUserId),
+          for (final p in pendingLocal) _pngEmpName(p['employeeId']),
+          for (final r in submittedRegs.where((r) =>
+              schedules.every((s) => s.employeeUserId != r.employeeUserId)))
+            _pngEmpName(r.employeeUserId),
+        ];
+        total += names.length;
+        cells.add(names.join(', '));
+      }
+      cells.add(total);
+      rows.add(cells);
+    }
+    if (!mounted) return;
+    await ClientPngExport.table(
+      context: context,
+      title: 'Theo ca làm việc',
+      filePrefix: 'TheoCalamViec',
+      headers: ['Ca làm việc', ..._pngWeekHeaders(), 'Tổng NV'],
+      rows: rows,
+      periodLabel: _pngWeekLabel(),
     );
   }
 
@@ -8069,7 +7959,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   }
 
   void _downloadExcel(excel_lib.Excel wb, String fileNamePrefix) {
-    final bytes = wb.encode();
+    final bytes = ExcelReportBuilder.encodeReport(wb);
     if (bytes != null) {
       final fileName =
           '${fileNamePrefix}_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';

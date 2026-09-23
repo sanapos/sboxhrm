@@ -181,4 +181,59 @@ public static class FeatureModuleCatalog
     public static bool IsSelfService(string? moduleCode) =>
         !string.IsNullOrEmpty(moduleCode) &&
         SelfServiceModuleCodes.Contains(moduleCode, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Customer-facing package detail: every ticked module plus always-on
+    /// self-service screens, with Vietnamese names (no raw module codes).
+    /// </summary>
+    public static IReadOnlyList<PublicModuleLabel> DescribePublicModules(IEnumerable<string>? allowedCodes)
+    {
+        var set = new HashSet<string>(allowedCodes ?? [], StringComparer.OrdinalIgnoreCase);
+        foreach (var self in SelfServiceModuleCodes)
+            set.Add(self);
+
+        return All
+            .Where(m => m.SelectableForPackage && set.Contains(m.Code))
+            .OrderBy(m => m.Order)
+            .ThenBy(m => m.DisplayName, StringComparer.Ordinal)
+            .Select(m => new PublicModuleLabel(m.Code, PublicDisplayName(m), PublicCategory(m.Category)))
+            .ToList();
+    }
+
+    public static string PublicCategory(string category) => category switch
+    {
+        "POS / Bán hàng" => "Bán hàng",
+        "POS / Báo cáo" => "Báo cáo bán hàng",
+        "Thiết lập POS" => "Thiết lập",
+        "POS / Bếp (KDS)" => "Bếp",
+        "POS / Thương mại" => "Thương mại",
+        "Báo cáo & Lương" => "Báo cáo và lương",
+        _ => category,
+    };
+
+    public static string PublicDisplayName(ModuleEntry m) => m.Code switch
+    {
+        "PosProducts" => "Hàng hóa",
+        "PosSell" => "Bán hàng",
+        "PosPrintTemplates" => "Mẫu in",
+        "PosSaleOrders" => "Đơn hàng",
+        "PosStockCounts" => "Kiểm kho",
+        "PosDamageIssues" => "Xuất hủy",
+        "PosSalesReport" => "Báo cáo bán hàng",
+        "PosCustomers" => "Khách hàng",
+        "PosWarranty" => "Bảo hành",
+        "PosCustomerDisplay" => "Màn hình phụ",
+        "PosEInvoice" => "Hóa đơn điện tử",
+        "PosKds" => "Màn hình bếp",
+        "PosQrOrder" => "Gọi món bằng QR tại bàn",
+        "PosReportVoucher" => "Báo cáo mã giảm giá",
+        "Dashboard" => "Tổng quan",
+        "DashboardKpiPanel" => "Chỉ số tổng quan",
+        "KPI" => "Đánh giá hiệu suất",
+        "AIGemini" => "Thiết lập trí tuệ nhân tạo",
+        "SettingsHub" => "Thiết lập cửa hàng",
+        _ => m.DisplayName,
+    };
+
+    public sealed record PublicModuleLabel(string Code, string DisplayName, string Category);
 }

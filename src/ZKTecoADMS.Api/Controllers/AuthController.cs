@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.Commands.Auth.AdminLogin;
 using ZKTecoADMS.Application.Commands.Auth.Login;
 using ZKTecoADMS.Application.Commands.Auth.Logout;
@@ -85,7 +86,9 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
             p.MaxBranches,
             p.AllowFcm,
             AllowedFcmCategories = Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedFcmCategories),
-            AllowedModules = Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedModules)
+            AllowedModules = Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedModules),
+            Modules = FeatureModuleCatalog.DescribePublicModules(
+                Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedModules))
         }).ToList();
 
         return Ok(AppResponse<object>.Success(packages));

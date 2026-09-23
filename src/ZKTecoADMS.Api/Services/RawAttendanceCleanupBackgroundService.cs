@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 
 namespace ZKTecoADMS.Api.Services;
 
@@ -66,13 +67,26 @@ public class RawAttendanceCleanupBackgroundService : BackgroundService
                 g => g.Key,
                 g => int.TryParse(g.OrderByDescending(x => x.UpdatedAt).First().Value, out var days) && days > 0
                     ? days
-                    : DefaultRetentionDays);
+                    : 0);
+
+        var packageOwned = await db.Stores.AsNoTracking()
+            .Where(s => s.ServicePackageId != null)
+            .Select(s => new { s.Id, Json = s.ServicePackage!.DataRetentionJson })
+            .ToListAsync(stoppingToken);
+        var packageHandlesAttendance = packageOwned
+            .Where(x => StorePackageHelper.ParseRetention(x.Json).AttendanceMonths > 0)
+            .Select(x => x.Id)
+            .ToHashSet();
 
         var totalDeleted = 0;
 
         foreach (var storeId in storeIds)
         {
-            var retentionDays = retentionByStore.GetValueOrDefault(storeId, DefaultRetentionDays);
+            // Chỉ xóa khi cửa hàng tự cài số ngày. Gói dịch vụ do job riêng xử lý.
+            if (packageHandlesAttendance.Contains(storeId))
+                continue;
+            if (!retentionByStore.TryGetValue(storeId, out var retentionDays) || retentionDays <= 0)
+                continue;
             var cutoff = DateTime.Now.AddDays(-retentionDays);
 
             var deleted = await db.AttendanceLogs

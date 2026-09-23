@@ -1,6 +1,7 @@
 ﻿import 'package:intl/intl.dart';
 
 import '../models/pos_product.dart';
+import '../services/api_service.dart';
 
 /// Format / validate SL theo cờ [PosProduct.allowDecimalQty].
 class PosQtyRules {
@@ -13,10 +14,12 @@ class PosQtyRules {
 
   /// Hàng bắt buộc seri hoặc chưa bật thập phân → chỉ số nguyên.
   static bool mustBeWhole(PosProduct product) =>
-      product.requiresSerial || !product.allowDecimalQty;
+      product.requiresSerial ||
+      !(product.allowDecimalQty || product.allowAreaQty);
 
   static bool allowsDecimal(PosProduct product) =>
-      product.allowDecimalQty && !product.requiresSerial;
+      (product.allowDecimalQty || product.allowAreaQty) &&
+      !product.requiresSerial;
 
   static String format(
     double qty, {
@@ -36,8 +39,59 @@ class PosQtyRules {
       if (product.requiresSerial) {
         return '$action: «${product.name}» bắt buộc seri — số lượng phải là số nguyên.';
       }
-      return '$action: «${product.name}» chưa cho phép SL thập phân. Bật trong hàng hóa để dùng $qty.';
+      return '$action: «${product.name}» chưa bật Bán số lẻ. Bật để dùng $qty (vd 1,5 · 1,45).';
     }
     return null;
+  }
+
+  /// Danh mục bán cache 20 phút và trước đây không có cờ diện tích.
+  /// Đọc lại hàng hóa để ô số lượng đúng với thiết lập trong hàng hóa.
+  static Future<PosProduct> withFreshQtyFlags(
+    ApiService api,
+    PosProduct product,
+  ) async {
+    final id = product.id.trim();
+    if (id.isEmpty) return product;
+    try {
+      final res = await api.getPosProduct(id);
+      final data = res['data'];
+      if (res['isSuccess'] != true || data is! Map) return product;
+      final map = Map<String, dynamic>.from(data);
+      bool flag(String camel, String pascal) =>
+          map[camel] == true || map[pascal] == true;
+      final unit =
+          (map['baseUnitName'] ?? map['BaseUnitName'])?.toString().trim();
+      return product.copyWith(
+        allowDecimalQty: flag('allowDecimalQty', 'AllowDecimalQty'),
+        allowAreaQty: flag('allowAreaQty', 'AllowAreaQty'),
+        baseUnitName:
+            (unit == null || unit.isEmpty) ? product.baseUnitName : unit,
+      );
+    } catch (_) {
+      return product;
+    }
+  }
+
+  /// Lưu cờ bán số lẻ. [product] null khi lỗi.
+  static Future<({PosProduct? product, String? error})> persistAllowDecimal(
+    ApiService api,
+    PosProduct product,
+    bool allow,
+  ) async {
+    if (product.requiresSerial) {
+      return (product: null, error: 'Hàng bắt buộc seri chỉ bán số nguyên.');
+    }
+    if (product.allowDecimalQty == allow) {
+      return (product: product, error: null);
+    }
+    final res = await api.setPosProductAllowDecimal(product.id, allow);
+    if (res['isSuccess'] == true) {
+      return (product: product.copyWith(allowDecimalQty: allow), error: null);
+    }
+    final msg = res['message']?.toString().trim();
+    return (
+      product: null,
+      error: (msg == null || msg.isEmpty) ? 'Không lưu được bán số lẻ.' : msg,
+    );
   }
 }

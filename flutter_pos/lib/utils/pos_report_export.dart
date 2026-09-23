@@ -63,7 +63,7 @@ class PosReportExport {
       for (final row in rows) {
         ExcelReportBuilder.writeRow(sh, rowIdx++, row.map(_cell).toList());
       }
-      final bytes = wb.encode();
+      final bytes = ExcelReportBuilder.encodeReport(wb);
       if (bytes == null || !isValidXlsxBytes(bytes)) {
         NotificationOverlayManager().showError(
           title: 'Lỗi',

@@ -14348,6 +14348,22 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> setPosProductAllowDecimal(
+      String id, bool allow) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/products/$id/allow-decimal'),
+            headers: _headers,
+            body: jsonEncode({'allow': allow}),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> appendPosProductSaleQuickNote(
     String id,
     String note,

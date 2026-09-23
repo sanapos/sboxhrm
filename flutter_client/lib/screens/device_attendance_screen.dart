@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import '../utils/file_saver.dart' as file_saver;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +11,8 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart' as excel_lib;
+import '../utils/excel_report_builder.dart';
+import '../utils/report_screen_helpers.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -890,7 +891,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       }
 
       // Save and download
-      final bytes = excelFile.encode();
+      final bytes = ExcelReportBuilder.encodeReport(excelFile);
       if (bytes == null) throw Exception('Không thể tạo file Excel');
 
       final fileName =
@@ -1129,45 +1130,44 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
     }
   }
 
-  /// Capture data table as PNG image
   Future<void> _exportToPng() async {
     final data = _filteredAttendances;
     if (data.isEmpty) {
       _showError('Không có dữ liệu để xuất');
       return;
     }
-
-    setState(() => _isExporting = true);
-
-    try {
-      final boundary = _tableKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) {
-        _showError('Không tìm thấy bảng dữ liệu để chụp');
-        return;
-      }
-
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-        _showError('Không thể tạo ảnh');
-        return;
-      }
-      final pngBytes = byteData.buffer.asUint8List();
-
-      final fileName =
-          'ChamCong_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png';
-      await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
-
-      if (mounted) {
-        NotificationOverlayManager().showSuccess(
-            title: 'Xuất PNG', message: tr('Đã xuất ảnh PNG: $fileName'));
-      }
-    } catch (e) {
-      _showError('Lỗi xuất PNG: $e');
-    } finally {
-      if (mounted) setState(() => _isExporting = false);
-    }
+    await ClientPngExport.table(
+      context: context,
+      title: 'Dữ liệu chấm công trên máy',
+      filePrefix: 'ChamCong',
+      headers: const [
+        'STT',
+        'Mã NV',
+        'Tên nhân viên',
+        'Thiết bị',
+        'Ngày',
+        'Thứ',
+        'Giờ chấm',
+        'Kiểu chấm',
+        'Phương thức',
+      ],
+      rows: [
+        for (var i = 0; i < data.length; i++)
+          [
+            i + 1,
+            data[i].employeeId ?? data[i].pin ?? '',
+            data[i].employeeName ?? data[i].deviceUserName ?? '',
+            data[i].deviceName ?? '',
+            _dateFormat.format(data[i].attendanceTime),
+            _getDayOfWeek(data[i].attendanceTime),
+            _timeFormat.format(data[i].attendanceTime),
+            _displayStateText(data[i]),
+            _getVerifyModeText(data[i].verifyMode),
+          ],
+      ],
+      periodLabel:
+          'Từ ${_dateFormat.format(_fromDate)} đến ${_dateFormat.format(_toDate)}',
+    );
   }
 
   /// Gửi lệnh đồng bộ chấm công với chọn thiết bị & chế độ đồng bộ

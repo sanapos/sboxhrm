@@ -240,7 +240,7 @@ public class PosStockController(ZKTecoDbContext dbContext) : AuthenticatedContro
             ws.Cell(row, 12).Value = t.CreatedBy ?? "";
             row++;
         }
-        ws.Columns(1, headers.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, headerRow);
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return File(stream.ToArray(),

@@ -25,6 +25,8 @@ class PosNoSoftKeyboardField extends StatelessWidget {
     this.onOpen,
     this.enabled = true,
     this.openKeypadOnTap = true,
+    this.offerDecimalToggle = false,
+    this.onDecimalToggle,
   });
 
   final TextEditingController controller;
@@ -42,6 +44,9 @@ class PosNoSoftKeyboardField extends StatelessWidget {
   final VoidCallback? onOpen;
   final bool enabled;
   final bool openKeypadOnTap;
+  /// Hiện chip «Bán số lẻ» trên bàn phím số.
+  final bool offerDecimalToggle;
+  final ValueChanged<bool>? onDecimalToggle;
 
   Future<void> _openPad(BuildContext context) async {
     if (!enabled || !openKeypadOnTap) return;
@@ -52,6 +57,8 @@ class PosNoSoftKeyboardField extends StatelessWidget {
       initial: controller.text,
       allowDecimal: allowDecimal,
       allowNegative: allowNegative,
+      offerDecimalToggle: offerDecimalToggle,
+      onDecimalToggle: onDecimalToggle,
     );
     if (next == null || !context.mounted) return;
     controller.text = next;
@@ -98,6 +105,8 @@ Future<String?> showPosNumericKeypad({
   String initial = '',
   bool allowDecimal = true,
   bool allowNegative = false,
+  bool offerDecimalToggle = false,
+  ValueChanged<bool>? onDecimalToggle,
 }) {
   return showModalBottomSheet<String>(
     context: context,
@@ -111,6 +120,8 @@ Future<String?> showPosNumericKeypad({
       initial: initial,
       allowDecimal: allowDecimal,
       allowNegative: allowNegative,
+      offerDecimalToggle: offerDecimalToggle,
+      onDecimalToggle: onDecimalToggle,
     ),
   );
 }
@@ -121,12 +132,16 @@ class _PosNumericKeypadSheet extends StatefulWidget {
     required this.initial,
     required this.allowDecimal,
     required this.allowNegative,
+    required this.offerDecimalToggle,
+    required this.onDecimalToggle,
   });
 
   final String title;
   final String initial;
   final bool allowDecimal;
   final bool allowNegative;
+  final bool offerDecimalToggle;
+  final ValueChanged<bool>? onDecimalToggle;
 
   @override
   State<_PosNumericKeypadSheet> createState() => _PosNumericKeypadSheetState();
@@ -134,11 +149,24 @@ class _PosNumericKeypadSheet extends StatefulWidget {
 
 class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
   late String _value;
+  late bool _allowDecimal;
 
   @override
   void initState() {
     super.initState();
     _value = _normalize(widget.initial);
+    _allowDecimal = widget.allowDecimal;
+  }
+
+  void _toggleDecimal(bool on) {
+    setState(() {
+      _allowDecimal = on;
+      if (!on) {
+        final dot = _value.indexOf('.');
+        if (dot >= 0) _value = _value.substring(0, dot);
+      }
+    });
+    widget.onDecimalToggle?.call(on);
   }
 
   String _normalize(String raw) {
@@ -150,7 +178,7 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
   void _append(String ch) {
     setState(() {
       if (ch == '.' || ch == ',') {
-        if (!widget.allowDecimal) return;
+        if (!_allowDecimal) return;
         if (_value.contains('.')) return;
         _value = _value.isEmpty || _value == '-' ? '${_value}0.' : '$_value.';
         return;
@@ -260,6 +288,22 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
               ),
             ),
           ),
+          if (widget.offerDecimalToggle)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: FilterChip(
+                  label: Text(
+                    tr(_allowDecimal ? 'Bán số lẻ: 1,5 · 1,45' : 'Bán số lẻ'),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  selected: _allowDecimal,
+                  showCheckmark: false,
+                  onSelected: _toggleDecimal,
+                ),
+              ),
+            ),
           Row(children: [
             _key('7', onTap: () => _append('7')),
             _key('8', onTap: () => _append('8')),
@@ -276,7 +320,7 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
             _key('3', onTap: () => _append('3')),
           ]),
           Row(children: [
-            if (widget.allowDecimal)
+            if (_allowDecimal)
               _key('.', onTap: () => _append('.'))
             else if (widget.allowNegative)
               _key('±', onTap: () => _append('-'))

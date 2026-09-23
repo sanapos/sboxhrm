@@ -19,6 +19,7 @@ import 'excel_report_builder.dart';
 import 'excel_bytes_utils.dart';
 import 'excel_download_helper.dart';
 import 'file_saver.dart' as file_saver;
+import 'web_canvas.dart' as web_canvas;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
@@ -563,7 +564,7 @@ class ClientExcelExport {
           row.map(_cell).toList(),
         );
       }
-      final bytes = wb.encode();
+      final bytes = ExcelReportBuilder.encodeReport(wb);
       if (bytes == null) return false;
       if (!isValidXlsxBytes(bytes)) {
         if (context.mounted) {
@@ -656,5 +657,169 @@ class ClientPngExport {
       }
       return false;
     }
+  }
+
+  /// Vẽ bảng ra PNG giống Tổng hợp lương. Chụp widget trên web lỗi khi bảng dài.
+  static Future<bool> table({
+    required BuildContext context,
+    required String title,
+    required String filePrefix,
+    required List<String> headers,
+    required List<List<dynamic>> rows,
+    String? periodLabel,
+    List<String> summaryLines = const [],
+  }) async {
+    if (rows.isEmpty || headers.isEmpty) {
+      NotificationOverlayManager().showError(
+          title: 'Thông báo', message: tr('Không có dữ liệu để xuất'));
+      return false;
+    }
+    try {
+      final cellRows = [
+        for (final row in rows) [for (final cell in row) _pngCell(cell)],
+      ];
+      final colCount = headers.length;
+      final raw = List<double>.filled(colCount, 64);
+      for (var c = 0; c < colCount; c++) {
+        var w = headers[c].length * 8.0 + 28;
+        for (final row in cellRows) {
+          if (c >= row.length) continue;
+          final cw = row[c].length * 7.2 + 20;
+          if (cw > w) w = cw;
+        }
+        raw[c] = w.clamp(56, 240);
+      }
+      final natural = raw.fold<double>(0, (s, w) => s + w);
+      const pad = 16.0;
+      var tableWidth = math.max(960.0, natural);
+      const maxCanvas = 8000.0;
+      if (tableWidth + pad * 2 > maxCanvas) {
+        tableWidth = maxCanvas - pad * 2;
+      }
+      final scale = tableWidth / natural;
+      final colWidths = [for (final w in raw) w * scale];
+
+      const titleH = 36.0;
+      const lineH = 20.0;
+      var metaH = 0.0;
+      if (periodLabel != null && periodLabel.isNotEmpty) metaH += lineH;
+      metaH += summaryLines.where((s) => s.trim().isNotEmpty).length * lineH;
+      if (metaH > 0) metaH += 6;
+      const headerH = 32.0;
+      var rowH = 26.0;
+      final body =  pad + titleH + metaH + 8 + headerH + rows.length * rowH + pad;
+      if (body > maxCanvas) {
+        rowH = ((maxCanvas - (body - rows.length * rowH)) / rows.length)
+            .clamp(16.0, 26.0);
+      }
+      final totalHeight =
+          pad + titleH + metaH + 8 + headerH + rows.length * rowH + pad;
+      final totalWidth = tableWidth + pad * 2;
+
+      void draw(dynamic ctx) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, totalWidth, totalHeight);
+        var y = pad;
+        ctx.fillStyle = '#1E1B4B';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(title, pad, y + 22);
+        y += titleH;
+        ctx.fillStyle = '#52525B';
+        ctx.font = '12px Arial';
+        if (periodLabel != null && periodLabel.isNotEmpty) {
+          ctx.fillText(periodLabel, pad, y + 14);
+          y += lineH;
+        }
+        for (final line in summaryLines) {
+          if (line.trim().isEmpty) continue;
+          ctx.fillText(line, pad, y + 14);
+          y += lineH;
+        }
+        if (metaH > 0) y += 6;
+        final tableTop = y;
+        ctx.fillStyle = '#6366F1';
+        ctx.fillRect(pad, tableTop, tableWidth, headerH);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        var x = pad;
+        for (var c = 0; c < colCount; c++) {
+          ctx.fillText(headers[c], x + colWidths[c] / 2, tableTop + 21);
+          x += colWidths[c];
+        }
+        y = tableTop + headerH;
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'center';
+        for (var r = 0; r < cellRows.length; r++) {
+          ctx.fillStyle = r.isEven ? '#F8FAFC' : '#FFFFFF';
+          ctx.fillRect(pad, y, tableWidth, rowH);
+          ctx.fillStyle = '#18181B';
+          x = pad;
+          final row = cellRows[r];
+          for (var c = 0; c < colCount; c++) {
+            final text = c < row.length ? row[c] : '';
+            ctx.fillText(text, x + colWidths[c] / 2, y + rowH * 0.72);
+            x += colWidths[c];
+          }
+          y += rowH;
+        }
+        ctx.strokeStyle = '#CBD5E1';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(pad, tableTop, tableWidth, y - tableTop);
+        ctx.textAlign = 'left';
+      }
+
+      final fileName = normalizeExportFileName(
+        '${filePrefix}_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.png',
+      );
+      final dataUrl = web_canvas.renderToPngDataUrl(
+        width: totalWidth.ceil(),
+        height: totalHeight.ceil(),
+        draw: draw,
+      );
+      if (dataUrl != null) {
+        await file_saver.saveAndOpenDataUrl(dataUrl, fileName);
+      } else {
+        final pngBytes = await web_canvas.renderToPngBytes(
+          width: totalWidth.ceil(),
+          height: totalHeight.ceil(),
+          draw: draw,
+        );
+        if (pngBytes == null) {
+          NotificationOverlayManager().showError(
+              title: 'Xuất PNG', message: tr('Không thể tạo ảnh'));
+          return false;
+        }
+        await file_saver.saveAndOpenFileBytes(pngBytes, fileName, 'image/png');
+      }
+      if (context.mounted) {
+        NotificationOverlayManager().showSuccess(
+            title: 'Xuất PNG',
+            message: tr('Đã lưu vào Ảnh/SBOX HRM: $fileName'));
+      }
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        NotificationOverlayManager()
+            .showError(title: 'Xuất PNG', message: tr('Lỗi xuất PNG: $e'));
+      }
+      return false;
+    }
+  }
+
+  static String _pngCell(dynamic v) {
+    if (v == null) return '';
+    if (v is bool) return v ? 'Có' : '';
+    if (v is num) {
+      final d = v.toDouble();
+      if (d.isNaN || d.isInfinite) return '';
+      if (d == d.roundToDouble()) {
+        return NumberFormat('#,##0', 'vi_VN').format(d.round());
+      }
+      return NumberFormat('#,##0.0', 'vi_VN')
+          .format(double.parse(d.toStringAsFixed(1)));
+    }
+    return v.toString();
   }
 }

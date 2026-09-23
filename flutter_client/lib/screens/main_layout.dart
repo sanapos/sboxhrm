@@ -2873,14 +2873,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               final enabled = _canAccessMainSlot(slotId);
               final isSelected = selectedSlotIndex == index;
               final label = _mobileNavLabelForSlot(slotId, l);
-              final useCenter = index == 2 &&
-                  def != null &&
-                  def.centerStyle &&
-                  enabled &&
-                  slotId != MobileBottomNavCatalog.emptyId;
 
               if (slotId == MobileBottomNavCatalog.emptyId || !enabled) {
-                return Expanded(child: _buildDisabledNavSlot(label: label));
+                return const Expanded(child: SizedBox(height: 52));
               }
 
               if (slotId == MobileBottomNavCatalog.drawerId) {
@@ -2895,19 +2890,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     unselectedColor: unselectedColor,
                     onTap: () =>
                         _mobileScaffoldKey.currentState?.openDrawer(),
-                  ),
-                );
-              }
-
-              if (useCenter) {
-                return Expanded(
-                  child: _buildCenterNavItem(
-                    icon: def!.activeIcon,
-                    label: label,
-                    isSelected: isSelected,
-                    primaryColor: primaryColor,
-                    surfaceColor: surfaceColor,
-                    onTap: () => _navigateToModule(def.moduleCode!),
                   ),
                 );
               }

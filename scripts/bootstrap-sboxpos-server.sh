@@ -24,7 +24,10 @@ ufw --force enable || true
 ufw status || true
 
 echo "=== 4. Directories ==="
-mkdir -p /opt/zkteco/secrets /opt/zkteco/gc /var/www/html/.well-known/acme-challenge
+mkdir -p /opt/zkteco/secrets /opt/zkteco/gc /opt/zkteco/bin /var/www/html/.well-known/acme-challenge
+# API container (uid 1654) writes /opt/zkteco/gc/request.
+chown 1654:1654 /opt/zkteco/gc
+chmod 775 /opt/zkteco/gc
 if [ ! -s /opt/zkteco/secrets/fcm-service-account.json ]; then
   printf '%s\n' '{}' > /opt/zkteco/secrets/fcm-service-account.json
 fi

@@ -214,7 +214,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
     ];
   }
 
-  Future<void> _exportExcel() async {
+  Future<void> _exportExcel({bool png = false}) async {
     final data = _filtered;
     final rows = <List<dynamic>>[];
     for (int i = 0; i < data.length; i++) {
@@ -233,9 +233,30 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         t['note']?.toString() ?? t['reason']?.toString() ?? '',
       ]);
     }
+    final title = _teamView ? 'Báo cáo phạt' : 'Phiếu phạt của tôi';
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: title,
+        filePrefix: 'BaoCaoPhat',
+        headers: [
+          'STT',
+          if (_teamView) 'Nhân viên',
+          if (_teamView) 'Phòng ban',
+          'Loại phạt',
+          'Ngày',
+          'Số tiền (đ)',
+          'Trạng thái',
+          'Ghi chú',
+        ],
+        rows: rows,
+        periodLabel: reportPeriodSubtitle(_from, _to, team: _teamView),
+      );
+      return;
+    }
     await ClientExcelExport.export(
       context: context,
-      title: _teamView ? 'Báo cáo phạt' : 'Phiếu phạt của tôi',
+      title: title,
       sheetName: 'Bao cao phat',
       filePrefix: 'BaoCaoPhat',
       headers: [
@@ -253,13 +274,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
     );
   }
 
-  Future<void> _exportPng() async {
-    await ClientPngExport.capture(
-      context: context,
-      key: _pngKey,
-      filePrefix: 'Phat',
-    );
-  }
+  Future<void> _exportPng() => _exportExcel(png: true);
 
   @override
   Widget build(BuildContext context) {

@@ -1074,7 +1074,7 @@ public partial class PosSalesController
             ws.Cell(row, 13).Value = o.SoldBy ?? "";
             row++;
         }
-        ws.Columns(1, headers.Length).AdjustToContents();
+        ReportExcelLayout.FinishSheet(ws, headerRow);
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return File(stream.ToArray(),

@@ -19,7 +19,8 @@ internal record SampleCatalogExcelRow(
     string? Description,
     int SortOrder,
     bool IsActive,
-    string? SellProfiles = null);
+    string? SellProfiles = null,
+    string? ImageUrl = null);
 
 internal static class PosProductSampleCatalogExcel
 {
@@ -27,7 +28,7 @@ internal static class PosProductSampleCatalogExcel
     [
         "Id", "Tên hàng", "Mã vạch", "Đơn vị", "Nhóm hàng", "Thương hiệu",
         "Loại mẫu", "Loại hàng", "Giá bán", "Giá vốn", "VAT %", "KCT",
-        "Mô tả", "Thứ tự", "Đang dùng", "Ngành",
+        "Mô tả", "Thứ tự", "Đang dùng", "Ngành", "Link ảnh",
     ];
 
     public static byte[] BuildWorkbook(
@@ -61,11 +62,17 @@ internal static class PosProductSampleCatalogExcel
             ws.Cell(r, 14).Value = row.SortOrder;
             ws.Cell(r, 15).Value = row.IsActive ? "Có" : "Không";
             ws.Cell(r, 16).Value = row.SellProfiles ?? "";
+            var imageLink = row.ImageUrl ?? "";
+            ws.Cell(r, 17).Value = imageLink;
+            if (imageLink.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                || imageLink.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                ws.Cell(r, 17).SetHyperlink(new XLHyperlink(imageLink));
             r++;
         }
 
         ws.Columns(1, Headers.Length).AdjustToContents();
         ws.Column(1).Width = 12;
+        if (ws.Column(17).Width > 48) ws.Column(17).Width = 48;
         ws.SheetView.FreezeRows(1);
 
         var hint = wb.Worksheets.Add("Huong dan");
@@ -76,7 +83,7 @@ internal static class PosProductSampleCatalogExcel
         hint.Cell(4, 1).Value = "• Loại mẫu: Có mã vạch | Món ăn | Đồ uống  (hoặc Packaged / Food / Drink).";
         hint.Cell(5, 1).Value = "• Loại hàng: Hàng hóa | Dịch vụ | Combo | Nguyên vật liệu | Topping.";
         hint.Cell(6, 1).Value = "• KCT / Đang dùng: Có, Không, TRUE, FALSE, 1, 0.";
-        hint.Cell(7, 1).Value = "• Ảnh không nhập bằng Excel — upload riêng trên Super Admin (độ phân giải tới 1920px).";
+        hint.Cell(7, 1).Value = "• Link ảnh: đường dẫn xem ảnh đã upload. Để trống khi nhập lại — không đổi ảnh bằng Excel.";
         hint.Cell(9, 1).Value = "• Ngành: Retail,Salon,RoomHourly,Restaurant,Gym,Hotel — cách nhau bởi dấu phẩy. Để trống = mọi ngành.";
         hint.Column(1).Width = 110;
 

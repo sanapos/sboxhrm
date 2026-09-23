@@ -11,6 +11,7 @@ import '../../models/pos_product.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/pos_product_image_cache.dart';
 import '../../utils/image_source_picker.dart';
 import '../../utils/pos_product_editor_prefs.dart';
 import '../../utils/pos_qty_rules.dart';
@@ -224,6 +225,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _loading = true;
   String? _imageBase64;
   String? _imagePreviewUrl;
+  DateTime? _imageStamp;
   Uint8List? _pendingImageBytes;
   String? _pendingImageName;
 
@@ -266,6 +268,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _expiryWarningDaysCtrl;
   bool _requiresSerial = false;
   bool _allowDecimalQty = false;
+  bool _allowAreaQty = false;
   bool _trackExpiry = false;
   PosServiceBillingMode _serviceBillingMode = PosServiceBillingMode.flat;
   late final TextEditingController _minBillMinutesCtrl;
@@ -511,6 +514,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
     _requiresSerial = p?.requiresSerial ?? false;
     _allowDecimalQty = p?.allowDecimalQty ?? false;
+    _allowAreaQty = p?.allowAreaQty ?? false;
     _trackExpiry = p?.trackExpiry ?? false;
     _expiryWarningDaysCtrl = TextEditingController(
       text: tr('${p?.expiryWarningDays ?? 30}'),
@@ -548,6 +552,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           : ''),
     );
     _imagePreviewUrl = p?.imageUrl;
+    _imageStamp = p?.updatedAt;
     if (p?.units != null) _units = List.from(p!.units!);
     if (p?.attributes != null) _attributeValues.addAll(p!.attributes!);
     unawaited(_loadEditorSectionPrefs());
@@ -587,6 +592,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ..addAll(data.attributes ?? []);
       _supplierId = data.supplierId ?? _supplierId;
       _imagePreviewUrl = data.imageUrl ?? _imagePreviewUrl;
+      _imageStamp = data.updatedAt ?? _imageStamp;
     });
     if (_isCombo) {
       final comboRes = await _api.getPosComboLines(sourceId);
@@ -682,6 +688,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               : '';
       _requiresSerial = data.requiresSerial;
       _allowDecimalQty = data.allowDecimalQty;
+      _allowAreaQty = data.allowAreaQty;
       _trackExpiry = data.trackExpiry;
       _expiryWarningDaysCtrl.text = '${data.expiryWarningDays}';
       _serviceBillingMode =
@@ -927,6 +934,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _pendingImageName = name;
       _imageBase64 = base64Encode(picked.bytes);
       _imagePreviewUrl = null;
+      _imageStamp = DateTime.now();
     });
   }
 
@@ -1036,7 +1044,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       if (_isGoods) ...{
         'warrantyMonths': int.tryParse(_warrantyMonthsCtrl.text.trim()),
         'requiresSerial': _requiresSerial,
-        'allowDecimalQty': _allowDecimalQty,
+        'allowDecimalQty': _allowDecimalQty || _allowAreaQty,
+        'allowAreaQty': _allowAreaQty,
         'trackExpiry': _trackExpiry,
         'expiryWarningDays':
             int.tryParse(_expiryWarningDaysCtrl.text.trim()) ?? 30,
@@ -1088,8 +1097,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           final savedPath = imgData['imageUrl'] ?? imgData['ImageUrl'];
           if (savedPath != null) {
             _imagePreviewUrl = savedPath.toString();
+            _imageStamp = DateTime.now();
           }
         }
+        await PosProductImageCacheManager.instance.invalidateProduct(productId);
         _pendingImageBytes = null;
         _pendingImageName = null;
         _imageBase64 = null;
@@ -1433,6 +1444,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _unitCtrl.text = 'Cái';
     _imageBase64 = null;
     _imagePreviewUrl = null;
+    _imageStamp = null;
     _pendingImageBytes = null;
     _pendingImageName = null;
     _categoryId = null;
@@ -1608,7 +1620,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-          child: narrow
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_isGoods && !_requiresSerial) ...[
+                _retailDecimalFooterRow(),
+                _retailAreaFooterRow(),
+              ],
+              narrow
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -1656,6 +1676,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     ...actions,
                   ],
                 ),
+            ],
+          ),
         ),
       ),
     );
@@ -1725,7 +1747,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   children: [
                     Expanded(child: _goodsBasicFields()),
                     const SizedBox(width: 20),
-                    SizedBox(width: 200, child: _kiotImageBox()),
+                    SizedBox(width: 300, child: _kiotImageBox()),
                   ],
                 )
               : Column(
@@ -1759,6 +1781,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               ],
             ),
           ),
+          if (_isGoods) _retailQtyModeButtons(),
           _buildProductVatSection(),
           if (_showSection(PosProductEditorSection.staffCommission))
             _kvExpansion(
@@ -2129,7 +2152,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   children: [
                     Expanded(child: _serviceBasicFields()),
                     const SizedBox(width: 20),
-                    SizedBox(width: 200, child: _kiotImageBox()),
+                    SizedBox(width: 300, child: _kiotImageBox()),
                   ],
                 )
               : Column(
@@ -2496,7 +2519,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   children: [
                     Expanded(child: _comboBasicFields()),
                     const SizedBox(width: 20),
-                    SizedBox(width: 200, child: _kiotImageBox()),
+                    SizedBox(width: 300, child: _kiotImageBox()),
                   ],
                 )
               : Column(
@@ -2967,20 +2990,41 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             value: _requiresSerial,
             onChanged: (v) => setState(() {
               _requiresSerial = v;
-              if (v) _allowDecimalQty = false;
+              if (v) {
+                _allowDecimalQty = false;
+                _allowAreaQty = false;
+              }
             }),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Cho phép số lượng thập phân')),
+            title: Text(tr('Bán số lẻ')),
             subtitle: Text(
-              tr('Bật để bán/nhập 0.5, 1.25… (vd kg, lít). Tắt = chỉ số nguyên.'),
+              tr('Cho phép bán 1,5 · 1,45. Tắt = chỉ số nguyên.'),
               style: TextStyle(fontSize: 12),
             ),
             value: _allowDecimalQty,
             onChanged: _requiresSerial
                 ? null
-                : (v) => setState(() => _allowDecimalQty = v),
+                : (v) => setState(() {
+                      _allowDecimalQty = v;
+                      if (!v) _allowAreaQty = false;
+                    }),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Nhập theo diện tích')),
+            subtitle: Text(
+              tr('Bấm số lượng là hiện chiều dài và chiều rộng.'),
+              style: TextStyle(fontSize: 12),
+            ),
+            value: _allowAreaQty,
+            onChanged: _requiresSerial
+                ? null
+                : (v) => setState(() {
+                      _allowAreaQty = v;
+                      if (v) _allowDecimalQty = true;
+                    }),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -3096,43 +3140,171 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
+  Widget _retailDecimalFooterRow() {
+    return InkWell(
+      onTap: () => setState(() {
+        _allowDecimalQty = !_allowDecimalQty;
+        if (!_allowDecimalQty) _allowAreaQty = false;
+      }),
+      child: Row(
+        children: [
+          Checkbox(
+            value: _allowDecimalQty || _allowAreaQty,
+            activeColor: PosTheme.kiotBlue,
+            visualDensity: VisualDensity.compact,
+            onChanged: (v) => setState(() {
+              _allowDecimalQty = v ?? false;
+              if (!_allowDecimalQty) _allowAreaQty = false;
+            }),
+          ),
+          Expanded(
+            child: Text(
+              tr('Bán số lẻ  ·  1,5  ·  1,45'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _retailAreaFooterRow() {
+    return InkWell(
+      onTap: () => setState(() {
+        _allowAreaQty = !_allowAreaQty;
+        if (_allowAreaQty) _allowDecimalQty = true;
+      }),
+      child: Row(
+        children: [
+          Checkbox(
+            value: _allowAreaQty,
+            activeColor: PosTheme.kiotBlue,
+            visualDensity: VisualDensity.compact,
+            onChanged: (v) => setState(() {
+              _allowAreaQty = v ?? false;
+              if (_allowAreaQty) _allowDecimalQty = true;
+            }),
+          ),
+          Expanded(
+            child: Text(
+              tr('Nhập theo diện tích  ·  dài × rộng'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _retailQtyModeButtons() {
+    final locked = _requiresSerial;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilterChip(
+              avatar: Icon(
+                _allowDecimalQty ? Icons.check : Icons.pin_outlined,
+                size: 18,
+                color: _allowDecimalQty
+                    ? PosTheme.kiotBlue
+                    : PosTheme.textSecondary,
+              ),
+              label: Text(
+                tr(_allowDecimalQty ? 'Bán số lẻ: 1,5 · 1,45' : 'Bán số lẻ'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              selected: _allowDecimalQty,
+              showCheckmark: false,
+              selectedColor: PosTheme.kiotBlueLight,
+              onSelected: locked
+                  ? null
+                  : (v) => setState(() {
+                        _allowDecimalQty = v;
+                        if (!v) _allowAreaQty = false;
+                      }),
+            ),
+            FilterChip(
+              avatar: Icon(
+                _allowAreaQty ? Icons.straighten : Icons.straighten_outlined,
+                size: 18,
+                color:
+                    _allowAreaQty ? PosTheme.kiotBlue : PosTheme.textSecondary,
+              ),
+              label: Text(
+                tr('Nhập theo diện tích'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              selected: _allowAreaQty,
+              showCheckmark: false,
+              selectedColor: PosTheme.kiotBlueLight,
+              onSelected: locked
+                  ? null
+                  : (v) => setState(() {
+                        _allowAreaQty = v;
+                        if (v) _allowDecimalQty = true;
+                      }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _kiotImageBox({bool compact = false}) {
-    final boxH = compact ? 120.0 : 160.0;
+    final boxH = compact ? 260.0 : 340.0;
     return Column(
       children: [
         InkWell(
           onTap: _pickImage,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(8),
           child: Container(
             width: double.infinity,
             height: boxH,
             decoration: BoxDecoration(
               border: Border.all(color: PosTheme.border),
-              borderRadius: BorderRadius.circular(4),
-              color: const Color(0xFFFAFAFA),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
             ),
             clipBehavior: Clip.antiAlias,
             alignment: Alignment.center,
-            child: _imageBase64 != null
-                ? Image.memory(base64Decode(_imageBase64!), fit: BoxFit.cover,
-                    width: double.infinity, height: boxH)
-                : (_imagePreviewUrl != null && _imagePreviewUrl!.isNotEmpty)
-                    ? PosProductImage(
-                        productId: widget.product?.id,
-                        imageUrl: _imagePreviewUrl,
-                        size: boxH,
-                        borderRadius: 4,
-                      )
-                    : _imagePlaceholder(),
+            child: _editorImage(boxH),
           ),
         ),
         const SizedBox(height: 6),
-        Text(tr('Mỗi ảnh không quá 2 MB'),
+        Text(tr('Chạm để đổi ảnh. Ảnh mới thay ảnh cũ. Tối đa 2 MB.'),
           style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
           textAlign: TextAlign.center,
         ),
       ],
     );
+  }
+
+  Widget _editorImage(double boxH) {
+    if (_imageBase64 != null) {
+      return Image.memory(
+        base64Decode(_imageBase64!),
+        fit: BoxFit.contain,
+        width: double.infinity,
+        height: boxH,
+        gaplessPlayback: false,
+      );
+    }
+    if (_imagePreviewUrl != null && _imagePreviewUrl!.isNotEmpty) {
+      return PosProductImage(
+        productId: widget.product?.id,
+        imageUrl: _imagePreviewUrl,
+        updatedAt: _imageStamp,
+        size: boxH,
+        borderRadius: 8,
+        fit: BoxFit.contain,
+      );
+    }
+    return _imagePlaceholder();
   }
 
   Widget _imagePlaceholder() {
@@ -3852,7 +4024,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               children: [
                 Expanded(child: _infoFields()),
                 const SizedBox(width: 16),
-                SizedBox(width: 180, child: _imageBox()),
+                SizedBox(width: 300, child: _imageBox()),
               ],
             )
           : Column(
@@ -3868,8 +4040,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   Widget _imageBox() {
     return Column(
       children: [
-        AspectRatio(
-          aspectRatio: 1,
+        SizedBox(
+          height: 340,
+          width: double.infinity,
           child: Container(
             decoration: BoxDecoration(
               border: Border.all(color: PosTheme.border),
@@ -3877,17 +4050,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               color: Colors.white,
             ),
             clipBehavior: Clip.antiAlias,
-            child: _imageBase64 != null
-                ? Image.memory(base64Decode(_imageBase64!), fit: BoxFit.cover)
-                : (_imagePreviewUrl != null && _imagePreviewUrl!.isNotEmpty)
-                    ? PosProductImage(
-                        productId: widget.product?.id,
-                        imageUrl: _imagePreviewUrl,
-                        size: 180,
-                        borderRadius: 12,
-                      )
-                    : Icon(Icons.add_a_photo_outlined,
-                        size: 48, color: PosTheme.textSecondary),
+            alignment: Alignment.center,
+            child: _editorImage(340),
           ),
         ),
         TextButton.icon(

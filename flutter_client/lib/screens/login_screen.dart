@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
-import '../widgets/server_url_dialog.dart';
 import '../services/api_service.dart';
 import '../services/app_permission_service.dart';
 import '../widgets/notification_overlay.dart';
@@ -650,21 +649,6 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Text(tr(SboxAppVariant.loginSubtitle),
                       style: TextStyle(
                           color: Color(0xFF586064), fontSize: 14, height: 1.5),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton.icon(
-                    onPressed: () async {
-                      await showServerUrlDialog(context);
-                      if (mounted) setState(() {});
-                    },
-                    icon: const Icon(Icons.dns_outlined, size: 16),
-                    label: Text(
-                      tr('Máy chủ: ${ApiService.baseUrl}'),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFF374151),
                     ),
                   ),
                   const SizedBox(height: 20),

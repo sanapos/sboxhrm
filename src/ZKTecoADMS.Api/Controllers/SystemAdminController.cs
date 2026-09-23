@@ -394,7 +394,9 @@ public class SystemAdminController : AuthenticatedControllerBase
                     s.Devices.SelectMany(d => d.AttendanceLogs)
                         .OrderByDescending(a => a.AttendanceTime)
                         .Select(a => (DateTime?)a.AttendanceTime)
-                        .FirstOrDefault()
+                        .FirstOrDefault(),
+                    _dbContext.StoreAccessDevices.Count(d => d.StoreId == s.Id && d.IsActive),
+                    s.ServicePackage != null ? s.ServicePackage.MaxAccessDevices : s.MaxAccessDevices
                 ))
                 .ToListAsync();
 
@@ -2423,6 +2425,70 @@ public class SystemAdminController : AuthenticatedControllerBase
         {
             _logger.LogError(ex, "Error updating store limits {StoreId}", id);
             return StatusCode(500, AppResponse<StoreDetailDto>.Fail("Error updating store limits"));
+        }
+    }
+
+    /// <summary>
+    /// Trả hạn mức thiết bị truy cập về 0 và đăng xuất mọi phiên của cửa hàng.
+    /// </summary>
+    [HttpPost("stores/{id:guid}/reset-access-devices")]
+    public async Task<ActionResult<AppResponse<object>>> ResetStoreAccessDevices(Guid id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var store = await _dbContext.Stores.AsTracking()
+                .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+            if (store == null)
+                return NotFound(AppResponse<object>.Fail("Không tìm thấy cửa hàng"));
+
+            var now = DateTime.UtcNow;
+            var actor = CurrentUserEmail ?? CurrentUserId.ToString();
+            var released = await _dbContext.StoreAccessDevices
+                .IgnoreQueryFilters()
+                .Where(d => d.StoreId == id && d.Deleted == null)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(d => d.IsActive, false)
+                    .SetProperty(d => d.Deleted, now)
+                    .SetProperty(d => d.DeletedBy, actor)
+                    .SetProperty(d => d.UpdatedAt, now)
+                    .SetProperty(d => d.UpdatedBy, actor), cancellationToken);
+
+            var userIds = await _dbContext.Users.AsNoTracking()
+                .Where(u => u.StoreId == id)
+                .Select(u => u.Id)
+                .ToListAsync(cancellationToken);
+
+            var revokedSessions = 0;
+            if (userIds.Count > 0)
+            {
+                revokedSessions = await _dbContext.UserRefreshTokens
+                    .Where(t => userIds.Contains(t.ApplicationUserId))
+                    .ExecuteDeleteAsync(cancellationToken);
+                await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                    $"""UPDATE "AspNetUsers" SET "SecurityStamp" = md5(random()::text || "Id"::text) WHERE "StoreId" = {id}""",
+                    cancellationToken);
+            }
+
+            store.SessionsRevokedAt = now;
+            store.UpdatedAt = now;
+            store.UpdatedBy = actor;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "SuperAdmin {UserId} reset access devices for store {StoreId}: released={Released}, users={Users}",
+                CurrentUserId, id, released, userIds.Count);
+
+            return Ok(AppResponse<object>.Success(new
+            {
+                releasedDevices = released,
+                loggedOutUsers = userIds.Count,
+                revokedSessions,
+            }));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error resetting access devices for store {StoreId}", id);
+            return StatusCode(500, AppResponse<object>.Fail("Không reset được thiết bị truy cập"));
         }
     }
 
@@ -4457,7 +4523,10 @@ public class SystemAdminController : AuthenticatedControllerBase
         StorePackageHelper.DeserializeModules(p.AllowedModules),
         p.Stores?.Count ?? 0,
         p.CreatedAt,
-        p.UpdatedAt);
+        p.UpdatedAt,
+        StorePackageHelper.ParseRetention(p.DataRetentionJson).RunHour,
+        StorePackageHelper.ParseRetention(p.DataRetentionJson).AttendanceMonths,
+        StorePackageHelper.ParseRetention(p.DataRetentionJson).SaleOrderMonths);
 
     private static void ApplyPackageFields(ServicePackage package, int maxUsers, int maxDevices,
         int maxAccessDevices, bool allowWeb, bool allowMobile, int maxBranches, bool allowFcm,
@@ -4473,6 +4542,12 @@ public class SystemAdminController : AuthenticatedControllerBase
         package.AllowedFcmCategories = System.Text.Json.JsonSerializer.Serialize(
             StorePackageHelper.NormalizeFcmCategories(fcmCategories));
         package.AllowedModules = System.Text.Json.JsonSerializer.Serialize(modules);
+    }
+
+    private static void ApplyRetention(ServicePackage package, int runHour, int attendanceMonths, int saleOrderMonths)
+    {
+        package.DataRetentionJson = StorePackageHelper.SerializeRetention(
+            runHour, attendanceMonths, saleOrderMonths);
     }
 
     /// <summary>
@@ -4530,6 +4605,8 @@ public class SystemAdminController : AuthenticatedControllerBase
                 request.MaxAccessDevices, request.AllowWeb, request.AllowMobile,
                 request.MaxBranches, request.AllowFcm, request.AllowedFcmCategories,
                 request.AllowedModules);
+            ApplyRetention(package, request.RetentionRunHour,
+                request.AttendanceRetentionMonths, request.SaleOrderRetentionMonths);
 
             _dbContext.ServicePackages.Add(package);
             await _dbContext.SaveChangesAsync();
@@ -4574,6 +4651,8 @@ public class SystemAdminController : AuthenticatedControllerBase
                 request.MaxAccessDevices, request.AllowWeb, request.AllowMobile,
                 request.MaxBranches, request.AllowFcm, request.AllowedFcmCategories,
                 request.AllowedModules);
+            ApplyRetention(package, request.RetentionRunHour,
+                request.AttendanceRetentionMonths, request.SaleOrderRetentionMonths);
 
             foreach (var store in package.Stores)
             {

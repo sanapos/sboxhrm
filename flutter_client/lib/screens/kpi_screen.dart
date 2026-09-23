@@ -8,6 +8,8 @@ import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' as excel_lib;
+import '../utils/excel_report_builder.dart';
+import '../utils/report_screen_helpers.dart';
 import '../services/api_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/responsive_helper.dart';
@@ -309,7 +311,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             label: 'Xuất PNG',
             onPressed: _isExporting
                 ? null
-                : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
+                : _exportTargetsPng,
           ),
         ],
         if (tab == 2) ...[
@@ -323,7 +325,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             label: 'Xuất PNG',
             onPressed: _isExporting
                 ? null
-                : () => _exportPng(_salaryKey, 'Lương_KPI'),
+                : _exportSalaryPng,
           ),
         ],
       ],
@@ -918,6 +920,72 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _exportTargetsPng() async {
+    final data = _filteredTargets;
+    await ClientPngExport.table(
+      context: context,
+      title: 'Chỉ tiêu KPI',
+      filePrefix: 'ChiTieu_KPI',
+      headers: const ['Mã NV', 'Tên NV', 'Tổng KPI', 'Chỉ tiêu'],
+      rows: [
+        for (final t in data)
+          [
+            t['employeeCode']?.toString() ?? '',
+            t['employeeName']?.toString() ?? '',
+            ((t['actualValue'] ?? 0) as num).toDouble(),
+            ((t['targetValue'] ?? 0) as num).toDouble(),
+          ],
+      ],
+    );
+  }
+
+  Future<void> _exportSalaryPng() async {
+    final targets = _filteredTargets;
+    await ClientPngExport.table(
+      context: context,
+      title: 'Lương KPI',
+      filePrefix: 'Luong_KPI',
+      headers: const [
+        'Mã NV',
+        'Tên NV',
+        'Tổng KPI',
+        'Chỉ tiêu',
+        'Tỷ lệ (%)',
+        'Thưởng/Phạt',
+        'Lương HT',
+        'Tổng thưởng',
+      ],
+      rows: [
+        for (final t in targets)
+          () {
+            final tgt = ((t['targetValue'] ?? 0) as num).toDouble();
+            final act = ((t['actualValue'] ?? 0) as num).toDouble();
+            final pct = ((t['completionRate'] ?? 0) as num).toDouble();
+            final completionSalary =
+                ((t['completionSalary'] ?? 0) as num).toDouble();
+            final tierBonuses = _calcTierBonuses(t);
+            final penaltyBonus = _calcPenaltyBonus(t);
+            final salaryHT =
+                pct >= 100 ? completionSalary : (completionSalary * pct / 100);
+            final totalTierBonus = tierBonuses.fold<double>(
+                0, (s, b) => s + ((b['bonus'] as num?)?.toDouble() ?? 0));
+            final totalSalary =
+                math.max(0.0, salaryHT + penaltyBonus + totalTierBonus);
+            return [
+              t['employeeCode']?.toString() ?? '',
+              t['employeeName']?.toString() ?? '',
+              act,
+              tgt,
+              pct,
+              penaltyBonus,
+              salaryHT,
+              totalSalary,
+            ];
+          }(),
+      ],
+    );
+  }
+
   Future<void> _exportTargetsExcel() async {
     final data = _filteredTargets;
     if (data.isEmpty) {
@@ -978,7 +1046,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             .value = excel_lib.DoubleCellValue(target);
       }
 
-      final bytes = workbook.encode();
+      final bytes = ExcelReportBuilder.encodeReport(workbook);
       if (bytes == null) throw Exception('Không thể tạo file');
       final fileName =
           'KPI_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';
@@ -1094,7 +1162,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             .value = excel_lib.DoubleCellValue(totalSalary);
       }
 
-      final bytes = workbook.encode();
+      final bytes = ExcelReportBuilder.encodeReport(workbook);
       if (bytes == null) throw Exception('Không thể tạo file');
       final fileName =
           'Lương_KPI_${DateFormat('ddMMyyyy_HHmm').format(DateTime.now())}.xlsx';
@@ -2759,7 +2827,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 onExcel: _isExporting ? null : _exportTargetsExcel,
                 onPng: _isExporting
                     ? null
-                    : () => _exportPng(_targetsKey, 'ChiTieu_KPI'),
+                    : _exportTargetsPng,
               ),
             ],
           ),
@@ -4046,7 +4114,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               onExcel: _isExporting ? null : _exportSalaryExcel,
               onPng: _isExporting
                   ? null
-                  : () => _exportPng(_salaryKey, 'Lương_KPI'),
+                  : _exportSalaryPng,
             ),
           ],
           const SizedBox(height: 12),
@@ -4232,7 +4300,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               onExcel: _isExporting ? null : _exportSalaryExcel,
               onPng: _isExporting
                   ? null
-                  : () => _exportPng(_salaryKey, 'Lương_KPI'),
+                  : _exportSalaryPng,
             ),
           ],
           const SizedBox(height: 12),

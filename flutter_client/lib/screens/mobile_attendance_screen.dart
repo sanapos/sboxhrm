@@ -6,7 +6,6 @@ import '../widgets/hrm_page_chrome.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/mobile_attendance.dart';
@@ -1612,22 +1611,17 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: const Color(0xFFF4F7FB),
       body: Stack(
         children: [
-          // Background gradient orbs
           Positioned(
-              top: -80,
-              right: -60,
-              child: _bgOrb(200, const Color(0xFF3B82F6), 0.15)),
+              top: -140,
+              right: -90,
+              child: _bgOrb(320, const Color(0xFFBFDBFE), 0.7)),
           Positioned(
-              bottom: 100,
-              left: -40,
-              child: _bgOrb(160, HrmPageChrome.chipSoft, 0.1)),
-          Positioned(
-              top: 300,
-              right: -30,
-              child: _bgOrb(120, HrmPageChrome.chipSoft, 0.08)),
+              bottom: -40,
+              left: -80,
+              child: _bgOrb(240, const Color(0xFFDBEAFE), 0.85)),
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -1693,16 +1687,16 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 Text(
                   tr(_employeeName),
                   style: const TextStyle(
-                      color: Colors.white,
+                      color: Color(0xFF0F172A),
                       fontSize: 16,
-                      fontWeight: FontWeight.w600),
+                      fontWeight: FontWeight.w700),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   tr(_department),
                   style:
-                      const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                      const TextStyle(color: Color(0xFF64748B), fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -1723,21 +1717,22 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   Widget _glassIconButton(IconData icon, {VoidCallback? onTap}) {
     return GestureDetector(
       onTap: onTap,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
             ),
-            child: Icon(icon, color: const Color(0xFF94A3B8), size: 20),
-          ),
+          ],
         ),
+        child: Icon(icon, color: HrmPageChrome.primaryNavy, size: 20),
       ),
     );
   }
@@ -1754,8 +1749,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         ? [const Color(0xFF3B82F6), HrmPageChrome.chipMid]
         : [const Color(0xFFEF4444), const Color(0xFFDC2626)];
     final List<Color> disabledGradient = [
-      const Color(0xFF334155),
-      const Color(0xFF1E293B)
+      const Color(0xFFCBD5E1),
+      const Color(0xFF94A3B8)
     ];
     final ctaLabel = isEnabled
         ? (needsFaceScan ? 'QUÉT MẶT' : (isCheckIn ? 'CHẤM VÀO' : 'CHẤM RA'))
@@ -1791,36 +1786,39 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       child: _glassCard(
         child: Column(
           children: [
-            // Clock (cập nhật qua Timer — không dùng Stream trong build)
-            ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFF60A5FA), HrmPageChrome.chipMuted],
-              ).createShader(bounds),
-              child: Text(
-                tr('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'),
-                style: const TextStyle(
-                  fontSize: 56,
-                  fontWeight: FontWeight.w200,
-                  color: Colors.white,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                  letterSpacing: 4,
-                  height: 1.1,
-                ),
+            Text(
+              tr('${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'),
+              style: const TextStyle(
+                fontSize: 56,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+                fontFeatures: [FontFeature.tabularFigures()],
+                letterSpacing: -1,
+                height: 1.05,
               ),
             ),
             Text(
               tr(':${now.second.toString().padLeft(2, '0')}'),
               style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w300,
-                  color: Color(0xFF64748B),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF94A3B8),
                   fontFeatures: [FontFeature.tabularFigures()]),
             ),
-            const SizedBox(height: 4),
-            Text(
-              tr('${weekdays[now.weekday % 7]}, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}'),
-              style: const TextStyle(
-                  fontSize: 13, color: Color(0xFF64748B), letterSpacing: 0.5),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                tr('${weekdays[now.weekday % 7]}, ${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}'),
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF475569)),
+              ),
             ),
             const SizedBox(height: 14),
             _buildNextActionBar(
@@ -1844,8 +1842,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isEnabled
-                              ? activeGradient[0].withValues(alpha: 0.3)
-                              : Colors.white.withValues(alpha: 0.05),
+                              ? activeGradient[0].withValues(alpha: 0.28)
+                              : const Color(0xFFE2E8F0),
                           width: 3,
                         ),
                       ),
@@ -1920,7 +1918,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                           strokeWidth: 2, color: activeGradient[0])),
                   const SizedBox(width: 8),
                   Text(tr('Đang xử lý...'),
-                      style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+                      style: const TextStyle(
+                          fontSize: 13, color: Color(0xFF64748B))),
                 ],
               )
             else
@@ -1942,9 +1941,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                                 : 'Đang kiểm tra...'),
                 style: TextStyle(
                     fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     color: isEnabled
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF475569)),
+                        ? const Color(0xFF64748B)
+                        : const Color(0xFF94A3B8)),
               ),
           ],
         ),
@@ -1994,23 +1994,24 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   Widget _glassCard(
       {required Widget child, EdgeInsets? padding, EdgeInsets? margin}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          width: double.infinity,
-          padding: padding ??
-              const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-          margin: margin,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+    return Container(
+      width: double.infinity,
+      padding:
+          padding ?? const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+      margin: margin,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE8EEF5)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
-          child: child,
-        ),
+        ],
       ),
+      child: child,
     );
   }
 
@@ -2052,21 +2053,22 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final String modeText =
         mode == 'any' ? 'Cần 1 điều kiện bất kỳ' : 'Cần tất cả điều kiện';
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: ready
-                ? const Color(0xFF16A34A).withValues(alpha: 0.1)
-                : HrmPageChrome.chipLight.withValues(alpha: 0.08),
+            color: ready ? const Color(0xFFF0FDF4) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
                 color: ready
-                    ? const Color(0xFF16A34A).withValues(alpha: 0.2)
-                    : Colors.white.withValues(alpha: 0.05)),
+                    ? const Color(0xFFBBF7D0)
+                    : const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
@@ -2094,9 +2096,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   children: [
                     Text(
                       tr(modeText),
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white.withValues(alpha: 0.6),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -2134,10 +2136,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.06),
+                      color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8)),
                   child: Text(tr('ANY'),
-                      style: TextStyle(
+                      style: const TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF64748B),
@@ -2145,8 +2147,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 ),
             ],
           ),
-        ),
-      ),
     );
   }
 
@@ -2180,10 +2180,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               fontSize: 10,
               fontWeight: FontWeight.w600,
               color: ok
-                  ? const Color(0xFF4ADE80)
+                  ? const Color(0xFF15803D)
                   : (pending
-                      ? const Color(0xFFFCD34D)
-                      : const Color(0xFFFCA5A5)),
+                      ? const Color(0xFFB45309)
+                      : const Color(0xFFB91C1C)),
             ),
           ),
         ],
@@ -2204,8 +2204,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Colors.white.withValues(alpha: 0.55),
-            letterSpacing: 0.5,
+            color: const Color(0xFF475569),
+            letterSpacing: 0.2,
           ),
         ),
         const SizedBox(height: 10),
@@ -2252,7 +2252,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 10,
-            color: Colors.white.withValues(alpha: 0.35),
+            color: const Color(0xFF94A3B8),
           ),
         ),
       ],
@@ -2274,8 +2274,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Colors.white.withValues(alpha: 0.55),
-            letterSpacing: 0.5,
+            color: const Color(0xFF475569),
+            letterSpacing: 0.2,
           ),
         ),
         const SizedBox(height: 10),
@@ -2325,7 +2325,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 10,
-            color: Colors.white.withValues(alpha: 0.35),
+            color: const Color(0xFF94A3B8),
           ),
         ),
       ],
@@ -2349,19 +2349,19 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             color: enabled
-                ? color.withValues(alpha: 0.14)
-                : Colors.white.withValues(alpha: 0.04),
+                ? color.withValues(alpha: 0.10)
+                : const Color(0xFFF8FAFC),
             border: Border.all(
               color: enabled
                   ? color.withValues(alpha: 0.35)
-                  : Colors.white.withValues(alpha: 0.06),
+                  : const Color(0xFFE2E8F0),
             ),
           ),
           child: Column(
             children: [
               Icon(
                 icon,
-                color: enabled ? color : Colors.white.withValues(alpha: 0.25),
+                color: enabled ? color : const Color(0xFFCBD5E1),
                 size: 22,
               ),
               const SizedBox(height: 6),
@@ -2372,8 +2372,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: enabled
-                      ? Colors.white.withValues(alpha: 0.9)
-                      : Colors.white.withValues(alpha: 0.3),
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFF94A3B8),
                 ),
               ),
             ],
@@ -2391,16 +2391,19 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             ? HrmPageChrome.chipLight
             : const Color(0xFF64748B);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
+    return Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withValues(alpha: 0.5),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: statusColor.withValues(alpha: 0.15)),
+            border: Border.all(color: statusColor.withValues(alpha: 0.22)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2432,8 +2435,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   else
                     GestureDetector(
                       onTap: _getCurrentLocation,
-                      child: Icon(Icons.refresh_rounded,
-                          size: 18, color: Colors.white.withValues(alpha: 0.3)),
+                      child: const Icon(Icons.refresh_rounded,
+                          size: 18, color: Color(0xFF94A3B8)),
                     ),
                 ],
               ),
@@ -2473,8 +2476,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ],
             ],
           ),
-        ),
-      ),
     );
   }
 
@@ -2485,16 +2486,19 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             ? HrmPageChrome.chipLight
             : const Color(0xFF64748B);
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
+    return Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withValues(alpha: 0.5),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: statusColor.withValues(alpha: 0.15)),
+            border: Border.all(color: statusColor.withValues(alpha: 0.22)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2527,8 +2531,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                     GestureDetector(
                       onTap: () =>
                           _checkWifiConnection(requestPermissions: true),
-                      child: Icon(Icons.refresh_rounded,
-                          size: 18, color: Colors.white.withValues(alpha: 0.3)),
+                      child: const Icon(Icons.refresh_rounded,
+                          size: 18, color: Color(0xFF94A3B8)),
                     ),
                 ],
               ),
@@ -2568,8 +2572,6 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               ],
             ],
           ),
-        ),
-      ),
     );
   }
 
@@ -2594,7 +2596,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           const SizedBox(width: 10),
           Expanded(
             child: Text(tr('Chấm ngoài công ty — cần bật GPS, không cần trong vùng'),
-                style: TextStyle(fontSize: 12, color: Color(0xFF4ADE80))),
+                style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF15803D))),
           ),
         ],
       ),
@@ -2619,26 +2624,26 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                     color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
                   ),
                   child: const Icon(Icons.timeline_rounded,
-                      size: 16, color: Color(0xFF60A5FA)),
+                      size: 16, color: HrmPageChrome.primaryNavy),
                 ),
                 const SizedBox(width: 10),
                 Text(tr('Hôm nay'),
-                    style: TextStyle(
+                    style: const TextStyle(
                         fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A))),
                 const Spacer(),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.06),
+                      color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8)),
                   child: Text(tr('${_todayRecords.length}'),
                       style: const TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF64748B))),
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF475569))),
                 ),
               ],
             ),
@@ -2649,12 +2654,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 child: Center(
                   child: Column(
                     children: [
-                      Icon(Icons.event_note_rounded,
-                          size: 32, color: Colors.white.withValues(alpha: 0.1)),
+                      const Icon(Icons.event_note_rounded,
+                          size: 32, color: Color(0xFFCBD5E1)),
                       const SizedBox(height: 8),
                       Text(tr('Chưa có lượt chấm công'),
-                          style: TextStyle(
-                              fontSize: 13, color: Color(0xFF475569))),
+                          style: const TextStyle(
+                              fontSize: 13, color: Color(0xFF94A3B8))),
                     ],
                   ),
                 ),
@@ -2701,9 +2706,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFEEF2F6)),
       ),
       child: Row(
         children: [
@@ -2724,8 +2729,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 tr('${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')}'),
                 style: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
                     fontFeatures: [FontFeature.tabularFigures()]),
               ),
               const SizedBox(height: 1),
@@ -2737,9 +2742,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                         fontSize: 11, color: color.withValues(alpha: 0.8)),
                   ),
                   if (record.distanceFromLocation != null) ...[
-                    Text(tr(' · '),
-                        style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.2))),
+                    const Text(' · ',
+                        style: TextStyle(color: Color(0xFFCBD5E1))),
                     Text(tr(record.formattedDistanceFromLocation),
                         style: const TextStyle(
                             fontSize: 11, color: Color(0xFF64748B))),
@@ -2768,8 +2772,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: approved
-                      ? const Color(0xFF4ADE80)
-                      : const Color(0xFFFCD34D)),
+                      ? const Color(0xFF15803D)
+                      : const Color(0xFFB45309)),
             ),
           ),
         ],

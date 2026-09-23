@@ -231,7 +231,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     ];
   }
 
-  Future<void> _exportExcel() async {
+  Future<void> _exportExcel({bool png = false}) async {
     if (_teamView && _viewTab == 1) {
       await _exportCategoryExcel();
       return;
@@ -262,9 +262,43 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
             : '',
       ]);
     }
+    final title = _teamView ? 'Báo cáo công tác phí' : 'Lịch sử công tác phí';
+    final headers = [
+      'STT',
+      'Mã HS',
+      if (_teamView) 'Nhân viên',
+      if (_teamView) 'Mã NV',
+      'Tiêu đề',
+      'Điểm đến',
+      'Trạng thái',
+      'Đã ứng (đ)',
+      'Tổng chi phí (đ)',
+      'Chênh lệch (đ)',
+      'Số dòng CP',
+      'Có HĐ (đ)',
+      'Ngày tạo',
+    ];
+    final periodLabel = reportPeriodSubtitle(_from, _to, team: _teamView);
+    final summaryLines = [
+      'Tổng chi phí: ${reportMoneyFmt.format(_summarySettled)}đ',
+      'Có hóa đơn: ${reportMoneyFmt.format(_summaryWithInvoice)}đ · Không HĐ: ${reportMoneyFmt.format(_summaryWithoutInvoice)}đ',
+      if (_expenseLineCount > 0) 'Số dòng chi: $_expenseLineCount',
+    ];
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: title,
+        filePrefix: 'BaoCaoCongTacPhi',
+        headers: headers,
+        rows: rows,
+        periodLabel: periodLabel,
+        summaryLines: summaryLines,
+      );
+      return;
+    }
     await ClientExcelExport.export(
       context: context,
-      title: _teamView ? 'Báo cáo công tác phí' : 'Lịch sử công tác phí',
+      title: title,
       sheetName: 'Chi tiet',
       filePrefix: 'BaoCaoCongTacPhi',
       headers: [
@@ -292,7 +326,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     );
   }
 
-  Future<void> _exportCategoryExcel() async {
+  Future<void> _exportCategoryExcel({bool png = false}) async {
     final rows = <List<dynamic>>[];
     for (int i = 0; i < _byCategory.length; i++) {
       final e = _byCategory[i];
@@ -307,6 +341,31 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
         reportSafeDouble(e['withoutInvoiceAmount'] ?? e['WithoutInvoiceAmount']),
         reportSafeDouble(e['percentage'] ?? e['Percentage']),
       ]);
+    }
+    final headers = [
+      'STT',
+      'Loại chi phí',
+      'Mã',
+      'Số dòng',
+      'Số HS',
+      'Tổng tiền (đ)',
+      'Có HĐ (đ)',
+      'Không HĐ (đ)',
+      'Tỷ lệ (%)',
+    ];
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: 'Công tác phí — theo loại chi phí',
+        filePrefix: 'CongTacPhi_TheoLoai',
+        headers: headers,
+        rows: rows,
+        periodLabel: reportPeriodSubtitle(_from, _to, team: true),
+        summaryLines: [
+          'Tổng chi phí: ${reportMoneyFmt.format(_summarySettled)}đ',
+        ],
+      );
+      return;
     }
     await ClientExcelExport.export(
       context: context,
@@ -332,7 +391,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     );
   }
 
-  Future<void> _exportEmployeeExcel() async {
+  Future<void> _exportEmployeeExcel({bool png = false}) async {
     final rows = <List<dynamic>>[];
     for (int i = 0; i < _byEmployee.length; i++) {
       final e = _byEmployee[i];
@@ -346,6 +405,27 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
         reportSafeDouble(e['totalSettled'] ?? e['TotalSettled']),
         reportSafeDouble(e['totalBalance'] ?? e['TotalBalance']),
       ]);
+    }
+    final headers = [
+      'STT',
+      'Nhân viên',
+      'Mã NV',
+      'Phòng ban',
+      'Số HS',
+      'Tổng ứng (đ)',
+      'Tổng chi phí (đ)',
+      'Chênh lệch (đ)',
+    ];
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: 'Công tác phí — theo nhân viên',
+        filePrefix: 'CongTacPhi_TheoNV',
+        headers: headers,
+        rows: rows,
+        periodLabel: reportPeriodSubtitle(_from, _to, team: true),
+      );
+      return;
     }
     await ClientExcelExport.export(
       context: context,
@@ -367,12 +447,10 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     );
   }
 
-  Future<void> _exportPng() async {
-    await ClientPngExport.capture(
-      context: context,
-      key: _pngKey,
-      filePrefix: 'CongTac',
-    );
+  Future<void> _exportPng() {
+    if (_teamView && _viewTab == 1) return _exportCategoryExcel(png: true);
+    if (_teamView && _viewTab == 2) return _exportEmployeeExcel(png: true);
+    return _exportExcel(png: true);
   }
 
   bool get _pngExportEmpty {

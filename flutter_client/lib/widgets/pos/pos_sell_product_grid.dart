@@ -20,7 +20,7 @@ import 'pos_catalog_sort_sheet.dart';
 import 'pos_form_keyboard.dart';
 import 'pos_h_scroll_chip_row.dart';
 import 'pos_mobile_widgets.dart';
-import 'pos_numeric_keypad.dart';
+import 'pos_qty_area_dialog.dart';
 import '../pos_barcode_scanner.dart';
 import 'pos_product_image.dart';
 import 'pos_product_unit_view.dart';
@@ -50,7 +50,8 @@ class PosSellProductGrid extends StatefulWidget {
   /// Giảm 1 SP trong giỏ (màn chọn hàng hóa — nút −).
   final ValueChanged<PosProduct>? onDecrement;
   /// Đặt SL nháp (chạm vào số lượng trên hàng đã chọn).
-  final void Function(PosProduct product, double qty)? onSetQty;
+  final void Function(PosProduct product, double qty, {String? areaNote})?
+      onSetQty;
   /// Store hiện tại — dùng key cache catalog local.
   final String? storeId;
   final int pageSize;
@@ -730,19 +731,62 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   Future<void> _promptSellListQty(PosProduct p) async {
     final onSet = widget.onSetQty;
     if (onSet == null) return;
+    p = await PosQtyRules.withFreshQtyFlags(widget.api, p);
+    if (!mounted) return;
+    _replaceProduct(p);
+    final storeId = widget.storeId?.trim() ?? '';
+    if (storeId.isNotEmpty) {
+      PosSellCatalogCache.instance.patchMemoryProducts(
+        storeId,
+        {p.id},
+        (_) => p,
+      );
+    }
     final cur = _qtyInCart(p.id);
-    final raw = await showPosNumericKeypad(
+    final result = await showPosLineQtyDialog(
       context: context,
-      title: tr('Số lượng'),
-      initial: PosQtyRules.isWhole(cur)
-          ? cur.toStringAsFixed(0)
-          : cur.toString(),
-      allowDecimal: PosQtyRules.allowsDecimal(p),
+      productName: p.name,
+      unitName: p.baseUnitName,
+      initialQty: cur <= 0 ? 1 : cur,
+      allowDecimal: PosQtyRules.allowsDecimal(p) && !p.allowAreaQty,
+      enterByArea: p.allowAreaQty && !p.requiresSerial,
+      serialOnly: p.requiresSerial,
     );
-    if (raw == null || !mounted) return;
-    final v = double.tryParse(raw.trim().replaceAll(',', '.'));
-    if (v == null || v < 0) return;
-    onSet(p, v);
+    if (result == null || !mounted) return;
+    var product = p;
+    if (!p.requiresSerial && result.decimal != p.allowDecimalQty) {
+      final saved = await PosQtyRules.persistAllowDecimal(
+        widget.api,
+        p,
+        result.decimal,
+      );
+      if (!mounted) return;
+      if (saved.product == null) {
+        if (!PosQtyRules.isWhole(result.qty)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(tr(saved.error ?? 'Không lưu được bán số lẻ'))),
+          );
+          return;
+        }
+      } else {
+        product = saved.product!;
+        _replaceProduct(product);
+      }
+    }
+    onSet(product, result.qty, areaNote: result.areaNote);
+  }
+
+  void _replaceProduct(PosProduct next) {
+    setState(() {
+      _allProducts = [
+        for (final item in _allProducts)
+          if (item.id == next.id) next else item,
+      ];
+      _products = [
+        for (final item in _products)
+          if (item.id == next.id) next else item,
+      ];
+    });
   }
 
   List<PosProduct> get _sortedSellListPageItems => _sortedSellListProducts;

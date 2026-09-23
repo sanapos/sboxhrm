@@ -815,7 +815,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     );
   }
 
-  Future<void> _exportExcel() async {
+  Future<void> _exportExcel({bool png = false}) async {
     final days = _daysInRange;
     final emps = _filteredEmployees;
     final headers = <String>[
@@ -845,6 +845,18 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           : double.parse(total.toStringAsFixed(2)));
       rows.add(row);
     }
+    final periodLabel = reportPeriodSubtitle(_from, _to, team: _teamView);
+    if (png) {
+      await ClientPngExport.table(
+        context: context,
+        title: 'Bảng lịch chấm công',
+        filePrefix: 'BangLichChamCong',
+        headers: headers,
+        rows: rows,
+        periodLabel: periodLabel,
+      );
+      return;
+    }
     await ClientExcelExport.export(
       context: context,
       title: 'Bảng lịch chấm công',
@@ -852,17 +864,11 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
       filePrefix: 'BangLichChamCong',
       headers: headers,
       rows: rows,
-      periodLabel: reportPeriodSubtitle(_from, _to, team: _teamView),
+      periodLabel: periodLabel,
     );
   }
 
-  Future<void> _exportPng() async {
-    await ClientPngExport.capture(
-      context: context,
-      key: _pngKey,
-      filePrefix: 'ChamCong',
-    );
-  }
+  Future<void> _exportPng() => _exportExcel(png: true);
 
   double _cellWorkCredit(Map<String, dynamic>? cell) {
     if (cell == null) return 0;

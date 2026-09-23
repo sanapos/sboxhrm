@@ -19,6 +19,9 @@ public class Store : Entity<Guid>
     public string? LockReason { get; set; }
     public DateTime? LockedAt { get; set; }
 
+    /// <summary>Mốc UTC: mọi access token của cửa hàng phát hành trước mốc này bị từ chối.</summary>
+    public DateTime? SessionsRevokedAt { get; set; }
+
     // License
     public LicenseType LicenseType { get; set; } = LicenseType.Basic;
     public string? LicenseKey { get; set; }

@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -128,7 +129,25 @@ public static class DependencyInjectionExtensions
                             if (user == null || !user.IsActive)
                             {
                                 context.Fail("Tài khoản đã bị vô hiệu hóa.");
+                                return;
                             }
+
+                            if (user.StoreId is not Guid storeId) return;
+
+                            var db = context.HttpContext.RequestServices
+                                .GetRequiredService<ZKTecoDbContext>();
+                            var revokedAt = await db.Stores.AsNoTracking()
+                                .Where(s => s.Id == storeId)
+                                .Select(s => s.SessionsRevokedAt)
+                                .FirstOrDefaultAsync();
+                            if (revokedAt == null) return;
+
+                            var iatRaw = context.Principal?.FindFirst(JwtRegisteredClaimNames.Iat)?.Value;
+                            long? issuedUnix = long.TryParse(iatRaw, out var unix) ? unix : null;
+                            var revokedUnix = new DateTimeOffset(
+                                DateTime.SpecifyKind(revokedAt.Value, DateTimeKind.Utc)).ToUnixTimeSeconds();
+                            if (issuedUnix == null || issuedUnix < revokedUnix)
+                                context.Fail("Phiên đăng nhập đã được thu hồi. Vui lòng đăng nhập lại.");
                         },
                         OnAuthenticationFailed = context =>
                         {
