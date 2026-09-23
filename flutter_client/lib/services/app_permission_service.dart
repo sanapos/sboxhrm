@@ -7,6 +7,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../config/sbox_app_variant.dart';
+
 /// Xin quyền thiết yếu lần đầu mở app + kiểm tra camera (Samsung hay báo sai).
 class AppPermissionService {
   AppPermissionService._();
@@ -74,36 +76,37 @@ class AppPermissionService {
     if (await wasEssentialPermissionsPrompted()) return;
     if (!context.mounted) return;
 
-    final proceed = await showDialog<bool>(
+    final pos = SboxAppVariant.standalonePos;
+    final purpose = pos
+        ? 'Ở bước tiếp theo, hệ thống sẽ hỏi quyền camera và vị trí. Bạn chọn Cho phép hoặc Không cho phép ngay trong hộp thoại của máy.\n\n'
+            '• Camera — quét mã vạch và chụp ảnh hàng\n'
+            '• Vị trí — giao hàng hoặc xác định cửa hàng khi bạn dùng chức năng đó'
+        : 'Ở bước tiếp theo, hệ thống sẽ hỏi quyền camera và vị trí. Bạn chọn Cho phép hoặc Không cho phép ngay trong hộp thoại của máy.\n\n'
+            '• Camera — đăng ký khuôn mặt, chấm công\n'
+            '• Vị trí — xác nhận địa điểm chấm công';
+
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Cấp quyền cho SBOX HRM')),
-        content: Text(
-          tr('Ứng dụng cần các quyền sau để hoạt động đúng:\n\n'
-          '• Camera — đăng ký khuôn mặt, chấm công\n'
-          '• Vị trí — xác nhận địa điểm chấm công\n'
-          '• Thông báo — nhận duyệt đăng ký, chấm công\n\n'
-          'Nhấn «Cấp quyền» để hệ thống hiện hộp thoại quyền.'),
-          style: TextStyle(height: 1.45),
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: Text(pos ? 'SBOX POS' : 'SBOX HRM'),
+          content: Text(
+            tr(purpose),
+            style: const TextStyle(height: 1.45),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(tr('Tiếp tục')),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('Để sau')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('Cấp quyền')),
-          ),
-        ],
       ),
     );
 
     await _markEssentialPermissionsPrompted();
-
-    if (proceed != true) return;
-
     await _requestEssentialPermissions();
   }
 

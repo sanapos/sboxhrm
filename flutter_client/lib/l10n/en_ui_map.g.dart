@@ -2382,6 +2382,10 @@ const Map<String, String> kEnUiMap = <String, String>{
   'Cấp phát': 'Allocation',
   'Cấp phát / thu hồi cho nhân viên hoặc phòng ban': 'Assign/revoke to employees or departments',
   'Cấp phát tài sản': 'Allocation of assets',
+  'Ở bước tiếp theo, hệ thống sẽ hỏi quyền camera và vị trí. Bạn chọn Cho phép hoặc Không cho phép ngay trong hộp thoại của máy.\n\n• Camera — quét mã vạch và chụp ảnh hàng\n• Vị trí — giao hàng hoặc xác định cửa hàng khi bạn dùng chức năng đó':
+      'On the next step the system will ask for camera and location. Choose Allow or Don\'t Allow in the device dialog.\n\n• Camera — scan barcodes and take product photos\n• Location — delivery or store location when you use that feature',
+  'Ở bước tiếp theo, hệ thống sẽ hỏi quyền camera và vị trí. Bạn chọn Cho phép hoặc Không cho phép ngay trong hộp thoại của máy.\n\n• Camera — đăng ký khuôn mặt, chấm công\n• Vị trí — xác nhận địa điểm chấm công':
+      'On the next step the system will ask for camera and location. Choose Allow or Don\'t Allow in the device dialog.\n\n• Camera — face enrollment and attendance\n• Location — confirm the attendance place',
   'Cấp quyền': 'Grant permissions',
   'Cấp quyền cho SBOX HRM': 'Authorize SBOX HRM',
   'Cấp quyền cho điện thoại của nhân viên để chấm công': 'Authorize employee\'s phone for timekeeping',
