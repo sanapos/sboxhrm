@@ -10,6 +10,7 @@ import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/theme_provider.dart';
+import '../config/sbox_app_variant.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/server_url_dialog.dart';
@@ -153,7 +154,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Server settings
+            // Server settings — hidden on the public POS app (server is fixed at build).
+            if (!SboxAppVariant.standalonePos)
             _buildSection(
               context,
               title: l.connection,

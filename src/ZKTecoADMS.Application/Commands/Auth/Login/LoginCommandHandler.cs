@@ -39,10 +39,19 @@ public class LoginCommandHandler(
             return AppResponse<AuthenticateResponse>.Error(StoreLicenseHelper.ExpiredMessage);
         }
 
+        // App Review was given demo@gmail.com for store demopos. That mailbox
+        // does not exist; the working cashier is demopos@gmail.com.
+        var loginName = request.UserName.Trim();
+        if (store.Code.Equals("demopos", StringComparison.OrdinalIgnoreCase)
+            && loginName.Equals("demo@gmail.com", StringComparison.OrdinalIgnoreCase))
+        {
+            loginName = "demopos@gmail.com";
+        }
+
         // First, find the user by username/email AND store (lightweight query for validation)
         // Hỗ trợ đăng nhập bằng cả UserName hoặc Email
         var user = await userManager.Users
-            .Where(e => (e.UserName == request.UserName || e.Email == request.UserName || e.PhoneNumber == request.UserName) && e.StoreId == store.Id)
+            .Where(e => (e.UserName == loginName || e.Email == loginName || e.PhoneNumber == loginName) && e.StoreId == store.Id)
             .Include(e => e.Employee)
             .Include(e => e.Manager)
             .Include(e => e.Store)

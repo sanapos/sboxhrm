@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:http_parser/http_parser.dart' show MediaType;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/sbox_app_variant.dart';
 import 'api_config.dart';
 import '../utils/api_datetime.dart';
 import '../utils/app_error_utils.dart';
@@ -38,6 +39,8 @@ class ApiService {
   }
 
   static Future<void> loadSavedBaseUrl() async {
+    // Public SBOX POS (App Store / Play) stays on the server baked in at build.
+    if (SboxAppVariant.standalonePos) return;
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_baseUrlPrefKey);
     if (saved != null && saved.trim().isNotEmpty) {
@@ -47,6 +50,9 @@ class ApiService {
 
   /// Lưu máy chủ sau khi gọi thử /api/publicsettings. Trả về lỗi, hoặc null nếu được.
   static Future<String?> applyBaseUrl(String raw) async {
+    if (SboxAppVariant.standalonePos) {
+      return 'Bản SBOX POS trên cửa hàng ứng dụng dùng máy chủ đã gắn khi build.';
+    }
     final normalized = normalizeBaseUrl(raw);
     final uri = Uri.tryParse(normalized);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
