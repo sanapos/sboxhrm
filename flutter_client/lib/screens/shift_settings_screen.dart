@@ -901,6 +901,11 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     );
   }
 
+  bool get _canRemoveShift =>
+      _perm.canDelete('ShiftSetup') ||
+      _perm.canEdit('ShiftSetup') ||
+      _perm.canCreate('ShiftSetup');
+
   Widget _buildShiftGridTile(Shift shift, int index) {
     final shiftType = _getShiftType(shift);
     final typeColor = _getShiftTypeColor(shiftType);
@@ -915,6 +920,19 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       badge: shiftType,
       badgeColor: typeColor,
       onTap: () => _showShiftDialog(shift: shift),
+      menuItems: _canRemoveShift
+          ? [
+              PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
+              PopupMenuItem(value: 'delete', child: Text(tr('Xóa ca'))),
+            ]
+          : null,
+      onMenuSelected: (value) {
+        if (value == 'delete') {
+          _deleteShift(shift);
+        } else if (value == 'edit') {
+          _showShiftDialog(shift: shift);
+        }
+      },
     );
   }
 
@@ -1042,6 +1060,16 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 size: 14,
                 color: shift.isActive ? HrmPageChrome.primaryNavy : Colors.grey),
             const SizedBox(width: 4),
+            if (_canRemoveShift)
+              IconButton(
+                tooltip: tr('Xóa ca'),
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                onPressed: () => _deleteShift(shift),
+                icon: const Icon(Icons.delete_outline,
+                    size: 20, color: Color(0xFFEF4444)),
+              ),
             const Icon(Icons.chevron_right, size: 18, color: _textMuted),
           ],
         ),
@@ -1329,19 +1357,21 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     ),
                   ),
                 ],
-                if (_perm.canDelete('ShiftSetup')) ...[
+                if (_canRemoveShift) ...[
                   const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: () => _deleteShift(shift),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFEF4444),
-                      side: const BorderSide(color: Color(0xFFEF4444)),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _deleteShift(shift),
+                      icon: const Icon(Icons.delete_outline, size: 16),
+                      label: Text(tr('Xóa ca'), style: TextStyle(fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFEF4444),
+                        side: const BorderSide(color: Color(0xFFEF4444)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
-                    child: const Icon(Icons.delete_outline, size: 18),
                   ),
                 ],
               ],

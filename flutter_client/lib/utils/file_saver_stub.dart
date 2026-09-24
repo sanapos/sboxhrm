@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -38,14 +39,21 @@ Future<String?> saveFileBytes(
   }
 
   if (mediaUri == null && Platform.isIOS) {
-    final dir = await getTemporaryDirectory();
+    final dir = await getApplicationDocumentsDirectory();
     final filePath = '${dir.path}/$filename';
     final file = File(filePath);
-    await file.writeAsBytes(bytes);
-    await Share.shareXFiles(
-      [XFile(filePath, mimeType: mimeType)],
-    );
+    await file.writeAsBytes(bytes, flush: true);
     mediaUri = filePath;
+    try {
+      await Share.shareXFiles(
+        [XFile(filePath, mimeType: mimeType, name: filename)],
+        sharePositionOrigin: _iosShareOrigin(),
+      );
+    } catch (e) {
+      // iPad/iPhone TestFlight ném PlatformException nếu thiếu neo chia sẻ.
+      // File đã ghi — không làm hỏng xuất Excel/PNG.
+      debugPrint('iOS share export: $e');
+    }
   }
 
   DownloadedDocument? doc;
@@ -64,6 +72,21 @@ Future<String?> saveFileBytes(
   return doc?.localPath ?? mediaUri;
 }
 
+/// Điểm neo cho UIActivityViewController. Rect rỗng làm iOS ném
+/// PlatformException(error, sharePositionOrigin...).
+Rect _iosShareOrigin() {
+  final views = PlatformDispatcher.instance.views;
+  if (views.isEmpty) return const Rect.fromLTWH(0, 0, 120, 48);
+  final size = views.first.physicalSize / views.first.devicePixelRatio;
+  final width = size.width > 8 ? size.width : 320.0;
+  final height = size.height > 8 ? size.height : 640.0;
+  return Rect.fromCenter(
+    center: Offset(width / 2, height / 3),
+    width: 48,
+    height: 48,
+  );
+}
+
 /// Save a file and immediately open it with the default app.
 Future<void> saveAndOpenFileBytes(
     List<int> bytes, String filename, String mimeType) async {
@@ -72,6 +95,8 @@ Future<void> saveAndOpenFileBytes(
     throw Exception('Không lưu được file trên máy');
   }
   if (savedPath.startsWith('content:')) return;
+  // iOS đã mở hộp chia sẻ trong saveFileBytes.
+  if (Platform.isIOS) return;
   try {
     await OpenFilex.open(savedPath, type: mimeType);
   } catch (e) {
