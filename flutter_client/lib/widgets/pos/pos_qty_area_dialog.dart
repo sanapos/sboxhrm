@@ -1,38 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../utils/pos_area_dims.dart';
 import 'pos_numeric_keypad.dart';
 import 'pos_theme.dart';
+
+export '../../utils/pos_area_dims.dart'
+    show mergePosAreaLineNote, parsePosAreaDims;
 
 class PosLineQtyResult {
   const PosLineQtyResult({
     required this.qty,
     required this.decimal,
     this.areaNote,
+    this.length,
+    this.width,
+    this.height,
   });
 
   final double qty;
   final bool decimal;
 
-  /// `Dài 2,5 m · Rộng 1,2 m` khi nhập theo diện tích.
+  /// `Dài 2,5 m · Rộng 1,2 m` hoặc `Rộng 1,2 m · Cao 2,4 m`.
   final String? areaNote;
-}
-
-final _areaNotePattern = RegExp(
-  r'^Dài\s+\d+(?:[.,]\d+)?(?:\s+\S+)?\s+·\s+Rộng\s+\d+(?:[.,]\d+)?',
-  caseSensitive: false,
-);
-
-/// Thay ghi chú kích thước cũ, giữ các ghi chú khác.
-String mergePosAreaLineNote(String? existing, String areaNote) {
-  final parts = (existing ?? '')
-      .split(RegExp(r'[;\n]'))
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty && !_areaNotePattern.hasMatch(s))
-      .toList();
-  final note = areaNote.trim();
-  if (note.isNotEmpty) parts.add(note);
-  return parts.join('; ');
+  final double? length;
+  final double? width;
+  final double? height;
 }
 
 String _dimUnit(String unitName) {
@@ -42,35 +35,9 @@ String _dimUnit(String unitName) {
   return raw;
 }
 
-String _noteNumber(double v) {
-  var s = v.toStringAsFixed(4);
-  s = s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
-  return s.replaceAll('.', ',');
-}
-
 String _qtyNumber(double v) {
   var s = v.toStringAsFixed(4);
   return s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
-}
-
-double? _parseDim(String raw) {
-  final v = double.tryParse(raw.trim().replaceAll(',', '.'));
-  if (v == null || v <= 0) return null;
-  return v;
-}
-
-({double length, double width})? _parseExistingArea(String? note) {
-  if (note == null || note.trim().isEmpty) return null;
-  final re = RegExp(
-    r'Dài\s+(\d+(?:[.,]\d+)?)\s*(?:\S+\s+)?·\s*Rộng\s+(\d+(?:[.,]\d+)?)',
-    caseSensitive: false,
-  );
-  final m = re.firstMatch(note);
-  if (m == null) return null;
-  final length = _parseDim(m.group(1)!);
-  final width = _parseDim(m.group(2)!);
-  if (length == null || width == null) return null;
-  return (length: length, width: width);
 }
 
 Future<PosLineQtyResult?> showPosLineQtyDialog({
@@ -80,6 +47,9 @@ Future<PosLineQtyResult?> showPosLineQtyDialog({
   required double initialQty,
   required bool allowDecimal,
   required bool enterByArea,
+  bool askLength = true,
+  bool askWidth = true,
+  bool askHeight = true,
   bool serialOnly = false,
   String? existingNote,
 }) {
@@ -91,6 +61,9 @@ Future<PosLineQtyResult?> showPosLineQtyDialog({
       initialQty: initialQty,
       allowDecimal: allowDecimal,
       enterByArea: enterByArea,
+      askLength: askLength,
+      askWidth: askWidth,
+      askHeight: askHeight,
       serialOnly: serialOnly,
       existingNote: existingNote,
     ),
@@ -104,6 +77,9 @@ class _PosLineQtyDialog extends StatefulWidget {
     required this.initialQty,
     required this.allowDecimal,
     required this.enterByArea,
+    this.askLength = true,
+    this.askWidth = true,
+    this.askHeight = true,
     this.serialOnly = false,
     this.existingNote,
   });
@@ -113,6 +89,9 @@ class _PosLineQtyDialog extends StatefulWidget {
   final double initialQty;
   final bool allowDecimal;
   final bool enterByArea;
+  final bool askLength;
+  final bool askWidth;
+  final bool askHeight;
   final bool serialOnly;
   final String? existingNote;
 
@@ -126,6 +105,7 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
   late final TextEditingController _qtyCtrl;
   late final TextEditingController _lengthCtrl;
   late final TextEditingController _widthCtrl;
+  late final TextEditingController _heightCtrl;
 
   String get _unit => _dimUnit(widget.unitName);
 
@@ -134,68 +114,82 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
     super.initState();
     _decimal = widget.allowDecimal;
     final parsed =
-        widget.enterByArea ? _parseExistingArea(widget.existingNote) : null;
+        widget.enterByArea ? parsePosAreaDims(widget.existingNote) : const PosAreaDims();
     _area = widget.enterByArea;
     if (_area) _decimal = true;
     _qtyCtrl = TextEditingController(
       text: _qtyNumber(widget.initialQty),
     );
     _lengthCtrl = TextEditingController(
-      text: parsed == null ? '' : _qtyNumber(parsed.length),
+      text: parsed.length == null ? '' : _qtyNumber(parsed.length!),
     );
     _widthCtrl = TextEditingController(
-      text: parsed == null ? '' : _qtyNumber(parsed.width),
+      text: parsed.width == null ? '' : _qtyNumber(parsed.width!),
+    );
+    _heightCtrl = TextEditingController(
+      text: parsed.height == null ? '' : _qtyNumber(parsed.height!),
     );
     _lengthCtrl.addListener(_syncArea);
     _widthCtrl.addListener(_syncArea);
+    _heightCtrl.addListener(_syncArea);
   }
 
   @override
   void dispose() {
     _lengthCtrl.removeListener(_syncArea);
     _widthCtrl.removeListener(_syncArea);
+    _heightCtrl.removeListener(_syncArea);
     _qtyCtrl.dispose();
     _lengthCtrl.dispose();
     _widthCtrl.dispose();
+    _heightCtrl.dispose();
     super.dispose();
   }
 
+  PosAreaDims get _dims => PosAreaDims(
+        length: _area ? parsePosDim(_lengthCtrl.text) : null,
+        width: _area ? parsePosDim(_widthCtrl.text) : null,
+        height: _area ? parsePosDim(_heightCtrl.text) : null,
+      );
+
   void _syncArea({bool rebuild = true}) {
     if (!_area) return;
-    final length = _parseDim(_lengthCtrl.text);
-    final width = _parseDim(_widthCtrl.text);
-    final next = (length != null && width != null) ? _qtyNumber(length * width) : '';
+    final measure = _dims.measure;
+    final next = measure == null ? '' : _qtyNumber(measure);
     if (_qtyCtrl.text != next) _qtyCtrl.text = next;
     if (rebuild && mounted) setState(() {});
   }
 
   String? _areaNote() {
-    final length = _parseDim(_lengthCtrl.text);
-    final width = _parseDim(_widthCtrl.text);
-    if (length == null || width == null) return null;
-    final unit = _unit;
-    final unitSuffix = unit.isEmpty ? '' : ' $unit';
-    return 'Dài ${_noteNumber(length)}$unitSuffix · Rộng ${_noteNumber(width)}$unitSuffix';
+    final dims = _dims;
+    return buildPosAreaNote(
+      length: dims.length,
+      width: dims.width,
+      height: dims.height,
+      unit: _unit,
+    );
   }
 
   void _apply() {
     if (_area) {
-      final length = _parseDim(_lengthCtrl.text);
-      final width = _parseDim(_widthCtrl.text);
-      if (length == null || width == null) return;
+      final dims = _dims;
+      final measure = dims.measure;
       final note = _areaNote();
-      if (note == null) return;
+      if (measure == null || note == null) return;
       Navigator.pop(
         context,
         PosLineQtyResult(
-          qty: double.parse((length * width).toStringAsFixed(4)),
+          qty: double.parse(measure.toStringAsFixed(4)),
           decimal: true,
           areaNote: note,
+          length: dims.length,
+          width: dims.width,
+          height: dims.height,
         ),
       );
       return;
     }
-    final v = _parseDim(_qtyCtrl.text);
+    final v = parsePosDim(_qtyCtrl.text);
     if (v == null) return;
     Navigator.pop(
       context,
@@ -205,10 +199,14 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final length = _parseDim(_lengthCtrl.text);
-    final width = _parseDim(_widthCtrl.text);
-    final area = (length != null && width != null) ? length * width : null;
+    final dims = _dims;
+    final area = dims.measure;
+    final unitLabel = widget.unitName.trim();
+    final showLength = _area || widget.askLength;
+    final showWidth = _area || widget.askWidth;
+    final showHeight = _area || widget.askHeight;
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       title: Text(tr('Số lượng')),
       content: SingleChildScrollView(
         child: Column(
@@ -231,6 +229,7 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
             ],
             const SizedBox(height: 10),
             if (_area) ...[
+              if (showLength)
               PosNoSoftKeyboardField(
                 controller: _lengthCtrl,
                 allowDecimal: true,
@@ -243,6 +242,7 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
                 ),
               ),
               const SizedBox(height: 8),
+              if (showWidth)
               PosNoSoftKeyboardField(
                 controller: _widthCtrl,
                 allowDecimal: true,
@@ -255,10 +255,23 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
                 ),
               ),
               const SizedBox(height: 8),
+              if (showHeight)
+              PosNoSoftKeyboardField(
+                controller: _heightCtrl,
+                allowDecimal: true,
+                keypadTitle: 'Chiều cao',
+                decoration: InputDecoration(
+                  labelText: tr('Chiều cao'),
+                  suffixText: _unit.isEmpty ? null : _unit,
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 8),
               Text(
                 tr(area == null
-                    ? 'Diện tích = dài × rộng'
-                    : 'Diện tích: ${_noteNumber(area)}${widget.unitName.trim().isEmpty ? '' : ' ${widget.unitName.trim()}'}'),
+                    ? 'Nhập ít nhất 2 chiều. Diện tích = các ô đã nhập nhân với nhau (dài × rộng hoặc rộng × cao).'
+                    : 'Diện tích: ${formatPosDim(area)}${unitLabel.isEmpty ? '' : ' $unitLabel'}'),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ] else

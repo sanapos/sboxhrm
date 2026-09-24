@@ -79,25 +79,7 @@ public partial class PosQuotesController
             return StatusCode(403, AppResponse<QuoteDocumentDto>.Fail(
                 "Không có quyền lập chứng từ trên báo giá của nhân viên khác"));
         if (quote.Status != PosQuoteStatus.Accepted && kind != PosQuoteDocumentKind.Quote)
-        {
-            if (kind == PosQuoteDocumentKind.Contract &&
-                quote.Status is PosQuoteStatus.Draft or PosQuoteStatus.Sent or PosQuoteStatus.Revised)
-            {
-                if (quote.Status == PosQuoteStatus.Draft)
-                {
-                    quote.IssuedAt = DateTime.UtcNow;
-                    quote.IssuedBy = CurrentUserEmail;
-                }
-                quote.Status = PosQuoteStatus.Accepted;
-                if (quote.CommercialStage < PosQuoteCommercialStage.Accepted)
-                    quote.CommercialStage = PosQuoteCommercialStage.Accepted;
-            }
-            else
-            {
-                return BadRequest(AppResponse<QuoteDocumentDto>.Fail(
-                    "Chỉ lập HĐ / xuất kho / bàn giao / nghiệm thu khi khách đã chấp nhận báo giá"));
-            }
-        }
+            PromoteAccepted(quote);
 
         var docNo = await NextDocNoAsync(storeId, kind);
         var doc = new PosQuoteDocument
@@ -138,8 +120,7 @@ public partial class PosQuotesController
             return StatusCode(403, AppResponse<QuoteDocumentDto>.Fail(
                 "Không có quyền xuất kho trên báo giá của nhân viên khác"));
         if (quote.Status != PosQuoteStatus.Accepted)
-            return BadRequest(AppResponse<QuoteDocumentDto>.Fail(
-                "Chỉ xuất kho khi khách đã chấp nhận báo giá"));
+            PromoteAccepted(quote);
 
         var stockLines = quote.Lines.Where(l =>
             l.Deleted == null && l.ProductId.HasValue && l.Qty > 0).ToList();
@@ -255,6 +236,19 @@ public partial class PosQuotesController
             q.CommercialStage = PosQuoteCommercialStage.Closed;
             return null;
         });
+    }
+
+    void PromoteAccepted(PosQuote quote)
+    {
+        if (quote.Status == PosQuoteStatus.Accepted) return;
+        if (quote.IssuedAt == null)
+        {
+            quote.IssuedAt = DateTime.UtcNow;
+            quote.IssuedBy = CurrentUserEmail;
+        }
+        quote.Status = PosQuoteStatus.Accepted;
+        if (quote.CommercialStage < PosQuoteCommercialStage.Accepted)
+            quote.CommercialStage = PosQuoteCommercialStage.Accepted;
     }
 
     async Task<PosQuote?> LoadQuote(Guid storeId, Guid id, bool track = false)

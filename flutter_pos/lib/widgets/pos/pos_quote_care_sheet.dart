@@ -6,6 +6,8 @@ import '../../l10n/app_tr.dart';
 import '../../models/pos_print_template.dart';
 import '../../models/pos_quote.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_area_dims.dart';
+import '../../utils/pos_sell_store_settings.dart';
 import '../../utils/pos_html_print.dart';
 import '../../utils/pos_print_template_defaults.dart';
 import '../../utils/pos_print_template_loader.dart';
@@ -14,6 +16,48 @@ import '../../utils/pos_print_template_v2_codec.dart';
 import '../../utils/pos_vietnamese_money_words.dart';
 import '../../widgets/notification_overlay.dart';
 import 'pos_theme.dart';
+
+Future<void> openPosQuoteZalo(String? phone) async {
+  final digits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
+  if (digits.isEmpty) {
+    NotificationOverlayManager().showWarning(
+      title: 'Chưa có SĐT',
+      message: tr('Không gọi Zalo được vì chưa có số điện thoại'),
+    );
+    return;
+  }
+  final uri = Uri.parse('https://zalo.me/$digits');
+  final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!ok) {
+    NotificationOverlayManager().showError(
+      title: 'Không mở được Zalo',
+      message: digits,
+    );
+  }
+}
+
+Future<void> openPosQuoteFacebook({String? phone, String? name}) async {
+  final q = (phone ?? '').trim().isNotEmpty
+      ? phone!.trim()
+      : (name ?? '').trim();
+  if (q.isEmpty) {
+    NotificationOverlayManager().showWarning(
+      title: 'Chưa có khách',
+      message: tr('Không mở Facebook được vì chưa có tên hoặc số điện thoại'),
+    );
+    return;
+  }
+  final uri = Uri.parse(
+    'https://www.facebook.com/search/top/?q=${Uri.encodeComponent(q)}',
+  );
+  final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!ok) {
+    NotificationOverlayManager().showError(
+      title: 'Không mở được Facebook',
+      message: q,
+    );
+  }
+}
 
 Future<void> callPosQuoteCustomer(String? phone) async {
   final raw = (phone ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
@@ -40,6 +84,7 @@ Future<void> printPosQuoteSlip(
   PosQuote? quote,
   List<PosQuoteLine>? lines,
   bool includeImages = false,
+  bool includeStamp = true,
 }) async {
   final api = ApiService();
   var html = '';
@@ -54,8 +99,27 @@ Future<void> printPosQuoteSlip(
     }
   }
   if (q != null && useLines.isNotEmpty) {
+    Map<String, dynamic>? profile;
     try {
-      html = bindPosQuotePrintHtmlLocal(q, useLines);
+      final profileRes = await api.getPosCommercialProfile();
+      if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
+        profile = Map<String, dynamic>.from(profileRes['data'] as Map);
+      }
+    } catch (_) {}
+    PosSellStoreSettings? store;
+    try {
+      store = await PosSellStoreSettings.load();
+    } catch (_) {}
+    try {
+      html = bindPosQuotePrintHtmlLocal(
+        q,
+        useLines,
+        commercialProfile: profile,
+        storeName: store?.storeName,
+        storeAddress: store?.address,
+        storePhone: store?.phone,
+        includeStamp: includeStamp,
+      );
     } catch (_) {
       html = '';
     }
@@ -108,12 +172,22 @@ String bindPosQuotePrintHtmlLocal(
   PosQuote q,
   List<PosQuoteLine> lineItems, {
   Map<String, dynamic>? commercialProfile,
+  String? storeName,
+  String? storeAddress,
+  String? storePhone,
+  bool includeStamp = true,
 }) {
   final data = posPrintSampleData(
     documentType: PosPrintDocumentTypes.quote,
     commercialProfile: commercialProfile,
+    storeName: storeName,
+    storeAddress: storeAddress,
+    storePhone: storePhone,
   );
   data.addAll(_quoteHeaderData(q, lineItems));
+  if (!includeStamp) {
+    data['Con_Dau'] = '<div style="height:48px"></div>';
+  }
   for (final k in const [
     'So_Luong',
     'Don_Gia',
@@ -136,6 +210,77 @@ String bindPosQuotePrintHtmlLocal(
   );
 }
 
+/// Hợp đồng / đề nghị TT / bàn giao / nghiệm thu — mẫu A4 cục bộ, không dùng HTML cũ đã lưu.
+String bindPosCommercialPrintHtmlLocal(
+  PosQuote q, {
+  required String documentType,
+  String? docNo,
+  bool includeStamp = true,
+  Map<String, dynamic>? commercialProfile,
+  String? storeName,
+  String? storeAddress,
+  String? storePhone,
+}) {
+  final lines = q.lines;
+  final data = posPrintSampleData(
+    documentType: documentType,
+    commercialProfile: commercialProfile,
+    storeName: storeName,
+    storeAddress: storeAddress,
+    storePhone: storePhone,
+  );
+  data.addAll(_quoteHeaderData(q, lines));
+  final money = NumberFormat('#,##0', 'vi_VN');
+  final total = (lines.fold<double>(0, (a, l) => a + _quoteLineAmount(l)) -
+          q.discount)
+      .clamp(0.0, double.infinity);
+  final deposit = q.depositAmount > 0
+      ? q.depositAmount
+      : (q.depositPercent != null && q.depositPercent! > 0
+          ? total * q.depositPercent! / 100
+          : total * 0.5);
+  final day = DateFormat('dd/MM/yyyy').format(DateTime.now());
+  final no = (docNo == null || docNo.isEmpty) ? q.quoteNo : docNo;
+  data.addAll({
+    'Ma_Bao_Gia': q.quoteNo,
+    'So_Chung_Tu': no,
+    'So_Hop_Dong': documentType == PosPrintDocumentTypes.contract ? no : q.quoteNo,
+    'Ngay_Hop_Dong': day,
+    'Ngay': day,
+    'Dia_Diem_Thi_Cong': q.customerAddress ?? '',
+    'Ten_Cong_Ty_Khach': q.customerName ?? '',
+    'Nguoi_Dai_Dien_Khach': q.customerName ?? '',
+    'Tam_Ung': money.format(deposit),
+    'Tien_Coc': money.format(deposit),
+    'Con_Lai_Hop_Dong': money.format((total - deposit).clamp(0, double.infinity)),
+    'Ky_Han_Thi_Cong': 'Theo thỏa thuận',
+    'Ky_Han_Thanh_Toan': '10 ngày kể từ ký hợp đồng',
+  });
+  if (!includeStamp) {
+    data['Con_Dau'] = '<div style="height:48px"></div>';
+  }
+  for (final k in const [
+    'So_Luong',
+    'Don_Gia',
+    'Ma_Hang',
+    'Don_Vi_Tinh',
+    'Ma_Vach',
+    'STT',
+  ]) {
+    data.remove(k);
+  }
+  return renderPosPrintTemplateHtml(
+    posPrintDefaultHtml(
+      documentType: documentType,
+      paperSize: PosPrintPaperSizes.a4,
+    ),
+    data: data,
+    lineItems: _quoteLineItems(lines),
+    wrapDocument: true,
+    paperSize: PosPrintPaperSizes.a4,
+  );
+}
+
 Future<String> bindPosQuotePrintHtml(
     ApiService api, PosQuote q, List<PosQuoteLine> lineItems) async {
   Map<String, dynamic>? profile;
@@ -145,6 +290,32 @@ Future<String> bindPosQuotePrintHtml(
       profile = Map<String, dynamic>.from(profileRes['data'] as Map);
     }
   } catch (_) {}
+
+  String render(String templateHtml) => renderPosPrintTemplateHtml(
+        templateHtml,
+        data: () {
+          final data = posPrintSampleData(
+            documentType: PosPrintDocumentTypes.quote,
+            commercialProfile: profile,
+          );
+          data.addAll(_quoteHeaderData(q, lineItems));
+          for (final k in const [
+            'So_Luong',
+            'Don_Gia',
+            'Ma_Hang',
+            'Don_Vi_Tinh',
+            'Ma_Vach',
+            'STT',
+          ]) {
+            data.remove(k);
+          }
+          return data;
+        }(),
+        lineItems: _quoteLineItems(lineItems),
+        wrapDocument: true,
+        paperSize: PosPrintPaperSizes.a4,
+      );
+
   try {
     final list = await loadPosPrintTemplates(api, PosPrintDocumentTypes.quote);
     final htmlTemplates = list.where((t) {
@@ -160,33 +331,17 @@ Future<String> bindPosQuotePrintHtml(
         htmlTemplates.firstOrNull;
     final remote = (tpl?.htmlContent ?? '').trim();
     if (remote.isNotEmpty && _templateCanBindQuoteLines(remote)) {
-      final data = posPrintSampleData(
-        documentType: PosPrintDocumentTypes.quote,
-        commercialProfile: profile,
-      );
-      data.addAll(_quoteHeaderData(q, lineItems));
-      for (final k in const [
-        'So_Luong',
-        'Don_Gia',
-        'Ma_Hang',
-        'Don_Vi_Tinh',
-        'Ma_Vach',
-        'STT',
-      ]) {
-        data.remove(k);
+      final html = render(remote);
+      if (_printHtmlMatchesQuoteLines(html, _quoteLineItems(lineItems))) {
+        return html;
       }
-      final items = _quoteLineItems(lineItems);
-      final html = renderPosPrintTemplateHtml(
-        remote,
-        data: data,
-        lineItems: items,
-        wrapDocument: true,
-        paperSize: PosPrintPaperSizes.a4,
-      );
-      if (_printHtmlMatchesQuoteLines(html, items)) return html;
     }
   } catch (_) {}
-  return bindPosQuotePrintHtmlLocal(q, lineItems, commercialProfile: profile);
+  return bindPosQuotePrintHtmlLocal(
+    q,
+    lineItems,
+    commercialProfile: profile,
+  );
 }
 
 bool _templateCanBindQuoteLines(String html) {
@@ -273,13 +428,19 @@ List<Map<String, String>> _quoteLineItems(List<PosQuoteLine> lines) {
       {
         'STT': '${i++}',
         'Ma_Hang': l.productCode ?? '',
-        'Ten_Hang_Hoa': l.productName,
+        'Ten_Hang_Hoa': () {
+          final note = (l.lineNote ?? '').trim();
+          return note.isEmpty ? l.productName : '${l.productName} — $note';
+        }(),
         'Don_Vi_Tinh': l.unitName ?? '',
         'So_Luong': qty.format(l.qty),
         'Don_Gia': money.format(l.unitPrice),
         'Thanh_Tien': money.format(_quoteLineAmount(l)),
         'Chiet_Khau': money.format(l.discountAmount),
         'Ghi_Chu': l.lineNote ?? '',
+        'Chieu_Dai': formatPosDim(l.length),
+        'Chieu_Rong': formatPosDim(l.width),
+        'Chieu_Cao': formatPosDim(l.height),
         'Bao_Hanh':
             (l.warrantyMonths ?? 0) > 0 ? '${l.warrantyMonths} tháng' : '',
         'Hinh_Anh': '',

@@ -49,7 +49,8 @@ public static class PosPrintTemplateHtmlRenderer
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     static bool IsRawHtmlToken(string key) =>
-        key.Equals("Hinh_Anh", StringComparison.Ordinal);
+        key.Equals("Hinh_Anh", StringComparison.Ordinal)
+        || key.Equals("Con_Dau", StringComparison.Ordinal);
 
     static string EncodeToken(string key, string value) =>
         IsRawHtmlToken(key) ? value : WebUtility.HtmlEncode(value);
@@ -77,15 +78,26 @@ public static class PosPrintTemplateHtmlRenderer
         }
 
         foreach (var (k, v) in data)
-            html = html.Replace("{" + k + "}", WebUtility.HtmlEncode(v), StringComparison.Ordinal);
+            html = html.Replace("{" + k + "}", EncodeToken(k, v), StringComparison.Ordinal);
 
         if (!html.Contains("<html", StringComparison.OrdinalIgnoreCase))
         {
             var paper = data.TryGetValue("PaperSize", out var p) ? p : "A4";
+            var commercial = html.Contains("HỢP ĐỒNG", StringComparison.Ordinal)
+                || html.Contains("BIÊN BẢN", StringComparison.Ordinal)
+                || html.Contains("ĐỀ NGHỊ", StringComparison.Ordinal)
+                || html.Contains("BÁO GIÁ", StringComparison.Ordinal)
+                || html.Contains("BẢNG BÁO GIÁ", StringComparison.Ordinal);
+            var bodyCss = commercial
+                ? "font-family:\"Times New Roman\",Times,serif;font-size:13px;line-height:1.15;color:#111;max-width:210mm;margin:0 auto"
+                : "font-family:Arial,sans-serif;font-size:13px;color:#222;max-width:210mm;margin:0 auto";
+            var extra = commercial
+                ? "p{margin:2px 0;line-height:1.15;text-align:justify}b,strong{font-weight:700}h2{font-size:16px;margin:4px 0;text-align:center;font-weight:700}"
+                : "";
             html =
                 "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><style>" +
                 "@page { size: " + paper + " portrait; margin: 12mm; }" +
-                "body{font-family:Arial,sans-serif;font-size:13px;color:#222;max-width:210mm;margin:0 auto}" +
+                "body{" + bodyCss + "}" + extra +
                 "</style></head><body>" + html + "</body></html>";
         }
         return html;

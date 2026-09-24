@@ -59,6 +59,65 @@ class PayrollColumn {
   }) : visible = visible ?? defaultVisible;
 }
 
+/// Giờ để nhân đơn giá khi lương theo giờ.
+///
+/// [payHours] là giờ công gốc (không trần 8h, không nhân hệ số lễ).
+/// [weekdayInside] / nghỉ / lễ là phần tăng ca đã nằm trong [payHours]
+/// nên lương tăng ca chỉ được cộng thêm hệ số, không trả lần hai.
+class HourlyPayHours {
+  const HourlyPayHours({
+    required this.payHours,
+    required this.weekdayInside,
+    required this.weekendInside,
+    required this.holidayInside,
+  });
+
+  final double payHours;
+  final double weekdayInside;
+  final double weekendInside;
+  final double holidayInside;
+
+  static HourlyPayHours split(
+    List<DailyShiftRecord> records,
+    double standardDayHours,
+  ) {
+    var pay = 0.0;
+    var weekday = 0.0;
+    var weekend = 0.0;
+    var holiday = 0.0;
+    for (final r in records) {
+      final hours = r.baseWorkHours > 0 ? r.baseWorkHours : r.workHours;
+      if (hours <= 0) continue;
+      pay += hours;
+      final ot = r.overtimeMinutes / 60.0;
+      if (ot <= 0) continue;
+      final isHoliday = r.status.contains('Tăng ca ngày lễ');
+      final isWeekend = r.status.contains('Tăng ca ngày nghỉ');
+      final inside = (isHoliday || isWeekend)
+          ? ot
+          : () {
+              final excess = hours - standardDayHours;
+              if (excess <= 0) return 0.0;
+              return ot < excess ? ot : excess;
+            }();
+      if (inside <= 0) continue;
+      if (isHoliday) {
+        holiday += inside;
+      } else if (isWeekend) {
+        weekend += inside;
+      } else {
+        weekday += inside;
+      }
+    }
+    return HourlyPayHours(
+      payHours: pay,
+      weekdayInside: weekday,
+      weekendInside: weekend,
+      holidayInside: holiday,
+    );
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  PayrollSummaryTab
 // ═══════════════════════════════════════════════════════════════
@@ -275,6 +334,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       PayrollColumn(key: 'otSalary', label: _l10n.overtimeSalary),
       PayrollColumn(key: 'allowanceFixed', label: 'PC cố định'),
       PayrollColumn(key: 'allowanceDaily', label: 'PC theo ngày'),
+      PayrollColumn(key: 'allowanceShift', label: 'PC theo ca'),
       PayrollColumn(key: 'totalAllowance', label: 'Tổng PC kỳ'),
       PayrollColumn(key: 'bonus', label: _l10n.bonusAmount),
       PayrollColumn(
@@ -1219,11 +1279,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     double fixedAllowance,
     double dailyAllowanceRate,
     double hourlyAllowanceRate,
+    double shiftAllowance,
     double total,
   }) _calcEmployeeAllowances({
     required String? employeeId,
     required double workDays,
     required double totalWorkHours,
+    required Iterable<String?> workedShiftIds,
     required double shiftLevelAllowance,
   }) {
     final empId = employeeId ?? '';
@@ -1242,15 +1304,22 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       employeeId: empId,
       allowanceType: 2,
     );
+    final shiftEarned = AllowanceCalculator.earnedForShifts(
+      allowances: _allowanceSettings,
+      employeeId: empId,
+      workedShiftIds: workedShiftIds,
+    );
 
     final total = shiftLevelAllowance +
         fixedTotal +
         dailyRateTotal * workDays +
-        hourlyRateTotal * totalWorkHours;
+        hourlyRateTotal * totalWorkHours +
+        shiftEarned;
     return (
       fixedAllowance: fixedTotal,
       dailyAllowanceRate: dailyRateTotal,
       hourlyAllowanceRate: hourlyRateTotal,
+      shiftAllowance: shiftEarned,
       total: total,
     );
   }
@@ -1516,11 +1585,35 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     double workSalary = 0;
     double hourlyRate = 0;
     double shiftLevelAllowance = 0;
+    var hourlyPaidHours = totalWorkHours;
+    var hourlyOtInsideHours = 0.0;
 
     switch (rateType) {
-      case 0: // Hourly
+      case 0: // Hourly — giờ công thực tế × đơn giá, không trần giờ chuẩn/ngày
         hourlyRate = baseSalary;
-        workSalary = baseSalary * standardHours;
+        final split = HourlyPayHours.split(shiftRecords, standardDayHours);
+        var paid = split.payHours;
+        var dropFromBase = 0.0;
+        if (hourlyOtType == 0) {
+          dropFromBase += split.weekdayInside;
+          if (holidayOtType != 0) {
+            dropFromBase += split.weekendInside + split.holidayInside;
+          }
+        }
+        if (holidayOtType == 0) {
+          dropFromBase += split.weekendInside + split.holidayInside;
+        }
+        paid = double.parse(
+          (paid - dropFromBase).clamp(0.0, double.infinity).toStringAsFixed(1),
+        );
+        hourlyPaidHours = paid;
+        if (hourlyOtType == 1) {
+          hourlyOtInsideHours = split.weekdayInside;
+          if (holidayOtType != 0) {
+            hourlyOtInsideHours += split.weekendInside + split.holidayInside;
+          }
+        }
+        workSalary = (baseSalary * paid).roundToDouble();
         break;
       case 1: // Monthly
         // dailyRate = Rate / công chuẩn; workSalary = dailyRate × công tính lương
@@ -1642,6 +1735,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
     }
     otSalary += holidayDaySalary;
+    if (rateType == 0 && hourlyOtInsideHours > 0) {
+      // 1.0 đã nằm trong lương giờ; cột tăng ca chỉ còn phần hệ số.
+      otSalary -= hourlyOtInsideHours * hourlyRate;
+      if (otSalary < 0) otSalary = 0;
+    }
 
     final double travelHours = _showTravelPayrollColumns
         ? _travelHoursForEmployee(emp)
@@ -1668,6 +1766,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       employeeId: emp?.id,
       workDays: workDays,
       totalWorkHours: totalWorkHours,
+      workedShiftIds: shiftPairs
+          .where((p) => p.checkOut != null)
+          .map((p) => p.shiftTemplateId),
       shiftLevelAllowance: shiftLevelAllowance,
     );
     final totalAllowance = allowanceBreakdown.total;
@@ -1994,7 +2095,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       'totalShifts': totalShifts,
       'overnightShifts': overnightShifts,
       'paidLeaveDays': paidLeaveDays,
-      'totalHours': totalWorkHours,
+      'totalHours': rateType == 0 ? hourlyPaidHours : totalWorkHours,
       'standardHours': standardHours,
       'otTotalHours': otTotalHours,
       'otHoursWeekday': otHoursWeekday,
@@ -2019,6 +2120,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       'travelSalary': travelSalary,
       'allowanceFixed': fixedAllowancePaid,
       'allowanceDaily': dailyAllowanceRate,
+      'allowanceShift': allowanceBreakdown.shiftAllowance,
       'mealAllowance': fixedAllowancePaid,
       'responsibilityAllowance': dailyAllowanceRate,
       'otherAllowance': 0,
@@ -2313,7 +2415,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         final unionFee = _toDouble(row['unionFeePart']);
         final rateType = _toInt(row['rateType'], 1);
         final regularUnits = switch (rateType) {
-          0 => _toDouble(row['standardHours']),
+          0 => _toDouble(row['totalHours']),
           3 => _toDouble(row['totalShifts']),
           _ => _toDouble(row['workDays']),
         };
@@ -2897,7 +2999,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         appNotification.showSuccess(
             title: 'Xuất Excel',
-            message: tr('Đã lưu vào Tải về/SBOX HRM: $fn'));
+            message: tr('Đã lưu $fn. Mở Báo cáo → Quản lý tài liệu tải xuống'));
       }
     } catch (e) {
       appNotification.showError(
@@ -2974,7 +3076,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   excel_lib.NumFormat _excelNumberFormat(
       String key, excel_lib.CellValue value) {
     if (_payrollHourKeys.contains(key) || value is excel_lib.DoubleCellValue) {
-      return excel_lib.NumFormat.standard_48;
+      // numFmtId 48 của Excel là ##0.0E+0 (dạng khoa học), không phải 1 chữ số thập phân.
+      return excel_lib.NumFormat.custom(formatCode: '0.0');
     }
     if (_payrollDeductionKeys.contains(key) || _isPayrollMoneyKey(key)) {
       return excel_lib.NumFormat.standard_3;
@@ -3051,6 +3154,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     'otSalary': 'Lương\nTC',
     'allowanceFixed': 'PC\ncố định',
     'allowanceDaily': 'PC\ntheo ngày',
+    'allowanceShift': 'PC\ntheo ca',
     'totalAllowance': 'Tổng\nPC',
     'bonus': 'Thưởng',
     'kpiSalary': 'Lương\nKPI',
@@ -3409,7 +3513,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
       appNotification.showSuccess(
           title: 'Xuất PNG',
-          message: tr('Đã lưu vào Ảnh/SBOX HRM: $fileName'));
+          message: tr('Đã lưu $fileName. Mở Báo cáo → Quản lý tài liệu tải xuống'));
     } catch (e) {
       appNotification.showError(title: 'Lỗi', message: tr('Không thể xuất PNG: $e'));
     }
@@ -3572,7 +3676,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           _detailRow('Phụ cấp cố định', _fmtCurrency(row['allowanceFixed'])),
           _detailRow('Phụ cấp theo ngày (mức/ngày)',
               _fmtCurrency(row['allowanceDaily'])),
-          _detailRow('Tổng PC kỳ (theo công/giờ)',
+          _detailRow('Phụ cấp theo ca',
+              _fmtCurrency(row['allowanceShift'])),
+          _detailRow('Tổng PC kỳ (công, giờ, ca)',
               _fmtCurrency(row['totalAllowance']),
               color: Colors.green.shade700),
           _detailRow('Phụ cấp khác', _fmtCurrency(row['otherAllowance'])),

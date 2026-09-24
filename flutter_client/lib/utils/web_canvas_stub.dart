@@ -20,14 +20,25 @@ Future<List<int>?> renderToPngBytes({
   required int height,
   required void Function(dynamic ctx) draw,
 }) async {
+  const maxEdge = 4096;
+  var scale = 1.0;
+  if (width > maxEdge || height > maxEdge) {
+    scale = maxEdge / (width > height ? width : height);
+  }
+  final outW = (width * scale).round().clamp(1, maxEdge);
+  final outH = (height * scale).round().clamp(1, maxEdge);
   final recorder = ui.PictureRecorder();
-  final canvas = ui.Canvas(recorder, ui.Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()));
+  final canvas = ui.Canvas(
+    recorder,
+    ui.Rect.fromLTWH(0, 0, outW.toDouble(), outH.toDouble()),
+  );
+  if (scale != 1) canvas.scale(scale);
 
   final adapter = _MobileCanvasAdapter(canvas);
   draw(adapter);
 
   final picture = recorder.endRecording();
-  final image = await picture.toImage(width, height);
+  final image = await picture.toImage(outW, outH);
   final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
   picture.dispose();
   image.dispose();

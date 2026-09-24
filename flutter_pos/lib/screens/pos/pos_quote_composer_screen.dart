@@ -464,6 +464,9 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           PosQtyRules.allowsDecimal(product) &&
           !byArea,
       enterByArea: byArea,
+      askLength: product?.showAreaLength ?? true,
+      askWidth: product?.showAreaWidth ?? true,
+      askHeight: product?.showAreaHeight ?? true,
       serialOnly: product?.requiresSerial == true,
       existingNote: row.line.lineNote,
     );
@@ -566,6 +569,10 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       selectedQuickNotes: row.selectedQuickNotes,
       extraNote: row.noteCtrl.text,
     );
+    final dims = parsePosAreaDims(row.line.lineNote);
+    row.line.length = dims.length;
+    row.line.width = dims.width;
+    row.line.height = dims.height;
   }
 
   void _applyPrice(_QLine row) {
@@ -778,7 +785,18 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         final cartLines = _cart.map((r) => r.line).toList();
         var html = '';
         try {
-          html = bindPosQuotePrintHtmlLocal(q, cartLines);
+          Map<String, dynamic>? profile;
+          try {
+            final profileRes = await ApiService().getPosCommercialProfile();
+            if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
+              profile = Map<String, dynamic>.from(profileRes['data'] as Map);
+            }
+          } catch (_) {}
+          html = bindPosQuotePrintHtmlLocal(
+            q,
+            cartLines,
+            commercialProfile: profile,
+          );
         } catch (_) {
           html = '';
         }

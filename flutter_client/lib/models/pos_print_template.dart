@@ -528,6 +528,9 @@ abstract final class PosPrintTokens {
     ('Chiet_Khau', 'Chiết khấu dòng'),
     ('Thanh_Tien', 'Thành tiền dòng'),
     ('Bao_Hanh', 'Bảo hành dòng'),
+    ('Chieu_Dai', 'Chiều dài'),
+    ('Chieu_Rong', 'Chiều rộng'),
+    ('Chieu_Cao', 'Chiều cao'),
     ('Hinh_Anh', 'Hình ảnh SP (3×3 cm)'),
     ('Ten_Ban', 'Tên bàn'),
   ];

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -85,6 +86,39 @@ public static class PosQuoteDocumentHtml
         return PosPrintTemplateHtmlRenderer.Render(html, data, lines);
     }
 
+    static string ProductLabel(string name, string? note)
+    {
+        var extra = (note ?? "").Trim();
+        return extra.Length == 0 ? name : name + " — " + extra;
+    }
+
+    static string StampHtml(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return "";
+        var s = raw.Trim();
+        var comma = s.IndexOf(',');
+        if (s.StartsWith("data:", StringComparison.OrdinalIgnoreCase) && comma > 0)
+            s = s[(comma + 1)..].Trim();
+        s = s.Replace(" ", "").Replace("\r", "").Replace("\n", "");
+        if (s.Length < 32) return "<div style=\"height:64px\"></div>";
+        return "<img src=\"data:image/png;base64," + s +
+               "\" alt=\"\" width=\"112\" height=\"112\" style=\"width:112px;height:112px;object-fit:contain;display:inline-block;vertical-align:middle\"/>";
+    }
+
+    static string DimCell(decimal? stored, string? note, string label)
+    {
+        var vn = CultureInfo.GetCultureInfo("vi-VN");
+        if (stored is > 0)
+            return stored.Value.ToString("0.####", vn);
+        if (string.IsNullOrWhiteSpace(note)) return "";
+        var m = Regex.Match(note, label + @"\s+(\d+(?:[.,]\d+)?)", RegexOptions.IgnoreCase);
+        if (!m.Success) return "";
+        var raw = m.Groups[1].Value.Replace(',', '.');
+        return decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var v) && v > 0
+            ? v.ToString("0.####", vn)
+            : "";
+    }
+
     static List<Dictionary<string, string>> activeLinesSync(PosQuote quote)
     {
         var vn = CultureInfo.GetCultureInfo("vi-VN");
@@ -94,13 +128,16 @@ public static class PosQuoteDocumentHtml
             {
                 ["STT"] = (i++).ToString(),
                 ["Ma_Hang"] = l.ProductCode ?? "",
-                ["Ten_Hang_Hoa"] = l.ProductName,
+                ["Ten_Hang_Hoa"] = ProductLabel(l.ProductName, l.LineNote),
                 ["Don_Vi_Tinh"] = l.UnitName ?? "",
                 ["So_Luong"] = l.Qty.ToString("0.##", vn),
                 ["Don_Gia"] = l.UnitPrice.ToString("#,##0", vn),
                 ["Thanh_Tien"] = l.LineTotal.ToString("#,##0", vn),
                 ["Chiet_Khau"] = l.DiscountAmount.ToString("#,##0", vn),
                 ["Ghi_Chu"] = l.LineNote ?? "",
+                ["Chieu_Dai"] = DimCell(l.Length, l.LineNote, "Dài"),
+                ["Chieu_Rong"] = DimCell(l.Width, l.LineNote, "Rộng"),
+                ["Chieu_Cao"] = DimCell(l.Height, l.LineNote, "Cao"),
                 ["Bao_Hanh"] = l.WarrantyMonths is > 0 ? l.WarrantyMonths + " tháng" : "",
                 ["Hinh_Anh"] = "",
             }).ToList();
@@ -145,7 +182,9 @@ public static class PosQuoteDocumentHtml
         var t = html.TrimStart();
         // Reject JSON V2 marker (`<!--POS_TEMPLATE_V2-->…{ }`) — cũng bắt đầu bằng `<`.
         if (t.StartsWith("<!--POS_TEMPLATE_V2", StringComparison.OrdinalIgnoreCase)) return false;
-        return t.StartsWith("<", StringComparison.Ordinal) && !t.StartsWith("{", StringComparison.Ordinal);
+        if (!t.StartsWith("<", StringComparison.Ordinal) || t.StartsWith("{", StringComparison.Ordinal))
+            return false;
+        return Regex.IsMatch(t, @"<!--POS_A4_V(?:[8-9]|\d{2,})", RegexOptions.IgnoreCase);
     }
 
     static string FirstText(params string?[] values)
@@ -216,6 +255,7 @@ public static class PosQuoteDocumentHtml
             ["Chu_Tai_Khoan_Cua_Hang"] = storeBankHolder,
             ["Nguoi_Dai_Dien_Cua_Hang"] = storeRep,
             ["Chuc_Vu_Cua_Hang"] = storeTitle,
+            ["Con_Dau"] = StampHtml(profile?.StampPngBase64),
             ["Tieu_De_In"] = TitleOf(kind),
             ["Ma_Don_Hang"] = docNo,
             ["Ma_Bao_Gia"] = quote.QuoteNo,
@@ -295,13 +335,16 @@ public static class PosQuoteDocumentHtml
             {
                 ["STT"] = (i++).ToString(),
                 ["Ma_Hang"] = l.ProductCode ?? "",
-                ["Ten_Hang_Hoa"] = l.ProductName,
+                ["Ten_Hang_Hoa"] = ProductLabel(l.ProductName, l.LineNote),
                 ["Don_Vi_Tinh"] = l.UnitName ?? "",
                 ["So_Luong"] = l.Qty.ToString("0.##", vn),
                 ["Don_Gia"] = l.UnitPrice.ToString("#,##0", vn),
                 ["Thanh_Tien"] = l.LineTotal.ToString("#,##0", vn),
                 ["Chiet_Khau"] = l.DiscountAmount.ToString("#,##0", vn),
                 ["Ghi_Chu"] = l.LineNote ?? "",
+                ["Chieu_Dai"] = DimCell(l.Length, l.LineNote, "Dài"),
+                ["Chieu_Rong"] = DimCell(l.Width, l.LineNote, "Rộng"),
+                ["Chieu_Cao"] = DimCell(l.Height, l.LineNote, "Cao"),
                 ["Bao_Hanh"] = l.WarrantyMonths is > 0 ? l.WarrantyMonths + " tháng" : "",
                 ["Hinh_Anh"] = img,
             };
@@ -414,9 +457,9 @@ public static class PosQuoteDocumentHtml
           <b>Còn lại sau cọc:</b> {Con_Lai_Hop_Dong} VNĐ</p>
           <p><b>Điều khoản:</b><br/>{Dieu_Khoan}<br/>Bảo hành: {Bao_Hanh}<br/>{Ghi_Chu}</p>
           <p>Rất mong nhận được sự hợp tác của Quý khách hàng.<br/><b>Trân trọng!</b></p>
-          <table style="width:100%;margin-top:28px"><tr>
-            <td style="width:50%;text-align:center">KHÁCH HÀNG<br/><i>Ký, ghi rõ họ tên</i><div style="height:56px"></div>{Nguoi_Dai_Dien_Khach}</td>
-            <td style="width:50%;text-align:center">ĐẠI DIỆN {Ten_Cong_Ty}<br/>{Chuc_Vu_Cua_Hang}<div style="height:56px"></div>{Nguoi_Dai_Dien_Cua_Hang}</td>
+          <table style="width:100%;margin-top:16px;border-collapse:collapse"><tr>
+            <td style="width:50%;text-align:center;vertical-align:top">KHÁCH HÀNG<br/><i>Ký, ghi rõ họ tên</i><div style="height:64px"></div><b>{Nguoi_Dai_Dien_Khach}</b></td>
+            <td style="width:50%;text-align:center;vertical-align:top">ĐẠI DIỆN CÔNG TY<br/><i>{Chuc_Vu_Cua_Hang}</i><div style="text-align:center">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
           </tr></table>
         </div>
         """;

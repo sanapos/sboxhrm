@@ -2012,7 +2012,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'File máy này',
       screen: const DownloadedDocumentsScreen(),
       group: 'Báo cáo',
-      showInSidebar: false,
+      showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
     ),
 

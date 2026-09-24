@@ -8413,6 +8413,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       initialQty: line.qty,
       allowDecimal: PosQtyRules.allowsDecimal(productNow) && !byArea,
       enterByArea: byArea,
+      askLength: productNow.showAreaLength,
+      askWidth: productNow.showAreaWidth,
+      askHeight: productNow.showAreaHeight,
       serialOnly: productNow.requiresSerial,
       existingNote: line.lineNote,
     );
@@ -15024,7 +15027,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       return;
     }
     var pick = _pickerDraftPicks[id];
-    if (pick == null) return;
+    pick ??= PosPurchaseLookupPick(product: product, qty: qty);
+    _pickerDraftPicks[id] = pick;
     if (product.allowDecimalQty != pick.product.allowDecimalQty) {
       pick = PosPurchaseLookupPick(
         product: product,
@@ -15179,6 +15183,41 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
   }
 
+  Future<void> _applyCatalogAreaQty(
+    PosProduct product,
+    double qty, {
+    String? areaNote,
+  }) async {
+    if (qty <= 0) return;
+    final idx = _tab.cart.indexWhere(
+      (l) => l.product.id == product.id && l.toppings.isEmpty,
+    );
+    if (idx < 0) {
+      await _addPick(
+        PosPurchaseLookupPick(product: product),
+        addQty: qty,
+      );
+    } else {
+      final line = _tab.cart[idx];
+      final delta = qty - line.qty;
+      if (delta != 0) await _adjustQty(line, delta);
+    }
+    if (!mounted) return;
+    final note = areaNote?.trim() ?? '';
+    if (note.isEmpty) return;
+    _SellCartLine? line;
+    for (final item in _tab.cart.reversed) {
+      if (item.product.id != product.id || item.toppings.isNotEmpty) continue;
+      line = item;
+      break;
+    }
+    if (line == null) return;
+    line.lineNote = mergePosAreaLineNote(line.lineNote, note);
+    _initLineNoteSelection(line);
+    _commitLineNote(line);
+    if (mounted) setState(() {});
+  }
+
   Widget _buildDesktopProductPane() {
     final overrides = _currentPriceOverrides;
     final sig =
@@ -15195,6 +15234,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         priceOverrides: overrides,
         allowNegativeStock: _allowNegativeStock,
         onPick: _addPick,
+        onSetQty: (product, qty, {areaNote}) {
+          unawaited(_applyCatalogAreaQty(product, qty, areaNote: areaNote));
+        },
       ),
     );
     return _cachedDesktopProductPane!;

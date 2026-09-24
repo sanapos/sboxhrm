@@ -639,7 +639,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       );
       return;
     }
-    widget.onPick(pick);
+    await _emitPick(pick);
   }
 
   /// Quét liên tục trên màn chọn hàng — mỗi mã hợp lệ cộng 1 SP vào bản nháp/giỏ.
@@ -658,7 +658,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             );
             return;
           }
-          widget.onPick(pick);
+          await _emitPick(pick);
         }
       },
     );
@@ -750,6 +750,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       initialQty: cur <= 0 ? 1 : cur,
       allowDecimal: PosQtyRules.allowsDecimal(p) && !p.allowAreaQty,
       enterByArea: p.allowAreaQty && !p.requiresSerial,
+      askLength: p.showAreaLength,
+      askWidth: p.showAreaWidth,
+      askHeight: p.showAreaHeight,
       serialOnly: p.requiresSerial,
     );
     if (result == null || !mounted) return;
@@ -926,12 +929,21 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     }
     final v = view ?? pickDefaultSellUnitView(p, views) ?? views.first;
     _listUnitKeyByProduct[p.id] = v.viewKey;
-    widget.onPick(PosPurchaseLookupPick(
+    await _emitPick(PosPurchaseLookupPick(
       product: p,
       variantId: v.variantId,
       unitId: v.unitId,
       unitLabel: v.label,
     ));
+  }
+
+  Future<void> _emitPick(PosPurchaseLookupPick pick) async {
+    final p = pick.product;
+    if (p.allowAreaQty && !p.requiresSerial && widget.onSetQty != null) {
+      await _promptSellListQty(p);
+      return;
+    }
+    widget.onPick(pick);
   }
 
   PosProductUnitView? _listUnitFor(

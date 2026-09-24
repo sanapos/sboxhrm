@@ -1286,7 +1286,12 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
 
           // Action buttons
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              16,
+              16,
+              16 + MediaQuery.paddingOf(context).bottom,
+            ),
             decoration: const BoxDecoration(
                 border: Border(top: BorderSide(color: _borderColor))),
             child: Row(
@@ -3603,35 +3608,51 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   }
 
   void _deleteShift(Shift shift) {
+    if (shift.id.isEmpty) {
+      appNotification.showError(
+        title: 'Lỗi',
+        message: tr('Ca chưa có mã. Kéo để tải lại danh sách rồi xóa.'),
+      );
+      return;
+    }
     showDialog(
       context: context,
-      builder: (context) => ScrollableAlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(tr('Xác nhận xóa'), style: TextStyle(color: _textDark)),
+        title: Text(tr('Xác nhận xóa'), style: const TextStyle(color: _textDark)),
         content: Text(tr('Bạn có chắc muốn xóa ca "${shift.name}"?'),
             style: const TextStyle(color: _textMuted)),
         actions: [
-          AppDialogActions.delete(onConfirm: () async {
-            Navigator.pop(context);
-            try {
-              final response = await _apiService.deleteShift(shift.id);
-              if (response['isSuccess'] == true) {
-                if (_selectedShift?.id == shift.id) {
-                  setState(() => _selectedShift = null);
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(tr('Hủy')),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              try {
+                final response = await _apiService.deleteShift(shift.id);
+                if (response['isSuccess'] == true) {
+                  if (_selectedShift?.id == shift.id) {
+                    setState(() => _selectedShift = null);
+                  }
+                  _loadData();
+                  appNotification.showSuccess(
+                      title: 'Thành công',
+                      message: tr('Đã xóa ca "${shift.name}"'));
+                } else {
+                  appNotification.showError(
+                      title: 'Lỗi',
+                      message: response['message'] ?? 'Không thể xóa ca');
                 }
-                _loadData();
-                appNotification.showSuccess(
-                    title: 'Thành công', message: tr('Đã xóa ca "${shift.name}"'));
-              } else {
-                appNotification.showError(
-                    title: 'Lỗi',
-                    message: response['message'] ?? 'Không thể xóa ca');
+              } catch (e) {
+                appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
               }
-            } catch (e) {
-              appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
-            }
-          })
+            },
+            child: Text(tr('Xóa'),
+                style: const TextStyle(color: Color(0xFFEF4444))),
+          ),
         ],
       ),
     );

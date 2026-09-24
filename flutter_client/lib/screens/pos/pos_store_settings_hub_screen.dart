@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/permission_provider.dart';
@@ -47,6 +50,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   bool _surchargeIsPercent = false;
   bool _loading = true;
   bool _saving = false;
+  String _stampB64 = '';
+  Uint8List? _stampBytes;
 
   @override
   void initState() {
@@ -73,6 +78,44 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     _surchargeDefaultCtrl.dispose();
     _deliveryDefaultCtrl.dispose();
     super.dispose();
+  }
+
+  Uint8List? _decodeStamp(String raw) {
+    var s = raw.trim();
+    if (s.isEmpty) return null;
+    final comma = s.indexOf(',');
+    if (s.startsWith('data:') && comma > 0) {
+      s = s.substring(comma + 1).trim();
+      _stampB64 = s;
+    }
+    try {
+      return base64Decode(s);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _pickStamp() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 640,
+      maxHeight: 640,
+      imageQuality: 92,
+    );
+    if (file == null || !mounted) return;
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    if (bytes.length > 700 * 1024) {
+      NotificationOverlayManager().showWarning(
+        title: 'Ảnh quá lớn',
+        message: tr('Con dấu PNG cần dưới 700 KB.'),
+      );
+      return;
+    }
+    setState(() {
+      _stampBytes = bytes;
+      _stampB64 = base64Encode(bytes);
+    });
   }
 
   Future<void> _load() async {
@@ -110,6 +153,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
         _repCtrl.text = t('legalRepresentative', 'LegalRepresentative');
         _titleCtrl.text = t('legalTitle', 'LegalTitle');
         if (_titleCtrl.text.trim().isEmpty) _titleCtrl.text = 'Giám đốc';
+        _stampB64 = t('stampPngBase64', 'StampPngBase64').trim();
+        _stampBytes = _decodeStamp(_stampB64);
       }
       _loading = false;
     });
@@ -157,6 +202,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       'bankAccountHolder': _bankHolderCtrl.text.trim(),
       'legalRepresentative': _repCtrl.text.trim(),
       'legalTitle': _titleCtrl.text.trim(),
+      'stampPngBase64': _stampB64,
     });
     if (!mounted) return;
     setState(() => _saving = false);
@@ -242,6 +288,68 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
             title: _titleCtrl,
             enabled:
                 context.watch<PermissionProvider>().canEditPosSetup(),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            tr('Con dấu công ty'),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            tr('Ảnh PNG nền trong suốt. Khi in báo giá, dấu tự treo lên chữ ký đại diện công ty.'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 96,
+                height: 96,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: _stampBytes == null
+                    ? Icon(Icons.verified_outlined,
+                        color: Colors.grey.shade400, size: 36)
+                    : Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Image.memory(_stampBytes!, fit: BoxFit.contain),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: context
+                              .watch<PermissionProvider>()
+                              .canEditPosSetup()
+                          ? _pickStamp
+                          : null,
+                      icon: const Icon(Icons.upload_file),
+                      label: Text(tr('Chọn ảnh con dấu')),
+                    ),
+                    if (_stampBytes != null)
+                      TextButton(
+                        onPressed: context
+                                .watch<PermissionProvider>()
+                                .canEditPosSetup()
+                            ? () => setState(() {
+                                  _stampBytes = null;
+                                  _stampB64 = '';
+                                })
+                            : null,
+                        child: Text(tr('Gỡ con dấu')),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Text(tr('Phụ phí khi thanh toán'),

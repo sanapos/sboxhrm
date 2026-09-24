@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../l10n/app_tr.dart';
+import '../../models/pos_print_template.dart';
 import '../../models/pos_quote.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_html_print.dart';
 import '../../utils/pos_quote_commercial.dart';
+import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 /// Chi tiết hợp đồng: tạm ứng + biên bản nghiệm thu.
@@ -70,6 +73,44 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
   }
 
   Future<void> _openDoc(PosQuoteDocument d) async {
+    final q = _quote;
+    final type = switch (d.kind) {
+      'Contract' => PosPrintDocumentTypes.contract,
+      'Handover' => PosPrintDocumentTypes.handover,
+      'Acceptance' => PosPrintDocumentTypes.acceptance,
+      'PaymentRequest' => PosPrintDocumentTypes.paymentRequest,
+      'Quote' => PosPrintDocumentTypes.quote,
+      _ => '',
+    };
+    if (q != null && type == PosPrintDocumentTypes.quote) {
+      await printPosQuoteSlip(context, quoteId: q.id, quote: q);
+      return;
+    }
+    if (q != null && type.isNotEmpty && q.lines.isNotEmpty) {
+      Map<String, dynamic>? profile;
+      try {
+        final profileRes = await _api.getPosCommercialProfile();
+        if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
+          profile = Map<String, dynamic>.from(profileRes['data'] as Map);
+        }
+      } catch (_) {}
+      final html = bindPosCommercialPrintHtmlLocal(
+        q,
+        documentType: type,
+        docNo: d.docNo,
+        commercialProfile: profile,
+      );
+      if (!mounted) return;
+      if (html.trim().isNotEmpty) {
+        await showPosHtmlPrintDialog(
+          context,
+          title: d.title.isEmpty ? d.docNo : d.title,
+          htmlDocument: html,
+          a4Paper: true,
+        );
+        return;
+      }
+    }
     var html = d.htmlContent;
     if (html.trim().isEmpty) {
       final preview = await _api.previewPosQuoteDocument(widget.quoteId, d.kind);
@@ -200,39 +241,52 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       _sectionHead(
-                        'Tạm ứng',
-                        Icons.payments_outlined,
-                        'Tạo tạm ứng',
-                        () => _create('PaymentRequest'),
+                        'Hồ sơ liên quan',
+                        Icons.folder_open_outlined,
+                        'Báo giá',
+                        () => printPosQuoteSlip(
+                          context,
+                          quoteId: q.id,
+                          quote: q,
+                        ),
                       ),
-                      if (_advances.isEmpty)
-                        _emptyHint('Chưa có phiếu tạm ứng / đề nghị thanh toán')
-                      else
-                        for (final d in _advances) _docTile(d),
-                      const SizedBox(height: 16),
-                      _sectionHead(
-                        'Biên bản bàn giao',
-                        Icons.handshake_outlined,
-                        'Tạo bàn giao',
-                        () => _create('Handover'),
+                      _docTile(
+                        PosQuoteDocument(
+                          id: q.id,
+                          kind: 'Quote',
+                          docNo: q.quoteNo,
+                          title: 'Bảng báo giá',
+                          htmlContent: '',
+                        ),
                       ),
-                      if (_handovers.isEmpty)
-                        _emptyHint('Chưa có biên bản bàn giao')
-                      else
-                        for (final d in _handovers) _docTile(d),
-                      const SizedBox(height: 16),
-                      _sectionHead(
-                        'Biên bản nghiệm thu',
-                        Icons.fact_check_outlined,
-                        'Tạo nghiệm thu',
-                        () => _create('Acceptance'),
+                      if (contract != null) _docTile(contract),
+                      for (final d in _advances) _docTile(d),
+                      for (final d in _handovers) _docTile(d),
+                      for (final d in _acceptances) _docTile(d),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          ActionChip(
+                            avatar: const Icon(Icons.add, size: 16),
+                            label: Text(tr('Đề nghị TT')),
+                            onPressed: _busy ? null : () => _create('PaymentRequest'),
+                          ),
+                          ActionChip(
+                            avatar: const Icon(Icons.add, size: 16),
+                            label: Text(tr('Bàn giao')),
+                            onPressed: _busy ? null : () => _create('Handover'),
+                          ),
+                          ActionChip(
+                            avatar: const Icon(Icons.add, size: 16),
+                            label: Text(tr('Nghiệm thu')),
+                            onPressed: _busy ? null : () => _create('Acceptance'),
+                          ),
+                        ],
                       ),
-                      if (_acceptances.isEmpty)
-                        _emptyHint('Chưa có biên bản nghiệm thu')
-                      else
-                        for (final d in _acceptances) _docTile(d),
                     ],
                   ),
                 ),
@@ -267,16 +321,6 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
     );
   }
 
-  Widget _emptyHint(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, left: 4),
-      child: Text(
-        tr(text),
-        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-      ),
-    );
-  }
-
   Widget _docTile(PosQuoteDocument d) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -293,8 +337,41 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
             if (d.issuedAt != null)
               DateFormat('dd/MM/yyyy HH:mm').format(d.issuedAt!.toLocal()),
           ].join(' · ')),
-          trailing: const Icon(Icons.print_outlined),
           onTap: () => _openDoc(d),
+          trailing: PopupMenuButton<String>(
+            tooltip: tr('Thao tác'),
+            onSelected: (v) async {
+              final q = _quote;
+              if (q == null) return;
+              if (v == 'open') {
+                await _openDoc(d);
+                return;
+              }
+              await PosQuoteExport.run(
+                context,
+                quote: q,
+                action: v,
+                documentType: d.kind,
+              );
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(value: 'open', child: Text(tr('Xem / in'))),
+              const PopupMenuDivider(),
+              PopupMenuItem(value: 'print', child: Text(tr('In'))),
+              PopupMenuItem(value: 'excel', child: Text(tr('Xuất Excel'))),
+              PopupMenuItem(value: 'word', child: Text(tr('Xuất Word'))),
+              PopupMenuItem(value: 'pdf', child: Text(tr('Xuất PDF'))),
+              PopupMenuItem(value: 'png', child: Text(tr('Xuất ảnh PNG'))),
+              PopupMenuItem(value: 'email', child: Text(tr('Gửi Email'))),
+              const PopupMenuDivider(),
+              PopupMenuItem(value: 'call', child: Text(tr('Gọi khách'))),
+              PopupMenuItem(value: 'zaloCall', child: Text(tr('Gọi Zalo'))),
+              PopupMenuItem(value: 'facebookLink', child: Text(tr('Link Facebook'))),
+              PopupMenuItem(value: 'zalo', child: Text(tr('Chia sẻ Zalo'))),
+              PopupMenuItem(value: 'facebook', child: Text(tr('Chia sẻ Facebook'))),
+              PopupMenuItem(value: 'care', child: Text(tr('Lịch CSKH'))),
+            ],
+          ),
         ),
       ),
     );

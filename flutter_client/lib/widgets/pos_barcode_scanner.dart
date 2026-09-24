@@ -91,16 +91,19 @@ Future<void> _playScanBeep() async {
   }
 }
 
-/// Định dạng mã phổ biến — tránh quét `all` làm chậm decode trên Sunmi V2s.
+/// Định dạng mã bán lẻ. Không dùng `all` — decode chậm trên Sunmi V2s.
 const _kPosScanFormats = <BarcodeFormat>[
-  BarcodeFormat.qrCode,
-  BarcodeFormat.code128,
-  BarcodeFormat.code39,
-  BarcodeFormat.code93,
   BarcodeFormat.ean13,
   BarcodeFormat.ean8,
   BarcodeFormat.upcA,
   BarcodeFormat.upcE,
+  BarcodeFormat.code128,
+  BarcodeFormat.code39,
+  BarcodeFormat.code93,
+  BarcodeFormat.codabar,
+  BarcodeFormat.itf2of5,
+  BarcodeFormat.itf14,
+  BarcodeFormat.qrCode,
   BarcodeFormat.dataMatrix,
 ];
 
@@ -131,9 +134,10 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
     _controller = MobileScannerController(
       detectionSpeed: DetectionSpeed.unrestricted,
       facing: CameraFacing.back,
-      // 720p thay vì mặc định 640x480 — bắt nét QR nhanh hơn trên V2s.
+      // 720p thay vì 640x480 — vạch EAN đủ điểm ảnh để đọc khi cầm gần.
       cameraResolution: const Size(1280, 720),
-      autoZoom: true,
+      // Tự zoom làm mất nét mã vạch 1D.
+      autoZoom: false,
       formats: _kPosScanFormats,
     );
   }
@@ -159,7 +163,7 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
 
   void _onDetect(BarcodeCapture capture) {
     for (final b in capture.barcodes) {
-      final raw = b.rawValue?.trim();
+      final raw = (b.rawValue ?? b.displayValue)?.trim();
       if (raw == null || raw.isEmpty) continue;
 
       if (!widget.continuous) {
@@ -241,33 +245,21 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final size =
-                        Size(constraints.maxWidth, constraints.maxHeight);
-                    final window = Rect.fromCenter(
-                      center: Offset(size.width / 2, size.height / 2),
-                      width: size.width * 0.78,
-                      height: size.height * 0.36,
-                    );
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        MobileScanner(
-                          controller: _controller,
-                          onDetect: _onDetect,
-                          tapToFocus: true,
-                          scanWindow: window,
-                        ),
-                        IgnorePointer(
-                          child: CustomPaint(
-                            painter: _ScanReticlePainter(),
-                            child: const SizedBox.expand(),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    MobileScanner(
+                      controller: _controller,
+                      onDetect: _onDetect,
+                      tapToFocus: true,
+                    ),
+                    IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ScanReticlePainter(),
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -292,8 +284,8 @@ class _ScanReticlePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final rectW = size.width * 0.78;
-    final rectH = size.height * 0.36;
+    final rectW = size.width * 0.92;
+    final rectH = size.height * 0.46;
     final rect = Rect.fromCenter(center: center, width: rectW, height: rectH);
 
     final dim = Paint()..color = const Color(0x99000000);

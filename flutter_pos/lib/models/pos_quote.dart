@@ -1,3 +1,7 @@
+import 'package:flutter/material.dart';
+
+import '../utils/pos_area_dims.dart';
+
 class PosQuoteLine {
   PosQuoteLine({
     this.id = '',
@@ -11,6 +15,9 @@ class PosQuoteLine {
     this.vatRate = 0,
     this.lineTotal = 0,
     this.lineNote,
+    this.length,
+    this.width,
+    this.height,
     this.warrantyMonths,
     this.sortOrder = 0,
   });
@@ -26,6 +33,9 @@ class PosQuoteLine {
   double vatRate;
   double lineTotal;
   String? lineNote;
+  double? length;
+  double? width;
+  double? height;
   int? warrantyMonths;
   int sortOrder;
 
@@ -33,12 +43,21 @@ class PosQuoteLine {
 
   factory PosQuoteLine.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+    double? dim(dynamic v) {
+      if (v == null) return null;
+      final parsed = v is num ? v.toDouble() : double.tryParse('$v');
+      if (parsed == null || parsed <= 0) return null;
+      return parsed;
+    }
+
     int? i(dynamic v) {
       if (v == null) return null;
       if (v is num) return v.toInt();
       return int.tryParse('$v');
     }
 
+    final note = (json['lineNote'] ?? json['LineNote'])?.toString();
+    final fromNote = parsePosAreaDims(note);
     return PosQuoteLine(
       id: (json['id'] ?? json['Id'] ?? '').toString(),
       productId: (json['productId'] ?? json['ProductId'])?.toString(),
@@ -51,7 +70,10 @@ class PosQuoteLine {
       discountAmount: n(json['discountAmount'] ?? json['DiscountAmount']),
       vatRate: n(json['vatRate'] ?? json['VatRate']),
       lineTotal: n(json['lineTotal'] ?? json['LineTotal']),
-      lineNote: (json['lineNote'] ?? json['LineNote'])?.toString(),
+      lineNote: note,
+      length: dim(json['length'] ?? json['Length']) ?? fromNote.length,
+      width: dim(json['width'] ?? json['Width']) ?? fromNote.width,
+      height: dim(json['height'] ?? json['Height']) ?? fromNote.height,
       warrantyMonths: i(json['warrantyMonths'] ?? json['WarrantyMonths']),
       sortOrder: i(json['sortOrder'] ?? json['SortOrder']) ?? 0,
     );
@@ -80,6 +102,9 @@ class PosQuoteLine {
       'vatRate': vatRate,
       'lineTotal': total,
       'lineNote': lineNote,
+      'length': length,
+      'width': width,
+      'height': height,
       if (warrantyMonths != null) 'warrantyMonths': warrantyMonths,
     };
   }
@@ -215,6 +240,17 @@ class PosQuote {
       status == 'Accepted' && commercialStage != 'Closed';
   bool get canClose =>
       status == 'Accepted' && commercialStage == 'Inspected';
+
+  static Color statusColor(String s) => switch (s) {
+        'Draft' => const Color(0xFF64748B),
+        'Sent' => const Color(0xFF2563EB),
+        'Revised' => const Color(0xFFD97706),
+        'Accepted' => const Color(0xFF15803D),
+        'Rejected' => const Color(0xFFDC2626),
+        'Expired' => const Color(0xFF9A3412),
+        'Cancelled' => const Color(0xFF71717A),
+        _ => const Color(0xFF334155),
+      };
 
   static String statusLabel(String s) => switch (s) {
         'Draft' => 'Nháp',

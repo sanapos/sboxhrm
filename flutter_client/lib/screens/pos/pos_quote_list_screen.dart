@@ -11,7 +11,6 @@ import '../../utils/pos_quote_commercial.dart';
 import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_form_keyboard.dart';
-import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_contract_detail_screen.dart';
 import 'pos_quote_composer_screen.dart';
@@ -37,6 +36,9 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
   final _money = NumberFormat('#,##0', 'vi_VN');
   String? _status;
   String? _employeeId;
+  String _period = 'all';
+  DateTime? _from;
+  DateTime? _to;
   bool _loading = true;
   String? _error;
   bool _canViewAll = false;
@@ -116,6 +118,8 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
       search: _search.text.trim().isEmpty ? null : _search.text.trim(),
       status: _status,
       employeeId: _employeeId,
+      from: _from?.toUtc(),
+      to: _to?.toUtc(),
     );
     if (!mounted) return;
     if (res['isSuccess'] != true) {
@@ -147,6 +151,8 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
       search: _search.text.trim().isEmpty ? null : _search.text.trim(),
       commercialStage: 'minContracted',
       employeeId: _employeeId,
+      from: _from?.toUtc(),
+      to: _to?.toUtc(),
       pageSize: 80,
     );
     if (!mounted) return;
@@ -177,6 +183,8 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
       search: _search.text.trim().isEmpty ? null : _search.text.trim(),
       documentKind: kind,
       employeeId: _employeeId,
+      from: _from?.toUtc(),
+      to: _to?.toUtc(),
       pageSize: 80,
     );
     if (!mounted) return;
@@ -215,6 +223,66 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
       default:
         await _load();
     }
+  }
+
+  void _applyPeriod(String key) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final endToday = today
+        .add(const Duration(days: 1))
+        .subtract(const Duration(milliseconds: 1));
+    DateTime? from;
+    DateTime? to;
+    switch (key) {
+      case 'today':
+        from = today;
+        to = endToday;
+      case '7d':
+        from = today.subtract(const Duration(days: 6));
+        to = endToday;
+      case 'month':
+        from = DateTime(now.year, now.month, 1);
+        to = endToday;
+      default:
+        from = null;
+        to = null;
+    }
+    setState(() {
+      _period = key;
+      _from = from;
+      _to = to;
+    });
+    _reloadAll();
+  }
+
+  Future<void> _pickCustomRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 3),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      initialDateRange: _from != null && _to != null
+          ? DateTimeRange(
+              start: DateTime(_from!.year, _from!.month, _from!.day),
+              end: DateTime(_to!.year, _to!.month, _to!.day),
+            )
+          : null,
+    );
+    if (picked == null) return;
+    setState(() {
+      _period = 'custom';
+      _from = DateTime(picked.start.year, picked.start.month, picked.start.day);
+      _to = DateTime(
+        picked.end.year,
+        picked.end.month,
+        picked.end.day,
+        23,
+        59,
+        59,
+        999,
+      );
+    });
+    await _reloadAll();
   }
 
   Future<void> _openComposer() async {
@@ -334,10 +402,10 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       floatingActionButton: canCreate && _tab == 0
-          ? FloatingActionButton.extended(
+          ? FloatingActionButton(
               onPressed: _openComposer,
-              icon: const Icon(Icons.add),
-              label: Text(tr('Thêm báo giá mới')),
+              tooltip: tr('Thêm báo giá'),
+              child: const Icon(Icons.add),
             )
           : null,
       body: Column(
@@ -390,13 +458,10 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                           ),
                         ),
                         if (canCreate && !narrow)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8),
-                            child: FilledButton.icon(
-                              onPressed: _openComposer,
-                              icon: const Icon(Icons.add, size: 20),
-                              label: Text(tr('Thêm báo giá mới')),
-                            ),
+                          IconButton(
+                            tooltip: tr('Thêm báo giá'),
+                            onPressed: _openComposer,
+                            icon: const Icon(Icons.add),
                           ),
                       ],
                     ),
@@ -406,86 +471,61 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
             child: Column(
               children: [
-                TextField(
-                  controller: _search,
-                  onTap: posShowSoftKeyboardOnFieldTap,
-                  decoration: PosTheme.inputDecoration(
-                    label: switch (_tab) {
-                      1 => 'Số HĐ / khách / SĐT',
-                      2 => 'Số ĐN / khách / SĐT',
-                      3 => 'Số NT / khách / SĐT',
-                      _ => 'Số BG / khách / SĐT',
-                    },
-                  ),
-                  onSubmitted: (_) => _reloadAll(),
-                ),
-                const SizedBox(height: 8),
                 Row(
                   children: [
-                    if (_tab == 0)
-                      Expanded(
-                        child: DropdownButtonFormField<String?>(
-                          value: _status,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
-                          ),
-                          items: [
-                            DropdownMenuItem(
-                                value: null, child: Text(tr('Tất cả'))),
-                            for (final s in const [
-                              'Draft',
-                              'Sent',
-                              'Revised',
-                              'Accepted',
-                              'Rejected',
-                              'Expired',
-                              'Cancelled',
-                            ])
-                              DropdownMenuItem(
-                                value: s,
-                                child: Text(PosQuote.statusLabel(s)),
-                              ),
-                          ],
-                          onChanged: (v) {
-                            setState(() => _status = v);
-                            _load();
-                          },
-                        ),
+                Expanded(
+                  child: SizedBox(
+                  height: 40,
+                  child: TextField(
+                    controller: _search,
+                    onTap: posShowSoftKeyboardOnFieldTap,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: switch (_tab) {
+                        1 => tr('Số HĐ / khách'),
+                        2 => tr('Số ĐN / khách'),
+                        3 => tr('Số NT / khách'),
+                        _ => tr('Số BG / khách'),
+                      },
+                      prefixIcon: const Icon(Icons.search, size: 18),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    if (_tab == 0 && _canViewAll) const SizedBox(width: 8),
-                    if (_canViewAll)
-                      Expanded(
-                        child: DropdownButtonFormField<String?>(
-                          value: _employeeId,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 8),
-                          ),
-                          items: [
-                            DropdownMenuItem(
-                                value: null, child: Text(tr('Tất cả NV'))),
-                            for (final e in _employees)
-                              DropdownMenuItem(
-                                  value: e.id, child: Text(e.label)),
-                          ],
-                          onChanged: (v) {
-                            setState(() => _employeeId = v);
-                            _reloadAll();
-                          },
-                        ),
-                      ),
+                    ),
+                    onSubmitted: (_) => _reloadAll(),
+                  ),
+                ),
+                ),
+                if (_canViewAll)
+                  PopupMenuButton<String>(
+                    tooltip: tr('Nhân viên'),
+                    icon: Icon(
+                      Icons.badge_outlined,
+                      color: _employeeId == null
+                          ? Colors.grey.shade700
+                          : PosTheme.kiotBlue,
+                    ),
+                    onSelected: (v) {
+                      setState(() => _employeeId = v.isEmpty ? null : v);
+                      _reloadAll();
+                    },
+                    itemBuilder: (_) => [
+                      PopupMenuItem(value: '', child: Text(tr('Tất cả NV'))),
+                      for (final e in _employees)
+                        PopupMenuItem(value: e.id, child: Text(e.label)),
+                    ],
+                  ),
                   ],
                 ),
+                const SizedBox(height: 4),
+                _compactFilters(),
               ],
             ),
           ),
@@ -516,6 +556,136 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     );
   }
 
+  String get _docType => switch (_tab) {
+        1 => 'Contract',
+        2 => 'PaymentRequest',
+        3 => 'Acceptance',
+        _ => 'Quote',
+      };
+
+  Widget _compactFilters() {
+    final customLabel = _period == 'custom' && _from != null && _to != null
+        ? '${DateFormat('dd/MM').format(_from!)}–${DateFormat('dd/MM').format(_to!)}'
+        : tr('Chọn ngày');
+    return Row(
+      children: [
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            value: _period,
+            isExpanded: true,
+            isDense: true,
+            decoration: const InputDecoration(
+              isDense: true,
+              labelText: 'Thời gian',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            items: [
+              DropdownMenuItem(value: 'all', child: Text(tr('Tất cả'))),
+              DropdownMenuItem(value: 'today', child: Text(tr('Hôm nay'))),
+              DropdownMenuItem(value: '7d', child: Text(tr('7 ngày'))),
+              DropdownMenuItem(value: 'month', child: Text(tr('Tháng này'))),
+              DropdownMenuItem(value: 'custom', child: Text(customLabel)),
+            ],
+            onChanged: (v) {
+              if (v == null) return;
+              if (v == 'custom') {
+                _pickCustomRange();
+                return;
+              }
+              _applyPeriod(v);
+            },
+          ),
+        ),
+        if (_tab == 0) ...[
+          const SizedBox(width: 8),
+          Expanded(
+            child: DropdownButtonFormField<String?>(
+              value: _status,
+              isExpanded: true,
+              isDense: true,
+              decoration: const InputDecoration(
+                isDense: true,
+                labelText: 'Trạng thái',
+                border: OutlineInputBorder(),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              ),
+              items: [
+                DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
+                for (final s in const [
+                  'Draft',
+                  'Sent',
+                  'Revised',
+                  'Accepted',
+                  'Rejected',
+                  'Expired',
+                  'Cancelled',
+                ])
+                  DropdownMenuItem(
+                    value: s,
+                    child: Text(
+                      PosQuote.statusLabel(s),
+                      style: TextStyle(
+                        color: PosQuote.statusColor(s),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+              onChanged: (v) {
+                setState(() => _status = v);
+                _reloadAll();
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  List<PopupMenuEntry<String>> _shareMenu() => [
+        const PopupMenuDivider(),
+        PopupMenuItem(value: 'print', child: Text(tr('In'))),
+        PopupMenuItem(value: 'excel', child: Text(tr('Xuất Excel'))),
+        PopupMenuItem(value: 'word', child: Text(tr('Xuất Word'))),
+        PopupMenuItem(value: 'pdf', child: Text(tr('Xuất PDF'))),
+        PopupMenuItem(value: 'png', child: Text(tr('Xuất ảnh PNG'))),
+        PopupMenuItem(value: 'email', child: Text(tr('Gửi Email'))),
+        const PopupMenuDivider(),
+        PopupMenuItem(value: 'call', child: Text(tr('Gọi khách'))),
+        PopupMenuItem(value: 'zaloCall', child: Text(tr('Gọi Zalo'))),
+        PopupMenuItem(value: 'facebookLink', child: Text(tr('Link Facebook'))),
+        PopupMenuItem(value: 'zalo', child: Text(tr('Chia sẻ Zalo'))),
+        PopupMenuItem(value: 'facebook', child: Text(tr('Chia sẻ Facebook'))),
+        PopupMenuItem(value: 'care', child: Text(tr('Lịch CSKH'))),
+      ];
+
+  Widget _coloredQuoteNo(PosQuote q, String rest) {
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: q.quoteNo,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: PosQuote.statusColor(q.status),
+            ),
+          ),
+          TextSpan(
+            text: rest.isEmpty ? '' : ' · $rest',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF111827),
+            ),
+          ),
+        ],
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
   Widget _quoteList(bool canCreate, bool canEdit, bool canDelete) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text(_error!));
@@ -528,10 +698,10 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                 'Chưa có báo giá — chọn hàng hóa / dịch vụ rồi nhập khách.')),
             if (canCreate) ...[
               const SizedBox(height: 12),
-              FilledButton.icon(
+              IconButton.filled(
+                tooltip: tr('Thêm báo giá'),
                 onPressed: _openComposer,
                 icon: const Icon(Icons.add),
-                label: Text(tr('Thêm báo giá mới')),
               ),
             ],
           ],
@@ -567,15 +737,20 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
             child: ListTile(
-              title: Text(
-                '${q.quoteNo} · ${q.customerName ?? ''}',
-                style: const TextStyle(fontWeight: FontWeight.w700),
+              title: _coloredQuoteNo(
+                q,
+                q.customerName ?? '',
               ),
-              subtitle: Text([
-                PosQuote.stageLabel(q.commercialStage),
-                '${_money.format(q.total)} đ',
-                if (q.staffLabel.isNotEmpty) q.staffLabel,
-              ].join(' · ')),
+              subtitle: Text(
+                [
+                  PosQuote.stageLabel(q.commercialStage),
+                  '${_money.format(q.total)} đ',
+                  if ((q.customerAddress ?? '').trim().isNotEmpty)
+                    q.customerAddress!.trim(),
+                ].join(' · '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
               onTap: () => _openContract(q),
               trailing: PopupMenuButton<String>(
                 tooltip: tr('Thao tác'),
@@ -591,6 +766,13 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                       await _createKind(q, 'Handover');
                     case 'acceptance':
                       await _createKind(q, 'Acceptance');
+                    default:
+                      await PosQuoteExport.run(
+                        context,
+                        quote: q,
+                        action: v,
+                        documentType: _docType,
+                      );
                   }
                 },
                 itemBuilder: (_) => [
@@ -616,6 +798,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                       child: Text(tr('Tạo nghiệm thu')),
                     ),
                   ],
+                  ..._shareMenu(),
                 ],
               ),
             ),
@@ -627,24 +810,41 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
 
   Widget _quoteCard(PosQuote q, bool canEdit, bool canDelete) {
     final until = q.validUntil;
-    final staff = q.staffLabel;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(8),
       child: ListTile(
-        title: Text(
-          '${q.quoteNo} · ${q.customerName?.isNotEmpty == true ? q.customerName : 'Chưa chọn khách'}',
-          style: const TextStyle(fontWeight: FontWeight.w700),
+        title: _coloredQuoteNo(
+          q,
+          q.customerName?.isNotEmpty == true
+              ? q.customerName!
+              : 'Chưa chọn khách',
         ),
-        subtitle: Text([
-          PosQuote.statusLabel(q.status),
-          if (q.status == 'Accepted')
-            PosQuote.stageLabel(q.commercialStage),
-          if (until != null)
-            'Hạn ${DateFormat('dd/MM/yyyy').format(until.toLocal())}',
-          '${_money.format(q.total)} đ',
-          if (staff.isNotEmpty) staff,
-        ].join('  ·  ')),
+        subtitle: Text.rich(
+          TextSpan(
+            style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
+            children: [
+              TextSpan(
+                text: PosQuote.statusLabel(q.status),
+                style: TextStyle(
+                  color: PosQuote.statusColor(q.status),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              TextSpan(
+                text: [
+                  if (q.status == 'Accepted')
+                    PosQuote.stageLabel(q.commercialStage),
+                  if (until != null)
+                    'Hạn ${DateFormat('dd/MM/yyyy').format(until.toLocal())}',
+                  '${_money.format(q.total)} đ',
+                  if ((q.customerAddress ?? '').trim().isNotEmpty)
+                    q.customerAddress!.trim(),
+                ].map((e) => '  ·  $e').join(),
+              ),
+            ],
+          ),
+        ),
         onTap: () => _openEditor(q),
         trailing: PopupMenuButton<String>(
           tooltip: tr('Thao tác'),
@@ -663,66 +863,15 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                 await _createPackage(q);
               case 'docs':
                 await _openDocs(q);
-              case 'print':
-                await printPosQuoteSlip(
-                  context,
-                  quoteId: q.id,
-                  quote: q,
-                );
-              case 'excel':
-                await PosQuoteExport.exportExcel(
-                  context,
-                  quoteId: q.id,
-                  quoteNo: q.quoteNo,
-                );
-              case 'word':
-                await PosQuoteExport.exportWord(
-                  context,
-                  quoteId: q.id,
-                  quoteNo: q.quoteNo,
-                );
-              case 'pdf':
-                await PosQuoteExport.exportPdf(
-                  context,
-                  quoteId: q.id,
-                  quoteNo: q.quoteNo,
-                );
-              case 'email':
-                await PosQuoteExport.shareQuote(
-                  context,
-                  quoteId: q.id,
-                  quoteNo: q.quoteNo,
-                  customerName: q.customerName ?? '',
-                  channel: 'email',
-                );
-              case 'zalo':
-                await PosQuoteExport.shareQuote(
-                  context,
-                  quoteId: q.id,
-                  quoteNo: q.quoteNo,
-                  customerName: q.customerName ?? '',
-                  channel: 'zalo',
-                );
-              case 'facebook':
-                await PosQuoteExport.shareQuote(
-                  context,
-                  quoteId: q.id,
-                  quoteNo: q.quoteNo,
-                  customerName: q.customerName ?? '',
-                  channel: 'facebook',
-                );
-              case 'call':
-                await callPosQuoteCustomer(q.customerPhone);
-              case 'care':
-                await showPosQuoteCareSheet(
-                  context,
-                  quoteId: q.id,
-                  quoteNo: q.quoteNo,
-                  customerName: q.customerName,
-                  customerPhone: q.customerPhone,
-                );
               case 'delete':
                 await _delete(q);
+              default:
+                await PosQuoteExport.run(
+                  context,
+                  quote: q,
+                  action: v,
+                  documentType: 'Quote',
+                );
             }
           },
           itemBuilder: (_) => [
@@ -748,55 +897,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
               value: 'docs',
               child: Text(tr('Hồ sơ HĐ / nghiệm thu')),
             ),
-            PopupMenuItem(
-              value: 'print',
-              child: Text(tr('In phiếu báo giá')),
-            ),
-            const PopupMenuDivider(),
-            PopupMenuItem(
-              enabled: false,
-              height: 32,
-              child: Text(
-                tr('Xuất & chia sẻ'),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade700,
-                ),
-              ),
-            ),
-            PopupMenuItem(
-              value: 'excel',
-              child: Text(tr('Xuất Excel')),
-            ),
-            PopupMenuItem(
-              value: 'word',
-              child: Text(tr('Xuất Word')),
-            ),
-            PopupMenuItem(
-              value: 'pdf',
-              child: Text(tr('Xuất PDF')),
-            ),
-            PopupMenuItem(
-              value: 'email',
-              child: Text(tr('Gửi Email')),
-            ),
-            PopupMenuItem(
-              value: 'zalo',
-              child: Text(tr('Chia sẻ Zalo')),
-            ),
-            PopupMenuItem(
-              value: 'facebook',
-              child: Text(tr('Chia sẻ Facebook')),
-            ),
-            PopupMenuItem(
-              value: 'call',
-              child: Text(tr('Gọi khách')),
-            ),
-            PopupMenuItem(
-              value: 'care',
-              child: Text(tr('Lịch CSKH')),
-            ),
+            ..._shareMenu(),
             if (canDelete && q.canDelete)
               PopupMenuItem(
                 value: 'delete',

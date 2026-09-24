@@ -28,7 +28,10 @@ String vietnameseMoneyInWords(int amount) {
   }
 
   // Nhóm thấp → cao khi tách; ghép ngược để "hai triệu … nghìn".
-  final text = groups.reversed.join(' ').trim();
+  var text = groups.reversed.join(' ').trim();
+  if (text.startsWith('không trăm ')) {
+    text = text.substring('không trăm '.length);
+  }
   if (text.isEmpty) return 'Không đồng';
   return '${_capitalizeFirst(text)} đồng chẵn';
 }

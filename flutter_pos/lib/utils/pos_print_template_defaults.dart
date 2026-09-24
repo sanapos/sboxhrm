@@ -99,7 +99,7 @@ class PosCommercialPageSetup {
     final body = html
         .replaceFirst(RegExp(r'<!--POS_A4_V\d+[^>]*-->'), '')
         .replaceFirst(RegExp(r'<!--POS_PAGE[^>]*-->'), '');
-    return '<!--POS_A4_V6 paper="$paperSize" mt="${_fmt(topMm)}" '
+    return '<!--POS_A4_V8 paper="$paperSize" mt="${_fmt(topMm)}" '
         'mr="${_fmt(rightMm)}" mb="${_fmt(bottomMm)}" '
         'ml="${_fmt(leftMm)}"-->$body';
   }
@@ -125,7 +125,7 @@ String wrapPosCommercialPrintHtml(
   html,body{margin:0;background:#fff;}
   body{
     font-family:"Times New Roman",Times,serif;
-    font-size:13px;line-height:1.45;color:#111;
+    font-size:13px;line-height:1.15;color:#111;
     padding:${setup.paddingCss};
     box-sizing:border-box;
     max-width:$maxW;
@@ -135,9 +135,9 @@ String wrapPosCommercialPrintHtml(
     overflow-x:hidden;
   }
   h1,h2,h3{text-align:center;margin:8px 0;}
-  h2{font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;}
-  h3{font-size:14px;font-weight:700;text-align:left;margin:0 0 2px;text-transform:uppercase;}
-  p{margin:6px 0;text-align:justify;}
+  h2{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.2px;margin:4px 0;}
+  h3{font-size:13px;font-weight:700;text-align:left;margin:6px 0 1px;text-transform:none;}
+  p{margin:2px 0;text-align:justify;text-indent:0;}
   b,strong{font-weight:700;}
   table{border-collapse:collapse;width:100%;max-width:100%;table-layout:fixed;margin:8px 0;}
   th,td{padding:5px 6px;vertical-align:top;word-wrap:break-word;overflow-wrap:anywhere;}
@@ -290,7 +290,7 @@ const _itemTable = '''
 </colgroup>
 <thead><tr style="background:#f3f4f6">
 <th style="width:6%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>STT</b></th>
-<th style="width:38%;border:1px solid #111;padding:5px 4px;text-align:left"><b>Tên hàng</b></th>
+<th style="width:38%;border:1px solid #111;padding:4px 4px;text-align:left"><b>Tên hàng</b></th>
 <th style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>ĐVT</b></th>
 <th style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>SL</b></th>
 <th style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;white-space:nowrap"><b>Đơn giá</b></th>
@@ -347,14 +347,14 @@ const _acceptanceTable = '''
 
 /// Quốc hiệu — chỉ div (không table) để preview/in không nhân đôi.
 const _motto = '''
-<div style="text-align:center;line-height:1.35;font-size:13px">
+<div style="text-align:center;line-height:1.15;font-size:13px">
 <b>CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</b><br/>
 <b><i>Độc lập – Tự do – Hạnh phúc</i></b>
 <div style="letter-spacing:1px;margin:2px 0 4px">________________</div>
 </div>''';
 
 String _center(String inner, {int fontSize = 13}) =>
-    '<div style="text-align:center;font-size:${fontSize}px;line-height:1.35;margin:8px 0 6px">$inner</div>';
+    '<div style="text-align:center;font-size:${fontSize}px;line-height:1.15;margin:4px 0 2px">$inner</div>';
 
 /// Header 2 cột: công ty trái — quốc hiệu + ngày phải (BBNT, đề nghị TT).
 String _twoColHeader({String leftExtra = '', String dateLine = 'Ngày {Ngay}'}) => '''
@@ -428,12 +428,12 @@ Hợp đồng lập thành 02 bản, mỗi bên giữ 01 bản, có giá trị p
 <table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i>
-<div style="height:70px"></div>
-{Nguoi_Dai_Dien_Khach}</td>
+<div style="height:48px"></div>
+<b>{Nguoi_Dai_Dien_Khach}</b></td>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN BÊN B</b><br/><i>(Ký, ghi rõ họ tên)</i>
-<div style="height:70px"></div>
-{Nguoi_Dai_Dien_Cua_Hang}</td>
+<div style="line-height:1">{Con_Dau}</div>
+<b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
 </tr></table></div>''';
 
     case PosPrintDocumentTypes.acceptance:
@@ -481,12 +481,12 @@ Tổng giá trị quyết toán: <b>{Tong_Cong} VNĐ</b><br/>
 <table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN CHỦ ĐẦU TƯ</b><br/>{Chuc_Vu_Khach}
-<div style="height:70px"></div>
-{Nguoi_Dai_Dien_Khach}</td>
+<div style="height:48px"></div>
+<b>{Nguoi_Dai_Dien_Khach}</b></td>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN NHÀ THẦU THI CÔNG</b><br/>{Chuc_Vu_Cua_Hang}
-<div style="height:70px"></div>
-{Nguoi_Dai_Dien_Cua_Hang}</td>
+<div style="line-height:1">{Con_Dau}</div>
+<b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
 </tr></table></div>''';
 
     case PosPrintDocumentTypes.handover:
@@ -521,12 +521,12 @@ Ghi chú: {Ghi_Chu}</p>
 <table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>BÊN NHẬN (Chủ đầu tư)</b><br/><i>(Ký, ghi rõ họ tên)</i>
-<div style="height:70px"></div>
-{Nguoi_Dai_Dien_Khach}</td>
+<div style="height:48px"></div>
+<b>{Nguoi_Dai_Dien_Khach}</b></td>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>BÊN GIAO (Nhà thầu)</b><br/><i>(Ký, ghi rõ họ tên)</i>
-<div style="height:70px"></div>
-{Nguoi_Dai_Dien_Cua_Hang}</td>
+<div style="line-height:1">{Con_Dau}</div>
+<b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
 </tr></table></div>''';
 
     case PosPrintDocumentTypes.paymentRequest:
@@ -560,63 +560,65 @@ $_itemTable
 <td style="width:50%"></td>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN {Ten_Cong_Ty}</b><br/>{Chuc_Vu_Cua_Hang}
-<div style="height:70px"></div>
-{Nguoi_Dai_Dien_Cua_Hang}</td>
+<div style="line-height:1">{Con_Dau}</div>
+<b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
 </tr></table></div>''';
 
-    default: // quote — letterhead công ty, không quốc hiệu (giống BBG).
+    default: // quote — letterhead công ty, dấu treo chữ ký.
       return '''
-<div style="font-family:'Times New Roman',Times,serif;font-size:13px;color:#000;padding:8px 12px">
-<div style="line-height:1.35;margin-bottom:8px">
-<div style="font-size:15px;font-weight:700;text-transform:uppercase">{Ten_Cong_Ty}</div>
-<div>MST: {MST_Cua_Hang}</div>
-<div>Trụ sở: {Dia_Chi_Cong_Ty}</div>
-<div>ĐT: {Dien_Thoai_Cong_Ty} · Email: {Email_Cua_Hang}</div>
+<div style="font-family:'Times New Roman',Times,serif;font-size:12.5px;color:#111;line-height:1.35">
+<div style="border-bottom:1.5px solid #111;padding-bottom:6px;margin-bottom:8px">
+<div style="font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.2px">{Ten_Cong_Ty}</div>
+<div>MST: {MST_Cua_Hang} · ĐT: {Dien_Thoai_Cong_Ty}</div>
+<div>{Dia_Chi_Cong_Ty}</div>
+<div>{Dong_Email}</div>
 </div>
-${_center('<b>BẢNG BÁO GIÁ</b>', fontSize: 18)}
-${_center('Số: <b>{So_Chung_Tu}</b> · Ngày {Ngay} · Hiệu lực đến: <b>{Han_Bao_Gia}</b>')}
+<div style="text-align:center;font-size:18px;font-weight:700;letter-spacing:1.2px;margin:2px 0">BẢNG BÁO GIÁ</div>
+<div style="text-align:center;font-size:12px;margin-bottom:6px">Số: <b>{So_Chung_Tu}</b> · Ngày {Ngay} · Hiệu lực đến: <b>{Han_Bao_Gia}</b></div>
 
-<table style="width:100%;border-collapse:collapse;border:none;margin:8px 0 10px">
+<table style="width:100%;border-collapse:collapse;margin:4px 0 8px;font-size:12.5px">
 <tr>
-<td style="width:28%;border:none;padding:2px 8px 2px 0;vertical-align:top"><b>Khách hàng</b></td>
-<td style="border:none;padding:2px 0;vertical-align:top">{Ten_Cong_Ty_Khach} (đại diện: {Nguoi_Dai_Dien_Khach})</td>
+<td style="width:22%;padding:2px 8px 2px 0;vertical-align:top"><b>Kính gửi</b></td>
+<td style="padding:2px 0;vertical-align:top">{Ten_Cong_Ty_Khach}</td>
 </tr>
 <tr>
-<td style="border:none;padding:2px 8px 2px 0;vertical-align:top"><b>Địa chỉ</b></td>
-<td style="border:none;padding:2px 0;vertical-align:top">{Dia_Chi_Khach_Hang}</td>
+<td style="padding:2px 8px 2px 0;vertical-align:top"><b>Địa chỉ</b></td>
+<td style="padding:2px 0;vertical-align:top">{Dia_Chi_Khach_Hang}</td>
 </tr>
 <tr>
-<td style="border:none;padding:2px 8px 2px 0;vertical-align:top"><b>Điện thoại</b></td>
-<td style="border:none;padding:2px 0;vertical-align:top">{SDT}</td>
+<td style="padding:2px 8px 2px 0;vertical-align:top"><b>Điện thoại</b></td>
+<td style="padding:2px 0;vertical-align:top">{SDT}</td>
 </tr>
 <tr>
-<td style="border:none;padding:2px 8px 2px 0;vertical-align:top"><b>Hạng mục</b></td>
-<td style="border:none;padding:2px 0;vertical-align:top">{Ten_Hang_Hoa}</td>
-</tr>
-<tr>
-<td style="border:none;padding:2px 8px 2px 0;vertical-align:top"><b>Thanh toán</b></td>
-<td style="border:none;padding:2px 0;vertical-align:top">{Hinh_Thuc_Thanh_Toan}</td>
+<td style="padding:2px 8px 2px 0;vertical-align:top"><b>Thanh toán</b></td>
+<td style="padding:2px 0;vertical-align:top">{Hinh_Thuc_Thanh_Toan}</td>
 </tr>
 </table>
 
-<p>Công ty chúng tôi xin gửi Quý khách hàng bảng báo giá chi tiết như sau:</p>
+<p style="margin:4px 0 6px">Kính gửi Quý khách bảng báo giá chi tiết như sau:</p>
 $_itemTable
+<div style="text-align:right;font-size:12px;font-style:italic;margin:2px 0 8px">Bằng chữ: {Tong_Cong_Bang_Chu}</div>
 
-<p><b>Điều khoản:</b><br/>{Dieu_Khoan}<br/>
-Bảo hành: {Bao_Hanh}<br/>
-Ghi chú: {Ghi_Chu}</p>
+<div style="font-size:12.5px;line-height:1.4;margin:4px 0 8px">
+<b>Điều khoản:</b> {Dieu_Khoan}<br/>
+<b>Bảo hành:</b> {Bao_Hanh}<br/>
+<b>Ghi chú:</b> {Ghi_Chu}
+</div>
+<p style="margin:4px 0 0">Rất mong nhận được sự hợp tác của Quý khách.<br/><b>Trân trọng.</b></p>
 
-<p>Rất mong nhận được sự hợp tác của Quý khách hàng.<br/><b>Trân trọng!</b></p>
-
-<table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
-<td style="width:50%;text-align:center;vertical-align:top">
-<b>KHÁCH HÀNG</b><br/><i>(Ký, ghi rõ họ tên)</i>
-<div style="height:60px"></div>
-{Nguoi_Dai_Dien_Khach}</td>
-<td style="width:50%;text-align:center;vertical-align:top">
-<b>ĐẠI DIỆN {Ten_Cong_Ty}</b><br/>{Chuc_Vu_Cua_Hang}
-<div style="height:60px"></div>
-{Nguoi_Dai_Dien_Cua_Hang}</td>
+<table style="width:100%;border-collapse:collapse;margin-top:14px"><tr>
+<td style="width:50%;text-align:center;vertical-align:top;padding:0 8px">
+<div style="font-weight:700">KHÁCH HÀNG</div>
+<div style="font-size:12px;font-style:italic">(Ký, ghi rõ họ tên)</div>
+<div style="height:64px"></div>
+<div style="font-weight:700">{Nguoi_Dai_Dien_Khach}</div>
+</td>
+<td style="width:50%;text-align:center;vertical-align:top;padding:0 8px">
+<div style="font-weight:700">ĐẠI DIỆN CÔNG TY</div>
+<div style="font-size:12px;font-style:italic">{Chuc_Vu_Cua_Hang}</div>
+<div style="text-align:center">{Con_Dau}</div>
+<div style="font-weight:700">{Nguoi_Dai_Dien_Cua_Hang}</div>
+</td>
 </tr></table></div>''';
   }
 }
@@ -630,7 +632,8 @@ bool posCommercialHtmlLooksStale(String html) {
   if (motto.allMatches(html).length >= 2) return true;
   // BBG mẫu thật không có quốc hiệu — mẫu V5 2 cột còn gắn.
   if (html.contains('BẢNG BÁO GIÁ') && html.contains(motto)) return true;
-  return !RegExp(r'<!--POS_A4_V\d+', caseSensitive: false).hasMatch(html);
+  return !RegExp(r'<!--POS_A4_V(?:[8-9]|\d{2,})', caseSensitive: false)
+      .hasMatch(html);
 }
 
 String posPrintDefaultTemplateName(String paperSize, {String? documentType}) {

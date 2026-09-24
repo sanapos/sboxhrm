@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
@@ -20,7 +22,7 @@ Widget buildPosRenderedHtml(
   final child = Html(
     data: html,
     shrinkWrap: shrinkWrap || !a4Width,
-    extensions: const [PosPrintTableExtension()],
+    extensions: const [PosPrintTableExtension(), PosPrintImageExtension()],
     style: {
       'html': Style(backgroundColor: Colors.white),
       'body': Style(
@@ -401,6 +403,46 @@ Future<void> printPosHtmlDocument(String htmlDocument) async {}
 
 /// Bảng in A4: Flutter [Table] + độ rộng cố định — không dùng LayoutGrid
 /// (flutter_html_table bung chiều cao, chữ biến mất trên điện thoại).
+class PosPrintImageExtension extends HtmlExtension {
+  const PosPrintImageExtension();
+
+  @override
+  Set<String> get supportedTags => {'img'};
+
+  @override
+  InlineSpan build(ExtensionContext context) {
+    final src = context.attributes['src'] ?? '';
+    final w = double.tryParse(context.attributes['width'] ?? '') ?? 112;
+    final h = double.tryParse(context.attributes['height'] ?? '') ?? w;
+    final bytes = _dataImageBytes(src);
+    final Widget child;
+    if (bytes != null) {
+      child = Image.memory(
+        bytes,
+        width: w,
+        height: h,
+        fit: BoxFit.contain,
+        gaplessPlayback: true,
+      );
+    } else if (src.startsWith('http://') || src.startsWith('https://')) {
+      child = Image.network(src, width: w, height: h, fit: BoxFit.contain);
+    } else {
+      child = const SizedBox.shrink();
+    }
+    return WidgetSpan(alignment: PlaceholderAlignment.middle, child: child);
+  }
+
+  static Uint8List? _dataImageBytes(String src) {
+    final comma = src.indexOf(',');
+    if (!src.startsWith('data:') || comma < 0) return null;
+    try {
+      return base64Decode(src.substring(comma + 1).replaceAll(RegExp(r'\s'), ''));
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
 class PosPrintTableExtension extends HtmlExtension {
   const PosPrintTableExtension();
 
@@ -647,7 +689,7 @@ class _PosHtmlTableView extends StatelessWidget {
         child: Html(
           data: inner,
           shrinkWrap: true,
-          extensions: const [PosPrintTableExtension()],
+          extensions: const [PosPrintTableExtension(), PosPrintImageExtension()],
           style: {
             'body': Style(
               margin: Margins.zero,

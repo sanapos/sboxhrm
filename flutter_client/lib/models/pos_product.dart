@@ -19,6 +19,11 @@ List<String> parsePosStringList(dynamic raw) {
   return const [];
 }
 
+bool _areaAxisFromJson(Map<String, dynamic> json, String camel, String pascal) {
+  if (!json.containsKey(camel) && !json.containsKey(pascal)) return true;
+  return json[camel] == true || json[pascal] == true;
+}
+
 /// Ghép ghi chú dòng hàng từ chip đã chọn + ghi chú tự nhập.
 String? joinPosLineNoteParts({
   required Iterable<String> selectedQuickNotes,
@@ -449,6 +454,12 @@ class PosProduct {
   final bool requiresSerial;
   final bool allowDecimalQty;
   final bool allowAreaQty;
+  /// Hiện ô chiều dài khi nhập số lượng theo kích thước.
+  final bool areaLength;
+  /// Hiện ô chiều rộng khi nhập số lượng theo kích thước.
+  final bool areaWidth;
+  /// Hiện ô chiều cao khi nhập số lượng theo kích thước.
+  final bool areaHeight;
   final bool trackExpiry;
   final int expiryWarningDays;
   final String serviceBillingMode;
@@ -530,6 +541,9 @@ class PosProduct {
     this.requiresSerial = false,
     this.allowDecimalQty = false,
     this.allowAreaQty = false,
+    this.areaLength = true,
+    this.areaWidth = true,
+    this.areaHeight = true,
     this.trackExpiry = false,
     this.expiryWarningDays = 30,
     this.serviceBillingMode = 'Flat',
@@ -599,6 +613,10 @@ class PosProduct {
     if (m == 'none' || m.isEmpty) return false;
     return commissionPercent > 0 || commissionFixed > 0 || m != 'none';
   }
+
+  bool get showAreaLength => allowAreaQty;
+  bool get showAreaWidth => allowAreaQty;
+  bool get showAreaHeight => allowAreaQty;
 
   factory PosProduct.fromJson(Map<String, dynamic> json) {
     DateTime? dt(dynamic v) => parseApiUtcDateTime(v);
@@ -705,6 +723,9 @@ class PosProduct {
           json['allowDecimalQty'] == true || json['AllowDecimalQty'] == true,
       allowAreaQty:
           json['allowAreaQty'] == true || json['AllowAreaQty'] == true,
+      areaLength: _areaAxisFromJson(json, 'allowAreaLength', 'AllowAreaLength'),
+      areaWidth: _areaAxisFromJson(json, 'allowAreaWidth', 'AllowAreaWidth'),
+      areaHeight: _areaAxisFromJson(json, 'allowAreaHeight', 'AllowAreaHeight'),
       trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
       expiryWarningDays:
           (json['expiryWarningDays'] ?? json['ExpiryWarningDays'] as num?)?.toInt() ?? 30,
@@ -821,6 +842,9 @@ class PosProduct {
       if (requiresSerial) 'requiresSerial': true,
       if (allowDecimalQty) 'allowDecimalQty': true,
       if (allowAreaQty) 'allowAreaQty': true,
+      'allowAreaLength': areaLength,
+      'allowAreaWidth': areaWidth,
+      'allowAreaHeight': areaHeight,
       if (trackExpiry) 'trackExpiry': true,
       if (trackExpiry) 'expiryWarningDays': expiryWarningDays,
       'serviceBillingMode': serviceBillingMode,
@@ -894,6 +918,9 @@ class PosProduct {
     List<String>? saleQuickNotes,
     bool? allowDecimalQty,
     bool? allowAreaQty,
+    bool? areaLength,
+    bool? areaWidth,
+    bool? areaHeight,
   }) {
     return PosProduct(
       id: id ?? this.id,
@@ -933,6 +960,9 @@ class PosProduct {
       requiresSerial: this.requiresSerial,
       allowDecimalQty: allowDecimalQty ?? this.allowDecimalQty,
       allowAreaQty: allowAreaQty ?? this.allowAreaQty,
+      areaLength: areaLength ?? this.areaLength,
+      areaWidth: areaWidth ?? this.areaWidth,
+      areaHeight: areaHeight ?? this.areaHeight,
       trackExpiry: this.trackExpiry,
       warrantyMonths: this.warrantyMonths,
       units: units ?? this.units,
@@ -992,6 +1022,9 @@ class PosProduct {
         'requiresSerial': requiresSerial,
         'allowDecimalQty': allowDecimalQty,
         'allowAreaQty': allowAreaQty,
+        'allowAreaLength': areaLength,
+        'allowAreaWidth': areaWidth,
+        'allowAreaHeight': areaHeight,
         'variantCount': variantCount,
         'saleQuickNotes': saleQuickNotes,
         'isTopping': isTopping,

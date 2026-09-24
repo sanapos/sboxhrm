@@ -562,21 +562,15 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                 onPressed: () => _previewKind('Quote'),
                 child: Text(tr('Xem báo giá')),
               ),
-              if (_commercialStage != 'Closed' &&
-                  (_status == 'Accepted' ||
-                      _status == 'Draft' ||
-                      _status == 'Sent' ||
-                      _status == 'Revised'))
+              if (_commercialStage != 'Closed') ...[
                 FilledButton.tonal(
                   onPressed: _saving ? null : () => _createKind('Contract'),
                   child: Text(tr('Lập hợp đồng')),
                 ),
-              if (widget.quoteId != null && _commercialStage != 'Closed')
                 FilledButton.tonal(
                   onPressed: _saving ? null : _createPackage,
                   child: Text(tr('Trọn bộ hồ sơ')),
                 ),
-              if (_status == 'Accepted' && _commercialStage != 'Closed') ...[
                 FilledButton.tonal(
                   onPressed: _saving ? null : () => _createKind('StockIssue'),
                   child: Text(tr('Xuất kho')),
@@ -590,7 +584,8 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                   child: Text(tr('Nghiệm thu')),
                 ),
                 FilledButton.tonal(
-                  onPressed: _saving ? null : () => _createKind('PaymentRequest'),
+                  onPressed:
+                      _saving ? null : () => _createKind('PaymentRequest'),
                   child: Text(tr('Đề nghị thanh toán')),
                 ),
               ],

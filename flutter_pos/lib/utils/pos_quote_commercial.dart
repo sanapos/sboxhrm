@@ -13,48 +13,17 @@ const posQuotePackageKinds = [
   'Acceptance',
 ];
 
-/// Chấp nhận BG (nếu chưa) rồi lập chứng từ thương mại.
+/// Lập chứng từ thương mại. Báo giá chưa gửi vẫn lập được — máy chủ tự nhận.
 Future<PosQuoteDocument?> createPosQuoteCommercialDoc(
   BuildContext context, {
   required PosQuote quote,
   required String kind,
   bool includeImages = false,
   String? note,
-  bool skipAcceptDialog = false,
   bool skipNoteDialog = false,
 }) async {
   final api = ApiService();
-  var current = quote;
-  if (current.status != 'Accepted' &&
-      (kind == 'Contract' ||
-          kind == 'PaymentRequest' ||
-          kind == 'Acceptance' ||
-          kind == 'Handover' ||
-          kind == 'StockIssue')) {
-    if (!skipAcceptDialog) {
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(tr('Chấp nhận báo giá?')),
-          content: Text(tr(
-              'Khách cần chấp nhận báo giá trước khi lập ${PosQuoteDocument.kindLabel(kind)}.')),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('Hủy')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(tr('Chấp nhận & lập')),
-            ),
-          ],
-        ),
-      );
-      if (ok != true) return null;
-    }
-    current = await _acceptQuote(api, current);
-    if (current.status != 'Accepted') return null;
-  }
+  final current = quote;
 
   if (!context.mounted) return null;
   var resolvedNote = note;
@@ -120,29 +89,6 @@ Future<bool> createPosQuoteCommercialPackage(
 
   final api = ApiService();
   var current = quote;
-  if (current.status != 'Accepted') {
-    final accept = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Chấp nhận báo giá?')),
-        content: Text(tr(
-            'Khách cần chấp nhận báo giá trước khi lập trọn bộ hồ sơ.')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(tr('Hủy')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('Chấp nhận & lập')),
-          ),
-        ],
-      ),
-    );
-    if (accept != true) return false;
-    current = await _acceptQuote(api, current);
-    if (current.status != 'Accepted') return false;
-  }
 
   if (!context.mounted) return false;
   final note = await _askCommercialNote(context, 'Trọn bộ hồ sơ');
@@ -165,7 +111,6 @@ Future<bool> createPosQuoteCommercialPackage(
       kind: kind,
       includeImages: includeImages,
       note: note,
-      skipAcceptDialog: true,
       skipNoteDialog: true,
     );
     if (doc != null) {
@@ -185,31 +130,6 @@ Future<bool> createPosQuoteCommercialPackage(
     message: tr('Đã tạo $created chứng từ'),
   );
   return true;
-}
-
-Future<PosQuote> _acceptQuote(ApiService api, PosQuote current) async {
-  if (current.status == 'Draft') {
-    final sent = await api.sendPosQuote(current.id);
-    if (sent['isSuccess'] != true) {
-      NotificationOverlayManager().showError(
-        title: 'Không gửi được',
-        message: sent['message']?.toString() ?? current.quoteNo,
-      );
-      return current;
-    }
-  }
-  final acc = await api.acceptPosQuote(current.id);
-  if (acc['isSuccess'] != true) {
-    NotificationOverlayManager().showError(
-      title: 'Không chấp nhận được',
-      message: acc['message']?.toString() ?? current.quoteNo,
-    );
-    return current;
-  }
-  if (acc['data'] is Map) {
-    return PosQuote.fromJson(Map<String, dynamic>.from(acc['data'] as Map));
-  }
-  return current;
 }
 
 Future<String?> _askCommercialNote(BuildContext context, String title) async {

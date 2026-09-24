@@ -61,9 +61,16 @@ class PosQtyRules {
           map[camel] == true || map[pascal] == true;
       final unit =
           (map['baseUnitName'] ?? map['BaseUnitName'])?.toString().trim();
+      bool axis(String camel, String pascal) {
+        if (!map.containsKey(camel) && !map.containsKey(pascal)) return true;
+        return map[camel] == true || map[pascal] == true;
+      }
       return product.copyWith(
         allowDecimalQty: flag('allowDecimalQty', 'AllowDecimalQty'),
         allowAreaQty: flag('allowAreaQty', 'AllowAreaQty'),
+        areaLength: axis('allowAreaLength', 'AllowAreaLength'),
+        areaWidth: axis('allowAreaWidth', 'AllowAreaWidth'),
+        areaHeight: axis('allowAreaHeight', 'AllowAreaHeight'),
         baseUnitName:
             (unit == null || unit.isEmpty) ? product.baseUnitName : unit,
       );

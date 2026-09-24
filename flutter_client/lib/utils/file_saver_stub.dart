@@ -7,6 +7,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../models/downloaded_document.dart';
 import '../services/downloaded_documents_service.dart';
 
 /// MethodChannel to interact with native Android MediaStore for saving files
@@ -23,20 +24,20 @@ Future<String?> saveFileBytes(
   String? category,
   String? sourceModule,
 }) async {
-  String? savedUri;
+  String? mediaUri;
   if (Platform.isAndroid) {
     try {
-      savedUri = await _channel.invokeMethod<String>('saveFile', {
+      mediaUri = await _channel.invokeMethod<String>('saveFile', {
         'bytes': Uint8List.fromList(bytes),
         'filename': filename,
         'mimeType': mimeType,
       });
-    } on MissingPluginException {
-      // Fallback to legacy method if native channel not available
+    } catch (e) {
+      debugPrint('saveFile MediaStore: $e');
     }
   }
 
-  if (savedUri == null && Platform.isIOS) {
+  if (mediaUri == null && Platform.isIOS) {
     final dir = await getTemporaryDirectory();
     final filePath = '${dir.path}/$filename';
     final file = File(filePath);
@@ -44,38 +45,37 @@ Future<String?> saveFileBytes(
     await Share.shareXFiles(
       [XFile(filePath, mimeType: mimeType)],
     );
-    savedUri = filePath;
+    mediaUri = filePath;
   }
 
-  if (savedUri == null && Platform.isAndroid) {
-    final dir = Directory('/storage/emulated/0/Download/SBOX HRM');
-    if (!await dir.exists()) await dir.create(recursive: true);
-    final filePath = '${dir.path}/$filename';
-    final file = File(filePath);
-    await file.writeAsBytes(bytes);
-    savedUri = filePath;
-  }
-
+  DownloadedDocument? doc;
   if (!kIsWeb) {
-    await DownloadedDocumentsService.instance.register(
+    doc = await DownloadedDocumentsService.instance.register(
       bytes: bytes,
       filename: filename,
       mimeType: mimeType,
       category: category,
       sourceModule: sourceModule,
-      externalUri: savedUri,
+      externalUri: mediaUri,
     );
   }
 
-  return savedUri;
+  // Mở bản trong app. content:// của MediaStore làm OpenFilex báo không thấy file.
+  return doc?.localPath ?? mediaUri;
 }
 
 /// Save a file and immediately open it with the default app.
 Future<void> saveAndOpenFileBytes(
     List<int> bytes, String filename, String mimeType) async {
-  final savedUri = await saveFileBytes(bytes, filename, mimeType);
-  if (savedUri != null) {
-    await OpenFilex.open(savedUri, type: mimeType);
+  final savedPath = await saveFileBytes(bytes, filename, mimeType);
+  if (savedPath == null) {
+    throw Exception('Không lưu được file trên máy');
+  }
+  if (savedPath.startsWith('content:')) return;
+  try {
+    await OpenFilex.open(savedPath, type: mimeType);
+  } catch (e) {
+    debugPrint('open saved file: $e');
   }
 }
 

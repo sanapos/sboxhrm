@@ -330,6 +330,9 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
       ...PosPrintTokens.order,
       ...PosPrintTokens.commercial,
       ...PosPrintTokens.totals.take(8),
+      ('Chieu_Dai', 'Cột dài'),
+      ('Chieu_Rong', 'Cột rộng'),
+      ('Chieu_Cao', 'Cột cao'),
     ];
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
@@ -913,6 +916,9 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
       ...PosPrintTokens.order,
       ...PosPrintTokens.commercial,
       ...PosPrintTokens.totals.take(8),
+      ('Chieu_Dai', 'Cột dài'),
+      ('Chieu_Rong', 'Cột rộng'),
+      ('Chieu_Cao', 'Cột cao'),
     ];
     return SizedBox(
       height: 36,

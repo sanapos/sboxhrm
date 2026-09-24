@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/pos_print_template.dart';
 import '../models/pos_sale_order.dart';
 import '../services/api_service.dart';
+import 'pos_area_dims.dart';
 import 'pos_print_template_defaults.dart';
 import 'pos_print_template_loader.dart';
 import 'pos_receipt_layout.dart';
@@ -193,6 +194,8 @@ Map<String, String> posPrintSampleData({
     'Dia_Chi_Cong_Ty': legalAddr,
     'Dien_Thoai_Chi_Nhanh': printedPhone,
     'Dien_Thoai_Cong_Ty': legalPhone,
+    'Con_Dau': profileData['Con_Dau'] ?? '<div style="height:64px"></div>',
+    'Dong_Email': profileData['Dong_Email'] ?? '',
     'Tieu_De_In': PosPrintDocumentTypes.all[documentType] ?? 'Hóa đơn',
     'Ma_Don_Hang': 'HD000050',
     'Ngay': '28/06/2026',
@@ -306,6 +309,10 @@ Map<String, String> posPrintCommercialProfileData(
       'Chu_Tai_Khoan_Cua_Hang': t('bankAccountHolder', 'BankAccountHolder'),
     if (rep.isNotEmpty) 'Nguoi_Dai_Dien_Cua_Hang': rep,
     'Chuc_Vu_Cua_Hang': title.trim().isEmpty ? 'Giám đốc' : title.trim(),
+    'Con_Dau': posCommercialStampHtml(t('stampPngBase64', 'StampPngBase64')),
+    'Dong_Email': t('email', 'Email').trim().isEmpty
+        ? ''
+        : 'Email: ${t('email', 'Email').trim()}',
   };
 }
 
@@ -334,13 +341,29 @@ List<Map<String, String>> posPrintSampleLines({int count = 2}) {
         'Chiet_Khau': i == 1 ? money.format(500000) : '0',
         'Thanh_Tien': money.format(i == 1 ? 27500000 : (25000 + i * 150000) * (1 + (i % 3))),
         'Bao_Hanh': i % 2 == 1 ? '12 tháng' : '',
+        'Chieu_Dai': i == 0 ? '2,4' : '',
+        'Chieu_Rong': i == 0 ? '1,2' : '0,8',
+        'Chieu_Cao': i == 0 ? '' : '2,1',
         'Ghi_Chu': i == 0 ? '+ TranChau x2\n+ Thach' : '',
         'Hinh_Anh': '',
       },
   ];
 }
 
-bool _isRawHtmlPrintToken(String key) => key == 'Hinh_Anh';
+bool _isRawHtmlPrintToken(String key) =>
+    key == 'Hinh_Anh' || key == 'Con_Dau';
+
+/// PNG con dấu (base64 hoặc data-url) — HTML img treo lên chữ ký. Rỗng nếu chưa có.
+String posCommercialStampHtml(String? raw) {
+  var s = (raw ?? '').trim();
+  if (s.isEmpty) return '';
+  final comma = s.indexOf(',');
+  if (s.startsWith('data:') && comma > 0) s = s.substring(comma + 1).trim();
+  s = s.replaceAll(RegExp(r'\s'), '');
+  if (s.length < 32) return '<div style="height:64px"></div>';
+  return '<img src="data:image/png;base64,$s" alt="" width="112" height="112" '
+      'style="width:112px;height:112px;object-fit:contain;display:inline-block;vertical-align:middle"/>';
+}
 
 String _replacePrintToken(String row, String key, String value) {
   if (_isRawHtmlPrintToken(key)) {
@@ -526,6 +549,7 @@ List<Map<String, String>> buildSaleOrderPrintLines(
       withPrice: true,
       money: money,
     );
+    final dims = parsePosAreaDims(l.lineNote);
     return {
       'STT': '${i + 1}',
       'Ma_Hang': l.productId.length > 8 ? l.productId.substring(0, 8) : l.productId,
@@ -536,6 +560,9 @@ List<Map<String, String>> buildSaleOrderPrintLines(
       'Chiet_Khau': l.discountAmount > 0 ? money.format(l.discountAmount) : '0',
       'Thanh_Tien': lineMoney(l.lineTotal),
       'Ghi_Chu': note,
+      'Chieu_Dai': formatPosDim(dims.length),
+      'Chieu_Rong': formatPosDim(dims.width),
+      'Chieu_Cao': formatPosDim(dims.height),
     };
   });
 }

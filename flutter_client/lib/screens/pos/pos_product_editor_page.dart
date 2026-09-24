@@ -269,6 +269,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _requiresSerial = false;
   bool _allowDecimalQty = false;
   bool _allowAreaQty = false;
+  bool _areaLength = false;
+  bool _areaWidth = false;
+  bool _areaHeight = false;
   bool _trackExpiry = false;
   PosServiceBillingMode _serviceBillingMode = PosServiceBillingMode.flat;
   late final TextEditingController _minBillMinutesCtrl;
@@ -514,7 +517,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
     _requiresSerial = p?.requiresSerial ?? false;
     _allowDecimalQty = p?.allowDecimalQty ?? false;
-    _allowAreaQty = p?.allowAreaQty ?? false;
+    _loadAreaAxes(p);
     _trackExpiry = p?.trackExpiry ?? false;
     _expiryWarningDaysCtrl = TextEditingController(
       text: tr('${p?.expiryWarningDays ?? 30}'),
@@ -688,7 +691,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               : '';
       _requiresSerial = data.requiresSerial;
       _allowDecimalQty = data.allowDecimalQty;
-      _allowAreaQty = data.allowAreaQty;
+      _loadAreaAxes(data);
       _trackExpiry = data.trackExpiry;
       _expiryWarningDaysCtrl.text = '${data.expiryWarningDays}';
       _serviceBillingMode =
@@ -971,6 +974,16 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       );
       return;
     }
+    if (_isGoods && !_requiresSerial) {
+      final axes = [_areaLength, _areaWidth, _areaHeight].where((v) => v).length;
+      if (axes == 1) {
+        NotificationOverlayManager().showError(
+          title: 'Kích thước',
+          message: tr('Chọn ít nhất 2 chiều: Dài, Rộng hoặc Cao.'),
+        );
+        return;
+      }
+    }
     setState(() => _saving = true);
 
     final body = <String, dynamic>{
@@ -1046,6 +1059,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'requiresSerial': _requiresSerial,
         'allowDecimalQty': _allowDecimalQty || _allowAreaQty,
         'allowAreaQty': _allowAreaQty,
+        'allowAreaLength': _areaLength,
+        'allowAreaWidth': _areaWidth,
+        'allowAreaHeight': _areaHeight,
         'trackExpiry': _trackExpiry,
         'expiryWarningDays':
             int.tryParse(_expiryWarningDaysCtrl.text.trim()) ?? 30,
@@ -1782,6 +1798,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
           if (_isGoods) _retailQtyModeButtons(),
+          if (_isGoods) _buildAreaAxesSection(),
           _buildProductVatSection(),
           if (_showSection(PosProductEditorSection.staffCommission))
             _kvExpansion(
@@ -2993,6 +3010,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               if (v) {
                 _allowDecimalQty = false;
                 _allowAreaQty = false;
+                _areaLength = false;
+                _areaWidth = false;
+                _areaHeight = false;
               }
             }),
           ),
@@ -3006,25 +3026,24 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             value: _allowDecimalQty,
             onChanged: _requiresSerial
                 ? null
-                : (v) => setState(() {
-                      _allowDecimalQty = v;
-                      if (!v) _allowAreaQty = false;
-                    }),
+                : (v) {
+                    if (v) {
+                      setState(() => _allowDecimalQty = true);
+                    } else {
+                      _setAreaMaster(false);
+                      setState(() => _allowDecimalQty = false);
+                    }
+                  },
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Nhập theo diện tích')),
+            title: Text(tr('Nhập theo Dài, Rộng, Cao')),
             subtitle: Text(
-              tr('Bấm số lượng là hiện chiều dài và chiều rộng.'),
+              tr('Bật cả 3 chiều. Bỏ bớt từng chiều ở mục ngay dưới giá bán.'),
               style: TextStyle(fontSize: 12),
             ),
             value: _allowAreaQty,
-            onChanged: _requiresSerial
-                ? null
-                : (v) => setState(() {
-                      _allowAreaQty = v;
-                      if (v) _allowDecimalQty = true;
-                    }),
+            onChanged: _requiresSerial ? null : _setAreaMaster,
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -3140,22 +3159,107 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
+  void _loadAreaAxes(PosProduct? p) {
+    _allowAreaQty = p?.allowAreaQty ?? false;
+    _areaLength = _allowAreaQty;
+    _areaWidth = _allowAreaQty;
+    _areaHeight = _allowAreaQty;
+  }
+
+  void _setAreaMaster(bool on) {
+    setState(() {
+      if (on && !_requiresSerial) {
+        _areaLength = true;
+        _areaWidth = true;
+        _areaHeight = true;
+        _allowAreaQty = true;
+        _allowDecimalQty = true;
+      } else {
+        _areaLength = false;
+        _areaWidth = false;
+        _areaHeight = false;
+        _allowAreaQty = false;
+      }
+    });
+  }
+
+  void _setAreaAxis({bool? length, bool? width, bool? height}) {
+    final turningOff = length == false || width == false || height == false;
+    _setAreaMaster(!turningOff);
+  }
+
+  Widget _buildAreaAxesSection() {
+    final locked = _requiresSerial;
+    final n = [_areaLength, _areaWidth, _areaHeight].where((v) => v).length;
+    Widget axis(String label, bool value, void Function(bool) onChanged) {
+      return CheckboxListTile(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        controlAffinity: ListTileControlAffinity.leading,
+        title: Text(
+          tr(label),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        value: value,
+        activeColor: PosTheme.kiotBlue,
+        onChanged: locked ? null : (v) => onChanged(v ?? false),
+      );
+    }
+
+    return _kvSection(
+      title: 'Nhập số lượng theo Dài, Rộng, Cao',
+      subtitle:
+          'Báo giá và bán hàng hiện đủ Chiều dài, Chiều rộng và Chiều cao. Số lượng = các ô đã nhập nhân với nhau.',
+      child: Column(
+        children: [
+          axis('Chiều dài', _areaLength, (v) => _setAreaAxis(length: v)),
+          axis('Chiều rộng', _areaWidth, (v) => _setAreaAxis(width: v)),
+          axis('Chiều cao', _areaHeight, (v) => _setAreaAxis(height: v)),
+          if (n == 1)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                tr('Cần chọn ít nhất 2 chiều.'),
+                style: TextStyle(color: Colors.red.shade700, fontSize: 12),
+              ),
+            ),
+          if (locked)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                tr('Hàng seri không nhập theo kích thước.'),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _retailDecimalFooterRow() {
     return InkWell(
-      onTap: () => setState(() {
-        _allowDecimalQty = !_allowDecimalQty;
-        if (!_allowDecimalQty) _allowAreaQty = false;
-      }),
+      onTap: () {
+        if (_allowDecimalQty || _allowAreaQty) {
+          _setAreaMaster(false);
+          setState(() => _allowDecimalQty = false);
+        } else {
+          setState(() => _allowDecimalQty = true);
+        }
+      },
       child: Row(
         children: [
           Checkbox(
             value: _allowDecimalQty || _allowAreaQty,
             activeColor: PosTheme.kiotBlue,
             visualDensity: VisualDensity.compact,
-            onChanged: (v) => setState(() {
-              _allowDecimalQty = v ?? false;
-              if (!_allowDecimalQty) _allowAreaQty = false;
-            }),
+            onChanged: (v) {
+              if (v ?? false) {
+                setState(() => _allowDecimalQty = true);
+              } else {
+                _setAreaMaster(false);
+                setState(() => _allowDecimalQty = false);
+              }
+            },
           ),
           Expanded(
             child: Text(
@@ -3170,24 +3274,18 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   Widget _retailAreaFooterRow() {
     return InkWell(
-      onTap: () => setState(() {
-        _allowAreaQty = !_allowAreaQty;
-        if (_allowAreaQty) _allowDecimalQty = true;
-      }),
+      onTap: () => _setAreaMaster(!_allowAreaQty),
       child: Row(
         children: [
           Checkbox(
             value: _allowAreaQty,
             activeColor: PosTheme.kiotBlue,
             visualDensity: VisualDensity.compact,
-            onChanged: (v) => setState(() {
-              _allowAreaQty = v ?? false;
-              if (_allowAreaQty) _allowDecimalQty = true;
-            }),
+            onChanged: (v) => _setAreaMaster(v ?? false),
           ),
           Expanded(
             child: Text(
-              tr('Nhập theo diện tích  ·  dài × rộng'),
+              tr('Nhập Dài, Rộng, Cao khi báo giá và bán'),
               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
             ),
           ),
@@ -3223,10 +3321,14 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               selectedColor: PosTheme.kiotBlueLight,
               onSelected: locked
                   ? null
-                  : (v) => setState(() {
-                        _allowDecimalQty = v;
-                        if (!v) _allowAreaQty = false;
-                      }),
+                  : (v) {
+                      if (v) {
+                        setState(() => _allowDecimalQty = true);
+                      } else {
+                        _setAreaMaster(false);
+                        setState(() => _allowDecimalQty = false);
+                      }
+                    },
             ),
             FilterChip(
               avatar: Icon(
@@ -3236,18 +3338,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     _allowAreaQty ? PosTheme.kiotBlue : PosTheme.textSecondary,
               ),
               label: Text(
-                tr('Nhập theo diện tích'),
+                tr('Dài · Rộng · Cao'),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               selected: _allowAreaQty,
               showCheckmark: false,
               selectedColor: PosTheme.kiotBlueLight,
-              onSelected: locked
-                  ? null
-                  : (v) => setState(() {
-                        _allowAreaQty = v;
-                        if (v) _allowDecimalQty = true;
-                      }),
+              onSelected: locked ? null : _setAreaMaster,
             ),
           ],
         ),

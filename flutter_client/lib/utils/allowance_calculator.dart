@@ -20,6 +20,10 @@ class AllowanceCalculator {
       case 'per_event':
       case '3':
         return 3;
+      case 'pershift':
+      case 'per_shift':
+      case '4':
+        return 4;
       case 'fixed':
       case '0':
       default:
@@ -65,7 +69,7 @@ class AllowanceCalculator {
     return 0;
   }
 
-  /// Tổng mức phụ cấp theo loại (0=cố định, 1=theo ngày, 2=theo giờ).
+  /// Tổng mức phụ cấp theo loại (0=cố định, 1=theo ngày, 2=theo giờ, 4=theo ca).
   ///
   /// [benefitFallback] đã bỏ dùng trên UI Thiết lập lương (số meal/responsibility
   /// cũ không sửa được). Giữ tham số để tương thích gọi cũ — không nên truyền.
@@ -87,6 +91,57 @@ class AllowanceCalculator {
       }
       final val = _amount(a);
       if (val > 0) total += val;
+    }
+    return total;
+  }
+
+  static List<String> shiftIdsOf(Map<String, dynamic> allowance) {
+    final raw = allowance['shiftIds'] ?? allowance['ShiftIds'];
+    if (raw == null) return const [];
+    if (raw is List) {
+      return raw.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+    }
+    if (raw is String && raw.isNotEmpty) {
+      try {
+        final parsed = jsonDecode(raw);
+        if (parsed is List) {
+          return parsed
+              .map((e) => e.toString())
+              .where((s) => s.isNotEmpty)
+              .toList();
+        }
+      } catch (_) {}
+    }
+    return const [];
+  }
+
+  /// Phụ cấp theo ca: mỗi mức chỉ nhân với số lần chấm đủ đúng ca đã chọn.
+  static double earnedForShifts({
+    required List<Map<String, dynamic>> allowances,
+    required String employeeId,
+    required Iterable<String?> workedShiftIds,
+    bool requireActive = true,
+    String? employeeCode,
+  }) {
+    if (employeeId.isEmpty) return 0;
+    final worked = workedShiftIds
+        .map((id) => id?.toLowerCase() ?? '')
+        .where((id) => id.isNotEmpty)
+        .toList();
+    if (worked.isEmpty) return 0;
+    var total = 0.0;
+    for (final a in allowances) {
+      if (requireActive && a['isActive'] == false) continue;
+      if (parseType(a['type']) != 4) continue;
+      if (!isAssignedToEmployee(a, employeeId, employeeCode: employeeCode)) {
+        continue;
+      }
+      final ids = shiftIdsOf(a).map((id) => id.toLowerCase()).toSet();
+      if (ids.isEmpty) continue;
+      final count = worked.where(ids.contains).length;
+      if (count == 0) continue;
+      final val = _amount(a);
+      if (val > 0) total += val * count;
     }
     return total;
   }

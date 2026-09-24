@@ -31,6 +31,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
   final _currencyFormat = NumberFormat('#,###', 'vi_VN');
   List<Map<String, dynamic>> _allowances = [];
   List<Map<String, dynamic>> _employees = [];
+  List<Map<String, dynamic>> _shifts = [];
   bool _isLoading = true;
   String _searchQuery = '';
   String _selectedType = 'all';
@@ -46,10 +47,15 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       final results = await Future.wait([
         _apiService.getAllowanceSettings(),
         _apiService.getEmployeesForSelect(pageSize: 500),
+        _apiService.getShifts(),
       ]);
       setState(() {
         _allowances = List<Map<String, dynamic>>.from(results[0]);
         _employees = List<Map<String, dynamic>>.from(results[1]);
+        _shifts = (results[2] as List)
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
       });
     } catch (e) {
       debugPrint('Error loading allowances: $e');
@@ -86,6 +92,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
           matchesType = typeValue == 2;
         } else if (_selectedType == '3') {
           matchesType = typeValue == 3;
+        } else if (_selectedType == '4') {
+          matchesType = typeValue == 4;
         }
       }
 
@@ -112,6 +120,21 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     return [];
   }
 
+  String _shiftNamesLabel(Map<String, dynamic> allowance) {
+    final ids = _parseEmployeeIds(allowance['shiftIds']).toSet();
+    if (ids.isEmpty) return 'Chưa chọn ca';
+    final names = <String>[];
+    for (final shift in _shifts) {
+      final id = shift['id']?.toString() ?? '';
+      if (ids.contains(id)) {
+        final name = shift['name']?.toString() ?? '';
+        if (name.isNotEmpty) names.add(name);
+      }
+    }
+    if (names.isEmpty) return '${ids.length} ca';
+    return names.join(', ');
+  }
+
   /// API trả về enum `Type` dưới dạng String ("Fixed", "Daily", "Hourly",
   /// "PerEvent") vì server cấu hình `JsonStringEnumConverter`.
   /// Hand lại về int 0..3 để dùng cho dropdown / counters / icons.
@@ -133,6 +156,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
         case 'per_event':
         case '3':
           return 3;
+        case 'pershift':
+        case 'per_shift':
+        case '4':
+          return 4;
       }
     }
     return 0;
@@ -292,6 +319,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             value: '0', label: 'Cố định'),
                         HrmSettingsFilterChipOption(
                             value: '1', label: 'Theo ngày'),
+                        HrmSettingsFilterChipOption(
+                            value: '4', label: 'Theo ca'),
                       ],
                       selected: _selectedType,
                       onSelected: (v) => setState(() => _selectedType = v),
@@ -417,6 +446,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                         DropdownMenuItem(
                                             value: '1',
                                             child: Text(tr('Theo ngày'))),
+                                        DropdownMenuItem(
+                                            value: '4',
+                                            child: Text(tr('Theo ca làm việc'))),
                                       ],
                                       onChanged: (value) => setState(
                                           () => _selectedType = value ?? 'all'),
@@ -538,6 +570,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                             DropdownMenuItem(
                                                 value: '1',
                                                 child: Text(tr('Theo ngày'))),
+                                            DropdownMenuItem(
+                                                value: '4',
+                                                child:
+                                                    Text(tr('Theo ca làm việc'))),
                                           ],
                                           onChanged: (value) => setState(() =>
                                               _selectedType = value ?? 'all'),
@@ -750,6 +786,13 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
         color: const Color(0xFF7C3AED)
       );
     }
+    if (typeValue == 4) {
+      return (
+        label: 'Theo ca',
+        icon: Icons.schedule,
+        color: const Color(0xFF0F766E)
+      );
+    }
     return (
       label: 'Cố định',
       icon: Icons.lock_outline,
@@ -856,7 +899,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      tr(code.isNotEmpty ? '$code · $empLabel' : empLabel),
+                      tr(code.isNotEmpty
+                          ? '$code · $empLabel${_parseType(allowance['type']) == 4 ? ' · ${_shiftNamesLabel(allowance)}' : ''}'
+                          : '$empLabel${_parseType(allowance['type']) == 4 ? ' · ${_shiftNamesLabel(allowance)}' : ''}'),
                       style: const TextStyle(
                           fontSize: 11, color: Color(0xFF71717A)),
                       maxLines: 1,
@@ -1166,6 +1211,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     final isDaily = typeValue == 1;
     final isHourly = typeValue == 2;
     final isPerEvent = typeValue == 3;
+    final isPerShift = typeValue == 4;
     final amount = _parseAmount(allowance['amount']);
     final isActive = allowance['isActive'] ?? true;
     final empIds = _parseEmployeeIds(allowance['employeeIds']);
@@ -1181,6 +1227,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     } else if (isPerEvent) {
       typeLabel = 'Theo sự kiện';
       typeIcon = Icons.event;
+    } else if (isPerShift) {
+      typeLabel = 'Theo ca';
+      typeIcon = Icons.schedule;
     }
 
     return Container(
@@ -1302,7 +1351,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    tr(typeLabel),
+                    tr(typeValue == 4
+                        ? '$typeLabel · ${_shiftNamesLabel(allowance)}'
+                        : typeLabel),
                     style: const TextStyle(
                       color: Color(0xFF71717A),
                       fontSize: 12,
@@ -1396,6 +1447,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
         : null;
     List<String> selectedEmployeeIds =
         _parseEmployeeIds(allowance?['employeeIds']);
+    List<String> selectedShiftIds =
+        _parseEmployeeIds(allowance?['shiftIds']);
 
     showDialog(
       context: context,
@@ -1410,6 +1463,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   message: tr('Vui lòng điền tên và giá trị phụ cấp'));
               return;
             }
+            if (type == 4 && selectedShiftIds.isEmpty) {
+              appNotification.showWarning(
+                  title: 'Thiếu ca',
+                  message: tr('Phụ cấp theo ca cần chọn ít nhất một ca'));
+              return;
+            }
 
             final data = {
               'name': nameController.text,
@@ -1419,7 +1478,13 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   ? descriptionController.text
                   : null,
               // Gửi tên enum (string) để chắc chắn server parse đúng.
-              'type': const ['Fixed', 'Daily', 'Hourly', 'PerEvent'][type],
+              'type': const [
+                'Fixed',
+                'Daily',
+                'Hourly',
+                'PerEvent',
+                'PerShift'
+              ][type],
               'amount':
                   parseFormattedNumber(amountController.text)?.toDouble() ?? 0,
               'currency': 'VND',
@@ -1430,6 +1495,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               if (endDate != null) 'endDate': endDate!.toIso8601String(),
               if (selectedEmployeeIds.isNotEmpty)
                 'employeeIds': selectedEmployeeIds,
+              if (type == 4) 'shiftIds': selectedShiftIds,
             };
 
             Navigator.pop(context);
@@ -1638,6 +1704,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                     child: Text(tr('Cố định (theo tháng)'))),
                                 DropdownMenuItem(
                                     value: 1, child: Text(tr('Theo ngày công'))),
+                                DropdownMenuItem(
+                                    value: 4,
+                                    child: Text(tr('Theo ca làm việc'))),
                               ],
                               onChanged: (value) {
                                 if (value == null) return;
@@ -1698,6 +1767,45 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   ),
                 ],
               ),
+              if (type == 4) ...[
+                const SizedBox(height: 8),
+                Text(
+                  tr('Chọn ca được hưởng. Mỗi ca một mức. Lương kỳ = mức × số lần chấm đủ ca đó.'),
+                  style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                if (_shifts.isEmpty)
+                  Text(
+                    tr('Chưa có ca. Tạo ca ở Thiết lập ca trước.'),
+                    style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12),
+                  )
+                else
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final shift in _shifts)
+                        FilterChip(
+                          label: Text(tr(shift['name']?.toString() ?? 'Ca')),
+                          selected: selectedShiftIds
+                              .contains(shift['id']?.toString()),
+                          onSelected: (on) {
+                            final id = shift['id']?.toString() ?? '';
+                            if (id.isEmpty) return;
+                            setDialogState(() {
+                              if (on) {
+                                selectedShiftIds = [...selectedShiftIds, id];
+                              } else {
+                                selectedShiftIds = selectedShiftIds
+                                    .where((e) => e != id)
+                                    .toList();
+                              }
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+              ],
               const SizedBox(height: 16),
 
               // Row 3: Thời gian áp dụng
