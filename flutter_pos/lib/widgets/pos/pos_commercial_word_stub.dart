@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_html/flutter_html.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../utils/pos_commercial_editor_js.dart';
@@ -186,20 +185,7 @@ class PosCommercialWordSurfaceState extends State<PosCommercialWordSurface> {
   @override
   Widget build(BuildContext context) {
     if (!widget.editable) {
-      final s = widget.pageSetup;
-      const mm = 3.78;
-      return buildPosRenderedHtml(
-        widget.html,
-        a4Width: true,
-        shrinkWrap: true,
-        pageWidth: widget.pageSetup.cssWidth,
-        bodyPadding: HtmlPaddings.only(
-          top: s.topMm * mm,
-          right: s.rightMm * mm,
-          bottom: s.bottomMm * mm,
-          left: s.leftMm * mm,
-        ),
-      );
+      return buildPosA4PaperPreview(widget.html);
     }
     if (!_useWebView) {
       return TextField(
@@ -294,23 +280,24 @@ String _wrapDoc(String html, bool editable, PosCommercialPageSetup setup) {
 <!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=2">
+<meta name="viewport" content="width=${setup.cssWidth},initial-scale=1">
 <style>
   html,body{margin:0;background:#fff;}
   body{
     font-family:"Times New Roman",Times,serif;
-    font-size:13px;line-height:1.45;color:#111;
+    font-size:13px;line-height:1.35;color:#111;
+    width:${setup.cssWidth}px;max-width:${setup.cssWidth}px;
     padding:${setup.paddingCss};box-sizing:border-box;
-    outline:none;word-wrap:break-word;overflow-wrap:anywhere;overflow-x:hidden;
-    min-height:100%;
+    outline:none;word-wrap:break-word;overflow-wrap:break-word;
+    min-height:${setup.cssHeight}px;
     caret-color:#2563eb;
   }
   body[contenteditable="true"]{cursor:text;}
   h1,h2,h3{text-align:center;margin:8px 0;}
-  h2{font-size:17px;font-weight:bold;text-transform:uppercase;}
-  p{margin:6px 0;}
+  h2{font-size:16px;font-weight:bold;text-transform:uppercase;}
+  p{margin:2px 0;}
   table{border-collapse:collapse;width:100%;max-width:100%;table-layout:fixed;margin:8px 0;}
-  th,td{padding:5px 6px;vertical-align:top;word-wrap:break-word;overflow-wrap:anywhere;}
+  th,td{vertical-align:top;word-wrap:break-word;overflow-wrap:break-word;}
   table[style*="border:1px"] th, table[style*="border:1px"] td,
   th[style*="border:1px"], td[style*="border:1px"]{
     border:1px solid #111;

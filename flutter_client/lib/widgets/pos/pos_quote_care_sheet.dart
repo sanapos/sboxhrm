@@ -134,6 +134,10 @@ Future<void> printPosQuoteSlip(
     try {
       store = await PosSellStoreSettings.load();
     } catch (_) {}
+    List<Map<String, String>>? rendered;
+    if (includeImages) {
+      rendered = await _quoteLineItemsWithImages(api, useLines);
+    }
     try {
       html = bindPosQuotePrintHtmlLocal(
         q,
@@ -143,6 +147,7 @@ Future<void> printPosQuoteSlip(
         storeAddress: store?.address,
         storePhone: store?.phone,
         includeStamp: includeStamp,
+        renderedLines: rendered,
       );
     } catch (_) {
       html = '';
@@ -200,6 +205,7 @@ String bindPosQuotePrintHtmlLocal(
   String? storeAddress,
   String? storePhone,
   bool includeStamp = true,
+  List<Map<String, String>>? renderedLines,
 }) {
   final data = posPrintSampleData(
     documentType: PosPrintDocumentTypes.quote,
@@ -228,7 +234,7 @@ String bindPosQuotePrintHtmlLocal(
       paperSize: PosPrintPaperSizes.a4,
     ),
     data: data,
-    lineItems: _quoteLineItems(lineItems),
+    lineItems: renderedLines ?? _quoteLineItems(lineItems),
     wrapDocument: true,
     paperSize: PosPrintPaperSizes.a4,
   );
@@ -460,39 +466,60 @@ Map<String, String> _quoteHeaderData(
   };
 }
 
+Future<List<Map<String, String>>> loadPosQuoteLineImages(
+  ApiService api,
+  List<PosQuoteLine> lines, {
+  List<String?>? imageUrls,
+}) =>
+    _quoteLineItemsWithImages(api, lines, imageUrls: imageUrls);
+
 Future<List<Map<String, String>>> _quoteLineItemsWithImages(
   ApiService api,
-  List<PosQuoteLine> lines,
-) async {
+  List<PosQuoteLine> lines, {
+  List<String?>? imageUrls,
+}) async {
   final rows = _quoteLineItems(lines);
   for (var i = 0; i < lines.length && i < rows.length; i++) {
     final id = lines[i].productId;
-    if (id == null || id.isEmpty) continue;
-    final tag = await _quoteProductImageTag(api, id);
+    final url = imageUrls != null && i < imageUrls.length ? imageUrls[i] : null;
+    if ((id == null || id.isEmpty) && (url == null || url.trim().isEmpty)) {
+      continue;
+    }
+    final tag = await _quoteProductImageTag(api, id, imageUrl: url);
     if (tag.isNotEmpty) rows[i]['Hinh_Anh'] = tag;
   }
   return rows;
 }
 
-Future<String> _quoteProductImageTag(ApiService api, String productId) async {
-  final path = ApiService.posProductImagePath(productId);
-  final url = api.getFileUrl(path);
-  if (url.isEmpty) return '';
-  final bytes = await PosProductImageCacheManager.instance.loadBytes(
-    url: url,
-    key: 'quote_print_$productId',
-    headers: api.imageAuthHeaders,
-  );
-  if (bytes == null || bytes.length < 32) return '';
-  final mime = bytes.length > 3 &&
-          bytes[0] == 0x89 &&
-          bytes[1] == 0x50 &&
-          bytes[2] == 0x4E
-      ? 'image/png'
-      : 'image/jpeg';
-  final b64 = base64Encode(bytes);
-  return '<img src="data:$mime;base64,$b64" alt="" '
-      'style="width:3cm;height:3cm;object-fit:contain;display:block;margin:auto"/>';
+Future<String> _quoteProductImageTag(
+  ApiService api,
+  String? productId, {
+  String? imageUrl,
+}) async {
+  final paths = <String>[
+    if (imageUrl != null && imageUrl.trim().isNotEmpty) imageUrl.trim(),
+    if (productId != null && productId.isNotEmpty)
+      ApiService.posProductImagePath(productId),
+  ];
+  final cache = PosProductImageCacheManager.instance;
+  for (final path in paths) {
+    final url = api.getFileUrl(path);
+    if (url.isEmpty) continue;
+    final bytes = await cache.loadBytes(
+      url: url,
+      key: 'quote_print_${productId ?? ''}_$path',
+      headers: url.startsWith(ApiService.baseUrl) ? api.imageAuthHeaders : const {},
+    );
+    if (bytes == null || bytes.length < 32) continue;
+    final png = bytes[0] == 0x89 && bytes[1] == 0x50;
+    final jpg = bytes[0] == 0xFF && bytes[1] == 0xD8;
+    if (!png && !jpg) continue;
+    final b64 = base64Encode(bytes);
+    final mime = png ? 'image/png' : 'image/jpeg';
+    return '<img src="data:$mime;base64,$b64" alt="" width="113" height="113" '
+        'style="width:113px;height:113px;object-fit:contain;display:block;margin:auto"/>';
+  }
+  return '';
 }
 
 List<Map<String, String>> _quoteLineItems(List<PosQuoteLine> lines) {

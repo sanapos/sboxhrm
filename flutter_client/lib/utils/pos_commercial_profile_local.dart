@@ -20,17 +20,32 @@ Future<void> saveLocalCommercialProfile(Map<String, dynamic> profile) async {
   await prefs.setString(_key, jsonEncode(profile));
 }
 
-/// API trống (chưa lưu được trên server) thì giữ bản vừa lưu trên máy.
+/// Bản trên máy vừa lưu mà server còn dữ liệu cũ thì giữ bản máy.
 Map<String, dynamic> mergeCommercialProfile(
   Map<String, dynamic> remote,
   Map<String, dynamic> local,
 ) {
   String pick(String a, String b) =>
       (remote[a] ?? remote[b] ?? '').toString().trim();
-  if (pick('companyName', 'CompanyName').isNotEmpty) return remote;
-  if ((local['companyName'] ?? '').toString().trim().isEmpty &&
-      (local['logoPngBase64'] ?? '').toString().trim().isEmpty) {
-    return remote;
+  final localAt = DateTime.tryParse('${local['clientSavedAt'] ?? ''}');
+  final remoteAt = DateTime.tryParse(
+    '${remote['updatedAt'] ?? remote['UpdatedAt'] ?? ''}',
+  );
+  final localWins = localAt != null &&
+      (remoteAt == null || !remoteAt.isAfter(localAt));
+  if (!localWins) {
+    if (pick('companyName', 'CompanyName').isNotEmpty) return remote;
+    if ((local['companyName'] ?? '').toString().trim().isEmpty &&
+        (local['logoPngBase64'] ?? '').toString().trim().isEmpty) {
+      return remote;
+    }
   }
-  return {...remote, ...local};
+  final out = <String, dynamic>{...remote};
+  for (final e in local.entries) {
+    if (e.key == 'clientSavedAt') continue;
+    final v = e.value?.toString().trim() ?? '';
+    if (v.isNotEmpty) out[e.key] = e.value;
+  }
+  if (localAt != null) out['clientSavedAt'] = local['clientSavedAt'];
+  return out;
 }

@@ -31,15 +31,19 @@ public class PosCommercialProfileController(ZKTecoDbContext dbContext) : Authent
         string? StampPngBase64 = null,
         string? LogoPngBase64 = null,
         string? DefaultTerms = null,
-        string? WarrantyPolicy = null);
+        string? WarrantyPolicy = null,
+        DateTime? UpdatedAt = null);
 
     [HttpGet]
     [RequireAnyModulePermission(ModulePermissionAction.View, "SettingsHub", "PosQuotes", "PosSell")]
     public async Task<ActionResult<AppResponse<CommercialProfileDto>>> Get()
     {
+        Response.Headers.CacheControl = "no-store";
         var storeId = RequiredStoreId;
         var p = await dbContext.PosStoreCommercialProfiles.IgnoreQueryFilters().AsNoTracking()
-            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null);
+            .Where(x => x.StoreId == storeId && x.Deleted == null)
+            .OrderByDescending(x => x.UpdatedAt)
+            .FirstOrDefaultAsync();
         if (p == null)
         {
             var store = await dbContext.Stores.AsNoTracking()
@@ -76,7 +80,9 @@ public class PosCommercialProfileController(ZKTecoDbContext dbContext) : Authent
     {
         var storeId = RequiredStoreId;
         var p = await dbContext.PosStoreCommercialProfiles.IgnoreQueryFilters()
-            .FirstOrDefaultAsync(x => x.StoreId == storeId);
+            .Where(x => x.StoreId == storeId)
+            .OrderByDescending(x => x.UpdatedAt)
+            .FirstOrDefaultAsync();
         if (p != null && p.Deleted != null)
         {
             p.Deleted = null;
@@ -127,15 +133,27 @@ public class PosCommercialProfileController(ZKTecoDbContext dbContext) : Authent
             p.WarrantyPolicy = string.IsNullOrWhiteSpace(dto.WarrantyPolicy) ? null : dto.WarrantyPolicy.Trim();
         p.UpdatedAt = DateTime.UtcNow;
         p.UpdatedBy = CurrentUserEmail;
+        p.IsActive = true;
+        var entry = dbContext.Entry(p);
+        if (entry.State == EntityState.Detached)
+            dbContext.PosStoreCommercialProfiles.Attach(p);
+        if (entry.State != EntityState.Added)
+            entry.State = EntityState.Modified;
         await dbContext.SaveChangesAsync();
-        return Ok(AppResponse<CommercialProfileDto>.Success(Map(p)));
+        var saved = await dbContext.PosStoreCommercialProfiles.IgnoreQueryFilters().AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == p.Id && x.Deleted == null);
+        if (saved == null || (saved.CompanyName ?? "") != (p.CompanyName ?? "")
+            || (saved.BankAccountNumber ?? "") != (p.BankAccountNumber ?? ""))
+            return StatusCode(500, AppResponse<CommercialProfileDto>.Fail(
+                "Không ghi được thông tin công ty. Thử lại."));
+        return Ok(AppResponse<CommercialProfileDto>.Success(Map(saved)));
     }
 
     static CommercialProfileDto Map(PosStoreCommercialProfile p) => new(
         p.CompanyName, p.TaxCode, p.Address, p.Phone, p.Email,
         p.BankAccountNumber, p.BankName, p.BankAccountHolder,
         p.LegalRepresentative, p.LegalTitle, p.StampPngBase64, p.LogoPngBase64,
-        p.DefaultTerms, p.WarrantyPolicy);
+        p.DefaultTerms, p.WarrantyPolicy, p.UpdatedAt);
 
     /// <summary>Chuỗi rỗng = xóa. Null = ảnh không hợp lệ.</summary>
     static string? NormalizeStamp(string raw)

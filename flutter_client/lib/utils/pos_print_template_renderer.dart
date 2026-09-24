@@ -371,8 +371,8 @@ String posCommercialStampHtml(String? raw) {
   if (s.startsWith('data:') && comma > 0) s = s.substring(comma + 1).trim();
   s = s.replaceAll(RegExp(r'\s'), '');
   if (s.length < 32) return '<div style="height:64px"></div>';
-  return '<img src="data:image/png;base64,$s" alt="" width="112" height="112" '
-      'style="width:112px;height:112px;object-fit:contain;display:inline-block;vertical-align:middle"/>';
+  return '<img src="data:image/png;base64,$s" alt="" width="96" height="96" '
+      'style="width:96px;height:96px;object-fit:contain;display:block;margin:8px auto 0"/>';
 }
 
 bool _printMoneyIsZero(String? raw) {

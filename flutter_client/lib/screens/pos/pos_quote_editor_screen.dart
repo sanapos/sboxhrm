@@ -373,6 +373,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
       context,
       title: d.title,
       htmlDocument: d.htmlContent,
+      a4Paper: true,
     );
   }
 
@@ -394,7 +395,12 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
     final data = Map<String, dynamic>.from(res['data'] as Map);
     final html = (data['htmlContent'] ?? data['HtmlContent'] ?? '').toString();
     final title = (data['title'] ?? data['Title'] ?? kind).toString();
-    await showPosHtmlPrintDialog(context, title: title, htmlDocument: html);
+    await showPosHtmlPrintDialog(
+      context,
+      title: title,
+      htmlDocument: html,
+      a4Paper: true,
+    );
   }
 
   Future<void> _createKind(String kind) async {
@@ -433,6 +439,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
           context,
           title: doc.title,
           htmlDocument: doc.htmlContent,
+          a4Paper: true,
         );
       }
     }

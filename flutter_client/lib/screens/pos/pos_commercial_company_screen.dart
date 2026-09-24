@@ -88,7 +88,8 @@ class _PosCommercialCompanyScreenState
 
   Future<void> _save() async {
     setState(() => _saving = true);
-    final body = {
+    final body = <String, dynamic>{
+      'clientSavedAt': DateTime.now().toUtc().toIso8601String(),
       'companyName': _company.text.trim(),
       'taxCode': _tax.text.trim(),
       'address': _address.text.trim(),
@@ -107,6 +108,13 @@ class _PosCommercialCompanyScreenState
     final res = await _api.updatePosCommercialProfile(body);
     if (!mounted) return;
     setState(() => _saving = false);
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      final saved = Map<String, dynamic>.from(res['data'] as Map);
+      final local = await loadLocalCommercialProfile();
+      saved['clientSavedAt'] =
+          saved['updatedAt'] ?? saved['UpdatedAt'] ?? body['clientSavedAt'];
+      await saveLocalCommercialProfile({...local, ...saved});
+    }
     if (res['isSuccess'] != true) {
       NotificationOverlayManager().showError(
         title: 'Không lưu được',

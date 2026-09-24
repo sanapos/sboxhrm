@@ -99,7 +99,7 @@ class PosCommercialPageSetup {
     final body = html
         .replaceFirst(RegExp(r'<!--POS_A4_V\d+[^>]*-->'), '')
         .replaceFirst(RegExp(r'<!--POS_PAGE[^>]*-->'), '');
-    return '<!--POS_A4_V8 paper="$paperSize" mt="${_fmt(topMm)}" '
+    return '<!--POS_A4_V9 paper="$paperSize" mt="${_fmt(topMm)}" '
         'mr="${_fmt(rightMm)}" mb="${_fmt(bottomMm)}" '
         'ml="${_fmt(leftMm)}"-->$body';
   }
@@ -285,40 +285,40 @@ String _sheetHtml(String title, String paperSize) {
 const _itemTable = '''
 <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin:8px 0;font-size:12px;line-height:1.3">
 <colgroup>
-<col width="46"/><col width="293"/><col width="62"/><col width="62"/>
-<col width="123"/><col width="123"/><col width="61"/>
+<col width="46"/><col width="216"/><col width="62"/><col width="62"/>
+<col width="108"/><col width="108"/><col width="62"/><col width="108"/>
 </colgroup>
 <thead><tr style="background:#f3f4f6">
 <th style="width:6%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>STT</b></th>
-<th style="width:12%;border:1px solid #111;padding:4px 2px;text-align:center"><b>Ảnh</b></th>
-<th style="width:26%;border:1px solid #111;padding:4px 4px;text-align:left"><b>Tên hàng</b></th>
+<th style="width:28%;border:1px solid #111;padding:4px 4px;text-align:left"><b>Tên hàng</b></th>
 <th style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>ĐVT</b></th>
 <th style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>SL</b></th>
-<th style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;white-space:nowrap"><b>Đơn giá</b></th>
-<th style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;white-space:nowrap"><b>Thành tiền</b></th>
+<th style="width:14%;border:1px solid #111;padding:5px 3px;text-align:right;white-space:nowrap"><b>Đơn giá</b></th>
+<th style="width:14%;border:1px solid #111;padding:5px 3px;text-align:right;white-space:nowrap"><b>Thành tiền</b></th>
 <th style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>BH</b></th>
+<th style="width:14%;border:1px solid #111;padding:4px 2px;text-align:center"><b>Ảnh</b></th>
 </tr></thead>
 <tbody><!--BEGIN_ITEMS-->
 <tr>
 <td style="width:6%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle">{STT}</td>
-<td style="width:12%;border:1px solid #111;padding:3px;text-align:center;vertical-align:middle">{Hinh_Anh}</td>
-<td style="width:26%;border:1px solid #111;padding:5px 4px;text-align:left;vertical-align:middle">{Ten_Hang_Hoa}</td>
+<td style="width:28%;border:1px solid #111;padding:5px 4px;text-align:left;vertical-align:middle">{Ten_Hang_Hoa}</td>
 <td style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle">{Don_Vi_Tinh}</td>
 <td style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle">{So_Luong}</td>
-<td style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;vertical-align:middle;white-space:nowrap">{Don_Gia}</td>
-<td style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;vertical-align:middle;white-space:nowrap">{Thanh_Tien}</td>
-<td style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle;white-space:nowrap">{Bao_Hanh}</td>
+<td style="width:14%;border:1px solid #111;padding:5px 3px;text-align:right;vertical-align:middle">{Don_Gia}</td>
+<td style="width:14%;border:1px solid #111;padding:5px 3px;text-align:right;vertical-align:middle">{Thanh_Tien}</td>
+<td style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle">{Bao_Hanh}</td>
+<td style="width:14%;border:1px solid #111;padding:3px;text-align:center;vertical-align:middle">{Hinh_Anh}</td>
 </tr><!--END_ITEMS-->
 </tbody>
 <tfoot>
-<tr><td colspan="6" style="border:1px solid #111;padding:5px 6px;text-align:right">Tổng tiền hàng</td>
-<td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap"><b>{Tong_Tien_Hang}</b></td></tr>
-<tr><td colspan="6" style="border:1px solid #111;padding:5px 6px;text-align:right">Chiết khấu</td>
-<td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap">{Chiet_Khau_Hoa_Don}</td></tr>
-<tr><td colspan="6" style="border:1px solid #111;padding:5px 6px;text-align:right">Thuế GTGT</td>
-<td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap">{Tien_Thue}</td></tr>
-<tr style="background:#f8fafc"><td colspan="6" style="border:1px solid #111;padding:6px 6px;text-align:right"><b>TỔNG CỘNG</b></td>
-<td colspan="2" style="border:1px solid #111;padding:6px 6px;text-align:right;white-space:nowrap"><b>{Tong_Cong}</b></td></tr>
+<tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Tổng tiền hàng</td>
+<td colspan="3" style="border:1px solid #111;padding:5px 6px;text-align:right"><b>{Tong_Tien_Hang}</b></td></tr>
+<tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Chiết khấu</td>
+<td colspan="3" style="border:1px solid #111;padding:5px 6px;text-align:right">{Chiet_Khau_Hoa_Don}</td></tr>
+<tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Thuế GTGT</td>
+<td colspan="3" style="border:1px solid #111;padding:5px 6px;text-align:right">{Tien_Thue}</td></tr>
+<tr style="background:#f8fafc"><td colspan="5" style="border:1px solid #111;padding:6px 6px;text-align:right"><b>TỔNG CỘNG</b></td>
+<td colspan="3" style="border:1px solid #111;padding:6px 6px;text-align:right"><b>{Tong_Cong}</b></td></tr>
 </tfoot></table>''';
 
 /// Bảng nghiệm thu 6 cột, không rowspan (tránh lệch cột trên điện thoại).
@@ -430,11 +430,11 @@ Hợp đồng lập thành 02 bản, mỗi bên giữ 01 bản, có giá trị p
 <table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i>
-<div style="height:48px"></div>
+<br/><br/><br/><br/>
 <b>{Nguoi_Dai_Dien_Khach}</b></td>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN BÊN B</b><br/><i>(Ký, ghi rõ họ tên)</i>
-<div style="line-height:1">{Con_Dau}</div>
+<div style="text-align:center">{Con_Dau}</div>
 <b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
 </tr></table></div>''';
 
@@ -483,11 +483,11 @@ Tổng giá trị quyết toán: <b>{Tong_Cong} VNĐ</b><br/>
 <table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN CHỦ ĐẦU TƯ</b><br/>{Chuc_Vu_Khach}
-<div style="height:48px"></div>
+<br/><br/><br/><br/>
 <b>{Nguoi_Dai_Dien_Khach}</b></td>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN NHÀ THẦU THI CÔNG</b><br/>{Chuc_Vu_Cua_Hang}
-<div style="line-height:1">{Con_Dau}</div>
+<div style="text-align:center">{Con_Dau}</div>
 <b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
 </tr></table></div>''';
 
@@ -523,11 +523,11 @@ Ghi chú: {Ghi_Chu}</p>
 <table style="width:100%;border-collapse:collapse;border:none;margin-top:32px"><colgroup><col width="385"/><col width="385"/></colgroup><tr>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>BÊN NHẬN (Chủ đầu tư)</b><br/><i>(Ký, ghi rõ họ tên)</i>
-<div style="height:48px"></div>
+<br/><br/><br/><br/>
 <b>{Nguoi_Dai_Dien_Khach}</b></td>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>BÊN GIAO (Nhà thầu)</b><br/><i>(Ký, ghi rõ họ tên)</i>
-<div style="line-height:1">{Con_Dau}</div>
+<div style="text-align:center">{Con_Dau}</div>
 <b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
 </tr></table></div>''';
 
@@ -562,7 +562,7 @@ $_itemTable
 <td style="width:50%"></td>
 <td style="width:50%;text-align:center;vertical-align:top">
 <b>ĐẠI DIỆN {Ten_Cong_Ty}</b><br/>{Chuc_Vu_Cua_Hang}
-<div style="line-height:1">{Con_Dau}</div>
+<div style="text-align:center">{Con_Dau}</div>
 <b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
 </tr></table></div>''';
 
@@ -612,19 +612,23 @@ $_itemTable
 </div>
 <p style="margin:4px 0 0">Rất mong nhận được sự hợp tác của Quý khách.<br/><b>Trân trọng.</b></p>
 
-<table style="width:100%;border-collapse:collapse;margin-top:14px"><tr>
-<td style="width:50%;text-align:center;vertical-align:top;padding:0 8px">
+<table style="width:100%;border-collapse:collapse;margin-top:16px"><tr>
+<td style="width:50%;text-align:center;vertical-align:bottom;padding:0 8px;border:none">
 <div style="font-weight:700">KHÁCH HÀNG</div>
 <div style="font-size:12px;font-style:italic">(Ký, ghi rõ họ tên)</div>
-<div style="height:64px"></div>
-<div style="font-weight:700">{Nguoi_Dai_Dien_Khach}</div>
 </td>
-<td style="width:50%;text-align:center;vertical-align:top;padding:0 8px">
+<td style="width:50%;text-align:center;vertical-align:bottom;padding:0 8px;border:none">
 <div style="font-weight:700">ĐẠI DIỆN CÔNG TY</div>
 <div style="font-size:12px;font-style:italic">{Chuc_Vu_Cua_Hang}</div>
-<div style="text-align:center">{Con_Dau}</div>
-<div style="font-weight:700">{Nguoi_Dai_Dien_Cua_Hang}</div>
 </td>
+</tr>
+<tr>
+<td style="height:100px;border:none"></td>
+<td style="height:100px;text-align:center;vertical-align:middle;border:none">{Con_Dau}</td>
+</tr>
+<tr>
+<td style="text-align:center;padding:6px 8px 0;border:none"><div style="font-weight:700">{Nguoi_Dai_Dien_Khach}</div></td>
+<td style="text-align:center;padding:6px 8px 0;border:none"><div style="font-weight:700">{Nguoi_Dai_Dien_Cua_Hang}</div></td>
 </tr></table></div>''';
   }
 }
@@ -639,7 +643,7 @@ bool posCommercialHtmlLooksStale(String html) {
   // BBG mẫu thật không có quốc hiệu — mẫu V5 2 cột còn gắn.
   if (html.contains('BẢNG BÁO GIÁ') && html.contains(motto)) return true;
   if (html.contains('BẢNG BÁO GIÁ') && !html.contains('{Hinh_Anh}')) return true;
-  return !RegExp(r'<!--POS_A4_V(?:[8-9]|\d{2,})', caseSensitive: false)
+  return !RegExp(r'<!--POS_A4_V(?:9|\d{2,})', caseSensitive: false)
       .hasMatch(html);
 }
 

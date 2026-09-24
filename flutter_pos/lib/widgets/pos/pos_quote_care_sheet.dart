@@ -134,6 +134,10 @@ Future<void> printPosQuoteSlip(
     try {
       store = await PosSellStoreSettings.load();
     } catch (_) {}
+    List<Map<String, String>>? rendered;
+    if (includeImages) {
+      rendered = await _quoteLineItemsWithImages(api, useLines);
+    }
     try {
       html = bindPosQuotePrintHtmlLocal(
         q,
@@ -143,6 +147,7 @@ Future<void> printPosQuoteSlip(
         storeAddress: store?.address,
         storePhone: store?.phone,
         includeStamp: includeStamp,
+        renderedLines: rendered,
       );
     } catch (_) {
       html = '';
@@ -200,6 +205,7 @@ String bindPosQuotePrintHtmlLocal(
   String? storeAddress,
   String? storePhone,
   bool includeStamp = true,
+  List<Map<String, String>>? renderedLines,
 }) {
   final data = posPrintSampleData(
     documentType: PosPrintDocumentTypes.quote,
@@ -228,7 +234,7 @@ String bindPosQuotePrintHtmlLocal(
       paperSize: PosPrintPaperSizes.a4,
     ),
     data: data,
-    lineItems: _quoteLineItems(lineItems),
+    lineItems: renderedLines ?? _quoteLineItems(lineItems),
     wrapDocument: true,
     paperSize: PosPrintPaperSizes.a4,
   );
@@ -491,8 +497,8 @@ Future<String> _quoteProductImageTag(ApiService api, String productId) async {
       ? 'image/png'
       : 'image/jpeg';
   final b64 = base64Encode(bytes);
-  return '<img src="data:$mime;base64,$b64" alt="" '
-      'style="width:3cm;height:3cm;object-fit:contain;display:block;margin:auto"/>';
+  return '<img src="data:$mime;base64,$b64" alt="" width="113" height="113" '
+      'style="width:113px;height:113px;object-fit:contain;display:block;margin:auto"/>';
 }
 
 List<Map<String, String>> _quoteLineItems(List<PosQuoteLine> lines) {

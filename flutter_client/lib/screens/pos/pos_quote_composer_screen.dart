@@ -737,6 +737,27 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       if (!mounted) return null;
       setState(() => _saving = false);
       if (res['isSuccess'] != true || res['data'] is! Map) {
+        final msg = res['message']?.toString() ?? '';
+        if (printAfter && quoteId != null && msg.contains('khóa')) {
+          final got = await _api.getPosQuote(quoteId);
+          if (!mounted) return null;
+          setState(() => _saving = false);
+          if (got['isSuccess'] == true && got['data'] is Map) {
+            final locked = PosQuote.fromJson(
+                Map<String, dynamic>.from(got['data'] as Map));
+            await _openQuotePrint(
+              locked,
+              _cart.map((r) => r.line).toList(),
+              imageUrls: [for (final r in _cart) r.product?.imageUrl],
+            );
+            if (!mounted) return null;
+            NotificationOverlayManager().showWarning(
+              title: 'Báo giá đã khóa',
+              message: 'Không lưu sửa đổi. Đã mở phiếu in.',
+            );
+            return locked;
+          }
+        }
         NotificationOverlayManager().showError(
           title: quoteId != null ? 'Không lưu được' : 'Không tạo được',
           message: res['message']?.toString() ?? tr('Lưu thất bại'),
@@ -785,40 +806,11 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           message: '${q.quoteNo} · $displayName',
         );
       }
-      if (printAfter) {
-        final cartLines = _cart.map((r) => r.line).toList();
-        var html = '';
-        try {
-          Map<String, dynamic>? profile;
-          try {
-            final profileRes = await ApiService().getPosCommercialProfile();
-            if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
-              profile = Map<String, dynamic>.from(profileRes['data'] as Map);
-            }
-          } catch (_) {}
-          html = bindPosQuotePrintHtmlLocal(
-            q,
-            cartLines,
-            commercialProfile: profile,
-          );
-        } catch (_) {
-          html = '';
-        }
-        if (html.trim().isEmpty || html.contains('XEM TRƯỚC')) {
-          final buf = StringBuffer('<html><body><h2>BÁO GIÁ ${q.quoteNo}</h2><table>');
-          for (final l in cartLines) {
-            buf.write(
-                '<tr><td>${l.productName}</td><td>${l.qty}</td><td>${l.unitPrice.round()}</td></tr>');
-          }
-          buf.write('</table></body></html>');
-          html = buf.toString();
-        }
-        if (!mounted) return q;
-        await showPosHtmlPrintDialog(
-          context,
-          title: 'BÁO GIÁ',
-          htmlDocument: html,
-          a4Paper: true,
+        if (printAfter && mounted) {
+        await _openQuotePrint(
+          q,
+          _cart.map((r) => r.line).toList(),
+          imageUrls: [for (final r in _cart) r.product?.imageUrl],
         );
       }
       if (popAfter && mounted) Navigator.of(context).pop(true);
@@ -862,6 +854,45 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       r.line.id = leftover[i].id;
       leftover.removeAt(i);
     }
+  }
+
+  Future<void> _openQuotePrint(
+    PosQuote q,
+    List<PosQuoteLine> lines, {
+    List<String?>? imageUrls,
+  }) async {
+    var html = '';
+    try {
+      Map<String, dynamic>? profile;
+      try {
+        final profileRes = await ApiService().getPosCommercialProfile();
+        if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
+          profile = Map<String, dynamic>.from(profileRes['data'] as Map);
+        }
+      } catch (_) {}
+      final rendered = _includeImages
+          ? await loadPosQuoteLineImages(
+              ApiService(),
+              lines,
+              imageUrls: imageUrls,
+            )
+          : null;
+      html = bindPosQuotePrintHtmlLocal(
+        q,
+        lines,
+        commercialProfile: profile,
+        renderedLines: rendered,
+      );
+    } catch (_) {
+      html = '';
+    }
+    if (!mounted || html.trim().isEmpty) return;
+    await showPosHtmlPrintDialog(
+      context,
+      title: 'BÁO GIÁ',
+      htmlDocument: html,
+      a4Paper: true,
+    );
   }
 
   Future<void> _save() =>

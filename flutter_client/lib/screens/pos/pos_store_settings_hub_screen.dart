@@ -226,7 +226,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       ),
     );
     await next.save();
-    final profileBody = {
+    final profileBody = <String, dynamic>{
+      'clientSavedAt': DateTime.now().toUtc().toIso8601String(),
       'companyName': _companyCtrl.text.trim(),
       'taxCode': _taxCtrl.text.trim(),
       'address': _companyAddressCtrl.text.trim(),
@@ -246,6 +247,12 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     final profileRes = await ApiService().updatePosCommercialProfile(profileBody);
     if (!mounted) return;
     setState(() => _saving = false);
+    if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
+      final saved = Map<String, dynamic>.from(profileRes['data'] as Map);
+      saved['clientSavedAt'] =
+          saved['updatedAt'] ?? saved['UpdatedAt'] ?? profileBody['clientSavedAt'];
+      await saveLocalCommercialProfile(saved);
+    }
     if (profileRes['isSuccess'] != true) {
       NotificationOverlayManager().showWarning(
         title: 'Đã lưu cửa hàng',

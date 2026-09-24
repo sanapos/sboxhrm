@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_html/flutter_html.dart';
 
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -93,6 +94,82 @@ Widget buildPosRenderedHtml(
 const kPosA4CssWidth = 794.0;
 const kPosA4CssHeight = kPosA4CssWidth * 297 / 210;
 
+/// Dàn con ở khổ thật, vẽ thu/phóng đều. Chiều khung = khổ thật × tỷ lệ, không cắt chữ.
+class PosA4UniformScale extends SingleChildRenderObjectWidget {
+  const PosA4UniformScale({super.key, required this.scale, required super.child});
+
+  final double scale;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderPosA4UniformScale(scale);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderPosA4UniformScale renderObject,
+  ) {
+    renderObject.scale = scale;
+  }
+}
+
+class _RenderPosA4UniformScale extends RenderProxyBox {
+  _RenderPosA4UniformScale(this._scale);
+
+  double _scale;
+
+  double get scale => _scale;
+
+  set scale(double value) {
+    if (value == _scale) return;
+    _scale = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.smallest;
+      return;
+    }
+    child.layout(const BoxConstraints(), parentUsesSize: true);
+    size = constraints.constrain(Size(
+      child.size.width * _scale,
+      child.size.height * _scale,
+    ));
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null || _scale == 1) {
+      super.paint(context, offset);
+      return;
+    }
+    context.pushTransform(
+      needsCompositing,
+      offset,
+      Matrix4.diagonal3Values(_scale, _scale, 1),
+      (context, offset) => child.paint(context, offset),
+    );
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    if (_scale == 1) {
+      return super.hitTestChildren(result, position: position);
+    }
+    return result.addWithPaintTransform(
+      transform: Matrix4.diagonal3Values(_scale, _scale, 1),
+      position: position,
+      hitTest: (result, position) {
+        return super.hitTestChildren(result, position: position);
+      },
+    );
+  }
+}
+
 /// Tờ A4/A5: một dải giấy liền, vạch cắt trang — không nhân bản widget (phóng to không lẫn).
 Widget buildPosA4ScaledSheet({
   Widget? child,
@@ -145,7 +222,6 @@ class PosA4PaginatedSheet extends StatelessWidget {
             child: Material(
               color: Colors.white,
               elevation: 5,
-              clipBehavior: Clip.hardEdge,
               child: CustomPaint(
                 foregroundPainter: _A4PageMarksPainter(pageHeight: pageHeight),
                 child: ConstrainedBox(
@@ -159,14 +235,7 @@ class PosA4PaginatedSheet extends StatelessWidget {
               ),
             ),
           );
-          final scaled = SizedBox(
-            width: viewW,
-            child: FittedBox(
-              fit: BoxFit.fitWidth,
-              alignment: Alignment.topCenter,
-              child: paper,
-            ),
-          );
+          final scaled = PosA4UniformScale(scale: scale, child: paper);
           final body = Padding(
             padding: pad,
             child: Align(alignment: Alignment.topCenter, child: scaled),
@@ -273,7 +342,25 @@ HtmlPaddings _pageSetupPadding(PosCommercialPageSetup setup) {
   );
 }
 
-/// Tờ A4: zoom ≤ 0 = cả trang; > 0 = khổ thật (cuộn 2 chiều).
+/// Luôn dàn trang đúng khổ A4 (794px). [zoom] chỉ thu cả tờ, không xếp lại chữ.
+Widget buildPosA4ZoomedPage(String html, {double zoom = 1}) {
+  final setup = PosCommercialPageSetup.parse(html);
+  final scale = zoom <= 0 ? 1.0 : zoom.clamp(0.2, 3.0);
+  final page = buildPosRenderedHtml(
+    stripPosHtmlDocumentShell(html),
+    bodyFontSize: 13,
+    tableFontSize: 12,
+    a4Width: true,
+    shrinkWrap: true,
+    pageWidth: setup.cssWidth,
+    bodyPadding: _pageSetupPadding(setup),
+  );
+  return PosA4UniformScale(
+    scale: scale,
+    child: SizedBox(width: setup.cssWidth, child: page),
+  );
+}
+
 Widget buildPosA4PaperPreview(String html, {double zoom = 0}) {
   final setup = PosCommercialPageSetup.parse(html);
   return buildPosA4ScaledSheet(
@@ -429,7 +516,10 @@ class PosPrintImageExtension extends HtmlExtension {
     } else {
       child = const SizedBox.shrink();
     }
-    return WidgetSpan(alignment: PlaceholderAlignment.middle, child: child);
+    return WidgetSpan(
+      alignment: PlaceholderAlignment.top,
+      child: child,
+    );
   }
 
   static Uint8List? _dataImageBytes(String src) {
@@ -503,18 +593,68 @@ class _PosHtmlTableView extends StatelessWidget {
     return rows;
   }
 
+  /// % giữ tỷ lệ. px (logo 88px) không được thành flex 88 cạnh cột không khai báo (flex 1).
+  Map<int, TableColumnWidth> _columnFlexWidths() {
+    final cols = _directCols(table);
+    final cells = <dynamic>[];
+    if (cols.isNotEmpty) {
+      cells.addAll(cols);
+    } else {
+      final rows = _directRows(table);
+      if (rows.isNotEmpty) {
+        for (final cell in rows.first.children) {
+          final n = '${cell.localName}';
+          if (n == 'td' || n == 'th') cells.add(cell);
+        }
+      }
+    }
+    final px = List<double?>.filled(cells.length, null);
+    final pct = List<double?>.filled(cells.length, null);
+    for (var i = 0; i < cells.length; i++) {
+      final style = '${cells[i].attributes['style'] ?? ''}';
+      final m = _widthRe.firstMatch(style);
+      final attr = cells[i].attributes['width']?.toString();
+      final unit = m?.group(2);
+      final n = double.tryParse(m?.group(1) ?? attr ?? '');
+      if (n == null || n <= 0) continue;
+      if (unit == '%') {
+        pct[i] = n;
+      } else {
+        px[i] = n;
+      }
+    }
+    final widths = <int, TableColumnWidth>{};
+    final hasPct = pct.any((v) => v != null);
+    final hasPx = px.any((v) => v != null);
+    if (!hasPct && !hasPx) return widths;
+    if (hasPct && !hasPx) {
+      final sum = pct.fold<double>(0, (a, v) => a + (v ?? 0));
+      final open = pct.where((v) => v == null).length;
+      final share = open == 0 ? 0.0 : math.max(1.0, 100 - sum) / open;
+      for (var i = 0; i < pct.length; i++) {
+        widths[i] = FlexColumnWidth(pct[i] ?? share);
+      }
+      return widths;
+    }
+    final pxSum = px.fold<double>(0, (a, v) => a + (v ?? 0));
+    final open = px.where((v) => v == null).length;
+    final share = open == 0
+        ? 0.0
+        : math.max(40.0, kPosA4CssWidth - pxSum) / open;
+    for (var i = 0; i < px.length; i++) {
+      final asPct = pct[i];
+      if (asPct != null) {
+        widths[i] = FlexColumnWidth(asPct / 100 * kPosA4CssWidth);
+      } else {
+        widths[i] = FlexColumnWidth(px[i] ?? share);
+      }
+    }
+    return widths;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final cols = _directCols(table);
-    final widths = <int, TableColumnWidth>{};
-    for (var i = 0; i < cols.length; i++) {
-      final raw = cols[i].attributes['width'] ??
-          _widthRe.firstMatch(cols[i].attributes['style'] ?? '')?.group(1);
-      final n = double.tryParse(raw ?? '');
-      if (n == null || n <= 0) continue;
-      // Luôn flex — width="385" px làm bảng rộng hơn khổ A4 (lề 12mm).
-      widths[i] = FlexColumnWidth(n);
-    }
+    final widths = _columnFlexWidths();
 
     final allRows = _directRows(table);
     if (allRows.isEmpty) return const SizedBox.shrink();
@@ -533,7 +673,7 @@ class _PosHtmlTableView extends StatelessWidget {
     }
 
     final colCount = math.max<int>(
-      (cols.length as num).toInt(),
+      widths.length,
       bodyRows.fold<int>(
           0, (m, r) => math.max(m, _expandedCells(r, bordered: bordered).length)),
     );
@@ -682,6 +822,7 @@ class _PosHtmlTableView extends StatelessWidget {
         inner.contains('<h3') ||
         inner.contains('<div') ||
         inner.contains('<table') ||
+        inner.contains('<img') ||
         inner.contains('<br');
     if (rich) {
       return Padding(

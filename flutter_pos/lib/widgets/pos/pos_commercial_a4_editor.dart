@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -24,7 +26,7 @@ class PosCommercialA4Editor extends StatefulWidget {
     this.immersive = false,
     this.compact = false,
     this.initialTab = 0,
-    this.initialZoom = 0,
+    this.initialZoom = 1,
     this.paperSize = PosPrintPaperSizes.a4,
     this.onPageSetupChanged,
     this.snapshot = false,
@@ -314,8 +316,11 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     );
   }
 
+  double get _viewZoom => _zoom <= 0 ? 1 : _zoom.clamp(0.25, 2);
+
   Widget _zoomSlider() {
-    final label = _zoom <= 0 ? tr('Vừa rộng') : '${(_zoom * 100).round()}%';
+    final zoom = _viewZoom;
+    final label = '${(zoom * 100).round()}%';
     return Material(
       color: const Color(0xFFF8FAFC),
       child: Padding(
@@ -323,19 +328,19 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
         child: Row(
           children: [
             IconButton(
-              tooltip: tr('Vừa rộng giấy'),
+              tooltip: tr('100% — đúng khổ A4'),
               visualDensity: VisualDensity.compact,
-              onPressed: () => setState(() => _zoom = 0),
+              onPressed: () => setState(() => _zoom = 1),
               icon: const Icon(Icons.fit_screen, size: 20),
             ),
             Expanded(
               child: Slider(
-                min: 0,
+                min: 0.25,
                 max: 2,
-                divisions: 20,
-                value: _zoom <= 0 ? 0 : _zoom.clamp(0.2, 2),
+                divisions: 7,
+                value: zoom,
                 label: label,
-                onChanged: (v) => setState(() => _zoom = v < 0.12 ? 0 : v),
+                onChanged: (v) => setState(() => _zoom = v),
               ),
             ),
             SizedBox(
@@ -907,25 +912,27 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   void _insertItemsTable() {
     _insert(
       '<table style="width:100%;border-collapse:collapse;table-layout:fixed;margin:8px 0;font-size:11px">'
-      '<colgroup><col width="46"/><col width="293"/><col width="62"/><col width="62"/><col width="123"/><col width="123"/><col width="61"/></colgroup>'
+      '<colgroup><col width="46"/><col width="216"/><col width="62"/><col width="62"/><col width="108"/><col width="108"/><col width="62"/><col width="108"/></colgroup>'
       '<thead><tr style="background:#f3f4f6">'
       '<th style="width:6%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">STT</th>'
-      '<th style="width:38%;border:1px solid #111;padding:4px 4px;text-align:left">Tên hàng</th>'
+      '<th style="width:28%;border:1px solid #111;padding:4px 4px;text-align:left">Tên hàng</th>'
       '<th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">ĐVT</th>'
       '<th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">SL</th>'
-      '<th style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">Đơn giá</th>'
-      '<th style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">Thành tiền</th>'
+      '<th style="width:14%;border:1px solid #111;padding:4px 3px;text-align:right">Đơn giá</th>'
+      '<th style="width:14%;border:1px solid #111;padding:4px 3px;text-align:right">Thành tiền</th>'
       '<th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">BH</th>'
+      '<th style="width:14%;border:1px solid #111;padding:4px 2px;text-align:center">Ảnh</th>'
       '</tr></thead>'
       '<tbody><!--BEGIN_ITEMS-->'
       '<tr>'
       '<td style="width:6%;border:1px solid #111;padding:4px 2px;text-align:center">{STT}</td>'
-      '<td style="width:38%;border:1px solid #111;padding:4px 4px">{Ten_Hang_Hoa}</td>'
+      '<td style="width:28%;border:1px solid #111;padding:4px 4px">{Ten_Hang_Hoa}</td>'
       '<td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center">{Don_Vi_Tinh}</td>'
       '<td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center">{So_Luong}</td>'
-      '<td style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">{Don_Gia}</td>'
-      '<td style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">{Thanh_Tien}</td>'
+      '<td style="width:14%;border:1px solid #111;padding:4px 3px;text-align:right">{Don_Gia}</td>'
+      '<td style="width:14%;border:1px solid #111;padding:4px 3px;text-align:right">{Thanh_Tien}</td>'
       '<td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center">{Bao_Hanh}</td>'
+      '<td style="width:14%;border:1px solid #111;padding:3px;text-align:center">{Hinh_Anh}</td>'
       '</tr><!--END_ITEMS--></tbody></table>',
     );
   }
@@ -1120,33 +1127,11 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   }
 
   Widget _paperCanvas({required bool preview}) {
-    if (_compact && !preview) {
-      return ColoredBox(
-        color: const Color(0xFFE5E7EB),
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Material(
-            color: Colors.white,
-            elevation: 6,
-            child: PosCommercialWordSurface(
-              key: _surfaceKey,
-              html: _html,
-              editable: true,
-              pageSetup: _setup,
-              onChanged: _emit,
-            ),
-          ),
-        ),
-      );
-    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final pad = 20.0;
-        final availW = (constraints.maxWidth - pad * 2).clamp(180.0, 1600.0);
-        final paperW = _zoom <= 0
-            ? availW
-            : (_setup.cssWidth * _zoom).clamp(240.0, 2000.0);
-        final paperH = paperW * (_setup.cssHeight / _setup.cssWidth);
+        final scale = _viewZoom;
+        final paperW = _setup.cssWidth * scale;
         return ColoredBox(
           color: const Color(0xFFE5E7EB),
           child: Scrollbar(
@@ -1167,30 +1152,38 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _pageRuler(paperW),
-                        SizedBox(
-                      width: paperW,
-                      height: paperH,
-                      child: Material(
-                        color: Colors.white,
-                        elevation: 8,
-                        shadowColor: Colors.black26,
-                        child: _htmlEditorOpen
-                            ? const ColoredBox(color: Colors.white)
-                            : PosCommercialWordSurface(
-                          key: preview ? null : _surfaceKey,
-                          html: preview ? _previewHtml : _html,
-                          editable: !preview,
-                          pageSetup: _setup,
-                          onChanged: preview ? (_) {} : _emit,
-                          onWheel: _onPageWheel,
-                          onContentHeight: (h) {
-                            final next = h > paperH ? h : paperH;
-                            if ((next - _contentH).abs() < 12) return;
-                            setState(() => _contentH = next);
-                          },
-                        ),
-                      ),
-                    ),
+                        if (preview && !_htmlEditorOpen)
+                          buildPosA4ZoomedPage(_previewHtml, zoom: scale)
+                        else
+                          PosA4UniformScale(
+                            scale: scale,
+                            child: SizedBox(
+                              width: _setup.cssWidth,
+                              height: math.max(
+                                _setup.cssHeight,
+                                _contentH <= 0 ? _setup.cssHeight : _contentH,
+                              ),
+                              child: Material(
+                                color: Colors.white,
+                                elevation: 8,
+                                shadowColor: Colors.black26,
+                                child: _htmlEditorOpen
+                                    ? const ColoredBox(color: Colors.white)
+                                    : PosCommercialWordSurface(
+                                        key: _surfaceKey,
+                                        html: _html,
+                                        editable: true,
+                                        pageSetup: _setup,
+                                        onChanged: _emit,
+                                        onWheel: _onPageWheel,
+                                        onContentHeight: (h) {
+                                          if ((h - _contentH).abs() < 12) return;
+                                          setState(() => _contentH = h);
+                                        },
+                                      ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),

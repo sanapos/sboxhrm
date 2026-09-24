@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../widgets/pos/pos_html_preview_stub.dart'
@@ -10,6 +9,14 @@ import '../widgets/pos/pos_html_preview_stub.dart'
 import 'pos_print_template_defaults.dart';
 
 const _blue = Color(0xFF2563EB);
+
+bool _pdfBytesOk(Uint8List? bytes) {
+  if (bytes == null || bytes.length < 5) return false;
+  return bytes[0] == 0x25 &&
+      bytes[1] == 0x50 &&
+      bytes[2] == 0x44 &&
+      bytes[3] == 0x46;
+}
 
 /// In / chia sẻ PDF (Times + khổ/lề trong HTML). Không share raw HTML.
 Future<bool> printOrSharePosHtml({
@@ -36,42 +43,23 @@ Future<bool> printOrSharePosHtml({
     if (info.canConvertHtml) {
       bytes = await Printing.convertHtml(html: html, format: format);
     }
-    if (bytes != null && bytes.isNotEmpty) {
-      if (info.canPrint) {
-        for (var i = 0; i < copies.clamp(1, 10); i++) {
-          await Printing.layoutPdf(
-            name: title,
-            format: format,
-            onLayout: (_) async => bytes!,
-          );
-        }
-        return true;
-      }
-      if (info.canShare) {
-        await Printing.sharePdf(bytes: bytes, filename: '$title.pdf');
-        return true;
-      }
-    }
+    if (!_pdfBytesOk(bytes)) return false;
+    final pdf = bytes!;
     if (info.canPrint) {
-      await Printing.layoutPdf(
-        name: title,
-        format: format,
-        onLayout: (_) async {
-          if (info.canConvertHtml) {
-            return Printing.convertHtml(html: html, format: format);
-          }
-          return Uint8List(0);
-        },
-      );
+      for (var i = 0; i < copies.clamp(1, 10); i++) {
+        await Printing.layoutPdf(
+          name: title,
+          format: format,
+          onLayout: (_) async => pdf,
+        );
+      }
+      return true;
+    }
+    if (info.canShare) {
+      await Printing.sharePdf(bytes: pdf, filename: '$title.pdf');
       return true;
     }
   } catch (_) {}
-  if (!kIsWeb) {
-    try {
-      await Share.share(html, subject: title);
-      return true;
-    } catch (_) {}
-  }
   return false;
 }
 
@@ -146,11 +134,16 @@ Future<void> showPosHtmlPrintDialog(
                     FilledButton.icon(
                       style: FilledButton.styleFrom(backgroundColor: _blue),
                       onPressed: () async {
-                        await printOrSharePosHtml(
+                        final ok = await printOrSharePosHtml(
                           htmlDocument: htmlDocument,
                           title: title,
                           copies: copies,
                         );
+                        if (!ok && ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                            content: Text(tr('Không tạo được PDF để in')),
+                          ));
+                        }
                       },
                       icon: const Icon(Icons.print, size: 18),
                       label: Text(tr(isMobile ? 'In / PDF' : 'In')),

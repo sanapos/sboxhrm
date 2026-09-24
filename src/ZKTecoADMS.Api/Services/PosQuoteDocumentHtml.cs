@@ -385,38 +385,40 @@ public static class PosQuoteDocumentHtml
         """
         <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin:8px 0;font-size:11px;line-height:1.3">
           <colgroup>
-            <col width="46"/><col width="293"/><col width="62"/><col width="62"/>
-            <col width="123"/><col width="123"/><col width="61"/>
+            <col width="46"/><col width="216"/><col width="62"/><col width="62"/>
+            <col width="108"/><col width="108"/><col width="62"/><col width="108"/>
           </colgroup>
           <thead><tr style="background:#f3f4f6">
             <th style="width:6%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">STT</th>
-            <th style="width:38%;border:1px solid #111;padding:4px 4px;text-align:left">Tên hàng</th>
+            <th style="width:28%;border:1px solid #111;padding:4px 4px;text-align:left">Tên hàng</th>
             <th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">ĐVT</th>
             <th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">SL</th>
-            <th style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">Đơn giá</th>
-            <th style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;white-space:nowrap">Thành tiền</th>
+            <th style="width:14%;border:1px solid #111;padding:4px 3px;text-align:right">Đơn giá</th>
+            <th style="width:14%;border:1px solid #111;padding:4px 3px;text-align:right">Thành tiền</th>
             <th style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;white-space:nowrap">BH</th>
+            <th style="width:14%;border:1px solid #111;padding:4px 2px;text-align:center">Ảnh</th>
           </tr></thead>
           <tbody><!--BEGIN_ITEMS-->
             <tr>
               <td style="width:6%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{STT}</td>
-              <td style="width:38%;border:1px solid #111;padding:4px 4px;text-align:left;vertical-align:middle">{Ten_Hang_Hoa}</td>
+              <td style="width:28%;border:1px solid #111;padding:4px 4px;text-align:left;vertical-align:middle">{Ten_Hang_Hoa}</td>
               <td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{Don_Vi_Tinh}</td>
               <td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{So_Luong}</td>
-              <td style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;vertical-align:middle;white-space:nowrap">{Don_Gia}</td>
-              <td style="width:16%;border:1px solid #111;padding:4px 3px;text-align:right;vertical-align:middle;white-space:nowrap">{Thanh_Tien}</td>
+              <td style="width:14%;border:1px solid #111;padding:4px 3px;text-align:right;vertical-align:middle">{Don_Gia}</td>
+              <td style="width:14%;border:1px solid #111;padding:4px 3px;text-align:right;vertical-align:middle">{Thanh_Tien}</td>
               <td style="width:8%;border:1px solid #111;padding:4px 2px;text-align:center;vertical-align:middle">{Bao_Hanh}</td>
+              <td style="width:14%;border:1px solid #111;padding:3px;text-align:center;vertical-align:middle">{Hinh_Anh}</td>
             </tr><!--END_ITEMS-->
           </tbody>
           <tfoot>
             <tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Tổng tiền hàng</td>
-            <td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap"><b>{Tong_Tien_Hang}</b></td></tr>
+            <td colspan="3" style="border:1px solid #111;padding:5px 6px;text-align:right"><b>{Tong_Tien_Hang}</b></td></tr>
             <tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Chiết khấu</td>
-            <td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap">{Chiet_Khau_Hoa_Don}</td></tr>
+            <td colspan="3" style="border:1px solid #111;padding:5px 6px;text-align:right">{Chiet_Khau_Hoa_Don}</td></tr>
             <tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Thuế GTGT</td>
-            <td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap">{Tien_Thue}</td></tr>
+            <td colspan="3" style="border:1px solid #111;padding:5px 6px;text-align:right">{Tien_Thue}</td></tr>
             <tr style="background:#f8fafc"><td colspan="5" style="border:1px solid #111;padding:6px 6px;text-align:right"><b>TỔNG CỘNG</b></td>
-            <td colspan="2" style="border:1px solid #111;padding:6px 6px;text-align:right;white-space:nowrap"><b>{Tong_Cong}</b></td></tr>
+            <td colspan="3" style="border:1px solid #111;padding:6px 6px;text-align:right"><b>{Tong_Cong}</b></td></tr>
           </tfoot>
         </table>
         """;

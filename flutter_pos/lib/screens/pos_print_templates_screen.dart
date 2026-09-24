@@ -1277,6 +1277,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     child: PosCommercialA4Editor(
                       compact: true,
                       initialTab: 1,
+                      initialZoom: 1,
                       html: _legacyHtml ??
                           posPrintDefaultHtml(
                             documentType: _docType,
