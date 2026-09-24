@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/pos_print_template.dart';
@@ -26,6 +27,7 @@ class PosCommercialA4Editor extends StatefulWidget {
     this.initialZoom = 0,
     this.paperSize = PosPrintPaperSizes.a4,
     this.onPageSetupChanged,
+    this.snapshot = false,
   });
 
   final String html;
@@ -46,11 +48,14 @@ class PosCommercialA4Editor extends StatefulWidget {
   /// 0 = vừa khung (fit-width); còn lại là hệ số (0.5–2.0).
   final double initialZoom;
 
+  /// Sửa một chứng từ đã render: không đổ dòng mẫu, không đụng mẫu chung.
+  final bool snapshot;
+
   @override
-  State<PosCommercialA4Editor> createState() => _PosCommercialA4EditorState();
+  State<PosCommercialA4Editor> createState() => PosCommercialA4EditorState();
 }
 
-class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
+class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   final _api = ApiService();
   final _surfaceKey = GlobalKey<PosCommercialWordSurfaceState>();
   late String _html;
@@ -59,9 +64,13 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   late PosCommercialPageSetup _setup;
   Map<String, dynamic>? _commercialProfile;
   String _fontFamily = "'Times New Roman', Times, serif";
-  String _fontSize = '3'; // execCommand fontSize: 1..7
+  String _fontSize = '13';
+  String _lineHeight = '1.15';
   bool _zoomOpen = false;
   bool _marginOpen = false;
+  bool _htmlEditorOpen = false;
+  final _pageScroll = ScrollController();
+  double _contentH = 0;
 
   static const _fonts = <(String, String)>[
     ('Times', "'Times New Roman', Times, serif"),
@@ -71,15 +80,12 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     ('Courier', "'Courier New', Courier, monospace"),
   ];
 
-  // execCommand('fontSize', 1..7) tương ứng ~10..36pt.
-  static const _sizes = <(String, String)>[
-    ('10', '1'),
-    ('12', '2'),
-    ('13', '3'),
-    ('16', '4'),
-    ('18', '5'),
-    ('24', '6'),
-    ('36', '7'),
+  static const _sizes = <String>['10', '11', '12', '13', '14', '16', '18', '20', '24', '28', '36'];
+  static const _lineHeights = <(String, String)>[
+    ('1.0', '1'),
+    ('1.15', '1.15'),
+    ('1.5', '1.5'),
+    ('2.0', '2'),
   ];
 
   static const _fontColors = <Color>[
@@ -116,6 +122,12 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   }
 
   @override
+  void dispose() {
+    _pageScroll.dispose();
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(covariant PosCommercialA4Editor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.html != widget.html && widget.html != _html) {
@@ -138,6 +150,11 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     // Không gọi setState để tránh làm mất caret trong iframe.
   }
 
+  Future<String> flushHtml() async {
+    await _surfaceKey.currentState?.flush();
+    return _html;
+  }
+
   void _applySetup(PosCommercialPageSetup next) {
     _setup = next;
     final html = next.applyToHtml(_html);
@@ -154,13 +171,25 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     _surfaceKey.currentState?.insertHtml(html);
   }
 
+  void _script(String js) {
+    _surfaceKey.currentState?.runScript(js);
+  }
+
+  void _onPageWheel(double dy) {
+    if (!_pageScroll.hasClients) return;
+    final pos = _pageScroll.position;
+    _pageScroll.jumpTo((pos.pixels + dy).clamp(0.0, pos.maxScrollExtent));
+  }
+
   Future<void> _switchTab(int tab) async {
     await _surfaceKey.currentState?.flush();
     if (!mounted) return;
     setState(() => _tab = tab);
   }
 
-  String get _previewHtml => renderPosPrintTemplateHtml(
+  String get _previewHtml => widget.snapshot
+      ? _html
+      : renderPosPrintTemplateHtml(
         _html,
         data: posPrintSampleData(
           documentType: widget.documentType,
@@ -508,7 +537,9 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
 
   Widget _hintRow() {
     return Text(
-      tr('Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.'),
+      tr(widget.snapshot
+          ? 'Sửa chữ của riêng chứng từ này. Mẫu chung và chứng từ khác không đổi.'
+          : 'Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.'),
       style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
     );
   }
@@ -685,21 +716,21 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
                 ),
                 items: _sizes
                     .map((e) => DropdownMenuItem(
-                          value: e.$2,
-                          child: Text(e.$1,
-                              style: const TextStyle(fontSize: 12)),
+                          value: e,
+                          child: Text(e, style: const TextStyle(fontSize: 12)),
                         ))
                     .toList(),
                 onChanged: (v) {
                   if (v == null) return;
                   setState(() => _fontSize = v);
-                  _cmd('fontSize', v);
+                  _script('sboxFontPt($v)');
                 },
               ),
             ),
             const VerticalDivider(width: 6),
-            btn(Icons.undo, 'Hoàn tác', () => _cmd('undo')),
-            btn(Icons.redo, 'Làm lại', () => _cmd('redo')),
+            btn(Icons.undo, 'Hoàn tác', () => _script('sboxUndo()')),
+            btn(Icons.redo, 'Làm lại', () => _script('sboxRedo()')),
+            btn(Icons.code, 'HTML', _editHtml),
             const VerticalDivider(width: 6),
             btn(Icons.format_bold, 'Đậm', () => _cmd('bold')),
             btn(Icons.format_italic, 'Nghiêng', () => _cmd('italic')),
@@ -747,6 +778,54 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
               icon: const Icon(Icons.draw_outlined, size: 18),
               label: Text(tr('Khối ký tên')),
             ),
+            const VerticalDivider(width: 6),
+            SizedBox(
+              width: 88,
+              child: DropdownButtonFormField<String>(
+                value: _lineHeight,
+                isDense: true,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  labelText: 'Dãn dòng',
+                  contentPadding: EdgeInsets.symmetric(horizontal: 6),
+                  border: OutlineInputBorder(),
+                ),
+                items: _lineHeights
+                    .map((e) => DropdownMenuItem(value: e.$2, child: Text(e.$1)))
+                    .toList(),
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() => _lineHeight = v);
+                  _script('sboxStyle("lineHeight","$v")');
+                },
+              ),
+            ),
+            btn(Icons.vertical_align_top, 'Thêm khoảng trước đoạn',
+                () => _script('sboxStyle("marginTop","10px")')),
+            btn(Icons.vertical_align_bottom, 'Thêm khoảng sau đoạn',
+                () => _script('sboxStyle("marginBottom","10px")')),
+            const VerticalDivider(width: 6),
+            btn(Icons.image_outlined, 'Chèn ảnh / logo', _insertImage),
+            btn(Icons.photo_size_select_small, 'Thu nhỏ ảnh',
+                () => _script('sboxImageWidth(-24)')),
+            btn(Icons.photo_size_select_large, 'Phóng ảnh',
+                () => _script('sboxImageWidth(24)')),
+            btn(Icons.format_align_left, 'Ảnh căn trái',
+                () => _script('sboxImageAlign("left")')),
+            btn(Icons.format_align_center, 'Ảnh căn giữa',
+                () => _script('sboxImageAlign("center")')),
+            btn(Icons.format_align_right, 'Ảnh căn phải',
+                () => _script('sboxImageAlign("right")')),
+            const VerticalDivider(width: 6),
+            btn(Icons.table_rows, 'Thêm dòng bảng',
+                () => _script('sboxTableRow(true)')),
+            btn(Icons.delete_outline, 'Xóa dòng bảng',
+                () => _script('sboxTableRow(false)')),
+            btn(Icons.call_merge, 'Gộp ô sang phải', () => _script('sboxMerge()')),
+            btn(Icons.arrow_back, 'Đẩy khối sang trái',
+                () => _script('sboxNudgeBlock(-12)')),
+            btn(Icons.arrow_forward, 'Đẩy khối sang phải',
+                () => _script('sboxNudgeBlock(12)')),
           ],
         ),
       ),
@@ -806,6 +885,23 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
         '${ch(c.r).toRadixString(16).padLeft(2, '0')}'
         '${ch(c.g).toRadixString(16).padLeft(2, '0')}'
         '${ch(c.b).toRadixString(16).padLeft(2, '0')}';
+  }
+
+  void _insertImage() {
+    _surfaceKey.currentState?.rememberCaret();
+    pickTemplateImage((src) {
+      _surfaceKey.currentState?.insertImageDataUrl(src);
+    });
+  }
+
+  String _htmlForAi(String html) {
+    if (html.contains('THAM SỐ ĐỘNG')) return html;
+    final lines = <String>[
+      'THAM SỐ ĐỘNG — giữ nguyên chữ trong ngoặc nhọn {Ten_Tham_So}.',
+      'Có thể đổi bố cục, cỡ chữ, căn lề. Không đổi tên tham số và không xóa <!--BEGIN_ITEMS--> <!--END_ITEMS-->.',
+      for (final t in _allTokens) '{${t.$1}} = ${t.$2}',
+    ];
+    return '<!--\n${lines.join('\n')}\n-->\n$html';
   }
 
   void _insertItemsTable() {
@@ -909,52 +1005,122 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     _insert(buf.toString());
   }
 
+  List<(String, String)> get _allTokens => [
+        ...PosPrintTokens.store,
+        ...PosPrintTokens.customer,
+        ...PosPrintTokens.order,
+        ...PosPrintTokens.commercial,
+        ...PosPrintTokens.line,
+        ...PosPrintTokens.totals,
+      ];
+
   Widget _tokenBar() {
-    final chips = <(String, String)>[
-      ...PosPrintTokens.store,
-      ...PosPrintTokens.customer,
-      ...PosPrintTokens.order,
-      ...PosPrintTokens.commercial,
-      ...PosPrintTokens.totals.take(8),
-      ('Chieu_Dai', 'Cột dài'),
-      ('Chieu_Rong', 'Cột rộng'),
-      ('Chieu_Cao', 'Cột cao'),
-    ];
-    return SizedBox(
-      height: 36,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          for (final t in chips)
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: ActionChip(
-                visualDensity: VisualDensity.compact,
-                label: Text(t.$2, style: const TextStyle(fontSize: 11)),
-                onPressed: () => _insert('{${t.$1}}'),
+    return Autocomplete<(String, String)>(
+      displayStringForOption: (t) => t.$2,
+      optionsBuilder: (text) {
+        final q = text.text.trim().toLowerCase();
+        return _allTokens.where((t) {
+          if (q.isEmpty) return true;
+          return t.$1.toLowerCase().contains(q) ||
+              t.$2.toLowerCase().contains(q);
+        });
+      },
+      onSelected: (t) => _insert('{${t.$1}}'),
+      fieldViewBuilder: (context, controller, focus, onSubmit) {
+        return TextField(
+          controller: controller,
+          focusNode: focus,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: tr('Tìm tham số để chèn…'),
+            prefixIcon: const Icon(Icons.search, size: 18),
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          ),
+          onSubmitted: (_) => onSubmit(),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            elevation: 4,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280, maxWidth: 420),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                children: [
+                  for (final t in options)
+                    ListTile(
+                      dense: true,
+                      title: Text(t.$2),
+                      subtitle: Text('{${t.$1}}'),
+                      onTap: () => onSelected(t),
+                    ),
+                ],
               ),
             ),
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _paperCanvas({required bool preview}) {
-    if (preview) {
-      return buildPosA4ScaledSheet(
-        zoom: _zoom,
-        pad: EdgeInsets.all(_compact ? 6 : 12),
-        pageWidth: _setup.cssWidth,
-        pageHeight: _setup.cssHeight,
-        buildChild: () => PosCommercialWordSurface(
-          html: _previewHtml,
-          editable: false,
-          pageSetup: _setup,
-          onChanged: (_) {},
+  Future<void> _editHtml() async {
+    await _surfaceKey.currentState?.flush();
+    if (!mounted) return;
+    setState(() => _htmlEditorOpen = true);
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    final ctrl = TextEditingController(text: _htmlForAi(_html));
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('HTML mẫu in')),
+        content: SizedBox(
+          width: 760,
+          height: 460,
+          child: TextField(
+            controller: ctrl,
+            autofocus: true,
+            maxLines: null,
+            expands: true,
+            style: const TextStyle(fontFamily: 'Consolas', fontSize: 13),
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: 'Ctrl+A rồi Ctrl+C để copy. Ctrl+V để dán.',
+            ),
+          ),
         ),
-      );
-    }
-    if (_compact) {
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: ctrl.text));
+            },
+            child: Text(tr('Sao chép')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Đóng')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Dán vào mẫu')),
+          ),
+        ],
+      ),
+    );
+    final next = ctrl.text;
+    ctrl.dispose();
+    if (!mounted) return;
+    setState(() => _htmlEditorOpen = false);
+    if (ok == true) _emit(next);
+  }
+
+  Widget _paperCanvas({required bool preview}) {
+    if (_compact && !preview) {
       return ColoredBox(
         color: const Color(0xFFE5E7EB),
         child: Padding(
@@ -984,8 +1150,11 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
         return ColoredBox(
           color: const Color(0xFFE5E7EB),
           child: Scrollbar(
+            controller: _pageScroll,
             thumbVisibility: true,
+            notificationPredicate: (n) => n.metrics.axis == Axis.vertical,
             child: SingleChildScrollView(
+              controller: _pageScroll,
               padding: EdgeInsets.symmetric(vertical: pad),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -994,21 +1163,35 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
                   constraints:
                       BoxConstraints(minWidth: constraints.maxWidth - pad * 2),
                   child: Center(
-                    child: SizedBox(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _pageRuler(paperW),
+                        SizedBox(
                       width: paperW,
                       height: paperH,
                       child: Material(
                         color: Colors.white,
                         elevation: 8,
                         shadowColor: Colors.black26,
-                        child: PosCommercialWordSurface(
-                          key: _surfaceKey,
-                          html: _html,
-                          editable: true,
+                        child: _htmlEditorOpen
+                            ? const ColoredBox(color: Colors.white)
+                            : PosCommercialWordSurface(
+                          key: preview ? null : _surfaceKey,
+                          html: preview ? _previewHtml : _html,
+                          editable: !preview,
                           pageSetup: _setup,
-                          onChanged: _emit,
+                          onChanged: preview ? (_) {} : _emit,
+                          onWheel: _onPageWheel,
+                          onContentHeight: (h) {
+                            final next = h > paperH ? h : paperH;
+                            if ((next - _contentH).abs() < 12) return;
+                            setState(() => _contentH = next);
+                          },
                         ),
                       ),
+                    ),
+                      ],
                     ),
                   ),
                 ),
@@ -1019,4 +1202,65 @@ class _PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
       },
     );
   }
+
+  Widget _pageRuler(double paperW) {
+    final widthMm = _setup.isA5 ? 148.0 : 210.0;
+    return SizedBox(
+      width: paperW,
+      height: 22,
+      child: CustomPaint(
+        painter: _RulerPainter(
+          widthMm: widthMm,
+          leftMm: _setup.leftMm,
+          rightMm: _setup.rightMm,
+        ),
+      ),
+    );
+  }
+}
+
+class _RulerPainter extends CustomPainter {
+  _RulerPainter({
+    required this.widthMm,
+    required this.leftMm,
+    required this.rightMm,
+  });
+
+  final double widthMm;
+  final double leftMm;
+  final double rightMm;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final bg = Paint()..color = const Color(0xFFF8FAFC);
+    canvas.drawRect(Offset.zero & size, bg);
+    final pxPerMm = size.width / widthMm;
+    final margin = Paint()..color = const Color(0xFFE2E8F0);
+    canvas.drawRect(Rect.fromLTWH(0, 0, leftMm * pxPerMm, size.height), margin);
+    final rightW = rightMm * pxPerMm;
+    canvas.drawRect(
+      Rect.fromLTWH(size.width - rightW, 0, rightW, size.height),
+      margin,
+    );
+    final tick = Paint()
+      ..color = const Color(0xFF334155)
+      ..strokeWidth = 1;
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+    for (var mm = 0; mm <= widthMm; mm += 10) {
+      final x = mm * pxPerMm;
+      canvas.drawLine(Offset(x, 8), Offset(x, size.height), tick);
+      tp.text = TextSpan(
+        text: '$mm',
+        style: const TextStyle(fontSize: 8, color: Color(0xFF334155)),
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(x + 2, 0));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RulerPainter oldDelegate) =>
+      oldDelegate.leftMm != leftMm ||
+      oldDelegate.rightMm != rightMm ||
+      oldDelegate.widthMm != widthMm;
 }

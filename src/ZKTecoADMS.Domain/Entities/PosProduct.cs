@@ -112,10 +112,19 @@ public class PosProduct : AuditableEntity<Guid>
     public bool AllowDecimalQty { get; set; }
 
     /// <summary>
-    /// Bán theo diện tích: bấm số lượng là nhập chiều dài × chiều rộng.
+    /// Bán theo kích thước: bấm số lượng là nhập các chiều đã chọn.
     /// Bật thì cũng cho số lượng thập phân.
     /// </summary>
     public bool AllowAreaQty { get; set; }
+
+    /// <summary>Hiện ô chiều dài khi nhập số lượng theo kích thước.</summary>
+    public bool AllowAreaLength { get; set; } = true;
+
+    /// <summary>Hiện ô chiều rộng khi nhập số lượng theo kích thước.</summary>
+    public bool AllowAreaWidth { get; set; } = true;
+
+    /// <summary>Hiện ô chiều cao khi nhập số lượng theo kích thước.</summary>
+    public bool AllowAreaHeight { get; set; } = true;
 
     /// <summary>Theo dõi lô / HSD khi nhập hàng.</summary>
     public bool TrackExpiry { get; set; }

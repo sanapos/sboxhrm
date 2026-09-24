@@ -66,6 +66,11 @@ public class Allowance : AuditableEntity<Guid>
     /// Danh sách ID nhân viên được áp dụng (JSON array). null = tất cả
     /// </summary>
     public string? EmployeeIds { get; set; }
+
+    /// <summary>
+    /// Ca được hưởng khi loại là theo ca (JSON array id ShiftTemplate).
+    /// </summary>
+    public string? ShiftIds { get; set; }
     
     /// <summary>
     /// Cửa hàng sở hữu phụ cấp này

@@ -17,12 +17,14 @@ public partial class PosQuotesController
         Guid? EmployeeId,
         string? EmployeeName,
         string? CreatedBy,
-        DateTime CreatedAt);
+        DateTime CreatedAt,
+        int? PotentialScore);
 
     public record CreateQuoteActivityDto(
         string Kind,
         string Content,
-        DateTime? NextFollowUpAt);
+        DateTime? NextFollowUpAt,
+        int? PotentialScore = null);
 
     [HttpGet("{id:guid}/activities")]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
@@ -44,7 +46,8 @@ public partial class PosQuotesController
             a.EmployeeId,
             a.EmployeeId is Guid eid ? names.GetValueOrDefault(eid) : null,
             a.CreatedBy,
-            a.CreatedAt)).ToList();
+            a.CreatedAt,
+            ResolvePotentialScore(a.PotentialScore, a.Content))).ToList();
         return Ok(AppResponse<object>.Success(new { items }));
     }
 
@@ -65,6 +68,9 @@ public partial class PosQuotesController
         var content = (dto.Content ?? "").Trim();
         if (content.Length == 0)
             return BadRequest(AppResponse<QuoteActivityDto>.Fail("Nhập nội dung làm việc với khách"));
+        var score = ResolvePotentialScore(dto.PotentialScore, content);
+        if (dto.PotentialScore is int raw && (raw < 0 || raw > 10))
+            return BadRequest(AppResponse<QuoteActivityDto>.Fail("Điểm tiềm năng phải từ 0 đến 10"));
         var act = new PosQuoteActivity
         {
             Id = Guid.NewGuid(),
@@ -76,8 +82,11 @@ public partial class PosQuotesController
             EmployeeId = EmployeeId,
             CreatedBy = CurrentUserEmail,
             IsActive = true,
+            PotentialScore = score,
         };
         dbContext.PosQuoteActivities.Add(act);
+        if (score is int s)
+            quote.PotentialScore = s;
         quote.UpdatedAt = DateTime.UtcNow;
         quote.UpdatedBy = CurrentUserEmail;
         await dbContext.SaveChangesAsync();
@@ -85,7 +94,19 @@ public partial class PosQuotesController
         return Ok(AppResponse<QuoteActivityDto>.Success(new QuoteActivityDto(
             act.Id, act.Kind, act.Content, act.NextFollowUpAt, act.EmployeeId,
             act.EmployeeId is Guid eid ? names.GetValueOrDefault(eid) : null,
-            act.CreatedBy, act.CreatedAt)));
+            act.CreatedBy, act.CreatedAt, score)));
+    }
+
+    static int? ResolvePotentialScore(int? column, string? content)
+    {
+        if (column is int n && n >= 0 && n <= 10) return n;
+        if (string.IsNullOrWhiteSpace(content)) return null;
+        var m = System.Text.RegularExpressions.Regex.Match(
+            content, @"^\[\[TN:(\d{1,2})\]\]");
+        if (!m.Success) return null;
+        return int.TryParse(m.Groups[1].Value, out var parsed) && parsed is >= 0 and <= 10
+            ? parsed
+            : null;
     }
 
     static string NormalizeActivityKind(string? raw)

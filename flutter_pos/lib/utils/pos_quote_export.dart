@@ -15,6 +15,7 @@ import '../services/api_service.dart';
 import '../utils/file_saver.dart';
 import '../models/pos_print_template.dart';
 import '../utils/pos_html_print.dart';
+import '../utils/pos_quote_document_wording.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_quote_care_sheet.dart';
 
@@ -126,6 +127,19 @@ class PosQuoteExport {
     bool includeStamp = true,
     PosQuote? quote,
   }) async {
+    if (quote != null) {
+      final saved = posQuoteSavedWordingHtml(quote.documents, 'Quote');
+      if (saved != null && saved.trim().isNotEmpty) {
+        if (!context.mounted) return;
+        await showPosHtmlPrintDialog(
+          context,
+          title: 'BÁO GIÁ $quoteNo',
+          htmlDocument: saved,
+          a4Paper: true,
+        );
+        return;
+      }
+    }
     if (quote != null && quote.lines.isNotEmpty) {
       final html = bindPosQuotePrintHtmlLocal(
         quote,
@@ -313,7 +327,7 @@ class PosQuoteExport {
   }
 
   static Future<PosQuote> ensureLines(PosQuote quote) async {
-    if (quote.lines.isNotEmpty) return quote;
+    if (quote.lines.isNotEmpty && quote.documents.isNotEmpty) return quote;
     final res = await ApiService().getPosQuote(quote.id);
     if (res['isSuccess'] == true && res['data'] is Map) {
       return PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
@@ -334,6 +348,8 @@ class PosQuoteExport {
     String? docNo,
     bool includeStamp = true,
   }) async {
+    final saved = posQuoteSavedWordingHtml(quote.documents, documentType);
+    if (saved != null) return saved;
     final profile = await _profile();
     if (documentType == PosPrintDocumentTypes.quote) {
       return bindPosQuotePrintHtmlLocal(
@@ -466,7 +482,15 @@ class PosQuoteExport {
     PosQuote? quote, {
     required bool includeStamp,
   }) async {
-    if (quote == null || quote.lines.isEmpty) return null;
+    if (quote == null) return null;
+    final saved = posQuoteSavedWordingHtml(quote.documents, 'Quote');
+    if (saved != null && saved.trim().isNotEmpty) {
+      final doc = saved.toLowerCase().contains('<html')
+          ? saved
+          : '<html><head><meta charset="utf-8"></head><body>$saved</body></html>';
+      return Uint8List.fromList(utf8.encode(doc));
+    }
+    if (quote.lines.isEmpty) return null;
     final html = bindPosQuotePrintHtmlLocal(
       quote,
       quote.lines,

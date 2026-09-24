@@ -19,6 +19,7 @@ public class AllowanceDto
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public List<string>? EmployeeIds { get; set; }
+    public List<string>? ShiftIds { get; set; }
 }
 
 public class CreateAllowanceDto
@@ -34,6 +35,7 @@ public class CreateAllowanceDto
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public List<string>? EmployeeIds { get; set; }
+    public List<string>? ShiftIds { get; set; }
 }
 
 public class UpdateAllowanceDto
@@ -50,6 +52,7 @@ public class UpdateAllowanceDto
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
     public List<string>? EmployeeIds { get; set; }
+    public List<string>? ShiftIds { get; set; }
 }
 
 public class AllowanceQueryParams

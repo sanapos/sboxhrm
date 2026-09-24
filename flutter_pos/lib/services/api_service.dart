@@ -10252,11 +10252,24 @@ class ApiService {
 
     // Lấy path tương đối từ URL đầy đủ (tránh host cũ / localhost trong DB).
     if (trimmed.startsWith('http')) {
+      final original = trimmed;
       try {
         final uri = Uri.parse(trimmed);
-        trimmed = uri.path;
+        final stored = uri.queryParameters['path'];
+        final pathLower = uri.path.toLowerCase();
+        if (stored != null &&
+            stored.isNotEmpty &&
+            pathLower.contains('/api/upload/')) {
+          trimmed = stored;
+        } else if (pathLower.contains('/stores/') ||
+            pathLower.contains('/uploads/') ||
+            pathLower.contains('/catalog/')) {
+          trimmed = uri.path;
+        } else {
+          return original;
+        }
       } catch (_) {
-        return trimmed;
+        return original;
       }
     }
     if (trimmed.startsWith('/')) trimmed = trimmed.substring(1);
@@ -18074,6 +18087,31 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updatePosQuoteDocumentWording(
+    String quoteId,
+    String documentId, {
+    String? htmlContent,
+    bool restore = false,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse(
+              '$baseUrl/api/pos/quotes/$quoteId/documents/$documentId/wording',
+            ),
+            headers: _headers,
+            body: jsonEncode({
+              'htmlContent': htmlContent,
+              'restore': restore,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createPosQuoteStockIssue(
     String id, {
     String? note,
@@ -18114,6 +18152,7 @@ class ApiService {
     required String kind,
     required String content,
     DateTime? nextFollowUpAt,
+    int? potentialScore,
   }) async {
     try {
       final response = await http
@@ -18125,6 +18164,7 @@ class ApiService {
               'content': content,
               if (nextFollowUpAt != null)
                 'nextFollowUpAt': nextFollowUpAt.toUtc().toIso8601String(),
+              if (potentialScore != null) 'potentialScore': potentialScore,
             }),
           )
           .timeout(const Duration(seconds: 30));

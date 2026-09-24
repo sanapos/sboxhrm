@@ -11,8 +11,11 @@ public class GetEmployeeProfilesHandler(
 
     public async Task<AppResponse<IEnumerable<EmployeeBenefitDto>>> Handle(GetEmployeeBenefitsQuery request, CancellationToken cancellationToken)
     {
+        var storeId = request.StoreId;
         var employees = await employeeRepository.GetAllAsync(
-            filter: e => e.ManagerId == request.ManagerId,
+            filter: e => storeId != null
+                ? e.StoreId == storeId || e.ManagerId == request.ManagerId
+                : e.ManagerId == request.ManagerId,
             cancellationToken: cancellationToken);
         var employeeIds = employees.Select(e => e.Id).ToList();
         

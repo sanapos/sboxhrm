@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,9 +8,12 @@ import '../../l10n/app_tr.dart';
 import '../../models/pos_print_template.dart';
 import '../../models/pos_quote.dart';
 import '../../services/api_service.dart';
+import '../../services/pos_product_image_cache.dart';
 import '../../utils/pos_area_dims.dart';
+import '../../utils/pos_commercial_profile_local.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import '../../utils/pos_html_print.dart';
+import '../../utils/pos_quote_document_wording.dart';
 import '../../utils/pos_print_template_defaults.dart';
 import '../../utils/pos_print_template_loader.dart';
 import '../../utils/pos_print_template_renderer.dart';
@@ -98,12 +103,31 @@ Future<void> printPosQuoteSlip(
       if (useLines.isEmpty) useLines = q.lines;
     }
   }
+  if (q != null) {
+    final custom = posQuoteSavedWordingHtml(q.documents, 'Quote');
+    if (custom != null) {
+      if (!context.mounted) return;
+      await showPosHtmlPrintDialog(
+        context,
+        title: q.quoteSlip?.title ?? 'BÁO GIÁ',
+        htmlDocument: custom,
+        a4Paper: true,
+      );
+      return;
+    }
+  }
   if (q != null && useLines.isNotEmpty) {
     Map<String, dynamic>? profile;
     try {
       final profileRes = await api.getPosCommercialProfile();
+      final local = await loadLocalCommercialProfile();
       if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
-        profile = Map<String, dynamic>.from(profileRes['data'] as Map);
+        profile = mergeCommercialProfile(
+          Map<String, dynamic>.from(profileRes['data'] as Map),
+          local,
+        );
+      } else if (local.isNotEmpty) {
+        profile = local;
       }
     } catch (_) {}
     PosSellStoreSettings? store;
@@ -184,7 +208,7 @@ String bindPosQuotePrintHtmlLocal(
     storeAddress: storeAddress,
     storePhone: storePhone,
   );
-  data.addAll(_quoteHeaderData(q, lineItems));
+  data.addAll(_quoteHeaderData(q, lineItems, profile: commercialProfile));
   if (!includeStamp) {
     data['Con_Dau'] = '<div style="height:48px"></div>';
   }
@@ -229,7 +253,7 @@ String bindPosCommercialPrintHtmlLocal(
     storeAddress: storeAddress,
     storePhone: storePhone,
   );
-  data.addAll(_quoteHeaderData(q, lines));
+  data.addAll(_quoteHeaderData(q, lines, profile: commercialProfile));
   final money = NumberFormat('#,##0', 'vi_VN');
   final total = (lines.fold<double>(0, (a, l) => a + _quoteLineAmount(l)) -
           q.discount)
@@ -286,11 +310,18 @@ Future<String> bindPosQuotePrintHtml(
   Map<String, dynamic>? profile;
   try {
     final profileRes = await api.getPosCommercialProfile();
+    final local = await loadLocalCommercialProfile();
     if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
-      profile = Map<String, dynamic>.from(profileRes['data'] as Map);
+      profile = mergeCommercialProfile(
+        Map<String, dynamic>.from(profileRes['data'] as Map),
+        local,
+      );
+    } else if (local.isNotEmpty) {
+      profile = local;
     }
   } catch (_) {}
 
+  final lines = await _quoteLineItemsWithImages(api, lineItems);
   String render(String templateHtml) => renderPosPrintTemplateHtml(
         templateHtml,
         data: () {
@@ -298,7 +329,7 @@ Future<String> bindPosQuotePrintHtml(
             documentType: PosPrintDocumentTypes.quote,
             commercialProfile: profile,
           );
-          data.addAll(_quoteHeaderData(q, lineItems));
+          data.addAll(_quoteHeaderData(q, lineItems, profile: profile));
           for (final k in const [
             'So_Luong',
             'Don_Gia',
@@ -311,7 +342,7 @@ Future<String> bindPosQuotePrintHtml(
           }
           return data;
         }(),
-        lineItems: _quoteLineItems(lineItems),
+        lineItems: lines,
         wrapDocument: true,
         paperSize: PosPrintPaperSizes.a4,
       );
@@ -332,7 +363,7 @@ Future<String> bindPosQuotePrintHtml(
     final remote = (tpl?.htmlContent ?? '').trim();
     if (remote.isNotEmpty && _templateCanBindQuoteLines(remote)) {
       final html = render(remote);
-      if (_printHtmlMatchesQuoteLines(html, _quoteLineItems(lineItems))) {
+      if (_printHtmlMatchesQuoteLines(html, lines)) {
         return html;
       }
     }
@@ -370,7 +401,11 @@ double _quoteLineAmount(PosQuoteLine l) {
   return net * (1 + l.vatRate / 100);
 }
 
-Map<String, String> _quoteHeaderData(PosQuote q, List<PosQuoteLine> lines) {
+Map<String, String> _quoteHeaderData(
+  PosQuote q,
+  List<PosQuoteLine> lines, {
+  Map<String, dynamic>? profile,
+}) {
   final money = NumberFormat('#,##0', 'vi_VN');
   final day = DateFormat('dd/MM/yyyy');
   final now = DateTime.now();
@@ -383,6 +418,14 @@ Map<String, String> _quoteHeaderData(PosQuote q, List<PosQuoteLine> lines) {
     return a + (_quoteLineAmount(l) - net);
   });
   final total = (lineSum - q.discount).clamp(0.0, double.infinity);
+  String prof(String a, String b) =>
+      (profile?[a] ?? profile?[b] ?? '').toString().trim();
+  final quoteTerms = (q.terms ?? '').trim();
+  final storeTerms = prof('defaultTerms', 'DefaultTerms');
+  final policy = prof('warrantyPolicy', 'WarrantyPolicy');
+  final months = use.any((l) => (l.warrantyMonths ?? 0) > 0)
+      ? '${use.where((l) => (l.warrantyMonths ?? 0) > 0).map((l) => l.warrantyMonths).first} tháng'
+      : '';
   return {
     'Tieu_De_In': 'BÁO GIÁ',
     'Ma_Don_Hang': q.quoteNo,
@@ -404,7 +447,7 @@ Map<String, String> _quoteHeaderData(PosQuote q, List<PosQuoteLine> lines) {
     'Khach_Can_Tra': money.format(total),
     'Tong_Cong_Bang_Chu': vietnameseMoneyInWords(total.round()),
     'Hinh_Thuc_Thanh_Toan': q.paymentMethod ?? '',
-    'Dieu_Khoan': q.terms ?? '',
+    'Dieu_Khoan': quoteTerms.isNotEmpty ? quoteTerms : storeTerms,
     'Ghi_Chu': q.note ?? '',
     'Nguoi_Bao_Gia': q.quotedBy ?? q.issuedBy ?? '',
     'Nguoi_Ban': q.quotedBy ?? '',
@@ -413,10 +456,43 @@ Map<String, String> _quoteHeaderData(PosQuote q, List<PosQuoteLine> lines) {
         : (use.length == 1
             ? use.first.productName
             : '${use.first.productName} +${use.length - 1}'),
-    'Bao_Hanh': use.any((l) => (l.warrantyMonths ?? 0) > 0)
-        ? '${use.where((l) => (l.warrantyMonths ?? 0) > 0).map((l) => l.warrantyMonths).first} tháng'
-        : '12 tháng',
+    'Bao_Hanh': policy.isNotEmpty ? policy : (months.isNotEmpty ? months : '12 tháng'),
   };
+}
+
+Future<List<Map<String, String>>> _quoteLineItemsWithImages(
+  ApiService api,
+  List<PosQuoteLine> lines,
+) async {
+  final rows = _quoteLineItems(lines);
+  for (var i = 0; i < lines.length && i < rows.length; i++) {
+    final id = lines[i].productId;
+    if (id == null || id.isEmpty) continue;
+    final tag = await _quoteProductImageTag(api, id);
+    if (tag.isNotEmpty) rows[i]['Hinh_Anh'] = tag;
+  }
+  return rows;
+}
+
+Future<String> _quoteProductImageTag(ApiService api, String productId) async {
+  final path = ApiService.posProductImagePath(productId);
+  final url = api.getFileUrl(path);
+  if (url.isEmpty) return '';
+  final bytes = await PosProductImageCacheManager.instance.loadBytes(
+    url: url,
+    key: 'quote_print_$productId',
+    headers: api.imageAuthHeaders,
+  );
+  if (bytes == null || bytes.length < 32) return '';
+  final mime = bytes.length > 3 &&
+          bytes[0] == 0x89 &&
+          bytes[1] == 0x50 &&
+          bytes[2] == 0x4E
+      ? 'image/png'
+      : 'image/jpeg';
+  final b64 = base64Encode(bytes);
+  return '<img src="data:$mime;base64,$b64" alt="" '
+      'style="width:3cm;height:3cm;object-fit:contain;display:block;margin:auto"/>';
 }
 
 List<Map<String, String>> _quoteLineItems(List<PosQuoteLine> lines) {
@@ -428,10 +504,7 @@ List<Map<String, String>> _quoteLineItems(List<PosQuoteLine> lines) {
       {
         'STT': '${i++}',
         'Ma_Hang': l.productCode ?? '',
-        'Ten_Hang_Hoa': () {
-          final note = (l.lineNote ?? '').trim();
-          return note.isEmpty ? l.productName : '${l.productName} — $note';
-        }(),
+        'Ten_Hang_Hoa': l.productName,
         'Don_Vi_Tinh': l.unitName ?? '',
         'So_Luong': qty.format(l.qty),
         'Don_Gia': money.format(l.unitPrice),
@@ -489,6 +562,7 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
   final _api = ApiService();
   final _note = TextEditingController();
   String _kind = 'Note';
+  int? _score;
   DateTime? _followUp;
   bool _loading = true;
   bool _saving = false;
@@ -523,6 +597,13 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
 
   Future<void> _add() async {
     final text = _note.text.trim();
+    if (_score == null) {
+      NotificationOverlayManager().showWarning(
+        title: 'Chưa chấm điểm',
+        message: tr('Chọn độ tiềm năng khách từ 0 đến 10'),
+      );
+      return;
+    }
     if (text.isEmpty) {
       NotificationOverlayManager().showWarning(
         title: 'Thiếu nội dung',
@@ -534,8 +615,9 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
     final res = await _api.createPosQuoteActivity(
       widget.quoteId,
       kind: _kind,
-      content: text,
+      content: PosQuoteActivity.encodeContent(text, _score!),
       nextFollowUpAt: _kind == 'FollowUp' ? _followUp : null,
+      potentialScore: _score,
     );
     if (!mounted) return;
     setState(() => _saving = false);
@@ -548,6 +630,7 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
     }
     _note.clear();
     _followUp = null;
+    _score = null;
     NotificationOverlayManager().showSuccess(
       title: 'Đã ghi',
       message: tr('Đã thêm vào lịch chăm sóc khách'),
@@ -643,6 +726,38 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
               ],
             ),
             const SizedBox(height: 8),
+            Text(
+              tr('Độ tiềm năng khách (0–10)'),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (var n = 0; n <= 10; n++)
+                  ChoiceChip(
+                    label: Text('$n'),
+                    selected: _score == n,
+                    selectedColor: PosQuoteActivity.scoreColor(n).withValues(alpha: 0.22),
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: _score == n
+                          ? PosQuoteActivity.scoreColor(n)
+                          : const Color(0xFF334155),
+                    ),
+                    onSelected: (_) => setState(() => _score = n),
+                  ),
+              ],
+            ),
+            if (_items.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                _potentialSummary(_items),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              ),
+            ],
+            const SizedBox(height: 8),
             TextField(
               controller: _note,
               maxLines: 3,
@@ -683,7 +798,8 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
                                     fontWeight: FontWeight.w700, fontSize: 13),
                               ),
                               subtitle: Text([
-                                a.content,
+                                if (a.score != null) 'Tiềm năng ${a.score}/10',
+                                a.displayContent,
                                 if (who.isNotEmpty) who,
                                 if (a.nextFollowUpAt != null)
                                   'Hẹn ${DateFormat('dd/MM HH:mm').format(a.nextFollowUpAt!.toLocal())}',
@@ -696,6 +812,16 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
         ),
       ),
     );
+  }
+
+  String _potentialSummary(List<PosQuoteActivity> items) {
+    final scores = [for (final a in items) if (a.score != null) a.score!];
+    if (scores.isEmpty) return tr('Chưa có điểm tiềm năng');
+    final avg = scores.reduce((a, b) => a + b) / scores.length;
+    final latest = scores.first;
+    final avgText =
+        avg == avg.roundToDouble() ? avg.toInt().toString() : avg.toStringAsFixed(1);
+    return tr('Lần gần nhất $latest/10 · trung bình $avgText/10 (${scores.length} lần)');
   }
 
   IconData _iconOf(String kind) => switch (kind) {

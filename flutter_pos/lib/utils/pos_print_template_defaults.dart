@@ -290,7 +290,8 @@ const _itemTable = '''
 </colgroup>
 <thead><tr style="background:#f3f4f6">
 <th style="width:6%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>STT</b></th>
-<th style="width:38%;border:1px solid #111;padding:4px 4px;text-align:left"><b>Tên hàng</b></th>
+<th style="width:12%;border:1px solid #111;padding:4px 2px;text-align:center"><b>Ảnh</b></th>
+<th style="width:26%;border:1px solid #111;padding:4px 4px;text-align:left"><b>Tên hàng</b></th>
 <th style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>ĐVT</b></th>
 <th style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;white-space:nowrap"><b>SL</b></th>
 <th style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;white-space:nowrap"><b>Đơn giá</b></th>
@@ -300,7 +301,8 @@ const _itemTable = '''
 <tbody><!--BEGIN_ITEMS-->
 <tr>
 <td style="width:6%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle">{STT}</td>
-<td style="width:38%;border:1px solid #111;padding:5px 4px;text-align:left;vertical-align:middle">{Ten_Hang_Hoa}</td>
+<td style="width:12%;border:1px solid #111;padding:3px;text-align:center;vertical-align:middle">{Hinh_Anh}</td>
+<td style="width:26%;border:1px solid #111;padding:5px 4px;text-align:left;vertical-align:middle">{Ten_Hang_Hoa}</td>
 <td style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle">{Don_Vi_Tinh}</td>
 <td style="width:8%;border:1px solid #111;padding:5px 2px;text-align:center;vertical-align:middle">{So_Luong}</td>
 <td style="width:16%;border:1px solid #111;padding:5px 3px;text-align:right;vertical-align:middle;white-space:nowrap">{Don_Gia}</td>
@@ -309,13 +311,13 @@ const _itemTable = '''
 </tr><!--END_ITEMS-->
 </tbody>
 <tfoot>
-<tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Tổng tiền hàng</td>
+<tr><td colspan="6" style="border:1px solid #111;padding:5px 6px;text-align:right">Tổng tiền hàng</td>
 <td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap"><b>{Tong_Tien_Hang}</b></td></tr>
-<tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Chiết khấu</td>
+<tr><td colspan="6" style="border:1px solid #111;padding:5px 6px;text-align:right">Chiết khấu</td>
 <td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap">{Chiet_Khau_Hoa_Don}</td></tr>
-<tr><td colspan="5" style="border:1px solid #111;padding:5px 6px;text-align:right">Thuế GTGT</td>
+<tr><td colspan="6" style="border:1px solid #111;padding:5px 6px;text-align:right">Thuế GTGT</td>
 <td colspan="2" style="border:1px solid #111;padding:5px 6px;text-align:right;white-space:nowrap">{Tien_Thue}</td></tr>
-<tr style="background:#f8fafc"><td colspan="5" style="border:1px solid #111;padding:6px 6px;text-align:right"><b>TỔNG CỘNG</b></td>
+<tr style="background:#f8fafc"><td colspan="6" style="border:1px solid #111;padding:6px 6px;text-align:right"><b>TỔNG CỘNG</b></td>
 <td colspan="2" style="border:1px solid #111;padding:6px 6px;text-align:right;white-space:nowrap"><b>{Tong_Cong}</b></td></tr>
 </tfoot></table>''';
 
@@ -568,10 +570,14 @@ $_itemTable
       return '''
 <div style="font-family:'Times New Roman',Times,serif;font-size:12.5px;color:#111;line-height:1.35">
 <div style="border-bottom:1.5px solid #111;padding-bottom:6px;margin-bottom:8px">
+<table style="width:100%;border-collapse:collapse;border:none"><tr>
+<td style="width:88px;vertical-align:middle;border:none;padding:0 10px 0 0">{Logo}</td>
+<td style="vertical-align:middle;border:none;padding:0">
 <div style="font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.2px">{Ten_Cong_Ty}</div>
 <div>MST: {MST_Cua_Hang} · ĐT: {Dien_Thoai_Cong_Ty}</div>
 <div>{Dia_Chi_Cong_Ty}</div>
 <div>{Dong_Email}</div>
+</td></tr></table>
 </div>
 <div style="text-align:center;font-size:18px;font-weight:700;letter-spacing:1.2px;margin:2px 0">BẢNG BÁO GIÁ</div>
 <div style="text-align:center;font-size:12px;margin-bottom:6px">Số: <b>{So_Chung_Tu}</b> · Ngày {Ngay} · Hiệu lực đến: <b>{Han_Bao_Gia}</b></div>
@@ -632,6 +638,7 @@ bool posCommercialHtmlLooksStale(String html) {
   if (motto.allMatches(html).length >= 2) return true;
   // BBG mẫu thật không có quốc hiệu — mẫu V5 2 cột còn gắn.
   if (html.contains('BẢNG BÁO GIÁ') && html.contains(motto)) return true;
+  if (html.contains('BẢNG BÁO GIÁ') && !html.contains('{Hinh_Anh}')) return true;
   return !RegExp(r'<!--POS_A4_V(?:[8-9]|\d{2,})', caseSensitive: false)
       .hasMatch(html);
 }

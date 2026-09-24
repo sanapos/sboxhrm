@@ -21,7 +21,8 @@ public class AllowanceMappingConfig : IRegister
             .Map(dest => dest.IsActive, src => src.IsActive)
             .Map(dest => dest.CreatedAt, src => src.CreatedAt)
             .Map(dest => dest.UpdatedAt, src => src.UpdatedAt)
-            .Ignore(dest => dest.EmployeeIds);
+            .Ignore(dest => dest.EmployeeIds)
+            .Ignore(dest => dest.ShiftIds);
 
         config.NewConfig<CreateAllowanceDto, Allowance>()
             .Map(dest => dest.Name, src => src.Name)

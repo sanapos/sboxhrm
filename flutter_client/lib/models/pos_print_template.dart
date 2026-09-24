@@ -545,6 +545,7 @@ abstract final class PosPrintTokens {
     ('So_Hop_Dong', 'Số hợp đồng'),
     ('Ngay_Hop_Dong', 'Ngày ký HĐ'),
     ('Dia_Diem_Thi_Cong', 'Địa điểm thi công'),
+    ('Logo', 'Logo công ty'),
     ('Ten_Cong_Ty', 'Tên công ty (pháp lý)'),
     ('Dia_Chi_Cong_Ty', 'Địa chỉ công ty'),
     ('Dien_Thoai_Cong_Ty', 'Điện thoại công ty'),

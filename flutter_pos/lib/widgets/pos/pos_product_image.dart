@@ -135,6 +135,7 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
     for (final path in widget.paths) {
       final url = widget.apiService.getFileUrl(path);
       if (url.isEmpty) continue;
+      final ownHost = url.startsWith(ApiService.baseUrl);
       final key = PosProductImageCacheManager.cacheKey(
         productId: widget.productId,
         updatedAt: widget.updatedAt,
@@ -153,7 +154,7 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
       final bytes = await cache.loadBytes(
         url: url,
         key: key,
-        headers: headers,
+        headers: ownHost ? headers : const {},
         cacheEpoch: widget.cacheEpoch,
       );
       if (!mounted || !identical(_loadToken, token)) return;
@@ -172,10 +173,10 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
 
   static bool _looksLikeRasterImage(Uint8List b) {
     if (b.length < 12) return false;
-    if (b[0] == 0xFF && b[1] == 0xD8) return true;
-    if (b[0] == 0x89 && b[1] == 0x50) return true;
-    if (b[0] == 0x47 && b[1] == 0x49) return true;
-    if (b[0] == 0x52 && b[1] == 0x49 && b[8] == 0x57) return true;
+    if (b[0] == 0xFF && b[1] == 0xD8) return true; // JPEG
+    if (b[0] == 0x89 && b[1] == 0x50) return true; // PNG
+    if (b[0] == 0x47 && b[1] == 0x49) return true; // GIF
+    if (b[0] == 0x52 && b[1] == 0x49 && b[8] == 0x57) return true; // WEBP
     return false;
   }
 
@@ -186,7 +187,7 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
     final dpr = MediaQuery.devicePixelRatioOf(context);
     // Chỉ cacheWidth: set cả Height sẽ vuông hóa JPEG (méo ảnh catalog mẫu landscape).
     // Tăng cacheWidth để ảnh không bị mờ khi hiển thị trong ô lưới nhỏ.
-    // decode theo ~1.25x kích thước ô — cap 480px để máy yếu không đơ khi lưới nhiều ảnh.
+    // decode theo ~1.25x kích thước ô — cap 480px để A7 không đơ khi lưới nhiều ảnh.
     final cachePx = (widget.size * dpr * 1.25).round().clamp(96, 480);
     // PNG có thể có nền trong suốt — bọc nền trắng để ảnh không bị lẫn màu nền container.
     return ColoredBox(

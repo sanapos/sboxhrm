@@ -668,6 +668,7 @@ ALTER TABLE "AdvanceRequests" ADD COLUMN IF NOT EXISTS "ApprovedAmount" numeric(
 ALTER TABLE "Allowances" ADD COLUMN IF NOT EXISTS "StartDate" timestamp without time zone NULL;
 ALTER TABLE "Allowances" ADD COLUMN IF NOT EXISTS "EndDate" timestamp without time zone NULL;
 ALTER TABLE "Allowances" ADD COLUMN IF NOT EXISTS "EmployeeIds" text NULL;
+ALTER TABLE "Allowances" ADD COLUMN IF NOT EXISTS "ShiftIds" text NULL;
 
 -- AuthorizedMobileDevices
 ALTER TABLE "AuthorizedMobileDevices" ADD COLUMN IF NOT EXISTS "SelectedLocationIdsJson" text NULL;

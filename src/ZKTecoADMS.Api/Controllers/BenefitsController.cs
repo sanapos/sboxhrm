@@ -143,12 +143,13 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpGet("employees")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty")]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty", "Payroll")]
     public async Task<ActionResult<AppResponse<IEnumerable<EmployeeBenefitDto>>>> GetEmployeeBenefits()
     {
         var query = new GetEmployeeBenefitsQuery
         {
-            ManagerId = CurrentUserId
+            ManagerId = CurrentUserId,
+            StoreId = CurrentStoreId,
         };
 
         var result = await mediator.Send(query);

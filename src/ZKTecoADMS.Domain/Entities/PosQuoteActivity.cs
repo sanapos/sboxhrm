@@ -25,4 +25,7 @@ public class PosQuoteActivity : AuditableEntity<Guid>
     public DateTime? NextFollowUpAt { get; set; }
 
     public Guid? EmployeeId { get; set; }
+
+    /// <summary>Độ tiềm năng khách tại lần chăm sóc này, thang 0–10.</summary>
+    public int? PotentialScore { get; set; }
 }

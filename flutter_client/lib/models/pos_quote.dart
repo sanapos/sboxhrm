@@ -193,6 +193,7 @@ class PosQuote {
     this.quotedByEmployeeId,
     this.quotedByEmployeeName,
     this.commercialStage = 'None',
+    this.potentialScore,
     this.createdAt,
     this.lines = const [],
     this.documents = const [],
@@ -223,6 +224,9 @@ class PosQuote {
   final String? quotedByEmployeeId;
   final String? quotedByEmployeeName;
   final String commercialStage;
+
+  /// Điểm tiềm năng khách gần nhất, thang 0–10.
+  final int? potentialScore;
   final DateTime? createdAt;
   final List<PosQuoteLine> lines;
   final List<PosQuoteDocument> documents;
@@ -327,6 +331,7 @@ class PosQuote {
       commercialStage:
           (json['commercialStage'] ?? json['CommercialStage'] ?? 'None')
               .toString(),
+      potentialScore: _score010(json['potentialScore'] ?? json['PotentialScore']),
       createdAt: d(json['createdAt'] ?? json['CreatedAt']),
       lines: parseLines(rawLines),
       documents: rawDocs is List
@@ -367,6 +372,13 @@ class PosQuote {
   }
 }
 
+int? _score010(dynamic v) {
+  if (v == null) return null;
+  final n = v is num ? v.toInt() : int.tryParse('$v');
+  if (n == null || n < 0 || n > 10) return null;
+  return n;
+}
+
 class PosQuoteActivity {
   PosQuoteActivity({
     required this.id,
@@ -377,7 +389,10 @@ class PosQuoteActivity {
     this.employeeName,
     this.createdBy,
     this.createdAt,
+    this.potentialScore,
   });
+
+  static final _scoreMark = RegExp(r'^\[\[TN:(\d{1,2})\]\]\s?');
 
   final String id;
   final String kind;
@@ -387,6 +402,27 @@ class PosQuoteActivity {
   final String? employeeName;
   final String? createdBy;
   final DateTime? createdAt;
+  final int? potentialScore;
+
+  int? get score {
+    if (potentialScore != null) return potentialScore;
+    final m = _scoreMark.firstMatch(content);
+    if (m == null) return null;
+    final n = int.tryParse(m.group(1)!);
+    if (n == null || n < 0 || n > 10) return null;
+    return n;
+  }
+
+  String get displayContent => content.replaceFirst(_scoreMark, '');
+
+  static String encodeContent(String text, int score) =>
+      '[[TN:$score]] ${text.trim()}';
+
+  static Color scoreColor(int score) {
+    if (score <= 3) return const Color(0xFFDC2626);
+    if (score <= 6) return const Color(0xFFD97706);
+    return const Color(0xFF15803D);
+  }
 
   static String kindLabel(String k) => switch (k) {
         'Created' => 'Tạo báo giá',
@@ -414,6 +450,8 @@ class PosQuoteActivity {
       employeeName: (json['employeeName'] ?? json['EmployeeName'])?.toString(),
       createdBy: (json['createdBy'] ?? json['CreatedBy'])?.toString(),
       createdAt: d(json['createdAt'] ?? json['CreatedAt']),
+      potentialScore:
+          _score010(json['potentialScore'] ?? json['PotentialScore']),
     );
   }
 }

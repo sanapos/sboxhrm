@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -44,6 +46,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
   bool _canViewAll = false;
   late int _tab = widget.initialTab.clamp(0, 3);
   List<PosQuote> _items = [];
+  final Map<String, int> _careScores = {};
   List<PosQuote> _contracts = [];
   List<PosQuote> _payments = [];
   List<PosQuote> _accepts = [];
@@ -140,6 +143,11 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
           .map((e) => PosQuote.fromJson(Map<String, dynamic>.from(e)))
           .toList();
     });
+    final missingApiScore = raw.whereType<Map>().every((e) =>
+        !e.containsKey('potentialScore') && !e.containsKey('PotentialScore'));
+    if (missingApiScore && _items.isNotEmpty) {
+      unawaited(_hydratePotentialFromCare());
+    }
   }
 
   Future<void> _loadContracts() async {
@@ -661,6 +669,34 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
         PopupMenuItem(value: 'care', child: Text(tr('Lịch CSKH'))),
       ];
 
+  int? _shownScore(PosQuote q) => q.potentialScore ?? _careScores[q.id];
+
+  Future<void> _hydratePotentialFromCare() async {
+    final pending = _items.where((q) => q.potentialScore == null).toList();
+    final api = ApiService();
+    for (var i = 0; i < pending.length; i += 4) {
+      if (!mounted) return;
+      final slice = pending.skip(i).take(4);
+      final found = <String, int>{};
+      await Future.wait(slice.map((q) async {
+        final res = await api.getPosQuoteActivities(q.id);
+        final data = res['data'];
+        final raw = data is Map ? (data['items'] as List? ?? []) : <dynamic>[];
+        for (final e in raw.whereType<Map>()) {
+          final score = PosQuoteActivity.fromJson(
+            Map<String, dynamic>.from(e),
+          ).score;
+          if (score != null) {
+            found[q.id] = score;
+            break;
+          }
+        }
+      }));
+      if (!mounted || found.isEmpty) continue;
+      setState(() => _careScores.addAll(found));
+    }
+  }
+
   Widget _coloredQuoteNo(PosQuote q, String rest) {
     return Text.rich(
       TextSpan(
@@ -679,6 +715,14 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
               color: Color(0xFF111827),
             ),
           ),
+          if (_shownScore(q) != null)
+            TextSpan(
+              text: '  ·  TN ${_shownScore(q)}/10',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: PosQuoteActivity.scoreColor(_shownScore(q)!),
+              ),
+            ),
         ],
       ),
       maxLines: 2,

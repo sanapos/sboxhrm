@@ -86,11 +86,7 @@ public static class PosQuoteDocumentHtml
         return PosPrintTemplateHtmlRenderer.Render(html, data, lines);
     }
 
-    static string ProductLabel(string name, string? note)
-    {
-        var extra = (note ?? "").Trim();
-        return extra.Length == 0 ? name : name + " — " + extra;
-    }
+    static string ProductLabel(string name, string? note) => name;
 
     static string StampHtml(string? raw)
     {

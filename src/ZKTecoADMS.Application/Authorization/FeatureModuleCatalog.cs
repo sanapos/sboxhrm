@@ -141,7 +141,7 @@ public static class FeatureModuleCatalog
         new("ShiftSetup", "Thiết lập ca", "Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca", "Cài đặt", 71),
         new("Holiday", "Ngày lễ", "Ngày nghỉ lễ, hệ số công", "Cài đặt", 72),
         new("Device", "Máy chấm công", "Kết nối, quản lý, điều khiển máy chấm công", "Cài đặt", 73),
-        new("Allowance", "Phụ cấp", "Phụ cấp cố định, phụ cấp ngày công", "Cài đặt", 74),
+        new("Allowance", "Phụ cấp", "Phụ cấp cố định, theo ngày, theo ca", "Cài đặt", 74),
         new("PenaltySetup", "Phạt", "Đi trễ, về sớm, tái phạm, kỷ luật", "Cài đặt", 75),
         new("Insurance", "Bảo hiểm", "BHXH, BHYT, BHTN, lương cơ sở", "Cài đặt", 76),
         new("Tax", "Thuế TNCN", "Bậc thuế, giảm trừ gia cảnh", "Cài đặt", 77),

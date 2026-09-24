@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../l10n/app_tr.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_commercial_profile_local.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_commercial_company_fields.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -57,10 +58,19 @@ class _PosCommercialCompanyScreenState
   Future<void> _load() async {
     setState(() => _loading = true);
     final res = await _api.getPosCommercialProfile();
+    final local = await loadLocalCommercialProfile();
     if (!mounted) return;
     setState(() => _loading = false);
-    if (res['isSuccess'] != true || res['data'] is! Map) return;
-    final m = Map<String, dynamic>.from(res['data'] as Map);
+    Map<String, dynamic> m = {};
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      m = mergeCommercialProfile(
+        Map<String, dynamic>.from(res['data'] as Map),
+        local,
+      );
+    } else if (local.isNotEmpty) {
+      m = local;
+    }
+    if (m.isEmpty) return;
     String t(String a, String b) => (m[a] ?? m[b] ?? '').toString();
     _company.text = t('companyName', 'CompanyName');
     _tax.text = t('taxCode', 'TaxCode');
@@ -78,7 +88,7 @@ class _PosCommercialCompanyScreenState
 
   Future<void> _save() async {
     setState(() => _saving = true);
-    final res = await _api.updatePosCommercialProfile({
+    final body = {
       'companyName': _company.text.trim(),
       'taxCode': _tax.text.trim(),
       'address': _address.text.trim(),
@@ -89,7 +99,12 @@ class _PosCommercialCompanyScreenState
       'bankAccountHolder': _bankHolder.text.trim(),
       'legalRepresentative': _rep.text.trim(),
       'legalTitle': _title.text.trim(),
+    };
+    await saveLocalCommercialProfile({
+      ...await loadLocalCommercialProfile(),
+      ...body,
     });
+    final res = await _api.updatePosCommercialProfile(body);
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] != true) {

@@ -39,4 +39,16 @@ public class PosStoreCommercialProfile : AuditableEntity<Guid>
 
     [MaxLength(100)]
     public string? LegalTitle { get; set; }
+
+    /// <summary>PNG con dấu (base64, không kèm tiền tố data-url). In treo lên chữ ký báo giá.</summary>
+    public string? StampPngBase64 { get; set; }
+
+    /// <summary>Logo công ty (base64, không kèm tiền tố data-url). In ở đầu báo giá.</summary>
+    public string? LogoPngBase64 { get; set; }
+
+    /// <summary>Điều khoản mặc định in trên báo giá khi phiếu không ghi riêng.</summary>
+    public string? DefaultTerms { get; set; }
+
+    /// <summary>Chính sách bảo hành in trên báo giá.</summary>
+    public string? WarrantyPolicy { get; set; }
 }

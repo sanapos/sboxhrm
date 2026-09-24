@@ -1,10 +1,13 @@
 import 'dart:convert';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../utils/pos_commercial_editor_js.dart';
 import '../../utils/pos_print_template_defaults.dart';
 import '../../utils/pos_print_template_renderer.dart';
 import 'pos_html_preview_stub.dart';
@@ -18,12 +21,16 @@ class PosCommercialWordSurface extends StatefulWidget {
     required this.onChanged,
     this.editable = true,
     this.pageSetup = const PosCommercialPageSetup(),
+    this.onWheel,
+    this.onContentHeight,
   });
 
   final String html;
   final ValueChanged<String> onChanged;
   final bool editable;
   final PosCommercialPageSetup pageSetup;
+  final ValueChanged<double>? onWheel;
+  final ValueChanged<double>? onContentHeight;
 
   @override
   State<PosCommercialWordSurface> createState() =>
@@ -135,6 +142,21 @@ class PosCommercialWordSurfaceState extends State<PosCommercialWordSurface> {
 
   void insertHtml(String html) => exec('insertHTML', html);
 
+  void rememberCaret() {}
+
+  void insertImageDataUrl(String src) {
+    if (!src.startsWith('data:image')) return;
+    insertHtml(
+      '<p style="text-align:center;margin:8px 0"><img src="$src" style="width:160px;max-width:100%;height:auto" /></p>',
+    );
+  }
+
+  void runScript(String js) {
+    final c = _controller;
+    if (c == null || !_ready) return;
+    c.runJavaScript('$js;if(window._sboxFlush)_sboxFlush();');
+  }
+
   void _fallbackExec(String cmd, [String? value]) {
     final wrap = switch (cmd) {
       'bold' => ('<b>', '</b>'),
@@ -205,6 +227,64 @@ class PosCommercialWordSurfaceState extends State<PosCommercialWordSurface> {
   }
 }
 
+class PosHtmlSourceField extends StatefulWidget {
+  const PosHtmlSourceField({super.key, required this.initial, required this.onChanged});
+
+  final String initial;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<PosHtmlSourceField> createState() => PosHtmlSourceFieldState();
+}
+
+class PosHtmlSourceFieldState extends State<PosHtmlSourceField> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initial);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  String get text => _ctrl.text;
+
+  Future<void> copyAll() async {
+    await Clipboard.setData(ClipboardData(text: _ctrl.text));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _ctrl,
+      maxLines: null,
+      expands: true,
+      style: const TextStyle(fontFamily: 'Consolas', fontSize: 12),
+      decoration: const InputDecoration(border: OutlineInputBorder()),
+      onChanged: widget.onChanged,
+    );
+  }
+}
+
+void pickTemplateImage(void Function(String dataUrl) onPicked) {
+  FilePicker.platform.pickFiles(type: FileType.image, withData: true).then((picked) {
+    final bytes = picked?.files.single.bytes;
+    if (bytes == null || bytes.isEmpty) return;
+    final name = picked!.files.single.name.toLowerCase();
+    final mime = name.endsWith('.png')
+        ? 'image/png'
+        : name.endsWith('.webp')
+            ? 'image/webp'
+            : 'image/jpeg';
+    onPicked('data:$mime;base64,${base64Encode(bytes)}');
+  });
+}
+
 String _wrapDoc(String html, bool editable, PosCommercialPageSetup setup) {
   final body = posPrintProtectItemMarkers(html)
       .replaceAll(RegExp(r'</script', caseSensitive: false), '<\\/script')
@@ -235,14 +315,20 @@ String _wrapDoc(String html, bool editable, PosCommercialPageSetup setup) {
   th[style*="border:1px"], td[style*="border:1px"]{
     border:1px solid #111;
   }
+  img{max-width:100%;height:auto;}
+  #sbox-ruler{position:sticky;top:0;height:22px;background:#f8fafc;border-bottom:1px solid #cbd5e1;}
+  #sbox-caret{position:absolute;top:0;width:2px;height:22px;background:#2563eb;}
 </style>
 </head>
-<body contenteditable="$edit">$body</body>
+<body contenteditable="$edit"><div id="sbox-ruler" contenteditable="false"><div id="sbox-caret"></div></div>$body</body>
 <script>
 function _sboxFlush(){
-  try{ SboxHost.postMessage(document.body.innerHTML); }catch(e){}
+  try{ SboxHost.postMessage(sboxCleanHtml()); }catch(e){}
 }
-document.body.addEventListener('input', _sboxFlush);
+$posCommercialEditorScript
+document.body.addEventListener('input', function(){ sboxSnap(); _sboxFlush(); });
+document.addEventListener('selectionchange', sboxPlaceCaret);
+sboxSnap();
 document.body.addEventListener('keyup', _sboxFlush);
 document.body.addEventListener('blur', _sboxFlush);
 document.body.addEventListener('paste', function(ev){

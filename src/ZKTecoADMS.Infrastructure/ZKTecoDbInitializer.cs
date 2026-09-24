@@ -49,7 +49,7 @@ public class ZKTecoDbInitializer(
                 try
                 {
                     await context.Database.ExecuteSqlRawAsync(
-                        "ALTER TABLE \"ServicePackages\" ADD COLUMN IF NOT EXISTS \"DataRetentionJson\" text NOT NULL DEFAULT '{}';");
+                        "ALTER TABLE \"ServicePackages\" ADD COLUMN IF NOT EXISTS \"DataRetentionJson\" text NOT NULL DEFAULT '{{}}';");
                 }
                 catch (Exception retentionEx)
                 {
@@ -70,6 +70,20 @@ public class ZKTecoDbInitializer(
                 {
                     await context.Database.ExecuteSqlRawAsync(
                         "ALTER TABLE \"PosProducts\" ADD COLUMN IF NOT EXISTS \"AllowAreaQty\" boolean NOT NULL DEFAULT false;");
+                    await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"PosProducts\" ADD COLUMN IF NOT EXISTS \"AllowAreaLength\" boolean NOT NULL DEFAULT true;");
+                    await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"PosProducts\" ADD COLUMN IF NOT EXISTS \"AllowAreaWidth\" boolean NOT NULL DEFAULT true;");
+                    await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"PosProducts\" ADD COLUMN IF NOT EXISTS \"AllowAreaHeight\" boolean NOT NULL DEFAULT true;");
+                    await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"PosStoreCommercialProfiles\" ADD COLUMN IF NOT EXISTS \"StampPngBase64\" text NULL;");
+                    await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"PosStoreCommercialProfiles\" ADD COLUMN IF NOT EXISTS \"LogoPngBase64\" text NULL;");
+                    await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"PosStoreCommercialProfiles\" ADD COLUMN IF NOT EXISTS \"DefaultTerms\" text NULL;");
+                    await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"PosStoreCommercialProfiles\" ADD COLUMN IF NOT EXISTS \"WarrantyPolicy\" text NULL;");
                 }
                 catch (Exception areaQtyEx)
                 {
@@ -103,7 +117,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowFcm"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowedFcmCategories"" text NOT NULL DEFAULT '[]';
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""IsPublic"" boolean NOT NULL DEFAULT true;
-                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""DataRetentionJson"" text NOT NULL DEFAULT '{}';
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""DataRetentionJson"" text NOT NULL DEFAULT '{{}}';
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""Province"" character varying(120) NULL;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
@@ -169,6 +183,9 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DefaultLabelPrinterId"" uuid NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WarrantyMonths"" integer NULL;
                     ALTER TABLE ""PosQuoteLines"" ADD COLUMN IF NOT EXISTS ""WarrantyMonths"" integer NULL;
+                    ALTER TABLE ""PosQuoteLines"" ADD COLUMN IF NOT EXISTS ""Length"" numeric(18,4) NULL;
+                    ALTER TABLE ""PosQuoteLines"" ADD COLUMN IF NOT EXISTS ""Width"" numeric(18,4) NULL;
+                    ALTER TABLE ""PosQuoteLines"" ADD COLUMN IF NOT EXISTS ""Height"" numeric(18,4) NULL;
                     ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""PaymentMethod"" character varying(100) NULL;
                     ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""DepositAmount"" numeric(18,2) NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""DepositPercent"" numeric(5,2) NULL;
@@ -191,6 +208,9 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ShowComboComponentsOnSell"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowDecimalQty"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaQty"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaLength"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaWidth"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaHeight"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SortOrder"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""LengthCm"" numeric(18,2) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WidthCm"" numeric(18,2) NULL;
@@ -322,6 +342,8 @@ public class ZKTecoDbInitializer(
                         CONSTRAINT ""PK_PosQuoteActivities"" PRIMARY KEY (""Id"")
                     );
                     CREATE INDEX IF NOT EXISTS ""IX_PosQuoteActivities_QuoteId"" ON ""PosQuoteActivities"" (""QuoteId"");
+                    ALTER TABLE ""PosQuoteActivities"" ADD COLUMN IF NOT EXISTS ""PotentialScore"" integer NULL;
+                    ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""PotentialScore"" integer NULL;
                     CREATE INDEX IF NOT EXISTS ""IX_PosQuotes_Store_QuotedByEmp"" ON ""PosQuotes"" (""StoreId"", ""QuotedByEmployeeId"");
                     CREATE TABLE IF NOT EXISTS ""PosStoreCommercialProfiles"" (
                         ""Id"" uuid NOT NULL,
@@ -1690,6 +1712,9 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""ShowComboComponentsOnSell"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowDecimalQty"" boolean NOT NULL DEFAULT false;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaQty"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaLength"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaWidth"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaHeight"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DailySoldOutOn"" timestamp without time zone NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionMode"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionPercent"" numeric(18,2) NOT NULL DEFAULT 0;
@@ -1817,6 +1842,8 @@ public class ZKTecoDbInitializer(
                         CONSTRAINT ""PK_PosQuoteActivities"" PRIMARY KEY (""Id"")
                     );
                     CREATE INDEX IF NOT EXISTS ""IX_PosQuoteActivities_QuoteId"" ON ""PosQuoteActivities"" (""QuoteId"");
+                    ALTER TABLE ""PosQuoteActivities"" ADD COLUMN IF NOT EXISTS ""PotentialScore"" integer NULL;
+                    ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""PotentialScore"" integer NULL;
                     CREATE INDEX IF NOT EXISTS ""IX_PosQuotes_Store_QuotedByEmp"" ON ""PosQuotes"" (""StoreId"", ""QuotedByEmployeeId"");
                     CREATE TABLE IF NOT EXISTS ""PosStoreCommercialProfiles"" (
                         ""Id"" uuid NOT NULL,
@@ -2247,7 +2274,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowFcm"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""AllowedFcmCategories"" text NOT NULL DEFAULT '[]';
                     ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""IsPublic"" boolean NOT NULL DEFAULT true;
-                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""DataRetentionJson"" text NOT NULL DEFAULT '{}';
+                    ALTER TABLE ""ServicePackages"" ADD COLUMN IF NOT EXISTS ""DataRetentionJson"" text NOT NULL DEFAULT '{{}}';
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""MaxAccessDevices"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowWeb"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""Stores"" ADD COLUMN IF NOT EXISTS ""AllowMobile"" boolean NOT NULL DEFAULT true;
@@ -2866,6 +2893,8 @@ public class ZKTecoDbInitializer(
                         CONSTRAINT ""PK_PosQuoteActivities"" PRIMARY KEY (""Id"")
                     );
                     CREATE INDEX IF NOT EXISTS ""IX_PosQuoteActivities_QuoteId"" ON ""PosQuoteActivities"" (""QuoteId"");
+                    ALTER TABLE ""PosQuoteActivities"" ADD COLUMN IF NOT EXISTS ""PotentialScore"" integer NULL;
+                    ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""PotentialScore"" integer NULL;
                     CREATE INDEX IF NOT EXISTS ""IX_PosQuotes_Store_QuotedByEmp"" ON ""PosQuotes"" (""StoreId"", ""QuotedByEmployeeId"");
                     CREATE TABLE IF NOT EXISTS ""PosStoreCommercialProfiles"" (
                         ""Id"" uuid NOT NULL,

@@ -565,6 +565,9 @@ public class PosQuoteLineConfiguration : IEntityTypeConfiguration<PosQuoteLine>
         builder.Property(x => x.ProductCode).HasMaxLength(50);
         builder.Property(x => x.UnitName).HasMaxLength(100);
         builder.Property(x => x.LineNote).HasMaxLength(500);
+        builder.Property(x => x.Length).HasPrecision(18, 4);
+        builder.Property(x => x.Width).HasPrecision(18, 4);
+        builder.Property(x => x.Height).HasPrecision(18, 4);
         builder.Property(x => x.Qty).HasPrecision(18, 4);
         builder.Property(x => x.UnitPrice).HasPrecision(18, 2);
         builder.Property(x => x.DiscountAmount).HasPrecision(18, 2);

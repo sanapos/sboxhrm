@@ -58,6 +58,7 @@ internal static class PosProductExcelImportParser
 
         public int PrinterCol = -1;
         public int IsActiveCol = -1;
+        public int ImageCol = -1;
     }
 
 
@@ -112,7 +113,8 @@ internal static class PosProductExcelImportParser
 
         string? Description,
         string? PrinterName,
-        bool? IsActive = null);
+        bool? IsActive = null,
+        string? ImageUrl = null);
 
 
 
@@ -204,7 +206,8 @@ internal static class PosProductExcelImportParser
                 NullIfEmpty(Cell(ws, r, cols.LocationCol)),
                 NullIfEmpty(Cell(ws, r, cols.DescCol)),
                 NullIfEmpty(Cell(ws, r, cols.PrinterCol)),
-                ParseActive(Cell(ws, r, cols.IsActiveCol))));
+                ParseActive(Cell(ws, r, cols.IsActiveCol)),
+                NullIfEmpty(ImageCell(ws, r, cols.ImageCol))));
         }
         return rows;
     }
@@ -397,6 +400,11 @@ internal static class PosProductExcelImportParser
                      h.Contains("isactive", StringComparison.Ordinal) ||
                      h.Contains("active", StringComparison.Ordinal))
                 map.IsActiveCol = c;
+            else if (h.Contains("linkanh", StringComparison.Ordinal) ||
+                     h.Contains("hinhanh", StringComparison.Ordinal) ||
+                     h.Contains("imageurl", StringComparison.Ordinal) ||
+                     h.Contains("image", StringComparison.Ordinal))
+                map.ImageCol = c;
 
         }
 
@@ -453,6 +461,51 @@ internal static class PosProductExcelImportParser
     static string Cell(IXLWorksheet ws, int row, int col) =>
 
         col > 0 ? ws.Cell(row, col).GetFormattedString().Trim() : "";
+
+    static string ImageCell(IXLWorksheet ws, int row, int col)
+    {
+        if (col <= 0) return "";
+        var cell = ws.Cell(row, col);
+        var text = cell.GetFormattedString().Trim();
+        if (text.Length > 0) return NormalizeImageLink(text);
+        if (cell.HasHyperlink)
+        {
+            var link = cell.GetHyperlink().ExternalAddress?.AbsoluteUri
+                       ?? cell.GetHyperlink().InternalAddress ?? "";
+            if (link.Length > 0) return NormalizeImageLink(link);
+        }
+        return "";
+    }
+
+    /// <summary>Link public-serve / serve của hàng khác → path lưu DB. URL ngoài giữ nguyên.</summary>
+    static string NormalizeImageLink(string raw)
+    {
+        var s = raw.Trim();
+        if (s.Length == 0) return "";
+        if (!s.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            && !s.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return s.TrimStart('/');
+        if (!Uri.TryCreate(s, UriKind.Absolute, out var uri)) return s;
+        var query = uri.Query;
+        if (query.Contains("path=", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var part in parts)
+            {
+                var eq = part.IndexOf('=');
+                if (eq <= 0) continue;
+                if (!part[..eq].Equals("path", StringComparison.OrdinalIgnoreCase)) continue;
+                var path = Uri.UnescapeDataString(part[(eq + 1)..]).Trim().TrimStart('/');
+                if (path.Length > 0) return path;
+            }
+        }
+        var abs = uri.AbsolutePath.TrimStart('/');
+        if (abs.StartsWith("stores/", StringComparison.OrdinalIgnoreCase)
+            || abs.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase)
+            || abs.Contains("uploads/pos-products", StringComparison.OrdinalIgnoreCase))
+            return abs;
+        return s;
+    }
 
 
 

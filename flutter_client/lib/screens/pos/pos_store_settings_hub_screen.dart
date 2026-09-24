@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_commercial_profile_local.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
@@ -39,6 +40,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   final _bankHolderCtrl = TextEditingController();
   final _repCtrl = TextEditingController();
   final _titleCtrl = TextEditingController(text: 'Giám đốc');
+  final _termsCtrl = TextEditingController();
+  final _warrantyCtrl = TextEditingController();
   final _surchargeNameCtrl = TextEditingController();
   final _surchargeDefaultCtrl = TextEditingController();
   final _deliveryDefaultCtrl = TextEditingController();
@@ -52,6 +55,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   bool _saving = false;
   String _stampB64 = '';
   Uint8List? _stampBytes;
+  String _logoB64 = '';
+  Uint8List? _logoBytes;
 
   @override
   void initState() {
@@ -74,20 +79,19 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     _bankHolderCtrl.dispose();
     _repCtrl.dispose();
     _titleCtrl.dispose();
+    _termsCtrl.dispose();
+    _warrantyCtrl.dispose();
     _surchargeNameCtrl.dispose();
     _surchargeDefaultCtrl.dispose();
     _deliveryDefaultCtrl.dispose();
     super.dispose();
   }
 
-  Uint8List? _decodeStamp(String raw) {
+  Uint8List? _decodeB64(String raw) {
     var s = raw.trim();
     if (s.isEmpty) return null;
     final comma = s.indexOf(',');
-    if (s.startsWith('data:') && comma > 0) {
-      s = s.substring(comma + 1).trim();
-      _stampB64 = s;
-    }
+    if (s.startsWith('data:') && comma > 0) s = s.substring(comma + 1).trim();
     try {
       return base64Decode(s);
     } catch (_) {
@@ -95,7 +99,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     }
   }
 
-  Future<void> _pickStamp() async {
+  Future<void> _pickImage({bool logo = false}) async {
     final file = await ImagePicker().pickImage(
       source: ImageSource.gallery,
       maxWidth: 640,
@@ -108,13 +112,19 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     if (bytes.length > 700 * 1024) {
       NotificationOverlayManager().showWarning(
         title: 'Ảnh quá lớn',
-        message: tr('Con dấu PNG cần dưới 700 KB.'),
+        message: tr('Ảnh cần dưới 700 KB.'),
       );
       return;
     }
+    final b64 = base64Encode(bytes);
     setState(() {
-      _stampBytes = bytes;
-      _stampB64 = base64Encode(bytes);
+      if (logo) {
+        _logoBytes = bytes;
+        _logoB64 = b64;
+      } else {
+        _stampBytes = bytes;
+        _stampB64 = b64;
+      }
     });
   }
 
@@ -122,6 +132,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     setState(() => _loading = true);
     final s = await PosSellStoreSettings.load();
     final profileRes = await ApiService().getPosCommercialProfile();
+    final local = await loadLocalCommercialProfile();
     if (!mounted) return;
     setState(() {
       _nameCtrl.text = s.storeName;
@@ -140,7 +151,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           ? PosSellStoreSettings.formatAmount(s.deliveryFeeDefault)
           : '';
       if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
-        final m = Map<String, dynamic>.from(profileRes['data'] as Map);
+        final remote = Map<String, dynamic>.from(profileRes['data'] as Map);
+        final m = mergeCommercialProfile(remote, local);
         String t(String a, String b) => (m[a] ?? m[b] ?? '').toString();
         _companyCtrl.text = t('companyName', 'CompanyName');
         _taxCtrl.text = t('taxCode', 'TaxCode');
@@ -154,7 +166,30 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
         _titleCtrl.text = t('legalTitle', 'LegalTitle');
         if (_titleCtrl.text.trim().isEmpty) _titleCtrl.text = 'Giám đốc';
         _stampB64 = t('stampPngBase64', 'StampPngBase64').trim();
-        _stampBytes = _decodeStamp(_stampB64);
+        _stampBytes = _decodeB64(_stampB64);
+        _logoB64 = t('logoPngBase64', 'LogoPngBase64').trim();
+        _logoBytes = _decodeB64(_logoB64);
+        _termsCtrl.text = t('defaultTerms', 'DefaultTerms');
+        _warrantyCtrl.text = t('warrantyPolicy', 'WarrantyPolicy');
+      } else if (local.isNotEmpty) {
+        String t(String a) => (local[a] ?? '').toString();
+        _companyCtrl.text = t('companyName');
+        _taxCtrl.text = t('taxCode');
+        _companyAddressCtrl.text = t('address');
+        _companyPhoneCtrl.text = t('phone');
+        _companyEmailCtrl.text = t('email');
+        _bankNoCtrl.text = t('bankAccountNumber');
+        _bankNameCtrl.text = t('bankName');
+        _bankHolderCtrl.text = t('bankAccountHolder');
+        _repCtrl.text = t('legalRepresentative');
+        _titleCtrl.text = t('legalTitle');
+        if (_titleCtrl.text.trim().isEmpty) _titleCtrl.text = 'Giám đốc';
+        _stampB64 = t('stampPngBase64');
+        _stampBytes = _decodeB64(_stampB64);
+        _logoB64 = t('logoPngBase64');
+        _logoBytes = _decodeB64(_logoB64);
+        _termsCtrl.text = t('defaultTerms');
+        _warrantyCtrl.text = t('warrantyPolicy');
       }
       _loading = false;
     });
@@ -191,7 +226,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       ),
     );
     await next.save();
-    final profileRes = await ApiService().updatePosCommercialProfile({
+    final profileBody = {
       'companyName': _companyCtrl.text.trim(),
       'taxCode': _taxCtrl.text.trim(),
       'address': _companyAddressCtrl.text.trim(),
@@ -203,7 +238,12 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       'legalRepresentative': _repCtrl.text.trim(),
       'legalTitle': _titleCtrl.text.trim(),
       'stampPngBase64': _stampB64,
-    });
+      'logoPngBase64': _logoB64,
+      'defaultTerms': _termsCtrl.text.trim(),
+      'warrantyPolicy': _warrantyCtrl.text.trim(),
+    };
+    await saveLocalCommercialProfile(profileBody);
+    final profileRes = await ApiService().updatePosCommercialProfile(profileBody);
     if (!mounted) return;
     setState(() => _saving = false);
     if (profileRes['isSuccess'] != true) {
@@ -291,6 +331,67 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           ),
           const SizedBox(height: 14),
           Text(
+            tr('Logo công ty'),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            tr('Ảnh này in ở góc đầu báo giá. JPG hoặc PNG, dưới 700 KB.'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                width: 96,
+                height: 96,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: _logoBytes == null
+                    ? Icon(Icons.image_outlined,
+                        color: Colors.grey.shade400, size: 36)
+                    : Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Image.memory(_logoBytes!, fit: BoxFit.contain),
+                      ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: context
+                              .watch<PermissionProvider>()
+                              .canEditPosSetup()
+                          ? () => _pickImage(logo: true)
+                          : null,
+                      icon: const Icon(Icons.upload_file),
+                      label: Text(tr('Tải logo')),
+                    ),
+                    if (_logoBytes != null)
+                      TextButton(
+                        onPressed: context
+                                .watch<PermissionProvider>()
+                                .canEditPosSetup()
+                            ? () => setState(() {
+                                  _logoBytes = null;
+                                  _logoB64 = '';
+                                })
+                            : null,
+                        child: Text(tr('Gỡ logo')),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
             tr('Con dấu công ty'),
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
@@ -329,7 +430,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
                       onPressed: context
                               .watch<PermissionProvider>()
                               .canEditPosSetup()
-                          ? _pickStamp
+                          ? () => _pickImage()
                           : null,
                       icon: const Icon(Icons.upload_file),
                       label: Text(tr('Chọn ảnh con dấu')),
@@ -350,6 +451,37 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          Text(tr('Điều khoản báo giá'),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            tr('In khi báo giá không có điều khoản riêng. Ghi chú trên phiếu vẫn là ghi chú của báo giá đó.'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _termsCtrl,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: 'Hiệu lực, thanh toán, giao hàng…',
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(tr('Chính sách bảo hành'),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _warrantyCtrl,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: 'Thời gian và điều kiện bảo hành…',
+            ),
           ),
           const SizedBox(height: 16),
           Text(tr('Phụ phí khi thanh toán'),

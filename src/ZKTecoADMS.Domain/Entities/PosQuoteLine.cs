@@ -35,6 +35,15 @@ public class PosQuoteLine : AuditableEntity<Guid>
     [MaxLength(500)]
     public string? LineNote { get; set; }
 
+    /// <summary>Chiều dài khi bán theo diện tích. Đơn vị theo ĐVT dòng.</summary>
+    public decimal? Length { get; set; }
+
+    /// <summary>Chiều rộng khi bán theo diện tích.</summary>
+    public decimal? Width { get; set; }
+
+    /// <summary>Chiều cao khi bán theo diện tích.</summary>
+    public decimal? Height { get; set; }
+
     /// <summary>Số tháng bảo hành (sao chép từ hàng hóa khi lập BG).</summary>
     public int? WarrantyMonths { get; set; }
 

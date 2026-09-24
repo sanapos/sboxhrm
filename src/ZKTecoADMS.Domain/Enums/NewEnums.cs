@@ -23,7 +23,12 @@ public enum AllowanceType
     /// <summary>
     /// Theo sự kiện (ví dụ: thưởng dự án)
     /// </summary>
-    PerEvent = 3
+    PerEvent = 3,
+
+    /// <summary>
+    /// Theo ca đã chấm đủ (có giờ ra) trong kỳ lương
+    /// </summary>
+    PerShift = 4
 }
 
 /// <summary>

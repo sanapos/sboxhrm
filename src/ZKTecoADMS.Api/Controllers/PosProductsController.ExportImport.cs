@@ -478,6 +478,8 @@ public partial class PosProductsController
                     entity.IsActive = active;
                 entity.Weight = row.Weight;
                 entity.Description = row.Description;
+                if (!string.IsNullOrWhiteSpace(row.ImageUrl))
+                    entity.ImageUrl = row.ImageUrl.Trim();
                 NormalizeByProductType(entity);
                 if (!string.IsNullOrWhiteSpace(row.PrinterName))
                 {

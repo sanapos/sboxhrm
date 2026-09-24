@@ -57,7 +57,8 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
             request.IsInsuranceApplicable,
             request.StartDate,
             request.EndDate,
-            request.EmployeeIds);
+            request.EmployeeIds,
+            request.ShiftIds);
         
         var result = await mediator.Send(command);
         return Ok(result);
@@ -82,7 +83,8 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
             request.IsActive,
             request.StartDate,
             request.EndDate,
-            request.EmployeeIds);
+            request.EmployeeIds,
+            request.ShiftIds);
         
         var result = await mediator.Send(command);
         return Ok(result);

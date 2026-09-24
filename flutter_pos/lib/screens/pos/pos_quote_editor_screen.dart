@@ -10,6 +10,8 @@ import '../../models/pos_quote.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_html_print.dart';
+import '../../utils/pos_quote_document_wording.dart';
+import 'pos_quote_document_wording_screen.dart';
 import '../../utils/pos_quote_commercial.dart';
 import '../../utils/pos_print_template_loader.dart';
 import '../../utils/pos_print_template_v2_codec.dart';
@@ -300,6 +302,78 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
     c.dispose();
     if (ok != true) return null;
     return note;
+  }
+
+  Future<void> _reloadDocuments() async {
+    if (widget.quoteId == null) return;
+    final res = await _api.getPosQuote(widget.quoteId!);
+    if (!mounted) return;
+    if (res['isSuccess'] != true || res['data'] is! Map) return;
+    final q = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+    setState(() => _documents = q.documents);
+  }
+
+  Future<void> _openWording(PosQuoteDocument doc) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PosQuoteDocumentWordingScreen(
+          quoteId: widget.quoteId!,
+          document: doc,
+        ),
+      ),
+    );
+    if (changed == true) await _reloadDocuments();
+  }
+
+  Future<void> _editQuoteWording() async {
+    if (widget.quoteId == null) return;
+    PosQuoteDocument? doc;
+    for (final d in _documents) {
+      if (d.kind == 'Quote') {
+        doc = d;
+        break;
+      }
+    }
+    if (doc == null) {
+      setState(() => _saving = true);
+      final res = await _api.createPosQuoteDocument(
+        widget.quoteId!,
+        'Quote',
+        includeImages: _includeImages,
+      );
+      if (!mounted) return;
+      setState(() => _saving = false);
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        NotificationOverlayManager().showError(
+          title: 'Chưa mở được',
+          message: res['message']?.toString() ?? tr('Chưa có phiếu báo giá để sửa'),
+        );
+        return;
+      }
+      doc = PosQuoteDocument.fromJson(
+        Map<String, dynamic>.from(res['data'] as Map),
+      );
+      await _reloadDocuments();
+    }
+    if (!mounted) return;
+    await _openWording(doc);
+  }
+
+  void _printDocument(PosQuoteDocument d) {
+    if (d.kind == 'Quote' && !posQuoteDocWordingIsCustom(d.htmlContent)) {
+      printPosQuoteSlip(
+        context,
+        quoteId: widget.quoteId!,
+        includeImages: _includeImages,
+      );
+      return;
+    }
+    if (d.htmlContent.trim().isEmpty) return;
+    showPosHtmlPrintDialog(
+      context,
+      title: d.title,
+      htmlDocument: d.htmlContent,
+    );
   }
 
   Future<void> _previewKind(String kind) async {
@@ -600,19 +674,25 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                 title: Text('${d.docNo} · ${d.title}'),
                 subtitle: Text([
                   PosQuoteDocument.kindLabel(d.kind),
+                  if (posQuoteDocWordingIsCustom(d.htmlContent)) 'Đã sửa lời riêng',
                   if (d.issuedAt != null)
                     DateFormat('dd/MM/yyyy HH:mm').format(d.issuedAt!.toLocal()),
                   if (d.stockIssueNo != null && d.stockIssueNo!.isNotEmpty)
                     'PXK ${d.stockIssueNo}',
                 ].join('  ·  ')),
-                trailing: const Icon(Icons.print_outlined),
-                onTap: d.htmlContent.isEmpty
-                    ? null
-                    : () => showPosHtmlPrintDialog(
-                          context,
-                          title: d.title,
-                          htmlDocument: d.htmlContent,
-                        ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: tr('Sửa lời riêng chứng từ này'),
+                      onPressed: () => _openWording(d),
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                    const Icon(Icons.print_outlined),
+                    const SizedBox(width: 8),
+                  ],
+                ),
+                onTap: () => _printDocument(d),
               ),
             ),
         ],
@@ -637,6 +717,11 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
         ),
         actions: [
           if (widget.quoteId != null) ...[
+            IconButton(
+              tooltip: tr('Sửa lời riêng báo giá này'),
+              onPressed: _saving ? null : _editQuoteWording,
+              icon: const Icon(Icons.edit_outlined),
+            ),
             IconButton(
               tooltip: tr('In phiếu báo giá'),
               onPressed: () => printPosQuoteSlip(

@@ -65,6 +65,9 @@ public class PosQuote : AuditableEntity<Guid>
 
     public Guid? QuotedByEmployeeId { get; set; }
 
+    /// <summary>Điểm tiềm năng khách gần nhất từ lịch chăm sóc, thang 0–10.</summary>
+    public int? PotentialScore { get; set; }
+
     /// <summary>Tiến độ HĐ / xuất kho / bàn giao / nghiệm thu. Không đụng PosSaleOrder.</summary>
     public PosQuoteCommercialStage CommercialStage { get; set; } = PosQuoteCommercialStage.None;
 

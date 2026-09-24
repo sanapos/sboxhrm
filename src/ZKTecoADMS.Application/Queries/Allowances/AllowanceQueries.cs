@@ -45,6 +45,7 @@ public class GetAllowancesHandler(
             {
                 var dto = a.Adapt<AllowanceDto>();
                 dto.EmployeeIds = string.IsNullOrEmpty(a.EmployeeIds) ? null : JsonSerializer.Deserialize<List<string>>(a.EmployeeIds);
+                dto.ShiftIds = string.IsNullOrEmpty(a.ShiftIds) ? null : JsonSerializer.Deserialize<List<string>>(a.ShiftIds);
                 return dto;
             }).ToList();
 
@@ -84,6 +85,7 @@ public class GetAllowanceByIdHandler(
 
             var dto = allowance.Adapt<AllowanceDto>();
             dto.EmployeeIds = string.IsNullOrEmpty(allowance.EmployeeIds) ? null : JsonSerializer.Deserialize<List<string>>(allowance.EmployeeIds);
+            dto.ShiftIds = string.IsNullOrEmpty(allowance.ShiftIds) ? null : JsonSerializer.Deserialize<List<string>>(allowance.ShiftIds);
             return AppResponse<AllowanceDto>.Success(dto);
         }
         catch (Exception ex)

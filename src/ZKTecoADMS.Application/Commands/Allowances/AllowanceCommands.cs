@@ -34,7 +34,8 @@ public record CreateAllowanceCommand(
     bool IsInsuranceApplicable,
     DateTime? StartDate,
     DateTime? EndDate,
-    List<string>? EmployeeIds) : ICommand<AppResponse<AllowanceDto>>;
+    List<string>? EmployeeIds,
+    List<string>? ShiftIds) : ICommand<AppResponse<AllowanceDto>>;
 
 public class CreateAllowanceHandler(
     IRepository<Allowance> allowanceRepository,
@@ -59,12 +60,14 @@ public class CreateAllowanceHandler(
                 IsActive = true,
                 StartDate = request.StartDate,
                 EndDate = request.EndDate,
-                EmployeeIds = request.EmployeeIds != null && request.EmployeeIds.Count > 0 ? JsonSerializer.Serialize(request.EmployeeIds) : null
+                EmployeeIds = request.EmployeeIds != null && request.EmployeeIds.Count > 0 ? JsonSerializer.Serialize(request.EmployeeIds) : null,
+                ShiftIds = request.ShiftIds != null && request.ShiftIds.Count > 0 ? JsonSerializer.Serialize(request.ShiftIds) : null
             };
 
             var created = await allowanceRepository.AddAsync(allowance, cancellationToken);
             var dto = created.Adapt<AllowanceDto>();
             dto.EmployeeIds = string.IsNullOrEmpty(created.EmployeeIds) ? null : JsonSerializer.Deserialize<List<string>>(created.EmployeeIds);
+            dto.ShiftIds = string.IsNullOrEmpty(created.ShiftIds) ? null : JsonSerializer.Deserialize<List<string>>(created.ShiftIds);
 
             // Notify each targeted employee that a new allowance applies to them.
             try
@@ -106,7 +109,8 @@ public record UpdateAllowanceCommand(
     bool IsActive,
     DateTime? StartDate,
     DateTime? EndDate,
-    List<string>? EmployeeIds) : ICommand<AppResponse<AllowanceDto>>;
+    List<string>? EmployeeIds,
+    List<string>? ShiftIds) : ICommand<AppResponse<AllowanceDto>>;
 
 public class UpdateAllowanceHandler(
     IRepository<Allowance> allowanceRepository,
@@ -139,10 +143,12 @@ public class UpdateAllowanceHandler(
             allowance.StartDate = request.StartDate;
             allowance.EndDate = request.EndDate;
             allowance.EmployeeIds = request.EmployeeIds != null && request.EmployeeIds.Count > 0 ? JsonSerializer.Serialize(request.EmployeeIds) : null;
+            allowance.ShiftIds = request.ShiftIds != null && request.ShiftIds.Count > 0 ? JsonSerializer.Serialize(request.ShiftIds) : null;
 
             await allowanceRepository.UpdateAsync(allowance, cancellationToken);
             var dto = allowance.Adapt<AllowanceDto>();
             dto.EmployeeIds = string.IsNullOrEmpty(allowance.EmployeeIds) ? null : JsonSerializer.Deserialize<List<string>>(allowance.EmployeeIds);
+            dto.ShiftIds = string.IsNullOrEmpty(allowance.ShiftIds) ? null : JsonSerializer.Deserialize<List<string>>(allowance.ShiftIds);
 
             // Notify the union of previous + current targets that the allowance changed.
             try

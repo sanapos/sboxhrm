@@ -33,7 +33,10 @@ public partial class PosQuotesController(
         decimal LineTotal,
         string? LineNote,
         int? WarrantyMonths,
-        int SortOrder);
+        int SortOrder,
+        decimal? Length = null,
+        decimal? Width = null,
+        decimal? Height = null);
 
     public record QuoteDto(
         Guid Id,
@@ -64,7 +67,8 @@ public partial class PosQuotesController(
         DateTime CreatedAt,
         DateTime? UpdatedAt,
         List<QuoteLineDto>? Lines,
-        List<QuoteDocumentDto>? Documents);
+        List<QuoteDocumentDto>? Documents,
+        int? PotentialScore = null);
 
     public record QuoteLineInput(
         string? ProductId,
@@ -77,7 +81,10 @@ public partial class PosQuotesController(
         decimal VatRate = 0,
         string? LineNote = null,
         int? WarrantyMonths = null,
-        string? Id = null);
+        string? Id = null,
+        decimal? Length = null,
+        decimal? Width = null,
+        decimal? Height = null);
 
     public record QuoteSaveDto(
         string? CustomerId,
@@ -437,6 +444,9 @@ public partial class PosQuotesController(
         }
     }
 
+    static decimal? PositiveDim(decimal? value) =>
+        value is > 0 ? value : null;
+
     static decimal PreVatTotal(PosQuote quote)
     {
         var lines = quote.Lines.Where(l => l.Deleted == null).ToList();
@@ -469,6 +479,9 @@ public partial class PosQuotesController(
                 VatRate = vat,
                 LineTotal = Math.Round(net * (1 + vat / 100m), 0, MidpointRounding.AwayFromZero),
                 LineNote = input.LineNote?.Trim(),
+                Length = PositiveDim(input.Length),
+                Width = PositiveDim(input.Width),
+                Height = PositiveDim(input.Height),
                 WarrantyMonths = input.WarrantyMonths,
                 SortOrder = sort++,
                 CreatedBy = CurrentUserEmail,
@@ -530,6 +543,9 @@ public partial class PosQuotesController(
                 line.VatRate = vat;
                 line.LineTotal = lineTotal;
                 line.LineNote = input.LineNote?.Trim();
+                line.Length = PositiveDim(input.Length);
+                line.Width = PositiveDim(input.Width);
+                line.Height = PositiveDim(input.Height);
                 line.WarrantyMonths = input.WarrantyMonths;
                 line.SortOrder = sort++;
                 line.UpdatedAt = DateTime.UtcNow;
@@ -552,6 +568,9 @@ public partial class PosQuotesController(
                 VatRate = vat,
                 LineTotal = lineTotal,
                 LineNote = input.LineNote?.Trim(),
+                Length = PositiveDim(input.Length),
+                Width = PositiveDim(input.Width),
+                Height = PositiveDim(input.Height),
                 WarrantyMonths = input.WarrantyMonths,
                 SortOrder = sort++,
                 CreatedBy = CurrentUserEmail,
@@ -701,6 +720,8 @@ public partial class PosQuotesController(
             await AttachQuoteSlipAsync(quote, includeImages);
             return;
         }
+        if (slip.HtmlContent.Contains("<!--SBOX_DOC_WORDING-->", StringComparison.Ordinal))
+            return;
         var docNo = slip.DocNo;
         if (string.IsNullOrWhiteSpace(docNo) ||
             docNo.Equals("XEM TRƯỚC", StringComparison.OrdinalIgnoreCase))
@@ -723,7 +744,7 @@ public partial class PosQuotesController(
         x.QuotedByEmployeeId,
         x.QuotedByEmployeeId is Guid eid ? names?.GetValueOrDefault(eid) : null,
         x.CommercialStage.ToString(),
-        x.CreatedAt, x.UpdatedAt, null, null);
+        x.CreatedAt, x.UpdatedAt, null, null, x.PotentialScore);
 
     static QuoteDto Map(PosQuote x, IReadOnlyDictionary<Guid, string>? names = null) => new(
         x.Id, x.QuoteNo, x.Status.ToString(), x.CustomerId, x.CustomerName,
@@ -738,10 +759,11 @@ public partial class PosQuotesController(
             .Select(l => new QuoteLineDto(
                 l.Id, l.ProductId, l.ProductCode, l.ProductName, l.UnitName,
                 l.Qty, l.UnitPrice, l.DiscountAmount, l.VatRate, l.LineTotal,
-                l.LineNote, l.WarrantyMonths, l.SortOrder))
+                l.LineNote, l.WarrantyMonths, l.SortOrder, l.Length, l.Width, l.Height))
             .ToList(),
         x.Documents.Where(d => d.Deleted == null)
             .OrderByDescending(d => d.IssuedAt)
             .Select(d => MapDoc(d))
-            .ToList());
+            .ToList(),
+        x.PotentialScore);
 }

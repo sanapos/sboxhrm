@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
@@ -24,6 +25,10 @@ public partial class PosQuotesController
         string? StockIssueNo);
 
     public record CreateQuoteDocumentDto(string Kind, string? Note, bool IncludeImages = false);
+
+    public record UpdateQuoteDocumentWordingDto(string? HtmlContent, bool Restore = false);
+
+    const string DocWordingMark = "<!--SBOX_DOC_WORDING-->";
 
     [HttpGet("{id:guid}/documents")]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
@@ -103,6 +108,51 @@ public partial class PosQuotesController
         dbContext.PosQuoteDocuments.Add(doc);
         quote.UpdatedAt = DateTime.UtcNow;
         quote.UpdatedBy = CurrentUserEmail;
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
+    }
+
+    /// <summary>Sửa ngôn từ của một chứng từ đã lập. Không đụng mẫu in chung hay chứng từ khác.</summary>
+    [HttpPut("{id:guid}/documents/{docId:guid}/wording")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<QuoteDocumentDto>>> UpdateWording(
+        Guid id, Guid docId, [FromBody] UpdateQuoteDocumentWordingDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var quote = await LoadQuote(storeId, id, track: true);
+        if (quote == null || !OwnsOrManages(quote))
+            return NotFound(AppResponse<QuoteDocumentDto>.Fail("Không tìm thấy báo giá"));
+        if (!CanMutateOwn(quote))
+            return StatusCode(403, AppResponse<QuoteDocumentDto>.Fail(
+                "Không có quyền sửa chứng từ trên báo giá của nhân viên khác"));
+        var doc = await dbContext.PosQuoteDocuments.AsTracking()
+            .FirstOrDefaultAsync(d =>
+                d.Id == docId && d.QuoteId == id && d.StoreId == storeId && d.Deleted == null);
+        if (doc == null)
+            return NotFound(AppResponse<QuoteDocumentDto>.Fail("Không tìm thấy chứng từ"));
+
+        if (dto.Restore)
+        {
+            doc.HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
+                dbContext, quote, doc.Kind, doc.DocNo, doc.Note,
+                includeImages: false, webHostEnvironment.ContentRootPath);
+        }
+        else
+        {
+            var html = (dto.HtmlContent ?? "").Trim();
+            if (html.Length < 20)
+                return BadRequest(AppResponse<QuoteDocumentDto>.Fail("Nội dung trống"));
+            if (html.Length > 4_000_000)
+                return BadRequest(AppResponse<QuoteDocumentDto>.Fail("Nội dung quá dài"));
+            html = Regex.Replace(
+                html, @"<script\b[^>]*>[\s\S]*?</script>", "", RegexOptions.IgnoreCase);
+            if (!html.Contains(DocWordingMark, StringComparison.Ordinal))
+                html = DocWordingMark + "\n" + html;
+            doc.HtmlContent = html;
+        }
+
+        doc.UpdatedAt = DateTime.UtcNow;
+        doc.UpdatedBy = CurrentUserEmail;
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
     }

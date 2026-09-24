@@ -309,6 +309,7 @@ Map<String, String> posPrintCommercialProfileData(
       'Chu_Tai_Khoan_Cua_Hang': t('bankAccountHolder', 'BankAccountHolder'),
     if (rep.isNotEmpty) 'Nguoi_Dai_Dien_Cua_Hang': rep,
     'Chuc_Vu_Cua_Hang': title.trim().isEmpty ? 'Giám đốc' : title.trim(),
+    'Logo': posCommercialLogoHtml(t('logoPngBase64', 'LogoPngBase64')),
     'Con_Dau': posCommercialStampHtml(t('stampPngBase64', 'StampPngBase64')),
     'Dong_Email': t('email', 'Email').trim().isEmpty
         ? ''
@@ -354,6 +355,15 @@ bool _isRawHtmlPrintToken(String key) =>
     key == 'Hinh_Anh' || key == 'Con_Dau';
 
 /// PNG con dấu (base64 hoặc data-url) — HTML img treo lên chữ ký. Rỗng nếu chưa có.
+String posCommercialLogoHtml(String? raw) {
+  final img = posCommercialStampHtml(raw);
+  if (img.isEmpty || !img.contains('<img')) return '';
+  return img
+      .replaceAll('width="112"', 'width="72"')
+      .replaceAll('height="112"', 'height="72"')
+      .replaceAll('width:112px;height:112px', 'width:72px;height:72px');
+}
+
 String posCommercialStampHtml(String? raw) {
   var s = (raw ?? '').trim();
   if (s.isEmpty) return '';
@@ -363,6 +373,61 @@ String posCommercialStampHtml(String? raw) {
   if (s.length < 32) return '<div style="height:64px"></div>';
   return '<img src="data:image/png;base64,$s" alt="" width="112" height="112" '
       'style="width:112px;height:112px;object-fit:contain;display:inline-block;vertical-align:middle"/>';
+}
+
+bool _printMoneyIsZero(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return true;
+  final digits = raw.replaceAll(RegExp(r'[^\d]'), '');
+  if (digits.isEmpty) return true;
+  return int.tryParse(digits) == 0;
+}
+
+String _escPrint(String raw) => raw
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+
+/// Mẫu không có ô ghi chú / chiết khấu dòng thì gắn dưới tên hàng.
+String _withLineNoteAndDiscount(String block) {
+  if (!block.contains('{Ten_Hang_Hoa}')) return block;
+  final extra = StringBuffer();
+  if (!block.contains('{Hinh_Anh}')) extra.write('{Sbox_Hinh_Anh}');
+  if (!block.contains('{Ghi_Chu}')) extra.write('{Sbox_Ghi_Chu}');
+  if (!block.contains('{Chiet_Khau}')) extra.write('{Sbox_Chiet_Khau}');
+  if (extra.isEmpty) return block;
+  return block.replaceFirst('{Ten_Hang_Hoa}', '{Ten_Hang_Hoa}$extra');
+}
+
+String _lineNoteHtml(String? note) {
+  final text = (note ?? '').trim();
+  if (text.isEmpty) return '';
+  return '<div style="margin-top:2px;font-size:11px;font-style:italic;white-space:pre-wrap">${_escPrint(text)}</div>';
+}
+
+String _lineDiscountHtml(String? amount) {
+  if (_printMoneyIsZero(amount)) return '';
+  return '<div style="margin-top:2px;font-size:11px">Giảm giá: ${_escPrint(amount!.trim())}</div>';
+}
+
+/// Hàng «Chiết khấu» ở chân bảng chỉ giữ khi đơn có chiết khấu.
+String _dropZeroInvoiceDiscountRow(String html, String? amount) {
+  if (!_printMoneyIsZero(amount)) return html;
+  return html.replaceAllMapped(
+    RegExp(r'<tr\b[^>]*>[\s\S]*?</tr>', caseSensitive: false),
+    (m) {
+      final row = m.group(0)!;
+      final text = row
+          .replaceAll(RegExp(r'<[^>]+>'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim()
+          .toLowerCase();
+      final label = text.contains('chiết khấu') ||
+          text.contains('chiet khau') ||
+          text.contains('giảm giá');
+      if (!label || text.length > 80 || !_printMoneyIsZero(text)) return row;
+      return '';
+    },
+  );
 }
 
 String _replacePrintToken(String row, String key, String value) {
@@ -386,11 +451,17 @@ String renderPosPrintTemplateHtml(
   final begin = html.indexOf(_itemBegin);
   final end = html.indexOf(_itemEnd);
   if (begin >= 0 && end > begin) {
-    final block = html.substring(begin + _itemBegin.length, end);
+    final block = _withLineNoteAndDiscount(
+      html.substring(begin + _itemBegin.length, end),
+    );
     final rendered = StringBuffer();
     for (final line in lineItems) {
+      final filled = Map<String, String>.from(line);
+      filled['Sbox_Ghi_Chu'] = _lineNoteHtml(line['Ghi_Chu']);
+      filled['Sbox_Chiet_Khau'] = _lineDiscountHtml(line['Chiet_Khau']);
+      filled['Sbox_Hinh_Anh'] = line['Hinh_Anh'] ?? '';
       var row = block;
-      for (final e in line.entries) {
+      for (final e in filled.entries) {
         row = _replacePrintToken(row, e.key, e.value);
       }
       for (final e in data.entries) {
@@ -404,6 +475,7 @@ String renderPosPrintTemplateHtml(
   for (final e in data.entries) {
     html = html.replaceAll('{${e.key}}', e.value);
   }
+  html = _dropZeroInvoiceDiscountRow(html, data['Chiet_Khau_Hoa_Don']);
   // HTML mẫu cũ: chữ «…đồng chẵn» hard-code từ preview — thay bằng tổng đúng.
   final bangChu = data['Tong_Cong_Bang_Chu'];
   if (bangChu != null && bangChu.isNotEmpty) {

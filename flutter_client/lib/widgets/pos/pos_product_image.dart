@@ -135,6 +135,7 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
     for (final path in widget.paths) {
       final url = widget.apiService.getFileUrl(path);
       if (url.isEmpty) continue;
+      final ownHost = url.startsWith(ApiService.baseUrl);
       final key = PosProductImageCacheManager.cacheKey(
         productId: widget.productId,
         updatedAt: widget.updatedAt,
@@ -153,7 +154,7 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
       final bytes = await cache.loadBytes(
         url: url,
         key: key,
-        headers: headers,
+        headers: ownHost ? headers : const {},
         cacheEpoch: widget.cacheEpoch,
       );
       if (!mounted || !identical(_loadToken, token)) return;

@@ -65,11 +65,13 @@ public static class PosPrintTemplateHtmlRenderer
         var end = html.IndexOf(ItemEnd, StringComparison.Ordinal);
         if (begin >= 0 && end > begin)
         {
-            var block = html[(begin + ItemBegin.Length)..end];
+            var block = WithLineNoteAndDiscount(html[(begin + ItemBegin.Length)..end]);
             var sb = new StringBuilder();
             foreach (var row in lineItems)
             {
                 var line = block;
+                line = line.Replace("{Sbox_Ghi_Chu}", LineNoteHtml(row), StringComparison.Ordinal);
+                line = line.Replace("{Sbox_Chiet_Khau}", LineDiscountHtml(row), StringComparison.Ordinal);
                 foreach (var (k, v) in row)
                     line = line.Replace("{" + k + "}", EncodeToken(k, v), StringComparison.Ordinal);
                 sb.Append(line);
@@ -79,6 +81,9 @@ public static class PosPrintTemplateHtmlRenderer
 
         foreach (var (k, v) in data)
             html = html.Replace("{" + k + "}", EncodeToken(k, v), StringComparison.Ordinal);
+
+        data.TryGetValue("Chiet_Khau_Hoa_Don", out var invoiceDiscount);
+        html = DropZeroInvoiceDiscountRow(html, invoiceDiscount);
 
         if (!html.Contains("<html", StringComparison.OrdinalIgnoreCase))
         {
@@ -101,6 +106,54 @@ public static class PosPrintTemplateHtmlRenderer
                 "</style></head><body>" + html + "</body></html>";
         }
         return html;
+    }
+
+    static string WithLineNoteAndDiscount(string block)
+    {
+        if (!block.Contains("{Ten_Hang_Hoa}", StringComparison.Ordinal)) return block;
+        var extra = "";
+        if (!block.Contains("{Ghi_Chu}", StringComparison.Ordinal)) extra += "{Sbox_Ghi_Chu}";
+        if (!block.Contains("{Chiet_Khau}", StringComparison.Ordinal)) extra += "{Sbox_Chiet_Khau}";
+        if (extra.Length == 0) return block;
+        var at = block.IndexOf("{Ten_Hang_Hoa}", StringComparison.Ordinal);
+        return block[..at] + "{Ten_Hang_Hoa}" + extra + block[(at + "{Ten_Hang_Hoa}".Length)..];
+    }
+
+    static bool MoneyIsZero(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return true;
+        var digits = Regex.Replace(raw, @"[^\d]", "");
+        return digits.Length == 0 || digits.Trim('0').Length == 0;
+    }
+
+    static string LineNoteHtml(IReadOnlyDictionary<string, string> row)
+    {
+        row.TryGetValue("Ghi_Chu", out var note);
+        note = (note ?? "").Trim();
+        if (note.Length == 0) return "";
+        return "<div style=\"margin-top:2px;font-size:11px;font-style:italic;white-space:pre-wrap\">"
+            + WebUtility.HtmlEncode(note) + "</div>";
+    }
+
+    static string LineDiscountHtml(IReadOnlyDictionary<string, string> row)
+    {
+        row.TryGetValue("Chiet_Khau", out var amount);
+        if (MoneyIsZero(amount)) return "";
+        return "<div style=\"margin-top:2px;font-size:11px\">Giảm giá: "
+            + WebUtility.HtmlEncode((amount ?? "").Trim()) + "</div>";
+    }
+
+    static string DropZeroInvoiceDiscountRow(string html, string? amount)
+    {
+        if (!MoneyIsZero(amount)) return html;
+        return TrRe.Replace(html, m =>
+        {
+            var text = Regex.Replace(m.Value, "<[^>]+>", " ");
+            text = Regex.Replace(text, @"\s+", " ").Trim().ToLowerInvariant();
+            var label = text.Contains("chiết khấu") || text.Contains("chiet khau") || text.Contains("giảm giá");
+            if (!label || text.Length > 80 || !MoneyIsZero(text)) return m.Value;
+            return "";
+        });
     }
 
     /// <summary>

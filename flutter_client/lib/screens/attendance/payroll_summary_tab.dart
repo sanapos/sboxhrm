@@ -546,7 +546,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       );
       for (final p in allProfiles) {
         if (p is Map<String, dynamic>) {
-          final eid = p['employeeId']?.toString() ?? '';
+          final eid = (p['employeeId'] ?? p['EmployeeId'])?.toString() ?? '';
           if (eid.isNotEmpty) _putSalaryProfile(profileMap, eid, p);
         }
       }
@@ -717,13 +717,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         activeEmployees,
         preferSelfServiceApi: mounted && _isEmployeeRole(context),
       );
-      // Loại bỏ NV chưa thiết lập bảng lương khỏi tổng hợp lương.
       _notConfiguredSalaryCount = activeEmployees
           .where((e) => !profileMap.containsKey(_normEmpId(e.id)))
           .length;
-      _employees = activeEmployees
-          .where((e) => profileMap.containsKey(_normEmpId(e.id)))
-          .toList();
+      _employees = activeEmployees;
       for (final emp in _employees) {
         _employeeSalaryProfiles.add({
           'employeeId': emp.id,

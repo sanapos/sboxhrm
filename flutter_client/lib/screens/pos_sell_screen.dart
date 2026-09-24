@@ -12036,8 +12036,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       width: 280,
       child: Scrollbar(
         controller: _tabScrollCtrl,
-        thumbVisibility: true,
-        interactive: true,
+        thumbVisibility: false,
+        thickness: 0,
         child: ListView(
           controller: _tabScrollCtrl,
           scrollDirection: Axis.horizontal,

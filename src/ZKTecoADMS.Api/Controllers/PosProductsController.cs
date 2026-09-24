@@ -97,7 +97,10 @@ public partial class PosProductsController(
         string CommissionMode = "None",
         decimal CommissionPercent = 0,
         decimal CommissionFixed = 0,
-        bool ComboTrackStock = false);
+        bool ComboTrackStock = false,
+        bool AllowAreaLength = true,
+        bool AllowAreaWidth = true,
+        bool AllowAreaHeight = true);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -194,7 +197,10 @@ public partial class PosProductsController(
         PosCommissionMode CommissionMode = PosCommissionMode.None,
         decimal CommissionPercent = 0,
         decimal CommissionFixed = 0,
-        bool ComboTrackStock = false);
+        bool ComboTrackStock = false,
+        bool AllowAreaLength = true,
+        bool AllowAreaWidth = true,
+        bool AllowAreaHeight = true);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -360,6 +366,9 @@ public partial class PosProductsController(
                 p.ComboTrackStock,
                 p.AllowDecimalQty,
                 p.AllowAreaQty,
+                p.AllowAreaLength,
+                p.AllowAreaWidth,
+                p.AllowAreaHeight,
                 p.ServiceBillingMode,
                 p.MinBillMinutes,
                 p.BillRoundMinutes,
@@ -434,6 +443,9 @@ public partial class PosProductsController(
                 AutoOpenToppingPopup: r.AutoOpenToppingPopup,
                 AllowDecimalQty: r.AllowDecimalQty,
                 AllowAreaQty: r.AllowAreaQty,
+                AllowAreaLength: r.AllowAreaLength,
+                AllowAreaWidth: r.AllowAreaWidth,
+                AllowAreaHeight: r.AllowAreaHeight,
                 SellableQty: r.ProductType == PosProductType.Combo
                     ? comboSellable.GetValueOrDefault(r.Id)
                     : null,
@@ -688,9 +700,9 @@ public partial class PosProductsController(
             SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes),
             DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId),
             WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null,
-            RequiresSerial = dto.RequiresSerial && !dto.AllowDecimalQty && !dto.AllowAreaQty,
-            AllowDecimalQty = (dto.AllowDecimalQty || dto.AllowAreaQty) && !dto.RequiresSerial,
-            AllowAreaQty = dto.AllowAreaQty && !dto.RequiresSerial,
+            RequiresSerial = false,
+            AllowDecimalQty = false,
+            AllowAreaQty = false,
             TrackExpiry = dto.TrackExpiry,
             ExpiryWarningDays = dto.ExpiryWarningDays > 0 ? dto.ExpiryWarningDays : 30,
             ServiceBillingMode = dto.ProductType == PosProductType.Service
@@ -717,6 +729,7 @@ public partial class PosProductsController(
             CreatedBy = CurrentUserEmail,
         };
 
+        ApplyQtyMode(entity, dto);
         entity.ImageUrl = await ResolveImageUrlAsync(storeId, dto);
 
         NormalizeByProductType(entity);
@@ -815,9 +828,7 @@ public partial class PosProductsController(
         entity.SaleQuickNotesJson = PosSaleQuickNotesHelper.Serialize(dto.SaleQuickNotes);
         entity.DefaultPrinterId = await ResolvePrinterIdAsync(storeId, dto.DefaultPrinterId);
         entity.WarrantyMonths = dto.WarrantyMonths > 0 ? dto.WarrantyMonths : null;
-        entity.RequiresSerial = dto.RequiresSerial && !dto.AllowDecimalQty && !dto.AllowAreaQty;
-        entity.AllowDecimalQty = (dto.AllowDecimalQty || dto.AllowAreaQty) && !dto.RequiresSerial;
-        entity.AllowAreaQty = dto.AllowAreaQty && !dto.RequiresSerial;
+        ApplyQtyMode(entity, dto);
         entity.TrackExpiry = dto.TrackExpiry;
         entity.ExpiryWarningDays = dto.ExpiryWarningDays > 0 ? dto.ExpiryWarningDays : 30;
         entity.ServiceBillingMode = dto.ProductType == PosProductType.Service
@@ -943,6 +954,9 @@ public partial class PosProductsController(
             RequiresSerial = source.RequiresSerial,
             AllowDecimalQty = source.AllowDecimalQty,
             AllowAreaQty = source.AllowAreaQty,
+            AllowAreaLength = source.AllowAreaLength,
+            AllowAreaWidth = source.AllowAreaWidth,
+            AllowAreaHeight = source.AllowAreaHeight,
             TrackExpiry = source.TrackExpiry,
             ExpiryWarningDays = source.ExpiryWarningDays,
             IsTopping = source.IsTopping,
@@ -1214,7 +1228,10 @@ public partial class PosProductsController(
             CommissionMode: p.CommissionMode.ToString(),
             CommissionPercent: p.CommissionPercent,
             CommissionFixed: p.CommissionFixed,
-            ComboTrackStock: p.ComboTrackStock);
+            ComboTrackStock: p.ComboTrackStock,
+            AllowAreaLength: p.AllowAreaLength,
+            AllowAreaWidth: p.AllowAreaWidth,
+            AllowAreaHeight: p.AllowAreaHeight);
     }
 
     private async Task<DateTime> ResolveStoreBusinessDateAsync(Guid storeId)
@@ -1468,6 +1485,27 @@ public partial class PosProductsController(
                 fromComponents, combo?.OnHandQty ?? 0, combo?.ComboTrackStock == true);
         }
         return map;
+    }
+
+    private static void ApplyQtyMode(PosProduct entity, PosProductUpsertDto dto)
+    {
+        var length = dto.AllowAreaLength;
+        var width = dto.AllowAreaWidth;
+        var height = dto.AllowAreaHeight;
+        var count = (length ? 1 : 0) + (width ? 1 : 0) + (height ? 1 : 0);
+        var on = dto.AllowAreaQty && !dto.RequiresSerial;
+        if (on && count < 2)
+        {
+            length = true;
+            width = true;
+            height = true;
+        }
+        entity.RequiresSerial = dto.RequiresSerial && !dto.AllowDecimalQty && !on;
+        entity.AllowDecimalQty = (dto.AllowDecimalQty || on) && !dto.RequiresSerial;
+        entity.AllowAreaQty = on;
+        entity.AllowAreaLength = length;
+        entity.AllowAreaWidth = width;
+        entity.AllowAreaHeight = height;
     }
 
     private static void NormalizeByProductType(PosProduct entity)
