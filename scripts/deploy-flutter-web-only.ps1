@@ -49,8 +49,8 @@ function Publish-FlutterWeb {
         [string]$ApiUrl,
         [string]$SitePassword
     )
-    if (-not $SitePassword) {
-        throw "Missing deploy password for $Site. Set SBOX_DEPLOY_PASSWORD or SBOXPOS_DEPLOY_PASSWORD."
+    if (-not $SitePassword -and -not $env:SBOX_DEPLOY_KEY) {
+        throw "Missing deploy password for $Site. Set SBOX_DEPLOY_KEY (SSH key) or SBOX_DEPLOY_PASSWORD / SBOXPOS_DEPLOY_PASSWORD."
     }
     if (-not (Test-Path $RemoteDeploySh)) {
         throw "Missing $RemoteDeploySh"
