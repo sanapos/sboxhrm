@@ -25,6 +25,7 @@ import '../widgets/pos/pos_product_data_table.dart';
 import '../widgets/pos/pos_product_table_columns.dart';
 import '../widgets/pos/pos_product_type_badge.dart';
 import '../widgets/pos/pos_product_type_filter_bar.dart';
+import '../widgets/pos/pos_ai_menu_import.dart';
 import '../widgets/pos/pos_sample_catalog_picker.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_product_expansion_panel.dart';
@@ -850,6 +851,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     }
   }
 
+  Future<void> _openAiMenuImport() async {
+    final created = await showPosAiMenuImport(context, _api);
+    if (created && mounted) await _reloadProducts(forceNetwork: true);
+  }
+
   Future<void> _importExcel(PermissionProvider perm,
       {PosProductType? forceProductType}) async {
     if (!perm.canCreate('PosProducts')) return;
@@ -1349,6 +1355,10 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                                 await _reloadProducts(forceNetwork: true);
                               }
                             }();
+                          } else if (v == 'ai_menu' &&
+                              perm.canCreate('PosProducts')) {
+                            // ignore: discarded_futures
+                            _openAiMenuImport();
                           } else if (v == 'create_hub' &&
                               perm.canCreate('PosProducts')) {
                             _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
@@ -1368,6 +1378,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             PopupMenuItem(
                                 value: 'sample_menu',
                                 child: Text(tr('Thêm từ menu / catalog mẫu'))),
+                            PopupMenuItem(
+                                value: 'ai_menu',
+                                child: Text(tr('Quét ảnh menu bằng AI'))),
                             PopupMenuItem(
                                 value: 'create_hub',
                                 child: Text(tr('Tạo / nhập theo loại'))),
@@ -1527,6 +1540,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               PopupMenuButton<String>(
                 onSelected: (v) {
                   if (v == 'import') _importExcel(perm);
+                  if (v == 'ai_menu') _openAiMenuImport();
                   if (v == 'import_typed') {
                     _openTypeHub(
                       perm,
@@ -1542,6 +1556,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   PopupMenuItem(
                       value: 'import',
                       child: Text(tr('Import hỗn hợp (cột Loại hàng)'))),
+                  PopupMenuItem(
+                      value: 'ai_menu',
+                      child: Text(tr('Quét ảnh menu bằng AI'))),
                 ],
                 child: Container(
                   padding:

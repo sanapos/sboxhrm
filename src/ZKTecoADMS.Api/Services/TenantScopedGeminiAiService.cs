@@ -28,9 +28,8 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
     {
         if (_initialized) return;
         _initialized = true;
-        if (_tenant.StoreId is not Guid storeId) return;
-
-        var cfg = GeminiStoreConfigLoader.LoadFromDbAsync(_db, storeId)
+        // Key riêng của cửa hàng → không có thì dùng cấu hình AI chung của Super Admin.
+        var cfg = GeminiStoreConfigLoader.LoadEffectiveAsync(_db, _tenant.StoreId)
             .GetAwaiter()
             .GetResult();
         if (cfg != null)
@@ -95,6 +94,17 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
     {
         EnsureInitialized();
         return _inner.GeneratePlainTextAsync(systemPrompt, userPrompt, maxTokens);
+    }
+
+    public Task<string> GenerateJsonAsync(
+        string systemPrompt,
+        string userPrompt,
+        IReadOnlyList<AiFilePart>? files = null,
+        int maxTokens = 16384,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureInitialized();
+        return _inner.GenerateJsonAsync(systemPrompt, userPrompt, files, maxTokens, cancellationToken);
     }
 
     public Task<string> GenerateAssistantChatAsync(

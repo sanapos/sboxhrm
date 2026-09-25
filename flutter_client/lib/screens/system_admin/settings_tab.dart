@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/responsive_helper.dart';
+import 'ai_config_card.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -110,6 +111,7 @@ class SettingsTabState extends State<SettingsTab> {
 
     return Column(
       children: [
+        if (isSuperAdmin) const SystemAiConfigCard(),
         _buildToolbar(allGroups),
         Expanded(
           child: filtered.isEmpty

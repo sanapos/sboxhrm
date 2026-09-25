@@ -18,14 +18,42 @@ public static class GeminiStoreConfigLoader
         "gemini_enabled",
     ];
 
-    public static async Task<GeminiConfig?> LoadFromDbAsync(
+    public static Task<GeminiConfig?> LoadFromDbAsync(
         ZKTecoDbContext db,
         Guid storeId,
         CancellationToken cancellationToken = default)
+        => LoadAsync(db, storeId, cancellationToken);
+
+    /// <summary>Cấu hình AI dùng chung toàn hệ thống (Super Admin) — AppSettings StoreId = null.</summary>
+    public static Task<GeminiConfig?> LoadPlatformAsync(
+        ZKTecoDbContext db,
+        CancellationToken cancellationToken = default)
+        => LoadAsync(db, null, cancellationToken);
+
+    /// <summary>Key riêng của cửa hàng nếu có, không thì cấu hình chung.</summary>
+    public static async Task<GeminiConfig?> LoadEffectiveAsync(
+        ZKTecoDbContext db,
+        Guid? storeId,
+        CancellationToken cancellationToken = default)
     {
+        if (storeId is Guid sid)
+        {
+            var store = await LoadAsync(db, sid, cancellationToken);
+            if (store != null) return store;
+        }
+        return await LoadAsync(db, null, cancellationToken);
+    }
+
+    private static async Task<GeminiConfig?> LoadAsync(
+        ZKTecoDbContext db,
+        Guid? storeId,
+        CancellationToken cancellationToken)
+    {
+        // IgnoreQueryFilters: dòng StoreId = null bị bộ lọc cửa hàng ẩn với người dùng thường.
         var rows = await db.AppSettings
+            .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(s => s.StoreId == storeId && GeminiKeys.Contains(s.Key))
+            .Where(s => s.StoreId == storeId && s.Deleted == null && GeminiKeys.Contains(s.Key))
             .ToListAsync(cancellationToken);
 
         if (rows.Count == 0)

@@ -209,6 +209,7 @@ public static class DependencyInjectionExtensions
         // Gemini AI: per-store config from AppSettings (scoped per request)
         services.AddScoped<TenantScopedGeminiAiService>();
         services.AddScoped<IGeminiAiService>(sp => sp.GetRequiredService<TenantScopedGeminiAiService>());
+        services.AddScoped<PosAiMenuService>();
         
         // Register DeepSeek AI service
         services.AddSingleton<IDeepSeekAiService, DeepSeekAiService>();

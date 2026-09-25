@@ -14875,6 +14875,42 @@ class ApiService {
     }
   }
 
+  /// AI đọc ảnh menu → danh sách món (tên, nhóm, giá, size, ảnh catalog gợi ý).
+  Future<Map<String, dynamic>> scanPosMenuAi(
+      List<({List<int> bytes, String name})> images) async {
+    try {
+      final request = http.MultipartRequest(
+          'POST', Uri.parse('$baseUrl/api/pos/ai/menu/scan'));
+      final authHeaders = _headers;
+      if (authHeaders.containsKey('Authorization')) {
+        request.headers['Authorization'] = authHeaders['Authorization']!;
+      }
+      for (final img in images) {
+        request.files.add(
+            http.MultipartFile.fromBytes('files', img.bytes, filename: img.name));
+      }
+      final streamed = await request.send().timeout(const Duration(seconds: 200));
+      final response = await http.Response.fromStream(streamed);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Tạo nhóm hàng / hàng hóa / size từ danh sách món đã duyệt.
+  Future<Map<String, dynamic>> importPosMenuAi(
+      List<Map<String, dynamic>> items) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/ai/menu/import'),
+              headers: _headers, body: jsonEncode({'items': items}))
+          .timeout(const Duration(seconds: 120));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> importPosBarcodeCatalogExcel(
       List<int> fileBytes, String fileName) async {
     try {

@@ -21,11 +21,24 @@ public interface IGeminiAiService
         IReadOnlyList<(string Role, string Content)> messages,
         int maxTokens = 2048,
         CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Gửi prompt kèm ảnh / tài liệu (inline) và nhận JSON (responseMimeType=application/json).
+    /// Trả chuỗi JSON đã bỏ code fence. Lỗi quota → <see cref="AiApiException"/> (IsQuotaError).
+    /// </summary>
+    Task<string> GenerateJsonAsync(
+        string systemPrompt,
+        string userPrompt,
+        IReadOnlyList<AiFilePart>? files = null,
+        int maxTokens = 16384,
+        CancellationToken cancellationToken = default);
     bool IsConfigured { get; }
     bool IsEnabled { get; }
     void UpdateConfig(string? apiKey, string? model = null, int? maxTokens = null, double? temperature = null, bool? enabled = null);
     GeminiConfig GetCurrentConfig();
 }
+
+/// <summary>Ảnh / tài liệu gửi kèm Gemini (inlineData, tối đa ~20 MB mỗi request).</summary>
+public sealed record AiFilePart(string MimeType, byte[] Data);
 
 public class GeminiConfig
 {
@@ -61,7 +74,8 @@ public class GeminiAiService : IGeminiAiService
     public GeminiAiService(IConfiguration configuration, ILogger<GeminiAiService> logger)
     {
         _logger = logger;
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+        // Đọc ảnh menu / file Word nhiều trang có thể > 60 s.
+        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(180) };
         
         var section = configuration.GetSection("GeminiAi");
         _apiKey = section["ApiKey"] ?? "";
@@ -218,6 +232,87 @@ QUAN TRỌNG: Trả lời ĐÚNG theo format JSON sau (không markdown, không c
                 Tags = new List<string> { "ai-generated" }
             };
         }
+    }
+
+    public async Task<string> GenerateJsonAsync(
+        string systemPrompt,
+        string userPrompt,
+        IReadOnlyList<AiFilePart>? files = null,
+        int maxTokens = 16384,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+            throw new InvalidOperationException("Chưa cấu hình AI (Gemini). Super Admin cấu hình tại Quản trị hệ thống → AI.");
+        if (!IsEnabled)
+            throw new InvalidOperationException("AI (Gemini) đang tắt. Super Admin bật lại tại Quản trị hệ thống → AI.");
+
+        var parts = new List<object> { new Dictionary<string, object> { ["text"] = userPrompt } };
+        foreach (var f in files ?? [])
+        {
+            parts.Add(new Dictionary<string, object>
+            {
+                ["inlineData"] = new Dictionary<string, object>
+                {
+                    ["mimeType"] = f.MimeType,
+                    ["data"] = Convert.ToBase64String(f.Data),
+                },
+            });
+        }
+
+        var requestBody = new Dictionary<string, object>
+        {
+            ["systemInstruction"] = new { parts = new[] { new { text = systemPrompt } } },
+            ["contents"] = new[] { new Dictionary<string, object> { ["role"] = "user", ["parts"] = parts } },
+            ["generationConfig"] = new Dictionary<string, object>
+            {
+                ["temperature"] = 0.1,
+                ["maxOutputTokens"] = Math.Max(maxTokens, 1024),
+                ["responseMimeType"] = "application/json",
+            },
+        };
+
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json"),
+        };
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("Gemini JSON API error {StatusCode}: {Body}", response.StatusCode,
+                responseBody.Length > 500 ? responseBody[..500] : responseBody);
+            throw new AiApiException(ParseGeminiError(response.StatusCode, responseBody), (int)response.StatusCode);
+        }
+
+        using var doc = JsonDocument.Parse(responseBody);
+        if (!doc.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+            throw new AiApiException("AI không trả kết quả (nội dung có thể bị chặn). Thử ảnh / file khác.", 422);
+        var candidate = candidates[0];
+        var finish = candidate.TryGetProperty("finishReason", out var fr) ? fr.GetString() : null;
+        var text = "";
+        if (candidate.TryGetProperty("content", out var content) && content.TryGetProperty("parts", out var outParts))
+        {
+            for (var i = outParts.GetArrayLength() - 1; i >= 0; i--)
+            {
+                var part = outParts[i];
+                if (part.TryGetProperty("thought", out var thought) && thought.ValueKind == JsonValueKind.True)
+                    continue;
+                if (part.TryGetProperty("text", out var t)) { text = t.GetString() ?? ""; break; }
+            }
+        }
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new AiApiException(finish == "MAX_TOKENS"
+                ? "Nội dung quá dài cho một lần đọc — chia nhỏ ảnh / file rồi thử lại."
+                : "AI không trả kết quả. Vui lòng thử lại sau.", 422);
+        }
+
+        text = text.Trim();
+        if (text.StartsWith("```json")) text = text[7..];
+        if (text.StartsWith("```")) text = text[3..];
+        if (text.EndsWith("```")) text = text[..^3];
+        return text.Trim();
     }
 
     private string BuildSystemPrompt(string typeLabel, string tone, string? context, int maxLength)
@@ -488,10 +583,8 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
                 
                 return code switch
                 {
-                    429 or _ when status == "RESOURCE_EXHAUSTED" => 
-                        "Đã vượt quá giới hạn sử dụng miễn phí của Gemini API. " +
-                        "API Key hợp lệ nhưng quota đã hết. " +
-                        "Vui lòng đợi vài phút rồi thử lại, hoặc nâng cấp gói tại console.cloud.google.com",
+                    429 or _ when status == "RESOURCE_EXHAUSTED" =>
+                        "AI đang quá tải hoặc đã hết lượt sử dụng. Vui lòng thử lại sau ít phút.",
                     400 => "Yêu cầu không hợp lệ. Vui lòng kiểm tra lại cấu hình model.",
                     401 or 403 => "API Key không hợp lệ hoặc không có quyền truy cập. Vui lòng kiểm tra lại API Key.",
                     404 => $"Model không tồn tại. Vui lòng chọn model khác.",
