@@ -890,3 +890,14 @@ UPDATE "Payslips" p
 SET "EmployeeId" = e."Id"
 FROM "Employees" e
 WHERE p."EmployeeId" IS NULL AND e."ApplicationUserId" = p."EmployeeUserId";
+
+-- Hình thức thu phạt: Salary = trừ vào lương (không phiếu thu), Cash = thu tiền mặt từng lần (phiếu thu).
+ALTER TABLE "PenaltySettings" ADD COLUMN IF NOT EXISTS "CollectionMethod" character varying(20) NOT NULL DEFAULT 'Salary';
+ALTER TABLE "PenaltyTickets" ADD COLUMN IF NOT EXISTS "CollectionMethod" character varying(20) NULL;
+-- Phiếu đã duyệt trước đây: phiếu thu đã thu tiền → Cash; còn lại → Salary (trừ lương).
+UPDATE "PenaltyTickets" t
+SET "CollectionMethod" = CASE WHEN EXISTS (
+        SELECT 1 FROM "CashTransactions" c
+        WHERE c."Id" = t."CashTransactionId" AND c."Deleted" IS NULL
+          AND (c."IsPaid" = true OR c."Status" = 2)) THEN 'Cash' ELSE 'Salary' END
+WHERE t."CollectionMethod" IS NULL AND t."Status" IN (1, 3);

@@ -48,6 +48,28 @@ public static class PenaltyTicketFinanceHelper
         return $"{prefix}{max + 1:D4}";
     }
 
+    /// <summary>
+    /// Khi duyệt / tự duyệt phiếu phạt: chốt hình thức thu của cửa hàng lên phiếu.
+    /// Thu tiền mặt → tạo phiếu thu; trừ vào lương → không tạo phiếu thu (tổng lương tự trừ).
+    /// </summary>
+    public static async Task<CashTransaction?> ApplyCollectionAsync(
+        ZKTecoDbContext dbContext,
+        PenaltyTicket ticket,
+        Guid? createdByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        var method = await dbContext.PenaltySettings.AsNoTracking()
+            .Where(s => s.StoreId == ticket.StoreId)
+            .Select(s => s.CollectionMethod)
+            .FirstOrDefaultAsync(cancellationToken);
+        ticket.CollectionMethod = PenaltyCollectionMethods.Normalize(method);
+        if (ticket.CollectionMethod != PenaltyCollectionMethods.Cash)
+            return null;
+        var cash = await CreateCashTransactionAsync(dbContext, ticket, createdByUserId, cancellationToken);
+        ticket.CashTransactionId = cash.Id;
+        return cash;
+    }
+
     public static async Task<CashTransaction> CreateCashTransactionAsync(
         ZKTecoDbContext dbContext,
         PenaltyTicket ticket,

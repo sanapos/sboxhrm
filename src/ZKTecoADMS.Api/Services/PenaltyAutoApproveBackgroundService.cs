@@ -196,13 +196,12 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
         {
             try
             {
-                // Tạo phiếu thu trước — lỗi thì phiếu phạt giữ Pending, không lưu nửa vời.
-                var cash = await PenaltyTicketFinanceHelper.CreateCashTransactionAsync(
+                // Thu tiền mặt → phiếu thu trước (lỗi thì phiếu giữ Pending); trừ lương → không phiếu thu.
+                await PenaltyTicketFinanceHelper.ApplyCollectionAsync(
                     dbContext, ticket, createdByUserId: null, stoppingToken);
                 ticket.Status = PenaltyTicketStatus.AutoApproved;
                 ticket.ProcessedDate = now;
                 ticket.UpdatedAt = now;
-                ticket.CashTransactionId = cash.Id;
 
                 _logger.LogInformation("🔔 Auto-approved PenaltyTicket {Code} - {Amount}đ",
                     ticket.TicketCode, ticket.Amount);

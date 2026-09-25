@@ -105,6 +105,11 @@ public class PenaltyTicket : AuditableEntity<Guid>
     public Guid? CashTransactionId { get; set; }
 
     /// <summary>
+    /// Hình thức thu chốt lúc duyệt (Salary / Cash) — đổi thiết lập sau không ảnh hưởng phiếu cũ.
+    /// </summary>
+    public string? CollectionMethod { get; set; }
+
+    /// <summary>
     /// Liên kết ca làm việc
     /// </summary>
     public Guid? ShiftId { get; set; }

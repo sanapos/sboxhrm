@@ -50,6 +50,8 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
   final _forgotCheckPenaltyController = TextEditingController();
   final _unauthorizedAbsencePenaltyController = TextEditingController();
   final _violationPenaltyController = TextEditingController();
+  /// Salary = trừ vào lương (không phiếu thu); Cash = thu tiền mặt từng lần (phiếu thu).
+  String _collectionMethod = 'Salary';
 
   static const _bg = Color(0xFFFAFAFA);
   static const _navy = HrmPageChrome.primaryNavy;
@@ -143,6 +145,8 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
         formatNumber(settings['unauthorizedLeavePenalty'] ?? 500000);
     _violationPenaltyController.text =
         formatNumber(settings['violationPenalty'] ?? 200000);
+    _collectionMethod =
+        settings['collectionMethod']?.toString() == 'Cash' ? 'Cash' : 'Salary';
   }
 
   Future<void> _savePenaltySettings() async {
@@ -186,6 +190,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
         'violationPenalty':
             parseFormattedNumber(_violationPenaltyController.text)?.toDouble() ??
                 200000,
+        'collectionMethod': _collectionMethod,
       };
 
       final response = await _apiService.savePenaltySettings(data);
@@ -318,6 +323,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
     final gap = 16.0;
 
     final cards = [
+      _buildCollectionMethodCard(),
       _buildLatePenaltyCard(),
       _buildEarlyLeavePenaltyCard(),
       _buildRepeatOffensePenaltyCard(),
@@ -608,6 +614,63 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
           isTimes: true,
           isLast: true,
         ),
+      ],
+    );
+  }
+
+  /// Trừ vào lương: tổng lương trừ phiếu phạt, không tạo phiếu thu.
+  /// Thu tiền mặt: mỗi phiếu duyệt tạo phiếu thu trong sổ quỹ, không trừ lương.
+  Widget _buildCollectionMethodCard() {
+    Widget option(String value, IconData icon, String title, String desc) {
+      final selected = _collectionMethod == value;
+      return InkWell(
+        onTap: () => setState(() => _collectionMethod = value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                selected ? Icons.radio_button_checked : Icons.radio_button_off,
+                color: selected ? _navy : Colors.grey,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Icon(icon, color: _navy, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tr(title),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 14)),
+                    const SizedBox(height: 2),
+                    Text(tr(desc),
+                        style: TextStyle(
+                            fontSize: 12.5, color: Colors.grey.shade700)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return _buildSectionCard(
+      header: _buildCardHeader(
+        gradient: const [Color(0xFF0EA5E9), Color(0xFF6366F1)],
+        icon: Icons.payments_outlined,
+        title: 'Hình thức thu phạt',
+        subtitle: 'Áp dụng cho phiếu phạt duyệt từ nay — phiếu cũ giữ nguyên',
+      ),
+      children: [
+        option('Salary', Icons.account_balance_wallet_outlined, 'Trừ vào lương',
+            'Tổng lương trừ tiền các phiếu phạt đã duyệt. Không tạo phiếu thu.'),
+        const Divider(color: _border, height: 1),
+        option('Cash', Icons.receipt_long_outlined, 'Thu tiền mặt từng lần',
+            'Mỗi phiếu phạt duyệt tạo phiếu thu trong sổ quỹ. Không trừ lương.'),
       ],
     );
   }

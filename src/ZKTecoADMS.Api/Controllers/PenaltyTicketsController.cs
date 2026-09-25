@@ -46,6 +46,8 @@ public class PenaltyTicketsController(
         public DateTime? ProcessedDate { get; set; }
         public Guid? CashTransactionId { get; set; }
         public string? CashTransactionCode { get; set; }
+        /// <summary>Salary = trừ vào lương; Cash = thu tiền mặt (có phiếu thu); null = chưa duyệt.</summary>
+        public string? CollectionMethod { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 
@@ -198,6 +200,7 @@ public class PenaltyTicketsController(
                 ProcessedDate = pt.ProcessedDate,
                 CashTransactionId = pt.CashTransactionId,
                 CashTransactionCode = pt.CashTransaction != null ? pt.CashTransaction.TransactionCode : null,
+                CollectionMethod = pt.CollectionMethod,
                 CreatedAt = pt.CreatedAt
             })
             .ToListAsync();
@@ -257,6 +260,7 @@ public class PenaltyTicketsController(
             ProcessedDate = ticket.ProcessedDate,
             CashTransactionId = ticket.CashTransactionId,
             CashTransactionCode = ticket.CashTransaction?.TransactionCode,
+            CollectionMethod = ticket.CollectionMethod,
             CreatedAt = ticket.CreatedAt
         };
 
@@ -350,9 +354,9 @@ public class PenaltyTicketsController(
         ticket.ProcessedDate = DateTime.UtcNow;
         ticket.UpdatedAt = DateTime.UtcNow;
 
-        var cashTransaction = await PenaltyTicketFinanceHelper.CreateCashTransactionAsync(
+        // Thu tiền mặt → phiếu thu; trừ vào lương → không tạo phiếu thu.
+        var cashTransaction = await PenaltyTicketFinanceHelper.ApplyCollectionAsync(
             dbContext, ticket, CurrentUserId);
-        ticket.CashTransactionId = cashTransaction.Id;
 
         dbContext.Update(ticket);
         await dbContext.SaveChangesAsync();
@@ -375,8 +379,9 @@ public class PenaltyTicketsController(
             Id = ticket.Id,
             TicketCode = ticket.TicketCode,
             Status = ticket.Status.ToString(),
-            CashTransactionId = cashTransaction.Id,
-            CashTransactionCode = cashTransaction.TransactionCode
+            CashTransactionId = cashTransaction?.Id,
+            CashTransactionCode = cashTransaction?.TransactionCode,
+            CollectionMethod = ticket.CollectionMethod,
         }));
     }
 

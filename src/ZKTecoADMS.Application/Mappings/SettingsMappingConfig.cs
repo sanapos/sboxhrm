@@ -31,6 +31,7 @@ public class SettingsMappingConfig : IRegister
             .Map(dest => dest.ForgotCheckPenalty, src => src.ForgotCheckPenalty)
             .Map(dest => dest.UnauthorizedLeavePenalty, src => src.UnauthorizedLeavePenalty)
             .Map(dest => dest.ViolationPenalty, src => src.ViolationPenalty)
+            .Map(dest => dest.CollectionMethod, src => src.CollectionMethod)
             .Map(dest => dest.CreatedAt, src => src.CreatedAt)
             .Map(dest => dest.UpdatedAt, src => src.UpdatedAt);
 

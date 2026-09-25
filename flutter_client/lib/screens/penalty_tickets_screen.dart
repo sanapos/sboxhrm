@@ -312,7 +312,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(tr('Duyệt phiếu phạt'),
             style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text(tr('Duyệt phiếu phạt sẽ tạo phiếu thu tương ứng. Bạn có chắc?')),
+        content: Text(tr('Duyệt phiếu phạt? Theo thiết lập phạt: trừ vào lương (không tạo phiếu thu) hoặc thu tiền mặt (tạo phiếu thu).')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -342,7 +342,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           });
           appNotification.showSuccess(
               title: 'Thành công',
-              message: tr('Đã duyệt phiếu phạt và tạo phiếu thu'));
+              message: tr('Đã duyệt phiếu phạt'));
           await _loadData(showLoading: false);
         } else {
           appNotification.showError(
@@ -360,7 +360,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(tr('Hoàn duyệt phiếu phạt'),
             style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text(tr('Hoàn duyệt sẽ xóa phiếu thu liên quan và đưa phiếu phạt về trạng thái chờ duyệt. Bạn có chắc?')),
+        content: Text(tr('Hoàn duyệt sẽ đưa phiếu phạt về trạng thái chờ duyệt (xóa phiếu thu liên quan nếu có). Bạn có chắc?')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -597,7 +597,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(tr('Duyệt nhanh'),
             style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text(tr('Duyệt ${ids.length} phiếu phạt đã chọn? Hệ thống sẽ tạo phiếu thu tương ứng cho từng phiếu.')),
+        content: Text(tr('Duyệt ${ids.length} phiếu phạt đã chọn? Theo thiết lập phạt: trừ vào lương hoặc tạo phiếu thu tiền mặt cho từng phiếu.')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -1196,6 +1196,9 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               if (isApproved && ticket['cashTransactionCode'] != null)
                 _detailRow(Icons.receipt_long, 'Phiếu thu',
                     ticket['cashTransactionCode']),
+              if (isApproved && ticket['collectionMethod'] == 'Salary')
+                _detailRow(Icons.account_balance_wallet_outlined,
+                    'Hình thức thu', 'Trừ vào lương'),
               _detailRow(Icons.access_time_filled, 'Ngày tạo',
                   _formatDateTime(ticket['createdAt'])),
               const SizedBox(height: 16),
@@ -2233,6 +2236,11 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                             Text(tr('${tr('Phiếu thu: ')}${ticket['cashTransactionCode']}'),
                                 style: TextStyle(
                                     fontSize: 11, color: Colors.green[600])),
+                            const SizedBox(width: 8),
+                          ] else if (ticket['collectionMethod'] == 'Salary') ...[
+                            Text(tr('Trừ vào lương'),
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.blue[700])),
                             const SizedBox(width: 8),
                           ],
                           if (Provider.of<PermissionProvider>(context,

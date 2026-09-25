@@ -262,7 +262,8 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
             request.RepeatCount3, request.RepeatPenalty3,
             request.ForgotCheckPenalty,
             request.UnauthorizedLeavePenalty,
-            request.ViolationPenalty);
+            request.ViolationPenalty,
+            request.CollectionMethod);
         
         var result = await mediator.Send(command);
         return Ok(result);

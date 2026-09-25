@@ -11,13 +11,17 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Tests;
 
 /// <summary>
-/// Tự duyệt phiếu phạt với DbContext NoTracking (giống cấu hình production):
-/// lượt 1 duyệt + tạo đúng 1 phiếu thu mỗi phiếu, mã không trùng; lượt 2 không tạo thêm.
+/// Tự duyệt phiếu phạt với DbContext NoTracking (giống cấu hình production), theo hình thức thu:
+/// thu tiền mặt → đúng 1 phiếu thu mỗi phiếu, mã không trùng; trừ lương / chưa thiết lập → không
+/// phiếu thu. Lượt 2 không tạo thêm.
 /// </summary>
 public class PenaltyAutoApproveTests
 {
-    [Fact]
-    public async Task Approves_each_ticket_once_with_unique_receipt_codes()
+    [Theory]
+    [InlineData(PenaltyCollectionMethods.Cash)]
+    [InlineData(PenaltyCollectionMethods.Salary)]
+    [InlineData(null)]
+    public async Task Approves_each_ticket_once_following_the_collection_method(string? method)
     {
         var dbName = Guid.NewGuid().ToString();
         var services = new ServiceCollection();
@@ -31,6 +35,8 @@ public class PenaltyAutoApproveTests
         {
             var db = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
             db.Add(new ApplicationUser { Id = Guid.NewGuid(), UserName = "owner", FirstName = "O", LastName = "W", StoreId = storeId, Role = "Admin" });
+            if (method != null)
+                db.Add(new PenaltySetting { Id = Guid.NewGuid(), StoreId = storeId, CollectionMethod = method });
             var employee = new Employee { Id = Guid.NewGuid(), StoreId = storeId, FirstName = "A", LastName = "B" };
             db.Add(employee);
             for (var i = 0; i < 3; i++)
@@ -61,14 +67,16 @@ public class PenaltyAutoApproveTests
         var verify = check.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
         var tickets = await verify.PenaltyTickets.ToListAsync();
         var receipts = await verify.CashTransactions.ToListAsync();
+        var cash = method == PenaltyCollectionMethods.Cash;
 
         Assert.All(tickets, t =>
         {
             Assert.Equal(PenaltyTicketStatus.AutoApproved, t.Status);
-            Assert.NotNull(t.CashTransactionId);
+            Assert.Equal(cash ? PenaltyCollectionMethods.Cash : PenaltyCollectionMethods.Salary, t.CollectionMethod);
+            Assert.Equal(cash, t.CashTransactionId != null);
         });
-        Assert.Equal(3, receipts.Count);
-        Assert.Equal(3, receipts.Select(r => r.TransactionCode).Distinct().Count());
+        Assert.Equal(cash ? 3 : 0, receipts.Count);
+        Assert.Equal(receipts.Count, receipts.Select(r => r.TransactionCode).Distinct().Count());
         Assert.DoesNotContain(receipts, r => r.CreatedByUserId == Guid.Empty);
     }
 }

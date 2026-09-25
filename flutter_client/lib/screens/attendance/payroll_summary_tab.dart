@@ -1798,7 +1798,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
     }
 
-    // ═══ Phạt đi trễ / về sớm / vắng: CHỈ từ phiếu phạt đã lập ═══
+    // ═══ Phạt đi trễ / về sớm / vắng: CHỈ từ phiếu phạt «trừ vào lương» đã duyệt ═══
     // Không tự tính theo mức phạt cài đặt — ngày nào không lập phiếu thì không trừ.
     // Phiếu chờ duyệt chưa trừ; đã duyệt / tự duyệt mới trừ (hủy = không trừ).
     double latePenaltyTotal = 0;
@@ -1809,6 +1809,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
       final st = t['status']?.toString() ?? '';
       if (st != 'Approved' && st != 'AutoApproved') continue;
+      // Phiếu thu tiền mặt (có phiếu thu sổ quỹ) → không trừ lương.
+      if (t['collectionMethod']?.toString() == 'Cash') continue;
       final tid = t['employeeId']?.toString() ?? '';
       if (tid.isEmpty || (tid != empId && tid != empCode)) continue;
       latePenaltyTotal += _toDouble(t['amount']).abs();

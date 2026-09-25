@@ -120,10 +120,28 @@ public class PenaltySetting : AuditableEntity<Guid>
     /// Phạt vi phạm quy định
     /// </summary>
     public decimal ViolationPenalty { get; set; } = 200000;
+
+    /// <summary>
+    /// Hình thức thu phạt khi duyệt phiếu: <see cref="PenaltyCollectionMethods.Salary"/> (trừ vào lương,
+    /// không tạo phiếu thu) hoặc <see cref="PenaltyCollectionMethods.Cash"/> (thu tiền mặt từng lần → phiếu thu).
+    /// </summary>
+    public string CollectionMethod { get; set; } = PenaltyCollectionMethods.Salary;
     
     /// <summary>
     /// Cửa hàng áp dụng thiết lập phạt này
     /// </summary>
     public Guid? StoreId { get; set; }
     public virtual Store? Store { get; set; }
+}
+
+/// <summary>Hình thức thu tiền phạt.</summary>
+public static class PenaltyCollectionMethods
+{
+    /// <summary>Trừ vào lương — tổng lương trừ phiếu phạt, không tạo phiếu thu.</summary>
+    public const string Salary = "Salary";
+    /// <summary>Thu tiền mặt từng lần — tạo phiếu thu, không trừ lương.</summary>
+    public const string Cash = "Cash";
+
+    public static string Normalize(string? value) =>
+        string.Equals(value?.Trim(), Cash, StringComparison.OrdinalIgnoreCase) ? Cash : Salary;
 }

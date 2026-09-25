@@ -48,7 +48,8 @@ public record UpdatePenaltySettingsCommand(
     int RepeatCount3, decimal RepeatPenalty3,
     decimal ForgotCheckPenalty,
     decimal UnauthorizedLeavePenalty,
-    decimal ViolationPenalty) : ICommand<AppResponse<PenaltySettingDto>>;
+    decimal ViolationPenalty,
+    string? CollectionMethod = null) : ICommand<AppResponse<PenaltySettingDto>>;
 
 public class UpdatePenaltySettingsHandler(
     IRepository<PenaltySetting> repository
@@ -90,6 +91,8 @@ public class UpdatePenaltySettingsHandler(
             settings.ForgotCheckPenalty = request.ForgotCheckPenalty;
             settings.UnauthorizedLeavePenalty = request.UnauthorizedLeavePenalty;
             settings.ViolationPenalty = request.ViolationPenalty;
+            if (request.CollectionMethod != null)
+                settings.CollectionMethod = PenaltyCollectionMethods.Normalize(request.CollectionMethod);
 
             await repository.UpdateAsync(settings, cancellationToken);
             

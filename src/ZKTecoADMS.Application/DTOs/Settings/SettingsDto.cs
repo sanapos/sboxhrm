@@ -33,7 +33,9 @@ public class PenaltySettingDto
     public decimal ForgotCheckPenalty { get; set; }
     public decimal UnauthorizedLeavePenalty { get; set; }
     public decimal ViolationPenalty { get; set; }
-    
+    /// <summary>Salary = trừ vào lương; Cash = thu tiền mặt từng lần (tạo phiếu thu).</summary>
+    public string CollectionMethod { get; set; } = "Salary";
+
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 }
@@ -66,6 +68,8 @@ public class UpdatePenaltySettingDto
     public decimal ForgotCheckPenalty { get; set; }
     public decimal UnauthorizedLeavePenalty { get; set; }
     public decimal ViolationPenalty { get; set; }
+    /// <summary>Salary / Cash — null = giữ nguyên (app cũ không gửi).</summary>
+    public string? CollectionMethod { get; set; }
 }
 
 // Insurance Settings DTOs - matching InsuranceSetting Entity
