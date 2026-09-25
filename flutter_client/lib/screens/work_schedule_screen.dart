@@ -28,7 +28,9 @@ import '../utils/leave_salary_shifts.dart';
 import '../utils/staffing_quota_utils.dart';
 import '../utils/branch_filter_helper.dart';
 import '../utils/navigation_notifier.dart';
+import 'schedule_compliance_screen.dart';
 import 'settings_hub_screen.dart';
+import 'shift_coverage_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class WorkScheduleScreen extends StatefulWidget {
@@ -566,6 +568,18 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           icon: Icons.tune,
           label: 'Định mức nhân sự',
           onPressed: _showStaffingQuotaDialog,
+        ),
+        HrmTopBarAction(
+          icon: Icons.stacked_bar_chart,
+          label: 'Độ phủ ca',
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const ShiftCoverageScreen())),
+        ),
+        HrmTopBarAction(
+          icon: Icons.fact_check_outlined,
+          label: 'Đối chiếu chấm công',
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const ScheduleComplianceScreen())),
         ),
       ]);
     }

@@ -5707,6 +5707,29 @@ class ApiService {
     }
   }
 
+  /// Độ phủ ca theo định mức (thiếu / cảnh báo / đạt / vượt) — theo ngày, ca, phòng ban.
+  Future<Map<String, dynamic>> getShiftCoverageReport({
+    required DateTime from,
+    required DateTime to,
+    String? department,
+  }) async {
+    try {
+      final params = <String, String>{
+        'from': DateTime(from.year, from.month, from.day).toIso8601String(),
+        'to': DateTime(to.year, to.month, to.day).toIso8601String(),
+        if (department != null && department.isNotEmpty) 'department': department,
+      };
+      final uri = Uri.parse('$baseUrl/api/reports/leave-shift/shift-coverage')
+          .replace(queryParameters: params);
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getAdvanceDebtReport({
     DateTime? from,
     DateTime? to,

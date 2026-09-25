@@ -59,15 +59,9 @@ public static class ScheduleStaffingQuotaHelper
             includeProperties: ["Employee"],
             cancellationToken: cancellationToken)).ToList();
 
-        var pendingRegs = (await registrationRepository.GetAllAsync(
-            r => r.StoreId == storeId
-                 && r.Date >= workDate && r.Date < dayEnd
-                 && r.ShiftId == shiftId
-                 && !r.IsDayOff
-                 && r.Status == ScheduleRegistrationStatus.Pending
-                 && r.Id != registration.Id,
-            includeProperties: ["Employee"],
-            cancellationToken: cancellationToken)).ToList();
+        // Nhân viên đã có đúng ca này trên lịch → duyệt chỉ cập nhật, không thêm người.
+        if (workSchedules.Any(ws => ws.EmployeeUserId == registration.EmployeeUserId))
+            return null;
 
         bool InQuotaScope(Employee? emp)
         {
@@ -78,14 +72,13 @@ public static class ScheduleStaffingQuotaHelper
                    && string.Equals(emp.Department, quota.Department, StringComparison.OrdinalIgnoreCase);
         }
 
+        // Chỉ đếm người đã có trên lịch — phiếu chờ khác chưa chiếm chỗ (ai duyệt trước được trước).
         var scheduledCount = workSchedules.Count(ws => InQuotaScope(ws.Employee));
-        var pendingCount = pendingRegs.Count(r => InQuotaScope(r.Employee));
-
-        if (scheduledCount + pendingCount + 1 > maxLimit)
+        if (scheduledCount + 1 > maxLimit)
         {
             var deptLabel = string.IsNullOrWhiteSpace(quota.Department) ? "" : $" ({quota.Department})";
             return $"Ca đã đủ định mức tối đa {maxLimit} nhân viên{deptLabel} ngày {workDate:dd/MM/yyyy} "
-                   + $"(hiện {scheduledCount} đã xếp + {pendingCount} chờ duyệt, tối thiểu {minLimit}).";
+                   + $"(đã xếp {scheduledCount}, tối thiểu {minLimit}).";
         }
 
         return null;

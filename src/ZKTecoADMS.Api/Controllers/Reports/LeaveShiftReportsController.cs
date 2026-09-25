@@ -267,7 +267,7 @@ public class LeaveShiftReportsController(
     // GET /api/reports/leave-shift/shift-coverage?from=&to=&department=
     // ═════════════════════════════════════════════════════════════════════
     [HttpGet("shift-coverage")]
-    [RequireModulePermission("LeaveReport", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "LeaveReport", "WorkSchedule")]
     public async Task<IActionResult> GetShiftCoverage(
         [FromQuery] DateTime? from = null,
         [FromQuery] DateTime? to = null,
@@ -286,21 +286,27 @@ public class LeaveShiftReportsController(
                 .Select(q => new { q.ShiftTemplateId, ShiftName = q.ShiftTemplate.Name, q.Department, q.MinEmployees, q.MaxEmployees, q.WarningThreshold })
                 .ToListAsync(ct);
 
-            var scheduleCounts = await db.WorkSchedules
+            // Đếm theo (ca, ngày, phòng ban) — định mức riêng phòng ban chỉ đếm NV phòng đó.
+            var scheduleCounts = (await db.WorkSchedules
                 .Where(ws => ws.StoreId == storeId && ws.Deleted == null
                     && !ws.IsDayOff && ws.ShiftId != null
                     && ws.Date >= fromLocal && ws.Date <= toLocal)
-                .GroupBy(ws => new { ws.ShiftId, ws.Date })
-                .Select(g => new { ShiftId = g.Key.ShiftId!.Value, g.Key.Date, Registered = g.Count() })
-                .ToListAsync(ct);
+                .GroupBy(ws => new { ws.ShiftId, ws.Date, ws.Employee.Department })
+                .Select(g => new { ShiftId = g.Key.ShiftId!.Value, g.Key.Date, g.Key.Department, Registered = g.Count() })
+                .ToListAsync(ct))
+                .Select(x => new { x.ShiftId, x.Date, Department = x.Department?.Trim() ?? "", x.Registered })
+                .ToList();
 
             var items = new List<ShiftCoverageItemDto>();
             foreach (var q in quotas)
             {
                 for (var d = fromLocal; d <= toLocal; d = d.AddDays(1))
                 {
+                    var quotaDept = q.Department?.Trim() ?? "";
                     var registered = scheduleCounts
-                        .Where(s => s.ShiftId == q.ShiftTemplateId && s.Date.Date == d)
+                        .Where(s => s.ShiftId == q.ShiftTemplateId && s.Date.Date == d
+                            && (quotaDept.Length == 0
+                                || string.Equals(s.Department, quotaDept, StringComparison.OrdinalIgnoreCase)))
                         .Sum(s => s.Registered);
 
                     var status = registered < q.MinEmployees ? "Thiếu"

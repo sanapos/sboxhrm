@@ -152,10 +152,16 @@ public class BulkCreateWorkSchedulesHandler(
                 var existingKeys = existingSchedules
                     .Select(ws => (ws.Date.Date, ws.ShiftId))
                     .ToHashSet();
+                // Ngày đã đánh dấu nghỉ trên lịch → không xếp thêm ca (tránh vừa nghỉ vừa có ca).
+                var dayOffDates = existingSchedules
+                    .Where(ws => ws.IsDayOff)
+                    .Select(ws => ws.Date.Date)
+                    .ToHashSet();
 
                 for (var date = request.StartDate.Date; date <= request.EndDate.Date; date = date.AddDays(1))
                 {
                     if (!request.WorkDays.Contains(date.DayOfWeek)) continue;
+                    if (dayOffDates.Contains(date)) continue;
                     if (existingKeys.Contains((date, request.ShiftId))) continue;
 
                     schedulesToCreate.Add(new WorkSchedule
@@ -475,20 +481,11 @@ public class DeleteScheduleRegistrationHandler(
                 filter: e => e.Id == registration.EmployeeUserId && e.StoreId == request.StoreId,
                 cancellationToken: cancellationToken);
 
-            // If approved, also delete the associated work schedule
+            // Đã duyệt → gỡ lịch do phiếu tạo (không đụng lịch quản lý đã xếp sẵn).
             if (registration.Status == ScheduleRegistrationStatus.Approved)
             {
-                var workSchedules = await workScheduleRepository.GetAllAsync(
-                    ws => ws.EmployeeUserId == registration.EmployeeUserId
-                          && ws.Date.Date == registration.Date.Date
-                          && ws.ShiftId == registration.ShiftId
-                          && ws.StoreId == request.StoreId,
-                    cancellationToken: cancellationToken);
-
-                foreach (var ws in workSchedules)
-                {
-                    await workScheduleRepository.DeleteAsync(ws, cancellationToken);
-                }
+                await RegistrationScheduleCleanup.RemoveAppliedScheduleAsync(
+                    registration, request.StoreId, workScheduleRepository, cancellationToken);
             }
 
             var approvalRecords = await scheduleApprovalRecordRepository.GetAllAsync(
@@ -799,6 +796,8 @@ public class ApproveScheduleRegistrationHandler(
             existingSchedule.IsDayOff = registration.IsDayOff;
             existingSchedule.Note = registration.Note;
             await workScheduleRepository.UpdateAsync(existingSchedule, cancellationToken);
+            registration.AppliedWorkScheduleId = existingSchedule.Id;
+            registration.AppliedCreatedNewSchedule = false;
         }
         else
         {
@@ -811,7 +810,9 @@ public class ApproveScheduleRegistrationHandler(
                 IsDayOff = registration.IsDayOff,
                 Note = registration.Note
             };
-            await workScheduleRepository.AddAsync(workSchedule, cancellationToken);
+            var created = await workScheduleRepository.AddAsync(workSchedule, cancellationToken);
+            registration.AppliedWorkScheduleId = created.Id;
+            registration.AppliedCreatedNewSchedule = true;
         }
     }
 }
@@ -848,6 +849,14 @@ public class UndoScheduleRegistrationApprovalHandler(
             }
 
             var wasApproved = registration.Status == ScheduleRegistrationStatus.Approved;
+            // Gỡ lịch trước khi xóa dấu vết dòng lịch đã ghi.
+            if (wasApproved)
+            {
+                await RegistrationScheduleCleanup.RemoveAppliedScheduleAsync(
+                    registration, request.StoreId, workScheduleRepository, cancellationToken);
+            }
+            registration.AppliedWorkScheduleId = null;
+            registration.AppliedCreatedNewSchedule = false;
 
             registration.Status = ScheduleRegistrationStatus.Pending;
             registration.ApprovedById = null;

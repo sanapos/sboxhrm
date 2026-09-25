@@ -69,6 +69,15 @@ public class ScheduleRegistration : AuditableEntity<Guid>
     /// </summary>
     public int CurrentApprovalStep { get; set; } = 0;
 
+    /// <summary>Dòng lịch mà lần duyệt ghi vào (tạo mới hoặc cập nhật lịch có sẵn).</summary>
+    public Guid? AppliedWorkScheduleId { get; set; }
+
+    /// <summary>
+    /// true = lần duyệt tạo dòng lịch mới (hoàn duyệt / xóa phiếu thì xóa dòng đó);
+    /// false = cập nhật lịch quản lý đã xếp sẵn (hoàn duyệt / xóa phiếu giữ nguyên lịch).
+    /// </summary>
+    public bool AppliedCreatedNewSchedule { get; set; }
+
     // Navigation Properties
     public virtual Store Store { get; set; } = null!;
     public virtual Employee Employee { get; set; } = null!;

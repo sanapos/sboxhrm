@@ -110,15 +110,19 @@ public class ApproveSwapHandler(
         if (targetAlreadyHasRequester != null && targetAlreadyHasRequester.Id != targetSchedule.Id)
             return AppResponse<bool>.Error("Đồng nghiệp đã có ca của người yêu cầu trong ngày đó");
 
+        // Giờ ghi đè (StartTime/EndTime) thuộc ca cũ → bỏ để ca mới dùng giờ của mẫu ca.
         requesterSchedule.Date = swapRequest.TargetDate.Date;
         requesterSchedule.ShiftId = swapRequest.TargetShiftId;
+        requesterSchedule.StartTime = null;
+        requesterSchedule.EndTime = null;
         requesterSchedule.UpdatedAt = DateTime.UtcNow;
-        await workScheduleRepository.UpdateAsync(requesterSchedule, cancellationToken);
-
         targetSchedule.Date = swapRequest.RequesterDate.Date;
         targetSchedule.ShiftId = swapRequest.RequesterShiftId;
+        targetSchedule.StartTime = null;
+        targetSchedule.EndTime = null;
         targetSchedule.UpdatedAt = DateTime.UtcNow;
-        await workScheduleRepository.UpdateAsync(targetSchedule, cancellationToken);
+        // Một lần SaveChanges — không còn cảnh một người đổi được, người kia không.
+        await workScheduleRepository.UpdateRangeAsync([requesterSchedule, targetSchedule], cancellationToken);
 
         return AppResponse<bool>.Success(true);
     }

@@ -236,9 +236,11 @@ double parseStandardWorkHours({Map<String, dynamic>? salarySettings}) {
 /// Đây là single source of truth dùng chung cho:
 ///  • Tab "Tổng hợp theo ca" (attendance_by_shift_tab.dart)
 ///  • Card KPI "Đi trễ / Về sớm" trên Dashboard
-/// Đi trễ / về sớm của một ca trong ngày — đúng số của tab «Tổng hợp theo ca»
-/// (màn Đi trễ / về sớm và phiếu phạt lấy từ đây, không tính lại).
+/// Một ca đã làm trong ngày (cặp vào/ra đã khớp ca) — đúng số của tab «Tổng hợp theo ca».
+/// Màn Đi trễ / về sớm, phiếu phạt và Đối chiếu lịch lấy từ đây, không tính lại.
 class ShiftLateEarlyItem {
+  /// Id mẫu ca đã khớp; null = không khớp ca nào.
+  final String? shiftTemplateId;
   final String shiftName;
   final DateTime checkIn;
   final DateTime? checkOut;
@@ -246,6 +248,7 @@ class ShiftLateEarlyItem {
   final int earlyMinutes;
 
   const ShiftLateEarlyItem({
+    this.shiftTemplateId,
     required this.shiftName,
     required this.checkIn,
     required this.checkOut,
@@ -275,8 +278,14 @@ class DailyShiftRecord {
   final double workCount;
   /// Giờ công theo tên ca trong ngày (cùng nguồn với [workHours]).
   final Map<String, double> hoursByShiftName;
-  /// Từng ca có đi trễ / về sớm (tổng = [lateMinutes] / [earlyMinutes]).
-  final List<ShiftLateEarlyItem> shiftLateEarly;
+  /// Mọi ca đã làm trong ngày (kể cả đúng giờ, thiếu giờ ra, không khớp ca).
+  final List<ShiftLateEarlyItem> shiftItems;
+
+  /// Ca có đi trễ / về sớm (tổng = [lateMinutes] / [earlyMinutes]).
+  List<ShiftLateEarlyItem> get shiftLateEarly => [
+        for (final it in shiftItems)
+          if (it.lateMinutes > 0 || it.earlyMinutes > 0) it,
+      ];
 
   DailyShiftRecord({
     required this.employeeId,
@@ -297,7 +306,7 @@ class DailyShiftRecord {
     required this.statusColor,
     required this.workCount,
     this.hoursByShiftName = const {},
-    this.shiftLateEarly = const [],
+    this.shiftItems = const [],
   }) : baseWorkHours = baseWorkHours ?? workHours;
 }
 
@@ -1709,9 +1718,9 @@ List<DailyShiftRecord> _computeFullDayRecordsForEmployee({
       shiftNames: shiftNames,
       lateMinutes: late,
       earlyMinutes: early,
-      shiftLateEarly: [
-        if (late > 0 || early > 0)
-          ShiftLateEarlyItem(
+      shiftItems: [
+        ShiftLateEarlyItem(
+            shiftTemplateId: matched?['id']?.toString(),
             shiftName: shiftNames.isNotEmpty ? shiftNames.first : '',
             checkIn: punchIn,
             checkOut: punchOut,
@@ -2099,15 +2108,14 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           if (!missingOutShiftNames.contains(name)) {
             missingOutShiftNames.add(name);
           }
-          if (lateCalc > 0) {
-            lateEarlyItems.add(ShiftLateEarlyItem(
-              shiftName: matchedShift?['name']?.toString() ?? name,
-              checkIn: punchIn,
-              checkOut: null,
-              lateMinutes: lateCalc,
-              earlyMinutes: 0,
-            ));
-          }
+          lateEarlyItems.add(ShiftLateEarlyItem(
+            shiftTemplateId: matchedShift?['id']?.toString(),
+            shiftName: matchedShift?['name']?.toString() ?? name,
+            checkIn: punchIn,
+            checkOut: null,
+            lateMinutes: lateCalc,
+            earlyMinutes: 0,
+          ));
           continue;
         }
 
@@ -2130,6 +2138,14 @@ List<DailyShiftRecord> computeDailyShiftRecords({
               otHours,
             );
           }
+          lateEarlyItems.add(ShiftLateEarlyItem(
+            shiftTemplateId: matchedShift['id']?.toString(),
+            shiftName: matchedShift['name']?.toString() ?? '',
+            checkIn: punchIn,
+            checkOut: punchOut,
+            lateMinutes: 0,
+            earlyMinutes: 0,
+          ));
           continue;
         }
 
@@ -2231,20 +2247,26 @@ List<DailyShiftRecord> computeDailyShiftRecords({
               hours,
             );
           }
-          if (lateCalc > 0 || earlyCalc > 0) {
-            lateEarlyItems.add(ShiftLateEarlyItem(
-              shiftName: matchedShift['name']?.toString() ?? '',
-              checkIn: punchIn,
-              checkOut: punchOut,
-              lateMinutes: lateCalc,
-              earlyMinutes: earlyCalc,
-            ));
-          }
+          lateEarlyItems.add(ShiftLateEarlyItem(
+            shiftTemplateId: matchedShift['id']?.toString(),
+            shiftName: matchedShift['name']?.toString() ?? '',
+            checkIn: punchIn,
+            checkOut: punchOut,
+            lateMinutes: lateCalc,
+            earlyMinutes: earlyCalc,
+          ));
           // Giờ thập phân = cùng nguồn với tổng giờ (đổi đơn vị hiển thị, không tính lại).
         } else {
           final hours = actualWorkedMinutes / 60.0;
           totalWorkHours += hours;
           _addHoursByShiftName(hoursByShiftName, null, hours);
+          lateEarlyItems.add(ShiftLateEarlyItem(
+            shiftName: '',
+            checkIn: punchIn,
+            checkOut: punchOut,
+            lateMinutes: 0,
+            earlyMinutes: 0,
+          ));
         }
       }
 
@@ -2376,7 +2398,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         statusColor: statusColor,
         workCount: totalWorkCount,
         hoursByShiftName: Map<String, double>.from(hoursByShiftName),
-        shiftLateEarly: lateEarlyItems,
+        shiftItems: lateEarlyItems,
       ));
     });
   });

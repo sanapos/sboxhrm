@@ -395,12 +395,27 @@ public class AttendanceAnalyticsController(
             var userIds = employees.Where(e => e.ApplicationUserId.HasValue)
                 .Select(e => e.ApplicationUserId!.Value).ToList();
 
+            // Mã chấm công trên máy (DeviceUser.Pin) có thể khác mã NV → quy về Employee.Id qua người dùng máy.
+            var pinToEmp = (await db.DeviceUsers
+                .Where(du => du.Device.StoreId == storeId && du.EmployeeId != null && empIds.Contains(du.EmployeeId!.Value))
+                .Select(du => new { du.Pin, EmployeeId = du.EmployeeId!.Value })
+                .ToListAsync(ct))
+                .GroupBy(x => x.Pin)
+                .ToDictionary(g => g.Key, g => g.First().EmployeeId);
+            foreach (var e in employees)
+                pinToEmp.TryAdd(e.EmployeeCode, e.Id);
+            var devicePins = pinToEmp.Keys.ToList();
+
             var attDates = (await db.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
                     && a.AttendanceTime >= utcStart && a.AttendanceTime < utcEnd
-                    && pins.Contains(a.PIN))
-                .Select(a => new { a.PIN, a.AttendanceTime }).ToListAsync(ct))
-                .Select(a => (Pin: a.PIN, Date: ReportHelpers.AttendanceToVn(a.AttendanceTime).Date))
+                    && (devicePins.Contains(a.PIN)
+                        || (a.Employee != null && a.Employee.EmployeeId != null && empIds.Contains(a.Employee.EmployeeId!.Value))))
+                .Select(a => new { a.PIN, DeviceEmpId = a.Employee != null ? a.Employee.EmployeeId : null, a.AttendanceTime })
+                .ToListAsync(ct))
+                .Select(a => (EmpId: a.DeviceEmpId ?? pinToEmp.GetValueOrDefault(a.PIN),
+                    Date: ReportHelpers.AttendanceToVn(a.AttendanceTime).Date))
+                .Where(a => a.EmpId != Guid.Empty)
                 .Distinct().ToHashSet();
 
             var mobileDates = (await db.MobileAttendanceRecords
@@ -419,13 +434,14 @@ public class AttendanceAnalyticsController(
             var leaveDatesByUser = BuildLeaveDateSet(leaves.Select(l => (l.EmployeeUserId, l.StartDate, l.EndDate)), fromLocal, toLocal);
 
             var items = new List<NoShowItemDto>();
-            foreach (var s in schedules)
+            // Ngày 2 ca → 1 dòng (báo cáo theo ngày).
+            foreach (var s in schedules.DistinctBy(s => (s.EmployeeUserId, s.Date.Date)))
             {
                 if (!empCodeByEmpId.TryGetValue(s.EmployeeUserId, out var code)) continue;
                 var emp = employees.First(e => e.Id == s.EmployeeUserId);
                 var date = s.Date.Date;
 
-                if (attDates.Contains((code, date))) continue;
+                if (attDates.Contains((emp.Id, date))) continue;
                 if (mobileDates.Contains((code, date))) continue;
                 if (emp.ApplicationUserId.HasValue
                     && leaveDatesByUser.TryGetValue(emp.ApplicationUserId.Value, out var set)

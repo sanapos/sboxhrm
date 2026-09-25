@@ -901,3 +901,7 @@ SET "CollectionMethod" = CASE WHEN EXISTS (
         WHERE c."Id" = t."CashTransactionId" AND c."Deleted" IS NULL
           AND (c."IsPaid" = true OR c."Status" = 2)) THEN 'Cash' ELSE 'Salary' END
 WHERE t."CollectionMethod" IS NULL AND t."Status" IN (1, 3);
+
+-- Đăng ký lịch: dòng lịch lần duyệt ghi vào (hoàn duyệt / xóa phiếu không xóa lịch quản lý xếp sẵn).
+ALTER TABLE "ScheduleRegistrations" ADD COLUMN IF NOT EXISTS "AppliedWorkScheduleId" uuid NULL;
+ALTER TABLE "ScheduleRegistrations" ADD COLUMN IF NOT EXISTS "AppliedCreatedNewSchedule" boolean NOT NULL DEFAULT false;
