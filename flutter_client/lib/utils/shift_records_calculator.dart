@@ -236,6 +236,24 @@ double parseStandardWorkHours({Map<String, dynamic>? salarySettings}) {
 /// Đây là single source of truth dùng chung cho:
 ///  • Tab "Tổng hợp theo ca" (attendance_by_shift_tab.dart)
 ///  • Card KPI "Đi trễ / Về sớm" trên Dashboard
+/// Đi trễ / về sớm của một ca trong ngày — đúng số của tab «Tổng hợp theo ca»
+/// (màn Đi trễ / về sớm và phiếu phạt lấy từ đây, không tính lại).
+class ShiftLateEarlyItem {
+  final String shiftName;
+  final DateTime checkIn;
+  final DateTime? checkOut;
+  final int lateMinutes;
+  final int earlyMinutes;
+
+  const ShiftLateEarlyItem({
+    required this.shiftName,
+    required this.checkIn,
+    required this.checkOut,
+    required this.lateMinutes,
+    required this.earlyMinutes,
+  });
+}
+
 class DailyShiftRecord {
   final String employeeId;
   final String employeeName;
@@ -257,6 +275,8 @@ class DailyShiftRecord {
   final double workCount;
   /// Giờ công theo tên ca trong ngày (cùng nguồn với [workHours]).
   final Map<String, double> hoursByShiftName;
+  /// Từng ca có đi trễ / về sớm (tổng = [lateMinutes] / [earlyMinutes]).
+  final List<ShiftLateEarlyItem> shiftLateEarly;
 
   DailyShiftRecord({
     required this.employeeId,
@@ -277,6 +297,7 @@ class DailyShiftRecord {
     required this.statusColor,
     required this.workCount,
     this.hoursByShiftName = const {},
+    this.shiftLateEarly = const [],
   }) : baseWorkHours = baseWorkHours ?? workHours;
 }
 
@@ -1688,6 +1709,16 @@ List<DailyShiftRecord> _computeFullDayRecordsForEmployee({
       shiftNames: shiftNames,
       lateMinutes: late,
       earlyMinutes: early,
+      shiftLateEarly: [
+        if (late > 0 || early > 0)
+          ShiftLateEarlyItem(
+            shiftName: shiftNames.isNotEmpty ? shiftNames.first : '',
+            checkIn: punchIn,
+            checkOut: punchOut,
+            lateMinutes: late,
+            earlyMinutes: early,
+          ),
+      ],
       overtimeMinutes: overtimeMinutes,
       workHours: workHours,
       decimalHours: workHours,
@@ -1918,6 +1949,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       final shiftNames = <String>[];
       final hoursByShiftName = <String, double>{};
       final missingOutShiftNames = <String>[];
+      final lateEarlyItems = <ShiftLateEarlyItem>[];
       final usedShiftIds = <String>{};
       final dayPairs = isOnceShift
           ? buildOncePerShiftCheckInPairs(workDayAttendances)
@@ -2067,6 +2099,15 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           if (!missingOutShiftNames.contains(name)) {
             missingOutShiftNames.add(name);
           }
+          if (lateCalc > 0) {
+            lateEarlyItems.add(ShiftLateEarlyItem(
+              shiftName: matchedShift?['name']?.toString() ?? name,
+              checkIn: punchIn,
+              checkOut: null,
+              lateMinutes: lateCalc,
+              earlyMinutes: 0,
+            ));
+          }
           continue;
         }
 
@@ -2189,6 +2230,15 @@ List<DailyShiftRecord> computeDailyShiftRecords({
               matchedShift['name']?.toString(),
               hours,
             );
+          }
+          if (lateCalc > 0 || earlyCalc > 0) {
+            lateEarlyItems.add(ShiftLateEarlyItem(
+              shiftName: matchedShift['name']?.toString() ?? '',
+              checkIn: punchIn,
+              checkOut: punchOut,
+              lateMinutes: lateCalc,
+              earlyMinutes: earlyCalc,
+            ));
           }
           // Giờ thập phân = cùng nguồn với tổng giờ (đổi đơn vị hiển thị, không tính lại).
         } else {
@@ -2326,6 +2376,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         statusColor: statusColor,
         workCount: totalWorkCount,
         hoursByShiftName: Map<String, double>.from(hoursByShiftName),
+        shiftLateEarly: lateEarlyItems,
       ));
     });
   });
@@ -2384,8 +2435,8 @@ class DailyShiftLateEntry {
   });
 }
 
-/// Trả về danh sách per-ca có đi trễ HOẶC về sớm.
-/// Cùng pairing logic với [computeDailyShiftRecords] nhưng yield 1 entry / ca.
+/// Trả về danh sách per-ca có đi trễ HOẶC về sớm — lấy thẳng từ [computeDailyShiftRecords]
+/// (tab «Tổng hợp theo ca»), nên số phút luôn khớp bảng tổng hợp.
 List<DailyShiftLateEntry> computeDailyShiftLateEntries({
   required List<Attendance> attendances,
   required DateTime fromDate,
@@ -2398,7 +2449,7 @@ List<DailyShiftLateEntry> computeDailyShiftLateEntries({
   int dayEndMinute = 0,
   Set<String> scheduleDayOffKeys = const {},
 }) {
-  final pairs = computeDailyShiftPairs(
+  final records = computeDailyShiftRecords(
     attendances: attendances,
     fromDate: fromDate,
     toDate: toDate,
@@ -2410,20 +2461,27 @@ List<DailyShiftLateEntry> computeDailyShiftLateEntries({
     dayEndMinute: dayEndMinute,
     scheduleDayOffKeys: scheduleDayOffKeys,
   );
-  return pairs
-      .where((p) => p.lateMinutes > 0 || p.earlyMinutes > 0)
-      .map((p) => DailyShiftLateEntry(
-            employeeId: p.employeeId,
-            employeeCode: p.employeeCode,
-            employeeName: p.employeeName,
-            date: p.date,
-            shiftName: p.shiftName,
-            checkIn: p.checkIn,
-            checkOut: p.checkOut,
-            lateMinutes: p.lateMinutes,
-            earlyMinutes: p.earlyMinutes,
-          ))
-      .toList();
+  final entries = [
+    for (final r in records)
+      for (final it in r.shiftLateEarly)
+        DailyShiftLateEntry(
+          employeeId: r.employeeId,
+          employeeCode: r.employeeCode,
+          employeeName: r.employeeName,
+          date: r.date,
+          shiftName: it.shiftName,
+          checkIn: it.checkIn,
+          checkOut: it.checkOut,
+          lateMinutes: it.lateMinutes,
+          earlyMinutes: it.earlyMinutes,
+        ),
+  ];
+  entries.sort((a, b) {
+    final dc = b.date.compareTo(a.date);
+    if (dc != 0) return dc;
+    return (b.checkIn ?? b.date).compareTo(a.checkIn ?? a.date);
+  });
+  return entries;
 }
 
 /// Một dòng pair (ca) trong ngày — bao gồm tất cả ca, không lọc theo trễ/sớm.

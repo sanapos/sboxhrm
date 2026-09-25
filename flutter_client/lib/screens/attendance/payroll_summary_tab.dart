@@ -1803,112 +1803,23 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
     }
 
-    // Ngày đã có phiếu phạt chấm công (Pending/Approved/AutoApproved) → không tính lại latePenalty.
-    final ticketKeys = <String>{};
-    for (final t in _penaltyTickets) {
-      final st = t['status']?.toString() ?? '';
-      if (st == 'Cancelled' || st.toLowerCase() == 'cancelled') continue;
-      final tid = t['employeeId']?.toString() ?? '';
-      if (tid.isEmpty) continue;
-      if (tid != empId && tid != empCode) continue;
-      final vd = t['violationDate'];
-      DateTime? day;
-      if (vd is DateTime) {
-        day = vd;
-      } else if (vd != null) {
-        day = DateTime.tryParse(vd.toString());
-      }
-      if (day == null) continue;
-      final type = t['type']?.toString() ?? '';
-      final dk =
-          '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-      ticketKeys.add('$tid|$dk|$type');
-      if (empId != null && empId.isNotEmpty) {
-        ticketKeys.add('$empId|$dk|$type');
-      }
-      if (empCode.isNotEmpty) ticketKeys.add('$empCode|$dk|$type');
-    }
-
-    bool hasTicket(String type, DateTime day) {
-      final dk =
-          '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-      for (final id in [empId, empCode]) {
-        if (id == null || id.isEmpty) continue;
-        if (ticketKeys.contains('$id|$dk|$type')) return true;
-      }
-      return false;
-    }
-
-    // ═══ Late/early penalties from PenaltySetting (API: lateMinutes1/latePenalty1…) ═══
-    // lateMinutes/earlyMinutes from shiftRecords already have per-shift grace applied
-    // (0 = within grace → no fine). Do NOT hardcode an extra "> 5 minutes" gate.
+    // ═══ Phạt đi trễ / về sớm: CHỈ từ phiếu phạt (bấm «Phạt» trong màn Đi trễ / về sớm) ═══
+    // Không tự tính theo mức phạt cài đặt — ngày nào không lập phiếu thì không trừ.
+    // Phiếu chờ duyệt chưa trừ; đã duyệt / tự duyệt mới trừ (hủy = không trừ).
     double latePenaltyTotal = 0;
-    final int lateMin1 = _toInt(_penaltySettings['lateMinutes1'], 15);
-    final int lateMin2 = _toInt(_penaltySettings['lateMinutes2'], 30);
-    final int lateMin3 = _toInt(_penaltySettings['lateMinutes3'], 60);
-    final double latePen1 = _toDouble(_penaltySettings['latePenalty1']);
-    final double latePen2 = _toDouble(_penaltySettings['latePenalty2']);
-    final double latePen3 = _toDouble(_penaltySettings['latePenalty3']);
-    final int earlyMin1 = _toInt(_penaltySettings['earlyMinutes1'], 15);
-    final int earlyMin2 = _toInt(_penaltySettings['earlyMinutes2'], 30);
-    final int earlyMin3 = _toInt(_penaltySettings['earlyMinutes3'], 60);
-    final double earlyPen1 = _toDouble(_penaltySettings['earlyPenalty1']);
-    final double earlyPen2 = _toDouble(_penaltySettings['earlyPenalty2']);
-    final double earlyPen3 = _toDouble(_penaltySettings['earlyPenalty3']);
+    for (final t in _penaltyTickets) {
+      final type = t['type']?.toString() ?? '';
+      if (type != 'Late' && type != 'EarlyLeave') continue;
+      final st = t['status']?.toString() ?? '';
+      if (st != 'Approved' && st != 'AutoApproved') continue;
+      final tid = t['employeeId']?.toString() ?? '';
+      if (tid.isEmpty || (tid != empId && tid != empCode)) continue;
+      latePenaltyTotal += _toDouble(t['amount']).abs();
+    }
     final double unauthorizedLeavePenalty = _toDouble(
       _penaltySettings['unauthorizedLeavePenalty'],
       _toDouble(_penaltySettings['unauthorizedLeaveDeduction']),
     );
-
-    double tierAmount(int minutes, int m1, int m2, int m3, double p1, double p2, double p3) {
-      if (minutes <= 0) return 0;
-      if (minutes >= m3 && p3 > 0) return p3;
-      if (minutes >= m2 && p2 > 0) return p2;
-      if (minutes >= m1 && p1 > 0) return p1;
-      return 0;
-    }
-
-    final hasLateTiers = latePen1 > 0 || latePen2 > 0 || latePen3 > 0;
-    final hasEarlyTiers = earlyPen1 > 0 || earlyPen2 > 0 || earlyPen3 > 0;
-    if (hasLateTiers || hasEarlyTiers) {
-      for (final r in shiftRecords) {
-        if (_isHoliday(r.date) || _isWeekend(r.date)) continue;
-        if (hasLateTiers && !hasTicket('Late', r.date)) {
-          latePenaltyTotal += tierAmount(
-              r.lateMinutes, lateMin1, lateMin2, lateMin3, latePen1, latePen2, latePen3);
-        }
-        if (hasEarlyTiers && !hasTicket('EarlyLeave', r.date)) {
-          latePenaltyTotal += tierAmount(
-              r.earlyMinutes, earlyMin1, earlyMin2, earlyMin3, earlyPen1, earlyPen2, earlyPen3);
-        }
-      }
-    } else {
-      // Flat fallback (legacy keys) — only when no tier amounts configured
-      final double penaltyPerLate = _toDouble(_penaltySettings['lateDeduction']);
-      final double penaltyPerEarly =
-          _toDouble(_penaltySettings['earlyLeaveDeduction']);
-      var lateCountAdj = lateCount;
-      var earlyCountAdj = earlyCount;
-      // Approximate: if any Late tickets exist for emp, prefer tickets over flat count.
-      final hasAnyLateTicket = _penaltyTickets.any((t) {
-        final st = t['status']?.toString() ?? '';
-        if (st == 'Cancelled') return false;
-        final tid = t['employeeId']?.toString() ?? '';
-        final type = t['type']?.toString() ?? '';
-        return type == 'Late' && (tid == empId || tid == empCode);
-      });
-      final hasAnyEarlyTicket = _penaltyTickets.any((t) {
-        final st = t['status']?.toString() ?? '';
-        if (st == 'Cancelled') return false;
-        final tid = t['employeeId']?.toString() ?? '';
-        final type = t['type']?.toString() ?? '';
-        return type == 'EarlyLeave' && (tid == empId || tid == empCode);
-      });
-      if (hasAnyLateTicket) lateCountAdj = 0;
-      if (hasAnyEarlyTicket) earlyCountAdj = 0;
-      latePenaltyTotal =
-          (penaltyPerLate * lateCountAdj) + (penaltyPerEarly * earlyCountAdj);
-    }
     // Vắng: chỉ tính setting nếu ngày đó chưa có phiếu UnauthorizedLeave.
     if (unauthorizedLeavePenalty > 0 && absentDays > 0) {
       var absentAdj = absentDays;

@@ -2015,19 +2015,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     return '${h}h${m > 0 ? '${m}p' : ''}';
   }
 
+  /// Cột «Tên ca»: chỉ tên ca (giờ đã có ở cột Tổng giờ / Giờ thập phân).
   String _shiftHoursDetailLabel(_DailyShiftRecord r) {
-    if (r.hoursByShiftName.isEmpty && r.shiftNames.isEmpty) return '';
     final seen = <String>{};
     final parts = <String>[];
-    for (final name in r.shiftNames) {
+    for (final name in [...r.shiftNames, ...r.hoursByShiftName.keys]) {
       if (name.isEmpty || !seen.add(name)) continue;
-      final h = r.hoursByShiftName[name] ?? 0;
-      parts.add(h > 0 ? '$name ${_formatHoursMinutes(h)}' : name);
+      parts.add(name);
     }
-    r.hoursByShiftName.forEach((name, h) {
-      if (!seen.add(name) || h <= 0) return;
-      parts.add('$name ${_formatHoursMinutes(h)}');
-    });
     return parts.join(', ');
   }
 
