@@ -29,7 +29,7 @@ public static class DependencyInjectionExtensions
             o.MultipartBodyLengthLimit = ServerOpsService.MaxUploadBytes;
             o.ValueLengthLimit = int.MaxValue;
         });
-        services.AddControllers()
+        services.AddControllers(o => o.Filters.Add<Controllers.Filters.AgentApiScopeFilter>())
             .AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -77,32 +77,32 @@ public static class DependencyInjectionExtensions
             });
         if (!string.IsNullOrEmpty(redisConnectionString))
         {
+            // Chuỗi dạng "host:6379,password=..." → Parse (không nhét cả chuỗi vào EndPoints).
+            // Log chỉ ghi host — không in mật khẩu Redis.
+            var redisHost = redisConnectionString.Split(',')[0];
             try
             {
-                var redis = StackExchange.Redis.ConnectionMultiplexer.Connect(
-                    new StackExchange.Redis.ConfigurationOptions
-                    {
-                        EndPoints = { redisConnectionString },
-                        AbortOnConnectFail = false,
-                        ConnectTimeout = 3000
-                    });
+                var redisOptions = StackExchange.Redis.ConfigurationOptions.Parse(redisConnectionString);
+                redisOptions.AbortOnConnectFail = false;
+                redisOptions.ConnectTimeout = 3000;
+                using var redis = StackExchange.Redis.ConnectionMultiplexer.Connect(redisOptions);
                 if (redis.IsConnected)
                 {
                     signalRBuilder.AddStackExchangeRedis(redisConnectionString, options =>
                     {
                         options.Configuration.ChannelPrefix = new StackExchange.Redis.RedisChannel("ZKTeco", StackExchange.Redis.RedisChannel.PatternMode.Literal);
+                        options.Configuration.AbortOnConnectFail = false;
                     });
-                    Console.WriteLine("✅ SignalR: Redis backplane connected at {0}", redisConnectionString);
+                    Console.WriteLine("✅ SignalR: Redis backplane connected at {0}", redisHost);
                 }
                 else
                 {
-                    redis.Dispose();
-                    Console.WriteLine("⚠️ SignalR: Redis not available at {0}, using in-memory mode", redisConnectionString);
+                    Console.WriteLine("⚠️ SignalR: Redis not available at {0}, using in-memory mode", redisHost);
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                Console.WriteLine("⚠️ SignalR: Cannot connect to Redis at {0}, using in-memory mode", redisConnectionString);
+                Console.WriteLine("⚠️ SignalR: Cannot connect to Redis at {0} ({1}), using in-memory mode", redisHost, ex.GetType().Name);
             }
         }
         else

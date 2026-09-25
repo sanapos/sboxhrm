@@ -759,6 +759,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       const PosThermalPrinterSettings();
   /// In bill/tem lần TT này — độc lập thiết lập «tự động»; gieo từ settings.
   bool _quickPrintInvoice = false;
+  /// Tingee đã nhận CK → in hóa đơn cho đúng đơn này, không bật chip «In HĐ» cho các đơn sau.
+  bool _forceInvoicePrintOnce = false;
   bool _quickPrintCup = false;
   bool _quickPrintKitchen = false;
   bool _quickIssueEInvoice = false;
@@ -1116,11 +1118,38 @@ class _PosSellScreenState extends State<PosSellScreen>
     _syncPaidAmount();
   }
 
+  double _tingeeExpectedAmount() {
+    for (final pay in _tab.paymentLines) {
+      if (_isTingeeSourceKey(pay.sourceKey) && pay.amount > 0) return pay.amount;
+    }
+    return _grandTotal;
+  }
+
+  /// Khách chuyển ít hơn số trên QR (server báo «Chuyển khoản thiếu» hoặc amount thấp hơn).
+  bool _tingeeEventUnderpaid(Map<String, dynamic> event) {
+    final msg = (event['message'] ?? event['Message'] ?? '').toString().toLowerCase();
+    if (msg.startsWith('chuyển khoản thiếu')) return true;
+    final raw = event['amount'] ?? event['Amount'];
+    final got = raw is num ? raw.toDouble() : double.tryParse('${raw ?? ''}');
+    if (got == null || got <= 0) return false;
+    final expected = _tingeeExpectedAmount();
+    return expected > 0 && got + 1 < expected;
+  }
+
   void _onTingeePaymentConfirmed(Map<String, dynamic> event) {
     if (!mounted) return;
-    NotificationSound().playPaymentSuccess();
     final message =
         (event['message'] ?? event['Message'] ?? '').toString().trim();
+    if (_canAutoCheckoutOnTingee(event) && _tingeeEventUnderpaid(event)) {
+      NotificationOverlayManager().showError(
+        title: tr('Khách chuyển khoản thiếu'),
+        message: message.isNotEmpty
+            ? message
+            : tr('Số tiền nhận được ít hơn số cần thu — kiểm tra rồi thu thêm'),
+      );
+      return;
+    }
+    NotificationSound().playPaymentSuccess();
     if (_canAutoCheckoutOnTingee(event)) {
       _completeTingeePaidOrder(
         message.isNotEmpty
@@ -1146,18 +1175,24 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
   }
 
-  void _completeTingeePaidOrder(String message) {
+  /// [announce]: đọc loa ở máy này (luồng poll — không có event SignalR để loa tự đọc).
+  void _completeTingeePaidOrder(String message, {bool announce = false}) {
     if (_checkingOut || _parking) return;
     _stopTingeeIntentPoll();
+    if (announce) {
+      NotificationSound().playPaymentSuccess();
+      unawaited(PosQrOrderVoiceAlert.instance
+          .speak(tr('Đã thanh toán chuyển khoản thành công')));
+    }
     if (mounted) {
       setState(() {
         _paymentQrOverlayDismissed = true;
         _tabletPaymentStage = true;
         _ensureTingeePaymentLine();
-        _quickPrintInvoice = true;
+        _forceInvoicePrintOnce = true;
       });
     } else {
-      _quickPrintInvoice = true;
+      _forceInvoicePrintOnce = true;
       _paymentQrOverlayDismissed = true;
     }
     _scheduleCustomerDisplayPublish(delayMs: 50);
@@ -2144,6 +2179,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   /// Overlay QR chờ CK trên màn chính — thu gọn được trong lúc chờ webhook.
   bool _paymentQrOverlayDismissed = false;
   Timer? _tingeeIntentPoll;
+  /// CK «Confirmed» đã có trước khi mở QR — không dùng để khớp theo số tiền.
+  Set<String> _tingeeSeenConfirmedIds = const {};
   Timer? _customerDisplayPublishTimer;
   int _customerDisplayPublishEpoch = 0;
   List<CustomerDisplayPromoItem> _customerDisplayPromos = const [];
@@ -2465,6 +2502,13 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
     }
 
+    if (_tingeeIntentPoll == null) {
+      final seen =
+          await PosPaymentGatewayApi(_api).listIntents(status: 'Confirmed');
+      _tingeeSeenConfirmedIds = {
+        for (final r in seen) (r['id'] ?? '').toString(),
+      };
+    }
     await PosPaymentGatewayApi(_api).createIntent(
       externalOrderId: externalId,
       orderNo: _tab.draftOrderNo,
@@ -2503,12 +2547,21 @@ class _PosSellScreenState extends State<PosSellScreen>
       final saleOrderId = (r['saleOrderId'] ?? '').toString().trim();
       final amount = (r['amountExpected'] as num?)?.toDouble();
       final draftId = (_tab.draftOrderId ?? '').toString().trim();
-      final hit = (ext.isNotEmpty && (orderNo == ext || external == ext)) ||
-          (draftId.isNotEmpty && saleOrderId.toLowerCase() == draftId.toLowerCase()) ||
-          (amount != null && expected > 0 && (amount - expected).abs() < 1);
-      if (!hit) continue;
+      final id = (r['id'] ?? '').toString();
+      final identityHit = (ext.isNotEmpty && (orderNo == ext || external == ext)) ||
+          (draftId.isNotEmpty && saleOrderId.toLowerCase() == draftId.toLowerCase());
+      // Khớp theo số tiền chỉ với CK không gắn đơn, đến SAU khi mở QR —
+      // tránh lấy nhầm CK cũ cùng số tiền của đơn/bàn khác rồi tự hoàn tất đơn chưa trả.
+      final amountHit = saleOrderId.isEmpty &&
+          !_tingeeSeenConfirmedIds.contains(id) &&
+          amount != null &&
+          expected > 0 &&
+          (amount - expected).abs() < 1;
+      if (!identityHit && !amountHit) continue;
+      _tingeeSeenConfirmedIds = {..._tingeeSeenConfirmedIds, id};
       _completeTingeePaidOrder(
         tr('Đã nhận chuyển khoản — đang hoàn tất đơn…'),
+        announce: true,
       );
       return;
     }
@@ -9930,7 +9983,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       final paidSlot = _tab.invoiceSlot;
       final paidResourceId = _tab.serviceResourceId?.toLowerCase();
       final useFloor = _useFloorAsPrimary;
-      final wantInvoicePrint = _quickPrintInvoice;
+      final wantInvoicePrint = _quickPrintInvoice || _forceInvoicePrintOnce;
       final warehouseAuto =
           _printSettings.warehousePrintMode == PosWarehousePrintMode.auto;
       // Chip «In bếp» + chế độ in: giữ đúng thiết lập «tự in sau TT».
@@ -10147,6 +10200,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         );
       }
     } finally {
+      _forceInvoicePrintOnce = false;
       if (mounted) setState(() => _checkingOut = false);
     }
   }

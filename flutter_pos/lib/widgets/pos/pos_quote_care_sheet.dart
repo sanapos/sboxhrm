@@ -745,7 +745,7 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
                   ChoiceChip(
                     label: Text('$n'),
                     selected: _score == n,
-                    selectedColor: PosQuoteActivity.scoreColor(n).withValues(alpha: 0.22),
+                    selectedColor: PosQuoteActivity.scoreColor(n).withOpacity(0.22),
                     labelStyle: TextStyle(
                       fontWeight: FontWeight.w800,
                       color: _score == n

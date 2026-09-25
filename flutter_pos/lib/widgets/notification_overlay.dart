@@ -393,7 +393,7 @@ class _NotificationCardState extends State<_NotificationCard>
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
+                  border: Border.all(color: color.withOpacity(0.5), width: 1),
                 ),
                 child: Row(
                   children: [
@@ -414,7 +414,7 @@ class _NotificationCardState extends State<_NotificationCard>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
+                        color: color.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(_getIcon(), color: color, size: 20),

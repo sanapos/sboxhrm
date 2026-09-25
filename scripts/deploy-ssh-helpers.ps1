@@ -14,17 +14,28 @@ function Get-PuttyHostKeyArgs {
     return @()
 }
 
+# Khoa SSH: $env:SBOX_DEPLOY_KEY = duong dan khoa OpenSSH -> dung ssh/scp cua Windows
+# (BatchMode, host key phai co san trong known_hosts). Khong co -> PuTTY + mat khau.
+function Get-OpenSshKeyArgs {
+    return @("-i", $env:SBOX_DEPLOY_KEY, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes")
+}
+
 function Invoke-PuttyScp {
     param(
         [Parameter(Mandatory)][string]$Pscp,
-        [Parameter(Mandatory)][string]$Password,
+        [string]$Password,
         [Parameter(Mandatory)][string]$LocalPath,
         [Parameter(Mandatory)][string]$RemotePath
     )
     $hostKeyArgs = Get-PuttyHostKeyArgs -Target $RemotePath
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = 'SilentlyContinue'
-    & $Pscp -batch @hostKeyArgs -pw $Password $LocalPath $RemotePath 2>&1 | ForEach-Object { Write-Host $_ }
+    if ($env:SBOX_DEPLOY_KEY) {
+        $keyArgs = Get-OpenSshKeyArgs
+        & scp @keyArgs $LocalPath $RemotePath 2>&1 | ForEach-Object { Write-Host $_ }
+    } else {
+        & $Pscp -batch @hostKeyArgs -pw $Password $LocalPath $RemotePath 2>&1 | ForEach-Object { Write-Host $_ }
+    }
     $code = $LASTEXITCODE
     $ErrorActionPreference = $prevEap
     if ($code -ne 0) { throw "pscp failed for $LocalPath (exit $code)" }
@@ -33,7 +44,7 @@ function Invoke-PuttyScp {
 function Invoke-PuttySsh {
     param(
         [Parameter(Mandatory)][string]$Plink,
-        [Parameter(Mandatory)][string]$Password,
+        [string]$Password,
         [Parameter(Mandatory)][string]$User,
         [Parameter(Mandatory)][string]$Server,
         [Parameter(Mandatory)][string]$Command
@@ -41,7 +52,12 @@ function Invoke-PuttySsh {
     $hostKeyArgs = Get-PuttyHostKeyArgs -Target $Server
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = 'SilentlyContinue'
-    & $Plink -batch @hostKeyArgs -ssh "${User}@${Server}" -pw $Password $Command 2>&1 | ForEach-Object { Write-Host $_ }
+    if ($env:SBOX_DEPLOY_KEY) {
+        $keyArgs = Get-OpenSshKeyArgs
+        & ssh @keyArgs "${User}@${Server}" $Command 2>&1 | ForEach-Object { Write-Host $_ }
+    } else {
+        & $Plink -batch @hostKeyArgs -ssh "${User}@${Server}" -pw $Password $Command 2>&1 | ForEach-Object { Write-Host $_ }
+    }
     $code = $LASTEXITCODE
     $ErrorActionPreference = $prevEap
     if ($code -ne 0) { throw "plink remote command failed (exit $code)" }
@@ -53,7 +69,7 @@ function Invoke-PuttySshScript {
     param(
         [Parameter(Mandatory)][string]$Plink,
         [Parameter(Mandatory)][string]$Pscp,
-        [Parameter(Mandatory)][string]$Password,
+        [string]$Password,
         [Parameter(Mandatory)][string]$User,
         [Parameter(Mandatory)][string]$Server,
         [Parameter(Mandatory)][string]$Script,

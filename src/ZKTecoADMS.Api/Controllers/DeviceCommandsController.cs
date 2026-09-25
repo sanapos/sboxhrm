@@ -67,8 +67,9 @@ public class DeviceCommandStatusController(ZKTecoDbContext dbContext) : Authenti
     [HttpGet("{commandId}")]
     public async Task<ActionResult<AppResponse<DeviceCmdDto>>> GetCommandById(Guid commandId)
     {
+        // DeviceCommand không có StoreId — lọc qua Devices (có bộ lọc cửa hàng).
         var command = await dbContext.DeviceCommands
-            .FirstOrDefaultAsync(c => c.Id == commandId);
+            .FirstOrDefaultAsync(c => c.Id == commandId && dbContext.Devices.Any(d => d.Id == c.DeviceId));
 
         if (command == null)
         {

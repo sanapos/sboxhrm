@@ -9,7 +9,7 @@ import '../notification_overlay.dart';
 import 'pos_form_keyboard.dart';
 import 'pos_theme.dart';
 import 'vn_admin_address_fields.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:sbox_pos/l10n/app_tr.dart';
 
 const _blue = Color(0xFF2563EB);
 

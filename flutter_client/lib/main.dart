@@ -58,11 +58,11 @@ void main() async {
     return AppFatalErrorScreen(details: details);
   };
 
+  // Biết biến thể HRM/POS trước khi chọn máy chủ API.
+  await SboxAppVariant.bootstrap();
   await ApiService.loadSavedBaseUrl();
   await AppIconBadge.set(0);
   await preloadVietnameseFonts();
-
-  await SboxAppVariant.bootstrap();
 
   InitialWebRoute.capture();
 

@@ -14,7 +14,17 @@
 
 Gán loại phiếu chi tiết để trên **POS / server**. Tool chỉ gắn mặc định hóa đơn + bếp + tem khi thêm máy mới.
 
-## Build
+## Build 2 bản theo server
+
+```powershell
+.\build-agents.ps1                             # dist\hrm (sboxhrm.com) + dist\pos (sboxpos.com)
+..\..\scripts\deploy-print-agent.ps1 -Site pos
+..\..\scripts\deploy-print-agent.ps1 -Site hrm
+```
+
+Bản POS (`-p:SboxServer=pos`) lưu cấu hình ở `%LOCALAPPDATA%\SboxPrintAgent-POS` và khóa khởi động riêng, nên cài song song được với bản HRM.
+
+## Build (cũ, 1 bản)
 
 ```powershell
 cd tools/SboxPrintAgent/SboxPrintAgent

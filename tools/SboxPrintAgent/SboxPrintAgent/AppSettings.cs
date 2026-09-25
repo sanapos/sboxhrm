@@ -4,7 +4,7 @@ namespace SboxPrintAgent;
 
 public sealed class AppSettings
 {
-    public const string DefaultApiBaseUrl = "https://sboxhrm.com";
+    public const string DefaultApiBaseUrl = BuildServer.DefaultApiBaseUrl;
 
     public string ApiBaseUrl { get; set; } = DefaultApiBaseUrl;
     public string StoreCode { get; set; } = "";
@@ -27,6 +27,13 @@ public sealed class AppSettings
     public List<string> SettledJobIds { get; set; } = new();
 
     static string Path =>
+        System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            BuildServer.DataFolderName,
+            "settings.json");
+
+    /// <summary>Cấu hình của bản HRM (thư mục cũ) — bản POS chỉ nhận lại nếu đã trỏ sboxpos.com.</summary>
+    static string LegacyHrmPath =>
         System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SboxPrintAgent",
@@ -95,10 +102,19 @@ public sealed class AppSettings
         try
         {
             var p = Path;
+            if (!File.Exists(p) && BuildServer.IsPos && File.Exists(LegacyHrmPath))
+            {
+                var legacy = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(LegacyHrmPath));
+                if (legacy != null && legacy.ApiBaseUrl.Contains("sboxpos.com", StringComparison.OrdinalIgnoreCase))
+                {
+                    legacy.Save();
+                    return legacy;
+                }
+            }
             if (!File.Exists(p)) return new AppSettings();
             var json = File.ReadAllText(p);
             var s = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
-            // Migrate URL cũ → sboxhrm.com
+            // Migrate URL cũ → máy chủ mặc định của bản build
             if (string.IsNullOrWhiteSpace(s.ApiBaseUrl) ||
                 s.ApiBaseUrl.Contains("api.sbox.vn", StringComparison.OrdinalIgnoreCase) ||
                 s.ApiBaseUrl.Equals("https://api.sboxhrm.com", StringComparison.OrdinalIgnoreCase))

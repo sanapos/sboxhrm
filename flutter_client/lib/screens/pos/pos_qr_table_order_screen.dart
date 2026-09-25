@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../config/sbox_endpoints.dart';
 import '../../models/qr_order_lock_config.dart';
 import '../../utils/image_source_picker.dart';
 import '../../services/api_service.dart';
@@ -1138,10 +1139,8 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Text(
-                tr(
-                  'Link QR đang trỏ máy nội bộ / LAN. Khách dùng 4G sẽ không mở được menu. '
-                  'Cần trỏ về https://sbox.sana.vn rồi in lại.',
-                ),
+                '${tr('Link QR đang trỏ máy nội bộ / LAN. Khách dùng 4G sẽ không mở được menu. Cần trỏ về máy chủ công khai rồi in lại:')} '
+                '${SboxEndpoints.publicSiteFor(ApiService.baseUrl)}',
                 style: TextStyle(color: Colors.orange.shade900, height: 1.35),
               ),
             ),

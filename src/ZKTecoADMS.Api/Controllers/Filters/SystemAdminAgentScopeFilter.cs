@@ -7,20 +7,14 @@ using ZKTecoADMS.Domain.Enums;
 namespace ZKTecoADMS.Api.Controllers.Filters;
 
 /// <summary>
-/// Áp dụng cho SystemAdminController khi role = Agent: chỉ cho phép một số action
-/// đọc dữ liệu thuộc phạm vi của đại lý đó. Các action khác → 403.
+/// Áp dụng cho SystemAdminController khi role = Agent → 403 mọi action.
+/// Các action system-admin trả dữ liệu toàn hệ thống (kể cả mật khẩu người dùng), không lọc
+/// theo đại lý; cổng đại lý dùng <c>/api/agent/*</c> (đã lọc theo cửa hàng của đại lý).
 /// SuperAdmin được bỏ qua hoàn toàn.
 /// </summary>
 public class SystemAdminAgentScopeFilter : IAsyncActionFilter
 {
-    private static readonly HashSet<string> AgentAllowedActions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "GetDashboard",
-        "GetAllStores",
-        "GetStoreById",
-        "GetAllUsers",
-        "GetAllDevices",
-    };
+    private static readonly HashSet<string> AgentAllowedActions = new(StringComparer.OrdinalIgnoreCase);
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {

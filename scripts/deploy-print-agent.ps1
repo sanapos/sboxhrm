@@ -1,6 +1,9 @@
 # Upload SBOX Print Agent (Windows) + release JSON into API container.
 param(
-    [string]$Server = "103.133.224.176",
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('hrm', 'pos')]
+    [string]$Site,
+    [string]$Server = "",
     [string]$User = "root",
     [string]$Password = $env:SBOX_DEPLOY_PASSWORD,
     [string]$ExePath = ""
@@ -9,6 +12,13 @@ param(
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $PSScriptRoot "deploy-ssh-helpers.ps1")
+
+# Each server (separate database) gets its own build.
+$SiteServers = @{ hrm = "103.133.224.176"; pos = "103.133.225.67" }
+if (-not $Server) { $Server = $SiteServers[$Site] }
+if ($Server -ne $SiteServers[$Site]) {
+    Write-Warning "Server $Server is not the default host for site '$Site' ($($SiteServers[$Site]))"
+}
 
 $plink = "C:\Program Files\PuTTY\plink.exe"
 $pscp = "C:\Program Files\PuTTY\pscp.exe"
@@ -21,9 +31,7 @@ $downloads = Join-Path $RepoRoot "src\ZKTecoADMS.Api\wwwroot\downloads"
 $json = Join-Path $downloads "sbox-print-agent-release.json"
 if (-not $ExePath) {
     $candidates = @(
-        (Join-Path $downloads "sbox-print-agent.exe"),
-        (Join-Path $RepoRoot "tools\SboxPrintAgent\dist\v1.3.4\SboxPrintAgent.exe"),
-        (Join-Path $RepoRoot "tools\SboxPrintAgent\dist\SboxPrintAgent.exe")
+        (Join-Path $RepoRoot "tools\SboxPrintAgent\dist\$Site\SboxPrintAgent.exe")
     )
     $ExePath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
@@ -33,6 +41,16 @@ if (-not $ExePath -or -not (Test-Path $ExePath)) {
 }
 if (-not (Test-Path $json)) {
     Write-Error "Missing $json"
+}
+
+$marker = Join-Path (Split-Path -Parent $ExePath) "server.txt"
+if (Test-Path $marker) {
+    $built = (Get-Content $marker -Raw).Trim()
+    if ($built -ne $Site) {
+        Write-Error "Artifact was built for server '$built' but deploying to '$Site'. Rebuild for the right server."
+    }
+} else {
+    Write-Warning "No server.txt next to the artifact - cannot verify which server it was built for."
 }
 
 $mb = [math]::Round((Get-Item $ExePath).Length / 1MB, 1)

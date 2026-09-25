@@ -755,7 +755,7 @@ class _LoginScreenState extends State<LoginScreen>
                     OutlinedButton.icon(
                       onPressed: () async {
                         final uri = Uri.parse(
-                          '${const String.fromEnvironment("API_BASE", defaultValue: "https://sboxhrm.com")}/downloads/sbox-pos.apk',
+                          '${ApiService.baseUrl}/downloads/sbox-pos.apk',
                         );
                         if (await canLaunchUrl(uri)) {
                           await launchUrl(uri, mode: LaunchMode.externalApplication);

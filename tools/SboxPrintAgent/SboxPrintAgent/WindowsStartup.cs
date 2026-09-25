@@ -6,7 +6,7 @@ namespace SboxPrintAgent;
 public static class WindowsStartup
 {
     const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    const string ValueName = "SboxPrintAgent";
+    const string ValueName = BuildServer.StartupValueName;
 
     public static bool IsEnabled()
     {

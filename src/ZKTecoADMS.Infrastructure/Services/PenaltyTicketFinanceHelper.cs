@@ -10,12 +10,53 @@ namespace ZKTecoADMS.Infrastructure.Services;
 /// </summary>
 public static class PenaltyTicketFinanceHelper
 {
+    /// <summary>
+    /// Người tạo phiếu thu khi hệ thống tự duyệt (không có người thao tác):
+    /// chủ cửa hàng (Admin) → tài khoản bất kỳ của cửa hàng. <c>CreatedByUserId</c> là FK tới
+    /// AspNetUsers — Guid.Empty làm hỏng cả lượt SaveChanges.
+    /// </summary>
+    public static async Task<Guid?> ResolveSystemActorAsync(
+        ZKTecoDbContext dbContext, Guid? storeId, CancellationToken cancellationToken = default)
+    {
+        if (storeId == null) return null;
+        var users = dbContext.Users.IgnoreQueryFilters().Where(u => u.StoreId == storeId);
+        var admin = await users.Where(u => u.Role == "Admin")
+            .OrderBy(u => u.CreatedAt).Select(u => (Guid?)u.Id).FirstOrDefaultAsync(cancellationToken);
+        return admin ?? await users.OrderBy(u => u.CreatedAt)
+            .Select(u => (Guid?)u.Id).FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Mã phiếu thu kế tiếp <c>{prefix}NNNN</c> theo cửa hàng: lấy số lớn nhất trong DB
+    /// (kể cả phiếu đã xóa mềm — vẫn giữ unique index) và phiếu vừa Add chưa SaveChanges
+    /// (tự duyệt nhiều phiếu trong một lượt). Đếm COUNT+1 trước đây sinh trùng mã.
+    /// </summary>
+    public static async Task<string> NextTransactionCodeAsync(
+        ZKTecoDbContext dbContext, Guid? storeId, string prefix, CancellationToken cancellationToken = default)
+    {
+        var codes = await dbContext.CashTransactions.IgnoreQueryFilters()
+            .Where(ct => ct.StoreId == storeId && ct.TransactionCode.StartsWith(prefix))
+            .Select(ct => ct.TransactionCode)
+            .ToListAsync(cancellationToken);
+        codes.AddRange(dbContext.CashTransactions.Local
+            .Where(ct => ct.StoreId == storeId && ct.TransactionCode.StartsWith(prefix))
+            .Select(ct => ct.TransactionCode));
+        var max = codes
+            .Select(c => int.TryParse(c[prefix.Length..], out var n) ? n : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+        return $"{prefix}{max + 1:D4}";
+    }
+
     public static async Task<CashTransaction> CreateCashTransactionAsync(
         ZKTecoDbContext dbContext,
         PenaltyTicket ticket,
         Guid? createdByUserId,
         CancellationToken cancellationToken = default)
     {
+        createdByUserId ??= await ResolveSystemActorAsync(dbContext, ticket.StoreId, cancellationToken)
+            ?? throw new InvalidOperationException($"Cửa hàng của phiếu phạt {ticket.TicketCode} không có tài khoản để ghi phiếu thu");
+
         var category = await dbContext.TransactionCategories
             .FirstOrDefaultAsync(c => c.Name == "Phạt nhân viên"
                 && c.Type == CashTransactionType.Income
@@ -42,9 +83,7 @@ public static class PenaltyTicketFinanceHelper
 
         var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
         var txPrefix = $"TC-{dateStr}-";
-        var txCount = await dbContext.CashTransactions
-            .CountAsync(ct => ct.TransactionCode.StartsWith(txPrefix) && ct.StoreId == ticket.StoreId,
-                cancellationToken);
+        var txCode = await NextTransactionCodeAsync(dbContext, ticket.StoreId, txPrefix, cancellationToken);
 
         var employeeName = ticket.Employee != null
             ? $"{ticket.Employee.LastName} {ticket.Employee.FirstName}".Trim()
@@ -63,7 +102,7 @@ public static class PenaltyTicketFinanceHelper
         var cashTransaction = new CashTransaction
         {
             Id = Guid.NewGuid(),
-            TransactionCode = $"{txPrefix}{(txCount + 1):D4}",
+            TransactionCode = txCode,
             Type = CashTransactionType.Income,
             CategoryId = category.Id,
             Amount = ticket.Amount,
@@ -73,7 +112,7 @@ public static class PenaltyTicketFinanceHelper
             Status = CashTransactionStatus.Pending,
             IsPaid = false,
             StoreId = ticket.StoreId,
-            CreatedByUserId = createdByUserId ?? Guid.Empty,
+            CreatedByUserId = createdByUserId.Value,
             InternalNote = $"Tạo từ phiếu phạt {ticket.TicketCode}",
             CreatedAt = DateTime.UtcNow,
             IsActive = true

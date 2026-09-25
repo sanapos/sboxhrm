@@ -331,7 +331,7 @@ public static class UiMsg
         if (msg.Contains("actively refused", StringComparison.OrdinalIgnoreCase) ||
             msg.Contains("No such host", StringComparison.OrdinalIgnoreCase) ||
             msg.Contains("không thể kết nối", StringComparison.OrdinalIgnoreCase))
-            return "Không kết nối được máy chủ. Kiểm tra địa chỉ (mặc định https://sboxhrm.com) và mạng.";
+            return $"Không kết nối được máy chủ. Kiểm tra địa chỉ (mặc định {BuildServer.DefaultApiBaseUrl}) và mạng.";
         if (msg.Contains("SSL", StringComparison.OrdinalIgnoreCase) ||
             msg.Contains("certificate", StringComparison.OrdinalIgnoreCase))
             return "Lỗi chứng chỉ HTTPS. Kiểm tra địa chỉ server.";

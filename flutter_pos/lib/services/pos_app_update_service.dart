@@ -9,6 +9,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../config/sbox_endpoints.dart';
 import 'api_config.dart';
 
 class PosAndroidRelease {
@@ -214,15 +215,14 @@ class PosAppUpdateService {
 
     add(release.apkUrl);
     add(webDownloadUrl);
-    // Cùng file qua domain còn lại nếu host khác.
-    final base = getApiBaseUrl();
-    if (base.contains('sboxhrm.com')) {
-      add('https://sbox.sana.vn/api/app/pos-android-apk');
-    } else {
-      add('https://sboxhrm.com/api/app/pos-android-apk');
+    // Dự phòng chỉ trong cùng server — APK của server kia trỏ sang database khác.
+    final origins = SboxEndpoints.sameServerOrigins(getApiBaseUrl());
+    for (final o in origins) {
+      add('$o/api/app/pos-android-apk');
     }
-    add('https://sbox.sana.vn/downloads/sbox-pos.apk');
-    add('https://sboxhrm.com/downloads/sbox-pos.apk');
+    for (final o in origins) {
+      add('$o/downloads/sbox-pos.apk');
+    }
     return out;
   }
 

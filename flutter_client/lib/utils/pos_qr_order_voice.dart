@@ -423,6 +423,7 @@ class PosQrOrderVoiceAlert {
     late final String title;
     late final String spoken;
     var playAlertSound = false;
+    var paymentProblem = false;
     switch (reason) {
       case 'qrorder':
         final needsConfirm = extra.toLowerCase().contains('needsconfirm');
@@ -468,7 +469,11 @@ class PosQrOrderVoiceAlert {
         break;
       case 'tingeepaymentconfirmed':
         playAlertSound = true;
-        title = 'Đã thanh toán';
+        // Server báo CK thiếu / chưa hoàn tất được đơn → cảnh báo, không báo «Đã thanh toán».
+        final lower = extra.toLowerCase();
+        paymentProblem = lower.startsWith('chuyển khoản thiếu') ||
+            lower.contains('chưa hoàn tất được đơn');
+        title = paymentProblem ? 'Cần kiểm tra chuyển khoản' : 'Đã thanh toán';
         spoken = extra.isNotEmpty
             ? extra
             : (table.isEmpty
@@ -494,9 +499,11 @@ class PosQrOrderVoiceAlert {
     NotificationOverlayManager().show(
       title: title,
       message: spoken,
-      type: reason == 'tingeepaymentconfirmed'
-          ? NotificationType.success
-          : NotificationType.info,
+      type: paymentProblem
+          ? NotificationType.warning
+          : (reason == 'tingeepaymentconfirmed'
+              ? NotificationType.success
+              : NotificationType.info),
       duration: const Duration(seconds: 5),
       playSound: playAlertSound,
       onTap: isOnlineOrder || reason == 'tingeepaymentconfirmed'

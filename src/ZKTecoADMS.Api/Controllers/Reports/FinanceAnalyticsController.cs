@@ -43,7 +43,7 @@ public class FinanceAnalyticsController(
             var storeId = RequiredStoreId;
 
             var q = db.PenaltyTickets.IgnoreQueryFilters()
-                .Where(p => p.StoreId == storeId
+                .Where(p => p.StoreId == storeId && p.Deleted == null
                     && p.ViolationDate >= fromUtc && p.ViolationDate < toUtc);
             if (type.HasValue) q = q.Where(p => p.Type == type.Value);
 
@@ -165,7 +165,7 @@ public class FinanceAnalyticsController(
             var storeId = RequiredStoreId;
 
             var q = db.AdvanceRequests.IgnoreQueryFilters()
-                .Where(a => a.StoreId == storeId
+                .Where(a => a.StoreId == storeId && a.Deleted == null
                     && a.RequestDate >= fromUtc && a.RequestDate < toUtc);
             if (status.HasValue) q = q.Where(a => a.Status == status.Value);
 
@@ -521,7 +521,7 @@ public class FinanceAnalyticsController(
             var storeId = RequiredStoreId;
 
             IQueryable<Domain.Entities.MealDebt> q = db.MealDebts.IgnoreQueryFilters()
-                .Where(m => m.StoreId == storeId);
+                .Where(m => m.StoreId == storeId && m.Deleted == null);
 
             if (!string.IsNullOrWhiteSpace(period))
             {
@@ -534,7 +534,7 @@ public class FinanceAnalyticsController(
             }
 
             var rows = await (from m in q
-                              join e in db.Employees.IgnoreQueryFilters()
+                              join e in db.Employees.IgnoreQueryFilters().Where(x => x.StoreId == storeId)
                                 on m.EmployeeUserId equals e.ApplicationUserId into gj
                               from emp in gj.DefaultIfEmpty()
                               select new
@@ -624,7 +624,7 @@ public class FinanceAnalyticsController(
             var query = db.CashTransactions.IgnoreQueryFilters()
                 .Include(x => x.Category)
                 .Include(x => x.CreatedByUser)
-                .Where(x => x.StoreId == storeId && x.IsActive
+                .Where(x => x.StoreId == storeId && x.IsActive && x.Deleted == null
                     && x.TransactionDate >= rangeStart
                     && x.TransactionDate < rangeEndExclusive);
 
@@ -644,7 +644,7 @@ public class FinanceAnalyticsController(
                 }
 
                 var linkedTxIds = await db.PenaltyTickets.IgnoreQueryFilters()
-                    .Where(p => p.StoreId == storeId && p.EmployeeId == empId.Value
+                    .Where(p => p.StoreId == storeId && p.Deleted == null && p.EmployeeId == empId.Value
                         && p.CashTransactionId != null)
                     .Select(p => p.CashTransactionId!.Value)
                     .Distinct()

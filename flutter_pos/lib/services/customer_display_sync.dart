@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/customer_display_models.dart';
+import '../config/sbox_endpoints.dart';
 import 'api_service.dart';
 import 'customer_display_bridge_stub.dart'
     if (dart.library.html) 'customer_display_bridge_web.dart'
@@ -42,7 +43,7 @@ class CustomerDisplaySync extends ChangeNotifier {
         if (origin.isNotEmpty) return '$origin/customer-display?v=$code';
       } catch (_) {}
     }
-    return 'https://sboxhrm.com/customer-display?v=$code';
+    return '${SboxEndpoints.publicSiteFor(ApiService.baseUrl)}/customer-display?v=$code';
   }
 
   /// Đảm bảo có mã ≥4 ký tự (ổn định qua prefs / config server).

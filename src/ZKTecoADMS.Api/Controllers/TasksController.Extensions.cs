@@ -355,6 +355,10 @@ public partial class TasksController
     {
         if (taskId == request.DependsOnTaskId)
             return Ok(AppResponse<TaskDependencyDto>.Error("Không thể phụ thuộc chính nó"));
+        // TaskDependency không có StoreId → cả hai công việc phải thuộc cửa hàng hiện tại.
+        if (await GetViewableTaskAsync(taskId) == null
+            || await GetViewableTaskAsync(request.DependsOnTaskId) == null)
+            return Ok(AppResponse<TaskDependencyDto>.Error("Bạn không có quyền xem công việc này"));
 
         var exists = await _dbContext.TaskDependencies.AnyAsync(d =>
             d.TaskId == taskId && d.DependsOnTaskId == request.DependsOnTaskId);
@@ -387,6 +391,9 @@ public partial class TasksController
     public async Task<ActionResult<AppResponse<bool>>> RemoveDependency(
         Guid taskId, Guid dependencyId)
     {
+        if (await GetViewableTaskAsync(taskId) == null)
+            return Ok(AppResponse<bool>.Error("Bạn không có quyền xem công việc này"));
+
         var dep = await _dbContext.TaskDependencies
             .FirstOrDefaultAsync(d => d.Id == dependencyId && d.TaskId == taskId);
         if (dep == null)

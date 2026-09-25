@@ -92,8 +92,10 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
     {
         try
         {
+            // FingerprintTemplate/DeviceUser không có StoreId — lọc qua Devices (có bộ lọc cửa hàng).
             var fingerprints = await dbContext.FingerprintTemplates
-                .Where(f => f.EmployeeId == deviceUserId)
+                .Where(f => f.EmployeeId == deviceUserId
+                    && dbContext.Devices.Any(d => d.Id == f.Employee.DeviceId))
                 .Select(f => new FingerprintDto
                 {
                     Id = f.Id,
@@ -123,7 +125,8 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
         try
         {
             var faces = await dbContext.FaceTemplates
-                .Where(f => f.EmployeeId == deviceUserId)
+                .Where(f => f.EmployeeId == deviceUserId
+                    && dbContext.Devices.Any(d => d.Id == f.Employee.DeviceId))
                 .Select(f => new FaceDto
                 {
                     Id = f.Id,

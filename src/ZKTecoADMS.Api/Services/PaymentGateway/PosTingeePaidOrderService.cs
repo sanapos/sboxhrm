@@ -27,7 +27,8 @@ public interface IPosTingeePaidOrderService
         decimal amount,
         string? tableName,
         CancellationToken ct = default);
-    Task TryFulfillConfirmedIntentAsync(
+    /// <summary>Hoàn tất đơn đã nhận CK. Trả câu cảnh báo để đọc loa (vd. chuyển thiếu), null nếu không có.</summary>
+    Task<string?> TryFulfillConfirmedIntentAsync(
         PosTransferPaymentIntent intent,
         decimal? paidAmount,
         IHubContext<AttendanceHub>? hub,
@@ -37,7 +38,8 @@ public interface IPosTingeePaidOrderService
 
 public sealed class PosTingeePaidOrderService(
     ZKTecoDbContext db,
-    IPosPrintDispatchService dispatch) : IPosTingeePaidOrderService
+    IPosPrintDispatchService dispatch,
+    ILogger<PosTingeePaidOrderService> logger) : IPosTingeePaidOrderService
 {
     public async Task<bool> IsTingeeEnabledAsync(Guid storeId, CancellationToken ct = default)
     {
@@ -127,7 +129,7 @@ public sealed class PosTingeePaidOrderService(
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task TryFulfillConfirmedIntentAsync(
+    public async Task<string?> TryFulfillConfirmedIntentAsync(
         PosTransferPaymentIntent intent,
         decimal? paidAmount,
         IHubContext<AttendanceHub>? hub,
@@ -136,15 +138,18 @@ public sealed class PosTingeePaidOrderService(
     {
         try
         {
-            await FulfillCoreAsync(intent, paidAmount, hub, notifications, ct);
+            return await FulfillCoreAsync(intent, paidAmount, hub, notifications, ct);
         }
-        catch
+        catch (Exception ex)
         {
             // Webhook đã xác nhận CK — không rollback tiền; thu ngân hoàn tất thủ công.
+            logger.LogError(ex, "Tingee: không tự hoàn tất được đơn {OrderNo} (intent {IntentId})",
+                intent.OrderNo ?? intent.ExternalOrderId, intent.Id);
+            return null;
         }
     }
 
-    async Task FulfillCoreAsync(
+    async Task<string?> FulfillCoreAsync(
         PosTransferPaymentIntent intent,
         decimal? paidAmount,
         IHubContext<AttendanceHub>? hub,
@@ -177,31 +182,36 @@ public sealed class PosTingeePaidOrderService(
                 if (order != null) break;
             }
         }
-        if (order == null) return;
+        if (order == null) return null;
 
         intent.SaleOrderId ??= order.Id;
         if (string.IsNullOrWhiteSpace(intent.OrderNo))
             intent.OrderNo = order.OrderNo;
 
-        var expected = intent.AmountExpected > 0
-            ? intent.AmountExpected
-            : (order.PayableTotal > 0 ? order.PayableTotal : order.Total);
+        // So với tổng đơn HIỆN TẠI — thu ngân có thể thêm món sau khi khách mở QR;
+        // intent chỉ là 1 phần (CK + tiền mặt) thì để máy thu ngân hoàn tất.
+        var orderDue = order.PayableTotal > 0 ? order.PayableTotal : order.Total;
+        var expected = Math.Max(intent.AmountExpected, orderDue);
         var paid = paidAmount is > 0 ? paidAmount.Value : expected;
         if (expected > 0 && paid + 1m < expected)
-            return;
+            return null;
 
         var online = PosOnlineOrderHelper.IsQrOnlineOrder(order);
         var closeTable = !online && (order.ServiceResourceId.HasValue || order.ResourceSessionId.HasValue);
 
         if (order.Status == PosSaleOrderStatus.Draft)
         {
-            var (ok, _) = await PosOnlineOrderHelper.TryCompletePaidDraftAsync(
+            var (ok, err) = await PosOnlineOrderHelper.TryCompletePaidDraftAsync(
                 db, storeId, order, "tingee-webhook", "Tingee", paid, closeTable, ct);
-            if (!ok) return;
+            if (!ok)
+            {
+                logger.LogWarning("Tingee: không hoàn tất được đơn {OrderNo}: {Error}", order.OrderNo, err);
+                return $"Đã nhận chuyển khoản {paid:0} đồng nhưng chưa hoàn tất được đơn {order.OrderNo}. Thu ngân kiểm tra lại";
+            }
         }
         else if (order.Status != PosSaleOrderStatus.Completed)
         {
-            return;
+            return null;
         }
 
         if (online)
@@ -224,7 +234,7 @@ public sealed class PosTingeePaidOrderService(
 
         var table = intent.TableName ?? (online ? "Online" : null);
         var spoken = paid > 0
-            ? $"Đã thanh toán {paid:0}đ, đơn {order.OrderNo}"
+            ? $"Đã thanh toán {paid:0} đồng, đơn {order.OrderNo}"
             : $"Đã thanh toán đơn {order.OrderNo}";
 
         PosFloorRealtimeHelper.Notify(
@@ -238,6 +248,7 @@ public sealed class PosTingeePaidOrderService(
         await PosNotificationHelper.NotifySaleCompletedAsync(
             notifications, db, storeId, order.Id, order.OrderNo ?? "",
             paid > 0 ? paid : order.PayableTotal, "Tingee", null, ct);
+        return null;
     }
 
     async Task<(BankAccount? Bank, bool Tingee)> ResolvePayBankAsync(Guid storeId, CancellationToken ct)

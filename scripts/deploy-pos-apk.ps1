@@ -1,6 +1,9 @@
 # Upload SBOX POS APK + release JSON into API container (run after deploy-api-only).
 param(
-    [string]$Server = "103.133.224.176",
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('hrm', 'pos')]
+    [string]$Site,
+    [string]$Server = "",
     [string]$User = "root",
     [string]$Password = $env:SBOX_DEPLOY_PASSWORD,
     [string]$ApkPath = ""
@@ -9,6 +12,15 @@ param(
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $PSScriptRoot "deploy-ssh-helpers.ps1")
+
+
+# Each server (separate database) gets its own build.
+$SiteServers = @{ hrm = "103.133.224.176"; pos = "103.133.225.67" }
+$SiteOrigins = @{ hrm = "https://sboxhrm.com"; pos = "https://sboxpos.com" }
+if (-not $Server) { $Server = $SiteServers[$Site] }
+if ($Server -ne $SiteServers[$Site]) {
+    Write-Warning "Server $Server is not the default host for site '$Site' ($($SiteServers[$Site]))"
+}
 
 $plink = "C:\Program Files\PuTTY\plink.exe"
 $pscp = "C:\Program Files\PuTTY\pscp.exe"
@@ -21,18 +33,33 @@ $downloads = Join-Path $RepoRoot "src\ZKTecoADMS.Api\wwwroot\downloads"
 $json = Join-Path $downloads "sbox-pos-release.json"
 if (-not $ApkPath) {
     $candidates = @(
-        (Join-Path $downloads "sbox-pos.apk"),
-        (Join-Path $RepoRoot "flutter_pos\build\app\outputs\flutter-apk\app-release.apk")
+        (Join-Path $RepoRoot "dist\flutter_pos\$Site\sbox-pos.apk")
     )
     $ApkPath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
 
 if (-not $ApkPath -or -not (Test-Path $ApkPath)) {
-    Write-Error "APK not found. Build flutter_pos then copy to wwwroot/downloads/sbox-pos.apk"
+    Write-Error "APK not found. Run flutter_pos\scripts\build-apk.ps1 -Server $Site"
 }
 if (-not (Test-Path $json)) {
     Write-Error "Missing $json"
 }
+
+$marker = Join-Path (Split-Path -Parent $ApkPath) "server.txt"
+if (Test-Path $marker) {
+    $built = (Get-Content $marker -Raw).Trim()
+    if ($built -ne $Site) {
+        Write-Error "Artifact was built for server '$built' but deploying to '$Site'. Rebuild for the right server."
+    }
+} else {
+    Write-Warning "No server.txt next to the artifact - cannot verify which server it was built for."
+}
+
+# apkUrl in the JSON must point at the server being deployed.
+$release = Get-Content $json -Raw -Encoding UTF8 | ConvertFrom-Json
+$release.apkUrl = "$($SiteOrigins[$Site])/api/app/pos-android-apk"
+$json = Join-Path $env:TEMP "sbox-pos-release.$Site.json"
+[IO.File]::WriteAllText($json, ($release | ConvertTo-Json -Depth 5), (New-Object Text.UTF8Encoding $false))
 
 $apkMb = [math]::Round((Get-Item $ApkPath).Length / 1MB, 1)
 Write-Host "==> APK: $ApkPath ($apkMb MB)"

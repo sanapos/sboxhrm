@@ -832,24 +832,23 @@ public class SampleDataController(
                 .ToListAsync(ct);
             db.WorkSchedules.RemoveRange(schedules);
 
-            var attendances = await db.AttendanceLogs
-                .IgnoreQueryFilters()
-                .Where(x => x.CreatedBy == marker)
-                .ToListAsync(ct);
-            // Lọc theo employee IDs của store
-            var sampleEmpIds = (await db.Employees
+            // Lọc theo nhân viên mẫu của store ngay trong SQL (không nạp dữ liệu mẫu của mọi cửa hàng).
+            var sampleEmpIds = db.Employees
                 .IgnoreQueryFilters()
                 .Where(e => e.StoreId == storeId && e.CreatedBy == marker)
-                .Select(e => e.Id)
-                .ToListAsync(ct)).ToHashSet();
-            attendances = attendances.Where(a => a.EmployeeId.HasValue && sampleEmpIds.Contains(a.EmployeeId.Value)).ToList();
+                .Select(e => e.Id);
+
+            var attendances = await db.AttendanceLogs
+                .IgnoreQueryFilters()
+                .Where(x => x.CreatedBy == marker
+                    && x.EmployeeId.HasValue && sampleEmpIds.Contains(x.EmployeeId.Value))
+                .ToListAsync(ct);
             db.AttendanceLogs.RemoveRange(attendances);
 
             var empBenefits = await db.EmployeeBenefits
                 .IgnoreQueryFilters()
-                .Where(x => x.CreatedBy == marker)
+                .Where(x => x.CreatedBy == marker && sampleEmpIds.Contains(x.EmployeeId))
                 .ToListAsync(ct);
-            empBenefits = empBenefits.Where(x => sampleEmpIds.Contains(x.EmployeeId)).ToList();
             db.EmployeeBenefits.RemoveRange(empBenefits);
 
             var benefits = await db.Benefits

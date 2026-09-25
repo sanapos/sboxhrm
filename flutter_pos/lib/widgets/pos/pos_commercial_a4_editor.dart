@@ -576,7 +576,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
             ),
             Text(
               tr('Đóng để lưu mẫu'),
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
             ),
           ],
         ),
@@ -885,11 +885,12 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   }
 
   String _hex(Color c) {
-    int ch(double v) => (v * 255.0).round().clamp(0, 255);
+    // Flutter 3.22: Color.red/green/blue (0–255), chưa có .r/.g/.b.
+    int ch(int v) => v.clamp(0, 255);
     return '#'
-        '${ch(c.r).toRadixString(16).padLeft(2, '0')}'
-        '${ch(c.g).toRadixString(16).padLeft(2, '0')}'
-        '${ch(c.b).toRadixString(16).padLeft(2, '0')}';
+        '${ch(c.red).toRadixString(16).padLeft(2, '0')}'
+        '${ch(c.green).toRadixString(16).padLeft(2, '0')}'
+        '${ch(c.blue).toRadixString(16).padLeft(2, '0')}';
   }
 
   void _insertImage() {

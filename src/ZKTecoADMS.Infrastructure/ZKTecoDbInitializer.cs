@@ -3370,15 +3370,9 @@ public class ZKTecoDbInitializer(
 
         using var reader = new StreamReader(stream);
         var sql = await reader.ReadToEndAsync();
-        foreach (var raw in sql.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        // Không Split(';') thô — cắt vỡ khối DO $$ ... $$.
+        foreach (var stmt in Helpers.SqlScriptSplitter.Split(sql))
         {
-            var lines = raw.Split('\n')
-                .Select(l => l.TrimEnd())
-                .Where(l => l.Length > 0 && !l.TrimStart().StartsWith("--"))
-                .ToArray();
-            var stmt = string.Join('\n', lines).Trim();
-            if (stmt.Length == 0)
-                continue;
             try
             {
                 await context.Database.ExecuteSqlRawAsync(stmt);
@@ -3813,13 +3807,19 @@ public class ZKTecoDbInitializer(
         const string basicName = PosPackageDefaults.BasicPackageName;
         var basicJson = System.Text.Json.JsonSerializer.Serialize(PosPackageDefaults.BasicModules);
 
-        var existing = await context.ServicePackages
-            .FirstOrDefaultAsync(p => p.Name == basicName);
+        var basicId = Guid.Parse("b0000001-0000-0000-0000-000000000001");
+        // Tìm theo Id trước: Super Admin có thể đổi tên gói (vd. "SBOX POS") — tìm theo tên
+        // sẽ không thấy rồi INSERT trùng Id → hỏng cả lượt SaveChanges của SeedAsync.
+        // AsTracking: DbContext mặc định NoTracking — sửa AllowedModules bên dưới mới được lưu.
+        var existing = await context.ServicePackages.AsTracking().IgnoreQueryFilters()
+                           .FirstOrDefaultAsync(p => p.Id == basicId)
+                       ?? await context.ServicePackages.AsTracking()
+                           .FirstOrDefaultAsync(p => p.Name == basicName);
         if (existing == null)
         {
             context.ServicePackages.Add(new ServicePackage
             {
-                Id = Guid.Parse("b0000001-0000-0000-0000-000000000001"),
+                Id = basicId,
                 Name = basicName,
                 Description = "Bán hàng POS cơ bản: hàng hóa, bán hàng, đơn hàng, trả hàng, mẫu in",
                 IsActive = true,

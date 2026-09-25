@@ -40,7 +40,11 @@ class ApiService {
 
   static Future<void> loadSavedBaseUrl() async {
     // Public SBOX POS (App Store / Play) stays on the server baked in at build.
-    if (SboxAppVariant.standalonePos) return;
+    // Đánh giá lại mặc định: flavor `pos` không truyền API_BASE_URL → sboxpos.com.
+    if (SboxAppVariant.standalonePos) {
+      _baseUrl = getApiBaseUrl();
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(_baseUrlPrefKey);
     if (saved != null && saved.trim().isNotEmpty) {

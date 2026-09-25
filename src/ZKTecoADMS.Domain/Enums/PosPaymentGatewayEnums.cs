@@ -17,6 +17,8 @@ public enum PosTransferPaymentIntentStatus
     Completed = 2,
     Expired = 3,
     Cancelled = 4,
+    /// <summary>Đã nhận CK nhưng ít hơn số cần thu — không tự hoàn tất, thu ngân xử lý.</summary>
+    Underpaid = 5,
 }
 
 public enum PosNotificationCreditLedgerSource

@@ -15,7 +15,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_commercial_company_fields.dart';
 import '../../widgets/pos/pos_sell_fee_defaults_fields.dart';
 import '../../widgets/pos/pos_theme.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Thiết lập cửa hàng / VAT / phụ phí — dùng trong Settings hub.
 class PosStoreSettingsHubScreen extends StatefulWidget {

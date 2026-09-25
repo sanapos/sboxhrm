@@ -7,7 +7,7 @@ App Flutter POS độc lập, port UI + logic bán hàng từ `flutter_client`. 
 | SDK (FVM) | **Flutter 3.22.3** / Dart 3.4.4 |
 | `minSdk` | **23** (Android 6.0) |
 | Application ID | `sbox.sana.vn.pos.flutter` |
-| API | `https://sboxhrm.com` |
+| API | Theo bản build: `SBOX_SERVER=hrm` → `https://sboxhrm.com` (mặc định), `SBOX_SERVER=pos` → `https://sboxpos.com` |
 
 ## Trạng thái
 
@@ -17,6 +17,18 @@ App Flutter POS độc lập, port UI + logic bán hàng từ `flutter_client`. 
 - [x] Release split APK (armeabi-v7a + arm64-v8a)
 - [ ] In Sunmi thật (hiện shim no-op — cần adapter `sunmi_printer_plus` 2.x)
 - [ ] QA đầy đủ trên máy Android 6 / Sunmi
+
+## Build 2 bản theo server
+
+Mỗi server có database riêng nên mỗi server phát hành APK riêng:
+
+```powershell
+.\scripts\build-apk.ps1                 # dist\flutter_pos\hrm + dist\flutter_pos\pos
+..\scripts\deploy-pos-apk.ps1 -Site pos  # đẩy bản pos lên sboxpos.com
+..\scripts\deploy-pos-apk.ps1 -Site hrm  # đẩy bản hrm lên sboxhrm.com
+```
+
+Deploy từ chối nếu `server.txt` cạnh APK khác `-Site`.
 
 ## Build release (Sunmi)
 

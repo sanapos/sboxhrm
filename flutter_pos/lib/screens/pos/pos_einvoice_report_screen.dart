@@ -552,7 +552,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: posEInvoiceStatusColor(row.status)
-                                .withValues(alpha: 0.12),
+                                .withOpacity(0.12),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(

@@ -47,7 +47,7 @@ public class PerformanceAnalyticsController(
                 var y = year ?? now.Year;
                 var m = month ?? now.Month;
                 var period = await db.KpiPeriods.IgnoreQueryFilters()
-                    .Where(p => p.StoreId == storeId && p.Year == y && (p.Month == m || p.Month == null))
+                    .Where(p => p.StoreId == storeId && p.Deleted == null && p.Year == y && (p.Month == m || p.Month == null))
                     .OrderByDescending(p => p.Month)
                     .FirstOrDefaultAsync(ct);
                 if (period == null)
@@ -56,7 +56,7 @@ public class PerformanceAnalyticsController(
             }
 
             var periodInfo = await db.KpiPeriods.IgnoreQueryFilters()
-                .Where(p => p.Id == periodId.Value)
+                .Where(p => p.Id == periodId.Value && p.StoreId == storeId)
                 .Select(p => new { p.Name, p.Year, p.Month, p.Quarter, p.PeriodStart, p.PeriodEnd })
                 .FirstOrDefaultAsync(ct);
 
@@ -65,7 +65,7 @@ public class PerformanceAnalyticsController(
                                 on r.EmployeeId equals e.Id
                               join c in db.KpiConfigs.IgnoreQueryFilters()
                                 on r.KpiConfigId equals c.Id
-                              where r.StoreId == storeId && r.KpiPeriodId == periodId.Value
+                              where r.StoreId == storeId && r.Deleted == null && r.KpiPeriodId == periodId.Value
                               select new
                               {
                                   r.EmployeeId, e.EmployeeCode, e.FirstName, e.LastName, e.Department,
@@ -172,7 +172,7 @@ public class PerformanceAnalyticsController(
             var storeId = RequiredStoreId;
 
             var q = db.ProductionEntries.IgnoreQueryFilters()
-                .Where(p => p.StoreId == storeId
+                .Where(p => p.StoreId == storeId && p.Deleted == null
                     && p.WorkDate >= fromUtc && p.WorkDate < toUtc);
             if (productId.HasValue) q = q.Where(p => p.ProductItemId == productId.Value);
 
@@ -274,7 +274,7 @@ public class PerformanceAnalyticsController(
             var storeId = RequiredStoreId;
 
             var q = db.Assets.IgnoreQueryFilters()
-                .Where(a => a.StoreId == storeId);
+                .Where(a => a.StoreId == storeId && a.Deleted == null);
             if (status.HasValue) q = q.Where(a => a.Status == status.Value);
 
             var rows = await (from a in q

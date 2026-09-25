@@ -2,7 +2,11 @@ package vn.sana.sbox.sbox_pos
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
 import io.flutter.plugin.common.MethodCall
@@ -105,6 +109,11 @@ object PosTts {
                 ready = false
                 pendingList?.error("tts", "init failed", null)
                 pendingList = null
+                // Không có engine TTS → vẫn báo hiệu bằng tiếng bíp.
+                if (pending != null) {
+                    pending = null
+                    playTone()
+                }
                 return@OnInitListener
             }
             applyVoiceAndRate()
@@ -208,7 +217,27 @@ object PosTts {
         val text = pending ?: return
         pending = null
         val engine = tts ?: return
+        // Máy không có giọng tiếng Việt (Sunmi T1 thường chỉ có Pico) → đọc sai/câm → bíp.
+        val avail = try {
+            engine.isLanguageAvailable(Locale("vi", "VN"))
+        } catch (_: Exception) {
+            TextToSpeech.LANG_NOT_SUPPORTED
+        }
+        if (avail < TextToSpeech.LANG_AVAILABLE) {
+            playTone()
+            return
+        }
         applyVoiceAndRate()
         engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kds-vi")
+    }
+
+    /// Hai tiếng bíp ngắn qua loa (STREAM_MUSIC — to hơn notification trên máy POS).
+    private fun playTone() {
+        try {
+            val tone = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+            tone.startTone(ToneGenerator.TONE_PROP_ACK, 600)
+            Handler(Looper.getMainLooper()).postDelayed({ tone.release() }, 900)
+        } catch (_: Exception) {
+        }
     }
 }

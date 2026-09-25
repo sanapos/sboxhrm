@@ -77,7 +77,7 @@ public class ExecutiveReportsController(
 
             // ── C. Leave ─────────────────────────────────────────────────
             var leaves = await db.Leaves.IgnoreQueryFilters()
-                .Where(l => l.StoreId == storeId
+                .Where(l => l.StoreId == storeId && l.Deleted == null
                     && l.StartDate < toUtc && l.EndDate >= fromUtc)
                 .Select(l => new { l.Status, l.Type, l.StartDate, l.EndDate })
                 .ToListAsync(ct);
@@ -86,7 +86,7 @@ public class ExecutiveReportsController(
 
             // ── D. Payroll ───────────────────────────────────────────────
             var payroll = await (from p in db.Payslips.IgnoreQueryFilters()
-                                 where p.StoreId == storeId && p.Year == y && p.Month == m
+                                 where p.StoreId == storeId && p.Deleted == null && p.Year == y && p.Month == m
                                     && p.Status != PayslipStatus.Cancelled
                                  select new { p.GrossSalary, p.NetSalary, p.BaseSalary,
                                      OtSum = (p.OvertimePay ?? 0) + (p.HolidayPay ?? 0) + (p.NightShiftPay ?? 0),
@@ -101,7 +101,7 @@ public class ExecutiveReportsController(
 
             // ── E. Penalty / Advance / Meal ──────────────────────────────
             var penalty = await db.PenaltyTickets.IgnoreQueryFilters()
-                .Where(t => t.StoreId == storeId
+                .Where(t => t.StoreId == storeId && t.Deleted == null
                     && t.ViolationDate >= fromUtc && t.ViolationDate < toUtc)
                 .Select(t => new { t.Amount, t.Status })
                 .ToListAsync(ct);
@@ -109,7 +109,7 @@ public class ExecutiveReportsController(
                     || p.Status == PenaltyTicketStatus.AutoApproved).Sum(p => p.Amount);
 
             var advance = await db.AdvanceRequests.IgnoreQueryFilters()
-                .Where(a => a.StoreId == storeId
+                .Where(a => a.StoreId == storeId && a.Deleted == null
                     && a.RequestDate >= fromUtc && a.RequestDate < toUtc)
                 .Select(a => new { a.Amount, a.ApprovedAmount, a.Status, a.IsPaid })
                 .ToListAsync(ct);
@@ -121,7 +121,7 @@ public class ExecutiveReportsController(
 
             var mealPeriod = $"{y:D4}-{m:D2}";
             var meals = await db.MealDebts.IgnoreQueryFilters()
-                .Where(md => md.StoreId == storeId && md.Period == mealPeriod)
+                .Where(md => md.StoreId == storeId && md.Deleted == null && md.Period == mealPeriod)
                 .Select(md => new { md.Type, md.Amount })
                 .ToListAsync(ct);
             var mealCharge = meals.Where(x => x.Type == 0).Sum(x => x.Amount);

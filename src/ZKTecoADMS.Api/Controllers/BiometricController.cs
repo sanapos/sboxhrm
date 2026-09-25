@@ -32,6 +32,10 @@ public class BiometricController(
     [RequireModulePermission("Device", ModulePermissionAction.View)]
     public async Task<ActionResult> GetBiometricsByDevice(Guid deviceId)
     {
+        // DeviceUser không có StoreId → kiểm tra thiết bị thuộc cửa hàng (Devices có bộ lọc).
+        if (!await DeviceVisibleAsync(deviceId))
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy thiết bị"));
+
         var deviceUsers = await dbContext.DeviceUsers
             .Where(du => du.DeviceId == deviceId)
             .Include(du => du.FingerprintTemplates)
@@ -175,6 +179,9 @@ public class BiometricController(
     [RequireModulePermission("Device", ModulePermissionAction.Create)]
     public async Task<ActionResult> CancelSync(Guid deviceId)
     {
+        if (!await DeviceVisibleAsync(deviceId))
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy thiết bị"));
+
         var pendingSyncCommands = await dbContext.DeviceCommands
             .AsTracking()
             .Where(c => c.DeviceId == deviceId
@@ -213,6 +220,9 @@ public class BiometricController(
     [RequireModulePermission("Device", ModulePermissionAction.Create)]
     public async Task<ActionResult> CancelAllCommands(Guid deviceId)
     {
+        if (!await DeviceVisibleAsync(deviceId))
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy thiết bị"));
+
         var pendingCommands = await dbContext.DeviceCommands
             .AsTracking()
             .Where(c => c.DeviceId == deviceId
@@ -242,6 +252,10 @@ public class BiometricController(
     }
 
     // ==================== COPY BIOMETRICS A → B ====================
+
+    /// <summary>Thiết bị thuộc cửa hàng hiện tại (Devices có bộ lọc cửa hàng chung).</summary>
+    private Task<bool> DeviceVisibleAsync(Guid deviceId) =>
+        dbContext.Devices.AnyAsync(d => d.Id == deviceId);
 
     // ZK firmware often parses command ID as a small integer. Ticks (~18 digits) is ignored.
     private static long _commandIdSeq = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 1_000_000;

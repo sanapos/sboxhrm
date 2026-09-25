@@ -35,6 +35,15 @@ public partial class PosSalesController
             .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
         if (order == null)
             return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
+        // Idempotent như CompleteSale: webhook Tingee / máy khác đã hoàn tất đơn → trả đơn hiện tại
+        // để thu ngân vẫn in hóa đơn, không báo "Không thanh toán được".
+        if (dto.Complete && order.Status == PosSaleOrderStatus.Completed)
+        {
+            SaleOrderDto already;
+            try { already = await MapOrderAsync(storeId, order); }
+            catch { already = MapOrder(order, order.Lines?.ToList() ?? [], viewerUserId: CurrentUserId); }
+            return Ok(AppResponse<SaleOrderDto>.Success(already));
+        }
         if (order.Status != PosSaleOrderStatus.Draft)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Chỉ sửa được đơn tạm"));
 

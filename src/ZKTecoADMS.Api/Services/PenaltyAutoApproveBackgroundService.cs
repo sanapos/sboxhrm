@@ -56,7 +56,10 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
         // Lấy PaymentTransaction Type=Penalty, Status=Pending mà TransactionDate < hôm nay (qua ngày hôm sau)
         // Chỉ lấy phiếu tự động tạo từ chấm công (Note chứa "Tự động tạo từ chấm công")
         var cutoffDate = DateTime.UtcNow.Date;
+        // DbContext mặc định NoTracking — không AsTracking thì đổi Status không được lưu,
+        // chỉ phiếu thu Add mới lưu → mỗi lượt tạo trùng phiếu thu.
         var pendingPenalties = await dbContext.PaymentTransactions
+            .AsTracking()
             .Include(pt => pt.Employee)
             .Where(pt => pt.Type == "Penalty"
                 && pt.Status == "Pending"
@@ -72,11 +75,20 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
         {
             try
             {
+                var actor = penalty.PerformedById
+                    ?? await PenaltyTicketFinanceHelper.ResolveSystemActorAsync(
+                        dbContext, penalty.Employee?.StoreId, stoppingToken);
+                if (actor == null)
+                {
+                    _logger.LogWarning("Skip auto-approve penalty {Id}: store has no user account", penalty.Id);
+                    continue;
+                }
+
                 // Tự động duyệt
                 penalty.Status = "Completed";
 
                 // Tạo phiếu thu (CashTransaction)
-                await CreateCashTransactionForPenaltyAsync(dbContext, penalty, stoppingToken);
+                await CreateCashTransactionForPenaltyAsync(dbContext, penalty, actor.Value, stoppingToken);
 
                 _logger.LogInformation("🔔 Auto-approved penalty transaction {Id} - Amount: {Amount}",
                     penalty.Id, Math.Abs(penalty.Amount));
@@ -94,6 +106,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
     private async Task CreateCashTransactionForPenaltyAsync(
         ZKTecoDbContext dbContext,
         Domain.Entities.PaymentTransaction penalty,
+        Guid createdByUserId,
         CancellationToken stoppingToken)
     {
         // Tìm hoặc tạo danh mục "Phạt nhân viên"
@@ -125,8 +138,8 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
         // Sinh mã phiếu thu
         var dateStr = DateTime.UtcNow.ToString("yyyyMMdd");
         var txPrefix = $"TC-{dateStr}-";
-        var txCount = await dbContext.CashTransactions
-            .CountAsync(ct => ct.TransactionCode.StartsWith(txPrefix) && ct.StoreId == penaltyStoreId, stoppingToken);
+        var txCode = await PenaltyTicketFinanceHelper.NextTransactionCodeAsync(
+            dbContext, penaltyStoreId, txPrefix, stoppingToken);
 
         var employeeName = penalty.Employee != null
             ? $"{penalty.Employee.LastName} {penalty.Employee.FirstName}".Trim()
@@ -135,7 +148,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
         var cashTransaction = new Domain.Entities.CashTransaction
         {
             Id = Guid.NewGuid(),
-            TransactionCode = $"{txPrefix}{(txCount + 1):D4}",
+            TransactionCode = txCode,
             Type = CashTransactionType.Income,
             CategoryId = category.Id,
             Amount = Math.Abs(penalty.Amount),
@@ -144,7 +157,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
             PaymentMethod = PaymentMethodType.Cash,
             Status = CashTransactionStatus.Pending,
             IsPaid = false,
-            CreatedByUserId = penalty.PerformedById ?? Guid.Empty,
+            CreatedByUserId = createdByUserId,
             StoreId = penaltyStoreId,
             InternalNote = $"Tự động tạo từ phiếu phạt #{penalty.Id}",
             CreatedAt = DateTime.UtcNow,
@@ -167,6 +180,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
 
         var cutoffDate = DateTime.UtcNow.AddHours(7).Date;
         var pendingTickets = await dbContext.PenaltyTickets
+            .AsTracking()
             .Include(t => t.Employee)
             .Where(t => t.Status == PenaltyTicketStatus.Pending
                 && t.ViolationDate < cutoffDate
@@ -182,12 +196,12 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
         {
             try
             {
+                // Tạo phiếu thu trước — lỗi thì phiếu phạt giữ Pending, không lưu nửa vời.
+                var cash = await PenaltyTicketFinanceHelper.CreateCashTransactionAsync(
+                    dbContext, ticket, createdByUserId: null, stoppingToken);
                 ticket.Status = PenaltyTicketStatus.AutoApproved;
                 ticket.ProcessedDate = now;
                 ticket.UpdatedAt = now;
-
-                var cash = await PenaltyTicketFinanceHelper.CreateCashTransactionAsync(
-                    dbContext, ticket, createdByUserId: null, stoppingToken);
                 ticket.CashTransactionId = cash.Id;
 
                 _logger.LogInformation("🔔 Auto-approved PenaltyTicket {Code} - {Amount}đ",

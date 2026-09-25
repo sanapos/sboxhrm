@@ -579,6 +579,10 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     [RequireModulePermission("Asset", ModulePermissionAction.Delete)]
     public async Task<IActionResult> DeleteImage(Guid assetId, Guid imageId)
     {
+        // AssetImage không có StoreId → kiểm tra tài sản thuộc cửa hàng hiện tại.
+        if (!await AssetInCurrentStoreAsync(assetId))
+            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
+
         var image = await _context.AssetImages.FirstOrDefaultAsync(i => i.Id == imageId && i.AssetId == assetId);
         if (image == null)
             return NotFound(AppResponse<object>.Error("Không tìm thấy hình ảnh"));
@@ -592,6 +596,9 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     [RequireModulePermission("Asset", ModulePermissionAction.Edit)]
     public async Task<IActionResult> SetPrimaryImage(Guid assetId, Guid imageId)
     {
+        if (!await AssetInCurrentStoreAsync(assetId))
+            return NotFound(AppResponse<object>.Error("Không tìm thấy tài sản"));
+
         var images = await _context.AssetImages.AsTracking().Where(i => i.AssetId == assetId).ToListAsync();
         foreach (var img in images)
             img.IsPrimary = img.Id == imageId;
@@ -599,6 +606,9 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
         await _context.SaveChangesAsync();
         return Ok(AppResponse<string>.Success("Đặt hình chính thành công"));
     }
+
+    private Task<bool> AssetInCurrentStoreAsync(Guid assetId) =>
+        _context.Assets.AnyAsync(a => a.Id == assetId && a.StoreId == RequiredStoreId);
     #endregion
 
     #region Asset Transfer & Assignment

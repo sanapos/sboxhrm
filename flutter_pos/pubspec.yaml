@@ -39,9 +39,10 @@ dependencies:
   package_info_plus: ^8.0.0
   print_bluetooth_thermal: ^1.0.9
   fl_chart: ^0.68.0
-  flutter_html: ^3.0.0
-  flutter_html_table: ^3.0.0
-  webview_flutter: ^4.10.0
+  # FVM Flutter 3.22.3 / Dart 3.4 (Android 6): flutter_html 3.0.0 cần collection 1.19,
+  # webview_flutter >=4.9 cần Dart 3.5 — giữ bản tương thích.
+  flutter_html: 3.0.0-beta.2
+  webview_flutter: ">=4.4.2 <4.9.0"
   url_launcher: ^6.2.2
   signalr_netcore: ^1.3.7
   video_player: ^2.8.2

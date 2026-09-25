@@ -1211,6 +1211,10 @@ public partial class TasksController(
     [RequireModulePermission("Task", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteComment(Guid taskId, Guid commentId)
     {
+        // TaskComment không có StoreId → phải kiểm tra công việc thuộc cửa hàng hiện tại.
+        if (await GetViewableTaskAsync(taskId) == null)
+            return Ok(AppResponse<bool>.Error("Bạn không có quyền xem công việc này"));
+
         var comment = await _dbContext.TaskComments
             .FirstOrDefaultAsync(c => c.Id == commentId && c.TaskId == taskId);
 
@@ -1569,7 +1573,7 @@ public partial class TasksController(
     public async Task<ActionResult<AppResponse<bool>>> MarkReminderRead(Guid reminderId)
     {
         var reminder = await _dbContext.TaskReminders.FindAsync(reminderId);
-        if (reminder == null)
+        if (reminder == null || await GetViewableTaskAsync(reminder.TaskId) == null)
             return Ok(AppResponse<bool>.Error("Reminder not found"));
 
         reminder.IsRead = true;

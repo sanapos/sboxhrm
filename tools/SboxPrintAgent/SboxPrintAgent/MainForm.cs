@@ -82,7 +82,7 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        Text = "SBOX — Máy in cửa hàng";
+        Text = BuildServer.IsPos ? "SBOX POS — Máy in cửa hàng" : "SBOX — Máy in cửa hàng";
         Width = 1080;
         Height = 800;
         MinimumSize = new Size(980, 720);
@@ -412,7 +412,7 @@ public sealed class MainForm : Form
     void SetupTray()
     {
         _tray.Icon = Icon ?? SystemIcons.Application;
-        _tray.Text = "SBOX máy in";
+        _tray.Text = BuildServer.IsPos ? "SBOX POS máy in" : "SBOX máy in";
         _tray.Visible = true;
         _tray.DoubleClick += (_, _) => { Show(); WindowState = FormWindowState.Normal; Activate(); };
         var menu = new ContextMenuStrip();

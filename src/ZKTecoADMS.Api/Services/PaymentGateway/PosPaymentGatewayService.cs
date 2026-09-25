@@ -397,7 +397,8 @@ public sealed class PosPaymentGatewayService(
         var already = await db.PosTransferPaymentIntents.AsNoTracking()
             .FirstOrDefaultAsync(x => x.ProviderTransactionCode == payload.TransactionCode && x.Deleted == null, ct);
         if (already != null &&
-            already.Status is PosTransferPaymentIntentStatus.Confirmed or PosTransferPaymentIntentStatus.Completed)
+            already.Status is PosTransferPaymentIntentStatus.Confirmed or PosTransferPaymentIntentStatus.Completed
+                or PosTransferPaymentIntentStatus.Underpaid)
         {
             audit.TransferIntentId = already.Id;
             audit.ResultCode = "02";
@@ -477,7 +478,12 @@ public sealed class PosPaymentGatewayService(
         }
         else
         {
-            intent.Status = PosTransferPaymentIntentStatus.Confirmed;
+            // Khách chuyển ít hơn QR → không đánh dấu Confirmed (máy thu ngân sẽ tự hoàn tất nếu Confirmed).
+            var underpaid = payload.Amount is decimal got && intent.AmountExpected > 0
+                && got + 1m < intent.AmountExpected;
+            intent.Status = underpaid
+                ? PosTransferPaymentIntentStatus.Underpaid
+                : PosTransferPaymentIntentStatus.Confirmed;
             intent.ProviderTransactionCode = payload.TransactionCode;
             intent.TransferContent = payload.TransferContent ?? intent.TransferContent;
             intent.ConfirmedAt = payload.TransactionAt ?? DateTime.UtcNow;
@@ -491,18 +497,22 @@ public sealed class PosPaymentGatewayService(
         db.PosPaymentWebhookEvents.Add(audit);
         await db.SaveChangesAsync(ct);
 
-        await tingeePaidOrders.TryFulfillConfirmedIntentAsync(
-            intent, payload.Amount, hub, notifications, ct);
+        var warning = intent.Status == PosTransferPaymentIntentStatus.Underpaid
+            ? $"Chuyển khoản thiếu. Nhận {payload.Amount:0} đồng, cần {intent.AmountExpected:0} đồng" +
+              (string.IsNullOrWhiteSpace(intent.OrderNo) ? "" : $", đơn {intent.OrderNo}")
+            : await tingeePaidOrders.TryFulfillConfirmedIntentAsync(
+                intent, payload.Amount, hub, notifications, ct);
 
-        var orderLabel = intent.OrderNo ?? intent.ExternalOrderId;
-        var amountText = payload.Amount.HasValue ? $"{payload.Amount.Value:0}đ" : "";
-        var spoken = intent.Status == PosTransferPaymentIntentStatus.Completed
-            ? (string.IsNullOrEmpty(amountText)
-                ? $"Đã thanh toán đơn {orderLabel}"
-                : $"Đã thanh toán {amountText}, đơn {orderLabel}")
-            : (string.IsNullOrEmpty(amountText)
-                ? $"Đã nhận chuyển khoản đơn {orderLabel}"
-                : $"Đã nhận chuyển khoản {amountText}, đơn {orderLabel}");
+        // Câu đọc loa trên máy thu ngân: "đồng" (TTS đọc "đ" thành chữ cái),
+        // không đọc mã nội bộ "POS{tab}-{ms}" của giỏ chưa lưu.
+        var orderNo = (intent.OrderNo ?? "").Trim();
+        var suffix = orderNo.Length > 0
+            ? $", đơn {orderNo}"
+            : (string.IsNullOrWhiteSpace(intent.TableName) ? "" : $", {intent.TableName}");
+        var amountText = payload.Amount.HasValue ? $" {payload.Amount.Value:0} đồng" : "";
+        var spoken = warning ?? (intent.Status == PosTransferPaymentIntentStatus.Completed
+            ? $"Đã thanh toán{amountText}{suffix}"
+            : $"Đã nhận chuyển khoản{amountText}{suffix}");
 
         PosFloorRealtimeHelper.Notify(
             hub,

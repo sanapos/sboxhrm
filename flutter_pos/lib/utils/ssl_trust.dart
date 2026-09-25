@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../config/sbox_endpoints.dart';
+
 /// CA Let's Encrypt / ISRG — nhúng sẵn (không phụ thuộc asset bundle).
 /// Sunmi T1 Android 6 thiếu root mới → HTTPS sboxhrm.com fail CERTIFICATE_VERIFY_FAILED.
 const String _kIsrgRootX1Pem = '''
@@ -114,11 +116,10 @@ class _TrustedRootsHttpOverrides extends HttpOverrides {
 
   static bool _allowHost(String host) {
     final h = host.toLowerCase();
-    return h == 'sboxhrm.com' ||
-        h.endsWith('.sboxhrm.com') ||
-        h == 'sana.vn' ||
-        h.endsWith('.sana.vn') ||
-        h == '103.133.224.176';
+    return SboxEndpoints.isHrmHost(h) ||
+        SboxEndpoints.isPosHost(h) ||
+        h == '103.133.224.176' ||
+        h == '103.133.225.67';
   }
 
   @override

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../config/sbox_endpoints.dart';
 import '../../models/customer_display_models.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
@@ -85,7 +86,7 @@ class _PosCustomerDisplaySettingsScreenState
       final origin = Uri.base.origin;
       return '$origin/customer-display?v=$code';
     }
-    return 'https://sboxhrm.com/customer-display?v=$code';
+    return '${SboxEndpoints.publicSiteFor(ApiService.baseUrl)}/customer-display?v=$code';
   }
 
   Future<void> _copyViewerLink() async {

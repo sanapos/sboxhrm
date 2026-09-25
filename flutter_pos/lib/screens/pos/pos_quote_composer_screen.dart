@@ -869,7 +869,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     final blocksPop = _composerBlocksPop(wide: wide);
     return PopScope(
       canPop: !blocksPop,
-      onPopInvokedWithResult: (didPop, _) {
+      onPopInvoked: (didPop) {
         if (!didPop && blocksPop) _onComposerBack(wide: wide);
       },
       child: Scaffold(
@@ -1105,7 +1105,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(
               color: noteOn || priceOn
-                  ? _kiotBlue.withValues(alpha: 0.45)
+                  ? _kiotBlue.withOpacity(0.45)
                   : PosTheme.border,
             ),
           ),
@@ -1386,7 +1386,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       decoration: BoxDecoration(
         color: PosTheme.kiotBlueLight,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _kiotBlue.withValues(alpha: 0.25)),
+        border: Border.all(color: _kiotBlue.withOpacity(0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1436,7 +1436,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       decoration: BoxDecoration(
         color: PosTheme.kiotBlueLight,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: _kiotBlue.withValues(alpha: 0.25)),
+        border: Border.all(color: _kiotBlue.withOpacity(0.25)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
