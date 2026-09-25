@@ -400,10 +400,14 @@ internal static class PosProductExcelImportParser
                      h.Contains("isactive", StringComparison.Ordinal) ||
                      h.Contains("active", StringComparison.Ordinal))
                 map.IsActiveCol = c;
-            else if (h.Contains("linkanh", StringComparison.Ordinal) ||
-                     h.Contains("hinhanh", StringComparison.Ordinal) ||
-                     h.Contains("imageurl", StringComparison.Ordinal) ||
-                     h.Contains("image", StringComparison.Ordinal))
+            else if (h is "anh" or "hinh" or "photo" or "picture" ||
+                     h.Contains("hinhanh") ||
+                     h.Contains("linkanh") ||
+                     h.Contains("linkhinh") ||
+                     h.Contains("urlanh") ||
+                     h.Contains("anhsp") ||
+                     h.Contains("imageurl") ||
+                     h.Contains("image"))
                 map.ImageCol = c;
 
         }
@@ -467,13 +471,15 @@ internal static class PosProductExcelImportParser
         if (col <= 0) return "";
         var cell = ws.Cell(row, col);
         var text = cell.GetFormattedString().Trim();
-        if (text.Length > 0) return NormalizeImageLink(text);
         if (cell.HasHyperlink)
         {
             var link = cell.GetHyperlink().ExternalAddress?.AbsoluteUri
                        ?? cell.GetHyperlink().InternalAddress ?? "";
-            if (link.Length > 0) return NormalizeImageLink(link);
+            if (link.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                link.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return NormalizeImageLink(link);
         }
+        if (text.Length > 0) return NormalizeImageLink(text);
         return "";
     }
 
@@ -486,6 +492,26 @@ internal static class PosProductExcelImportParser
             && !s.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             return s.TrimStart('/');
         if (!Uri.TryCreate(s, UriKind.Absolute, out var uri)) return s;
+        var host = uri.Host;
+        if (host.Contains("drive.google.com", StringComparison.OrdinalIgnoreCase) ||
+            host.Contains("docs.google.com", StringComparison.OrdinalIgnoreCase))
+        {
+            var segs = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            var fileIdx = Array.FindIndex(segs, x => x.Equals("d", StringComparison.OrdinalIgnoreCase));
+            if (fileIdx >= 0 && fileIdx + 1 < segs.Length)
+                return $"https://drive.google.com/uc?export=view&id={segs[fileIdx + 1]}";
+            var id = "";
+            var q = uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var part in q)
+            {
+                var eq = part.IndexOf('=');
+                if (eq <= 0) continue;
+                if (part[..eq].Equals("id", StringComparison.OrdinalIgnoreCase))
+                    id = Uri.UnescapeDataString(part[(eq + 1)..]);
+            }
+            if (id.Length > 0)
+                return $"https://drive.google.com/uc?export=view&id={id}";
+        }
         var query = uri.Query;
         if (query.Contains("path=", StringComparison.OrdinalIgnoreCase))
         {

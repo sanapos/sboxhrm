@@ -68,7 +68,8 @@ public partial class PosQuotesController(
         DateTime? UpdatedAt,
         List<QuoteLineDto>? Lines,
         List<QuoteDocumentDto>? Documents,
-        int? PotentialScore = null);
+        int? PotentialScore = null,
+        bool IncludeImages = false);
 
     public record QuoteLineInput(
         string? ProductId,
@@ -268,6 +269,7 @@ public partial class PosQuotesController(
                 ""DepositAmount"" = {quote.DepositAmount},
                 ""DepositPercent"" = {quote.DepositPercent},
                 ""PrintTemplateId"" = {quote.PrintTemplateId},
+                ""IncludeImages"" = {quote.IncludeImages},
                 ""CustomerId"" = {quote.CustomerId},
                 ""UpdatedAt"" = {now},
                 ""UpdatedBy"" = {CurrentUserEmail},
@@ -430,6 +432,7 @@ public partial class PosQuotesController(
             if (tpl != null || string.IsNullOrWhiteSpace(dto.PrintTemplateId))
                 quote.PrintTemplateId = tpl;
         }
+        quote.IncludeImages = dto.IncludeImages;
     }
 
     static void ApplyDeposit(PosQuote quote, QuoteSaveDto dto)
@@ -744,7 +747,7 @@ public partial class PosQuotesController(
         x.QuotedByEmployeeId,
         x.QuotedByEmployeeId is Guid eid ? names?.GetValueOrDefault(eid) : null,
         x.CommercialStage.ToString(),
-        x.CreatedAt, x.UpdatedAt, null, null, x.PotentialScore);
+        x.CreatedAt, x.UpdatedAt, null, null, x.PotentialScore, x.IncludeImages);
 
     static QuoteDto Map(PosQuote x, IReadOnlyDictionary<Guid, string>? names = null) => new(
         x.Id, x.QuoteNo, x.Status.ToString(), x.CustomerId, x.CustomerName,
@@ -765,5 +768,6 @@ public partial class PosQuotesController(
             .OrderByDescending(d => d.IssuedAt)
             .Select(d => MapDoc(d))
             .ToList(),
-        x.PotentialScore);
+        x.PotentialScore,
+        x.IncludeImages);
 }

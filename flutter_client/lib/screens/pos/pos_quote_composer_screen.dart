@@ -24,6 +24,7 @@ import '../../widgets/pos/pos_qty_area_dialog.dart';
 import '../../widgets/pos/pos_product_image.dart';
 import '../../widgets/pos/pos_product_unit_view.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
+import 'pos_quote_document_wording_screen.dart';
 import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../../widgets/pos/pos_sell_product_grid.dart';
 import '../../widgets/pos/pos_form_keyboard.dart';
@@ -250,6 +251,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           _deposit.text = _money.format(q.depositAmount);
         }
         _printTemplateId = q.printTemplateId ?? _printTemplateId;
+        _includeImages = q.includeImages;
         if (q.validUntil != null) _validUntil = q.validUntil!.toLocal();
       });
       for (final row in _cart) {
@@ -895,6 +897,48 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     );
   }
 
+  Future<void> _editComposerWording() async {
+    final id = _activeQuoteId;
+    if (id == null) return;
+    final res = await _api.getPosQuote(id);
+    if (!mounted) return;
+    if (res['isSuccess'] != true || res['data'] is! Map) return;
+    final q = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+    PosQuoteDocument? doc;
+    for (final d in q.documents) {
+      if (d.kind == 'Quote') {
+        doc = d;
+        break;
+      }
+    }
+    if (doc == null) {
+      final created = await _api.createPosQuoteDocument(
+        id,
+        'Quote',
+        includeImages: _includeImages,
+      );
+      if (!mounted) return;
+      if (created['isSuccess'] != true || created['data'] is! Map) {
+        NotificationOverlayManager().showError(
+          title: 'Chưa mở được',
+          message: created['message']?.toString() ?? tr('Chưa có phiếu để sửa'),
+        );
+        return;
+      }
+      doc = PosQuoteDocument.fromJson(
+          Map<String, dynamic>.from(created['data'] as Map));
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PosQuoteDocumentWordingScreen(
+          quoteId: id,
+          document: doc!,
+        ),
+      ),
+    );
+  }
+
   Future<void> _save() =>
       _saveQuote(printAfter: true, popAfter: false);
 
@@ -926,6 +970,14 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                   : (_isEdit
                       ? (_quoteNo.isEmpty ? tr('Sửa báo giá') : _quoteNo)
                       : tr('Chọn hàng báo giá')))),
+          actions: [
+            if (_activeQuoteId != null)
+              IconButton(
+                tooltip: tr('Sửa lời riêng báo giá này'),
+                onPressed: _editComposerWording,
+                icon: const Icon(Icons.edit_outlined),
+              ),
+          ],
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())

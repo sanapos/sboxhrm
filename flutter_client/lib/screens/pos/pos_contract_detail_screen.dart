@@ -9,6 +9,7 @@ import '../../utils/pos_html_print.dart';
 import '../../utils/pos_quote_commercial.dart';
 import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
+import 'pos_quote_document_wording_screen.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
 
@@ -321,6 +322,56 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
     );
   }
 
+  Future<void> _editWording(PosQuoteDocument d) async {
+    final q = _quote;
+    if (q == null) return;
+    var doc = d;
+    PosQuoteDocument? match;
+    for (final x in q.documents) {
+      if (x.id == d.id) {
+        match = x;
+        break;
+      }
+    }
+    if (match == null && d.kind == 'Quote') {
+      for (final x in q.documents) {
+        if (x.kind == 'Quote') {
+          match = x;
+          break;
+        }
+      }
+    }
+    if (match != null) {
+      doc = match;
+    } else if (d.kind == 'Quote') {
+      final res = await _api.createPosQuoteDocument(
+        q.id,
+        'Quote',
+        includeImages: q.includeImages,
+      );
+      if (!mounted) return;
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        NotificationOverlayManager().showError(
+          title: 'Chưa mở được',
+          message: res['message']?.toString() ?? tr('Chưa có phiếu để sửa'),
+        );
+        return;
+      }
+      doc = PosQuoteDocument.fromJson(
+          Map<String, dynamic>.from(res['data'] as Map));
+    }
+    if (doc.htmlContent.trim().isEmpty) return;
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PosQuoteDocumentWordingScreen(
+          quoteId: q.id,
+          document: doc,
+        ),
+      ),
+    );
+    if (changed == true) await _load();
+  }
+
   Widget _docTile(PosQuoteDocument d) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -343,6 +394,10 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
             onSelected: (v) async {
               final q = _quote;
               if (q == null) return;
+              if (v == 'wording') {
+                await _editWording(d);
+                return;
+              }
               if (v == 'open') {
                 await _openDoc(d);
                 return;
@@ -355,6 +410,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
               );
             },
             itemBuilder: (_) => [
+              PopupMenuItem(value: 'wording', child: Text(tr('Sửa lời riêng'))),
               PopupMenuItem(value: 'open', child: Text(tr('Xem / in'))),
               const PopupMenuDivider(),
               PopupMenuItem(value: 'print', child: Text(tr('In'))),

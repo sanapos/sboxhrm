@@ -58,6 +58,9 @@ public class PosQuote : AuditableEntity<Guid>
 
     public Guid? PrintTemplateId { get; set; }
 
+    /// <summary>Phiếu in của báo giá này có chèn ảnh sản phẩm 3×3.</summary>
+    public bool IncludeImages { get; set; }
+
     public int Revision { get; set; } = 1;
 
     [MaxLength(200)]

@@ -3,7 +3,7 @@ description: ZKTeco ADMS Flutter Client - He thong quan ly cham cong
 
 publish_to: 'none'
 
-version: 1.0.711+14711
+version: 1.0.712+14712
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

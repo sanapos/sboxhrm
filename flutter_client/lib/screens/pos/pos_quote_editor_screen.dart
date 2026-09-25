@@ -160,6 +160,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
       _deposit.text = _money.format(q.depositAmount);
     }
     _printTemplateId = q.printTemplateId;
+    _includeImages = q.includeImages;
     _discount.text = _money.format(q.discount);
     if (q.validUntil != null) _validUntil = q.validUntil!.toLocal();
     _lines = q.lines
