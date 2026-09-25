@@ -723,7 +723,21 @@ bool _shouldPairByAttendanceState(List<Attendance> sorted) {
   final hasIn = sorted.any((a) => !_isCheckOutAttendance(a));
   final hasOut = sorted.any((a) => _isCheckOutAttendance(a));
   if (!hasIn || !hasOut) return false;
+  if (_attendanceStatesAreSwapped(sorted)) return false;
   return _attendanceStateSequenceIsReliable(sorted);
+}
+
+/// Máy gửi ngược loại: chuỗi xen kẽ đều nhưng mở đầu Ra, kết thúc Vào
+/// (VD 08:10 «Ra» + 13:10 «Vào»). Ghép theo loại sẽ ra «chỉ Ra 08:10» (tổng giờ
+/// 8:00→8:10, về sớm cả ca) + «Vào 13:10» bị bỏ → ghép theo thời gian.
+/// Ra lẻ đầu ngày thật (ra ca đêm hôm trước) có số lần chấm lẻ → không bị ảnh hưởng.
+bool _attendanceStatesAreSwapped(List<Attendance> sorted) {
+  if (sorted.length.isOdd) return false;
+  for (var i = 0; i < sorted.length; i++) {
+    final shouldBeOut = i.isEven;
+    if (_isCheckOutAttendance(sorted[i]) != shouldBeOut) return false;
+  }
+  return true;
 }
 
 /// Ghép cặp chấm công trong ngày.
