@@ -427,13 +427,8 @@ List<SummaryDayPunchPair> buildSummaryDayPairs(
 }) {
   final workAtts = Attendance.forMainShiftPairing(dayAtts);
   if (workAtts.isEmpty) return [];
-  if (workAtts.length == 1) {
-    final a = workAtts.first;
-    if (a.attendanceState == 1) {
-      return [SummaryDayPunchPair(checkOut: a)];
-    }
-    return [SummaryDayPunchPair(checkIn: a)];
-  }
+  // Chỉ theo giờ, không đọc loại Vào/Ra máy: 1 lần chấm duy nhất = Vào.
+  if (workAtts.length == 1) return [SummaryDayPunchPair(checkIn: workAtts.first)];
 
   // Luôn sort theo punchTime tăng dần, lẻ=Vào / chẵn=Ra (cặp 1–2, 3–4…).
   // Không ghép mọi CheckIn với Out đầu tiên sau đó — dễ 2 ca chồng (VD 07:07–13:04

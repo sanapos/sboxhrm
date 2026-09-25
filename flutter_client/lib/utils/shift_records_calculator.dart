@@ -431,7 +431,7 @@ int _netWorkedMinutesAfterLunch({
   return net > 0 ? net : 0;
 }
 
-/// Tính phút tăng ca trong khung nghỉ giữa ca (MealOut/MealIn, BreakOut/BreakIn hoặc Vào/Ra thường).
+/// Tính phút tăng ca trong khung nghỉ giữa ca (MealOut/MealIn, BreakOut/BreakIn hoặc cặp chấm thường theo giờ).
 int computeLunchOvertimeMinutes({
   required List<Attendance> dayAttendances,
   required Map<String, dynamic>? matchedShift,
@@ -454,8 +454,6 @@ int computeLunchOvertimeMinutes({
   bool isMealIn(Attendance a) =>
       a.attendanceState == Attendance.mealInState ||
       a.attendanceState == Attendance.breakInState;
-  bool isRegularIn(Attendance a) => a.attendanceState == 0;
-  bool isRegularOut(Attendance a) => a.attendanceState == 1;
 
   final sorted = List<Attendance>.from(dayAttendances)
     ..sort((a, b) => a.punchTime.compareTo(b.punchTime));
@@ -477,22 +475,15 @@ int computeLunchOvertimeMinutes({
     }
   }
 
-  Attendance? pendingIn;
-  for (final att in sorted) {
-    if (isRegularIn(att) && inLunchWindow(att.punchTime)) {
-      pendingIn = att;
-    } else if (isRegularOut(att) && pendingIn != null) {
-      if (inLunchWindow(att.punchTime)) {
-        var end = att.punchTime;
-        var start = pendingIn.punchTime;
-        if (end.isBefore(start)) end = end.add(const Duration(days: 1));
-        final mins = end.difference(start).inMinutes;
-        if (mins > 0) total += mins;
-      }
-      pendingIn = null;
-    } else if (isRegularOut(att)) {
-      pendingIn = null;
-    }
+  // Vào/Ra thường: cặp theo giờ (1–2, 3–4…) nằm trọn trong khung nghỉ = làm trong giờ nghỉ.
+  for (final pair in buildDayAttendancePairs(sorted)) {
+    final start = pair.checkIn;
+    var end = pair.checkOut;
+    if (start == null || end == null) continue;
+    if (!inLunchWindow(start) || !inLunchWindow(end)) continue;
+    if (end.isBefore(start)) end = end.add(const Duration(days: 1));
+    final mins = end.difference(start).inMinutes;
+    if (mins > 0) total += mins;
   }
 
   final maxLunch = lunchEnd - lunchStart;
@@ -511,8 +502,6 @@ Map<String, dynamic>? _primaryWorkShiftForDay(
   if (assignedShiftIds.isEmpty) return null;
   return shiftTemplateMap[assignedShiftIds.first];
 }
-
-bool _isCheckOutAttendance(Attendance att) => att.attendanceState == 1;
 
 /// Mỗi lần chấm = 1 lần vào ca (bỏ qua loại Ra) — dùng cho mode once/checkin.
 List<DayAttendancePair> buildOncePerShiftCheckInPairs(List<Attendance> dayAtts) {
@@ -685,96 +674,13 @@ List<DayAttendancePair> _pairOddEvenByTime(List<Attendance> sorted) {
   return pairs;
 }
 
-/// Chuỗi Vào/Ra từ máy có đủ tin để ghép theo loại (không fallback chẵn/lẻ).
-bool _attendanceStateSequenceIsReliable(List<Attendance> sorted) {
-  var inCount = 0;
-  var outCount = 0;
-  var maxConsecutiveIn = 0;
-  var maxConsecutiveOut = 0;
-  var runIn = 0;
-  var runOut = 0;
-
-  for (final att in sorted) {
-    if (_isCheckOutAttendance(att)) {
-      outCount++;
-      runOut++;
-      runIn = 0;
-      if (runOut > maxConsecutiveOut) maxConsecutiveOut = runOut;
-    } else {
-      inCount++;
-      runIn++;
-      runOut = 0;
-      if (runIn > maxConsecutiveIn) maxConsecutiveIn = runIn;
-    }
-  }
-
-  // VD: 1 Ra (07:00 bổ sung sai) + 3 Vào máy → lệch 2, không tin được.
-  if ((inCount - outCount).abs() > 1) return false;
-  // ≥3 Vào/Ra liên tiếp → máy thường không gửi đúng loại.
-  if (maxConsecutiveIn >= 3 || maxConsecutiveOut >= 3) return false;
-
-  return true;
-}
-
-bool _shouldPairByAttendanceState(List<Attendance> sorted) {
-  if (sorted.length < 2) {
-    return sorted.length == 1 && _isCheckOutAttendance(sorted.first);
-  }
-  final hasIn = sorted.any((a) => !_isCheckOutAttendance(a));
-  final hasOut = sorted.any((a) => _isCheckOutAttendance(a));
-  if (!hasIn || !hasOut) return false;
-  if (_attendanceStatesAreSwapped(sorted)) return false;
-  return _attendanceStateSequenceIsReliable(sorted);
-}
-
-/// Máy gửi ngược loại: chuỗi xen kẽ đều nhưng mở đầu Ra, kết thúc Vào
-/// (VD 08:10 «Ra» + 13:10 «Vào»). Ghép theo loại sẽ ra «chỉ Ra 08:10» (tổng giờ
-/// 8:00→8:10, về sớm cả ca) + «Vào 13:10» bị bỏ → ghép theo thời gian.
-/// Ra lẻ đầu ngày thật (ra ca đêm hôm trước) có số lần chấm lẻ → không bị ảnh hưởng.
-bool _attendanceStatesAreSwapped(List<Attendance> sorted) {
-  if (sorted.length.isOdd) return false;
-  for (var i = 0; i < sorted.length; i++) {
-    final shouldBeOut = i.isEven;
-    if (_isCheckOutAttendance(sorted[i]) != shouldBeOut) return false;
-  }
-  return true;
-}
-
-/// Ghép cặp chấm công trong ngày.
-/// Ưu tiên loại Vào/Ra khi chuỗi máy gửi đáng tin; ngược lại chẵn/lẻ theo thời gian.
+/// Ghép cặp chấm công trong ngày: chỉ theo giờ chấm, xếp tăng dần, lẻ = Vào / chẵn = Ra
+/// (cặp 1–2, 3–4…). Không đọc loại Vào/Ra máy gửi — máy / nhân viên hay bấm nhầm phím.
 List<DayAttendancePair> buildDayAttendancePairs(List<Attendance> dayAtts) {
   final sorted = List<Attendance>.from(Attendance.forMainShiftPairing(dayAtts))
     ..sort((a, b) => a.punchTime.compareTo(b.punchTime));
   if (sorted.isEmpty) return [];
-
-  if (!_shouldPairByAttendanceState(sorted)) {
-    return _pairOddEvenByTime(sorted);
-  }
-
-  final pairs = <DayAttendancePair>[];
-  Attendance? pendingIn;
-  for (final att in sorted) {
-    if (!_isCheckOutAttendance(att)) {
-      if (pendingIn != null) {
-        pairs.add(DayAttendancePair(checkIn: pendingIn.punchTime));
-      }
-      pendingIn = att;
-    } else {
-      if (pendingIn != null) {
-        pairs.add(DayAttendancePair(
-          checkIn: pendingIn.punchTime,
-          checkOut: att.punchTime,
-        ));
-        pendingIn = null;
-      } else {
-        pairs.add(DayAttendancePair(checkOut: att.punchTime));
-      }
-    }
-  }
-  if (pendingIn != null) {
-    pairs.add(DayAttendancePair(checkIn: pendingIn.punchTime));
-  }
-  return pairs;
+  return _pairOddEvenByTime(sorted);
 }
 
 /// Tìm ca hành chính khớp khi NV chỉ chấm Ra (sau khi làm tăng ca liền trước).
