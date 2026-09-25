@@ -154,7 +154,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   Map<String, dynamic> _insuranceSettings = {};
   // ignore: unused_field
   Map<String, dynamic> _salarySettings = {};
-  Map<String, dynamic> _penaltySettings = {};
   Map<String, dynamic> _taxSettings = {};
   List<Map<String, dynamic>> _allowanceSettings = [];
   List<Map<String, dynamic>> _transactions = [];
@@ -787,11 +786,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       _travelSalaryMode = parseTravelSalaryMode(salarySettings: _salarySettings);
       _travelFixedHourlyRate =
           parseTravelFixedHourlyRate(salarySettings: _salarySettings);
-      // getPenaltySettings returns raw response with isSuccess/data
-      final penaltyResult = results[2] as Map<String, dynamic>;
-      _penaltySettings = penaltyResult['data'] is Map<String, dynamic>
-          ? penaltyResult['data'] as Map<String, dynamic>
-          : penaltyResult;
+      // results[2] (mức phạt cài đặt) không dùng cho lương nữa — phạt chỉ lấy từ phiếu phạt.
 
       final txnResult = results[3] as Map<String, dynamic>;
       _transactions = _extractList(txnResult['items'] ?? txnResult['data']);
@@ -1803,35 +1798,20 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
     }
 
-    // ═══ Phạt đi trễ / về sớm: CHỈ từ phiếu phạt (bấm «Phạt» trong màn Đi trễ / về sớm) ═══
+    // ═══ Phạt đi trễ / về sớm / vắng: CHỈ từ phiếu phạt đã lập ═══
     // Không tự tính theo mức phạt cài đặt — ngày nào không lập phiếu thì không trừ.
     // Phiếu chờ duyệt chưa trừ; đã duyệt / tự duyệt mới trừ (hủy = không trừ).
     double latePenaltyTotal = 0;
     for (final t in _penaltyTickets) {
       final type = t['type']?.toString() ?? '';
-      if (type != 'Late' && type != 'EarlyLeave') continue;
+      if (type != 'Late' && type != 'EarlyLeave' && type != 'UnauthorizedLeave') {
+        continue;
+      }
       final st = t['status']?.toString() ?? '';
       if (st != 'Approved' && st != 'AutoApproved') continue;
       final tid = t['employeeId']?.toString() ?? '';
       if (tid.isEmpty || (tid != empId && tid != empCode)) continue;
       latePenaltyTotal += _toDouble(t['amount']).abs();
-    }
-    final double unauthorizedLeavePenalty = _toDouble(
-      _penaltySettings['unauthorizedLeavePenalty'],
-      _toDouble(_penaltySettings['unauthorizedLeaveDeduction']),
-    );
-    // Vắng: chỉ tính setting nếu ngày đó chưa có phiếu UnauthorizedLeave.
-    if (unauthorizedLeavePenalty > 0 && absentDays > 0) {
-      var absentAdj = absentDays;
-      final unauthorizedTicketDays = _penaltyTickets.where((t) {
-        final st = t['status']?.toString() ?? '';
-        if (st == 'Cancelled') return false;
-        final tid = t['employeeId']?.toString() ?? '';
-        final type = t['type']?.toString() ?? '';
-        return type == 'UnauthorizedLeave' && (tid == empId || tid == empCode);
-      }).length;
-      absentAdj = (absentAdj - unauthorizedTicketDays).clamp(0, absentDays);
-      latePenaltyTotal += unauthorizedLeavePenalty * absentAdj;
     }
 
     // ═══ Insurance (BHXH, BHYT, BHTN, Đoàn phí) ═══
