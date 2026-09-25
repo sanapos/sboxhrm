@@ -299,6 +299,8 @@ public static class PosQuoteDocumentHtml
             ["Phan_Tram_Coc"] = depositPct,
             ["Gia_Tri_Truoc_VAT"] = preVat.ToString("#,##0", vn),
             ["Con_Lai_Hop_Dong"] = (quote.Total - deposit).ToString("#,##0", vn),
+            ["Tien_Coc_Bang_Chu"] = PosVietnameseMoney.InWords(deposit),
+            ["Con_Lai_Bang_Chu"] = PosVietnameseMoney.InWords(quote.Total - deposit),
             ["Ky_Han_Thi_Cong"] = "Theo thỏa thuận",
             ["Ky_Han_Thanh_Toan"] = "10 ngày kể từ ký hợp đồng",
             ["Tong_Cong_Bang_Chu"] = PosVietnameseMoney.InWords(quote.Total),

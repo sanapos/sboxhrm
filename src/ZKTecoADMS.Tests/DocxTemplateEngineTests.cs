@@ -117,6 +117,59 @@ public class DocxTemplateEngineTests
     }
 
     [Fact]
+    public void Validate_strips_units_and_propagates_identity_values_to_signatures()
+    {
+        var paras = new List<DocxParagraph>
+        {
+            new("document:0", "Đại diện là: (Ông) Nguyễn Hoài Sang", false),
+            new("document:1", "Giá trị hợp đồng: 93.645.370 VNĐ, tạm ứng 50%", false),
+            new("document:2", "ĐẠI DIỆN CÔNG TY TNHH SANA POS", true),
+            new("document:3", "Nguyễn Hoài Sang", true),
+            new("document:4", "Địa chỉ: Tỉnh Hà Nam, đường Nguyễn Hoài Sang kéo dài đến cuối khu công nghiệp", false),
+            new("document:5", "CÔNG TY TNHH SANA POS", false),
+        };
+        const string json = """
+            {"replacements":[
+               {"id":"document:0","find":"(Ông) Nguyễn Hoài Sang","field":"Nguoi_Dai_Dien_Cua_Hang"},
+               {"id":"document:1","find":"93.645.370 VNĐ","field":"Tong_Cong"},
+               {"id":"document:1","find":"50%","field":"Phan_Tram_Coc"},
+               {"id":"document:5","find":"Công ty TNHH SANA POS","field":"Ten_Cong_Ty"}]}
+            """;
+        var a = PosDocxTemplateAiService.Validate(json, paras);
+        Assert.Contains(a.Replacements, r => r.Field == "Tong_Cong" && r.Find == "93.645.370");
+        Assert.Contains(a.Replacements, r => r.Field == "Phan_Tram_Coc" && r.Find == "50");
+        // Lan sang khối chữ ký (không phân biệt hoa thường, bỏ danh xưng).
+        Assert.Contains(a.Replacements, r => r.ParagraphId == "document:3" && r.Field == "Nguoi_Dai_Dien_Cua_Hang");
+        Assert.Contains(a.Replacements, r => r.ParagraphId == "document:2" && r.Find == "CÔNG TY TNHH SANA POS");
+        // Tên người không lan vào đoạn dài (trùng tên đường / địa danh).
+        Assert.DoesNotContain(a.Replacements, r => r.ParagraphId == "document:4");
+    }
+
+    [Fact]
+    public void Clear_field_removes_text_and_unmapped_sample_cells_are_blanked()
+    {
+        var body = P("CÔNG TY TNHH SX TM MTV") + P("THỦY LIÊN PHÁT") +
+                   "<w:tbl>" + Row("1", "Panel nhôm", "7,20", "CĐT xử lý nền") + "</w:tbl>";
+        var xml = $"<w:document xmlns:w=\"{Ns}\"><w:body>{body}</w:body></w:document>";
+        using var ms = new MemoryStream();
+        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
+        using (var s = new StreamWriter(zip.CreateEntry("word/document.xml").Open()))
+            s.Write(xml);
+        var docx = ms.ToArray();
+        var paras = DocxTemplateEngine.ExtractParagraphs(docx);
+        string Id(string t) => paras.First(p => p.Text == t).Id;
+
+        var (tpl, _) = DocxTemplateEngine.ApplyReplacements(docx,
+        [
+            new(Id("CÔNG TY TNHH SX TM MTV"), "CÔNG TY TNHH SX TM MTV", "Ten_Cong_Ty"),
+            new(Id("THỦY LIÊN PHÁT"), "THỦY LIÊN PHÁT", DocxTemplateEngine.ClearField),
+            new(Id("1"), "1", "STT"),
+            new(Id("Panel nhôm"), "Panel nhôm", "Ten_Hang_Hoa"),
+        ]);
+        Assert.Equal(["{Ten_Cong_Ty}", "{STT}", "{Ten_Hang_Hoa}"], Texts(tpl));
+    }
+
+    [Fact]
     public void Validate_drops_unknown_fields_missing_text_and_bad_ids()
     {
         var paras = new List<DocxParagraph>

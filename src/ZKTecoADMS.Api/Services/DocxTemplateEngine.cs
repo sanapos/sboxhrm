@@ -20,6 +20,9 @@ public static class DocxTemplateEngine
     static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     static readonly XNamespace Xml = XNamespace.Xml;
     static readonly Regex TokenRx = new(@"\{([A-Za-z][A-Za-z0-9_]*)\}", RegexOptions.Compiled);
+    /// <summary>Trường đặc biệt: xóa cụm chữ (phần thừa của giá trị bị ngắt dòng).</summary>
+    public const string ClearField = "_Xoa";
+
     static readonly Regex PartRx = new(@"^word/(document|header\d*|footer\d*)\.xml$", RegexOptions.Compiled);
 
     /// <summary>Trường chỉ có ở dòng hàng — có trong w:tr thì dòng đó là dòng hàng mẫu.</summary>
@@ -68,11 +71,23 @@ public static class DocxTemplateEngine
                 var id = $"{partName}:{i}";
                 foreach (var r in replacements.Where(r => r.ParagraphId == id))
                 {
-                    if (ReplaceInParagraph(paragraphs[i], r.Find, "{" + r.Field + "}"))
+                    var value = r.Field == ClearField ? "" : "{" + r.Field + "}";
+                    if (ReplaceInParagraph(paragraphs[i], r.Find, value))
                         applied.Add(r);
                 }
                 if (removeIds.Contains(id) && paragraphs[i].Ancestors(W + "tr").FirstOrDefault() is { } tr)
                     rowsToRemove.Add(tr);
+            }
+            // Dòng hàng mẫu: ô không gắn trường là dữ liệu mẫu cũ → để trống (không lặp theo mọi dòng).
+            foreach (var tr in doc.Descendants(W + "tr")
+                         .Where(tr => TokensIn(tr).Any(ItemRowKeys.Contains) && !tr.Ancestors(W + "tr").Any()))
+            {
+                foreach (var tc in tr.Elements(W + "tc"))
+                {
+                    var cellText = string.Concat(tc.Descendants(W + "t").Select(t => t.Value));
+                    if (cellText.Trim().Length == 0 || TokenRx.IsMatch(cellText)) continue;
+                    foreach (var t in tc.Descendants(W + "t")) t.Value = "";
+                }
             }
             foreach (var tr in rowsToRemove)
             {
