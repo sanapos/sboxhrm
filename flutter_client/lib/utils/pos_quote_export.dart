@@ -418,6 +418,41 @@ class PosQuoteExport {
     );
   }
 
+  /// Tải file PDF thật (A4, đúng bố cục đang in) do máy chủ dựng; lỗi / mất mạng
+  /// → mở hộp in của máy như trước (chọn "Lưu PDF").
+  static Future<void> exportServerPdf(
+    BuildContext context, {
+    required String quoteId,
+    required String html,
+    required String fileName,
+  }) async {
+    NotificationOverlayManager().showInfo(
+      title: 'Đang tạo PDF…',
+      message: tr('Máy chủ dựng file PDF khổ A4'),
+    );
+    final res = await ApiService()
+        .exportPosQuotePdfFromHtml(quoteId, html: html, fileName: fileName);
+    if (!context.mounted) return;
+    if (res['isSuccess'] == true) {
+      await saveAndOpenFileBytes(
+        List<int>.from(res['data'] as List),
+        '$fileName.pdf',
+        'application/pdf',
+      );
+      return;
+    }
+    NotificationOverlayManager().showError(
+      title: 'Không tạo được PDF trên máy chủ',
+      message: '${res['message'] ?? ''} — ${tr('mở hộp in để lưu PDF')}',
+    );
+    await showPosHtmlPrintDialog(
+      context,
+      title: fileName,
+      htmlDocument: html,
+      a4Paper: true,
+    );
+  }
+
   /// In / xuất / chia sẻ dùng chung cho báo giá, hợp đồng, bàn giao, nghiệm thu.
   static Future<void> run(
     BuildContext context, {
@@ -493,12 +528,8 @@ class PosQuoteExport {
       case 'pdf':
         final body = await html();
         if (!context.mounted) return;
-        await showPosHtmlPrintDialog(
-          context,
-          title: no,
-          htmlDocument: body,
-          a4Paper: true,
-        );
+        await exportServerPdf(context,
+            quoteId: full.id, html: body, fileName: '${documentType}_$no');
       case 'png':
         final body = await html();
         if (!context.mounted) return;

@@ -337,21 +337,42 @@ public partial class PosQuotesController(
         });
     }
 
+    /// <summary>
+    /// Xóa báo giá (xóa mềm) ở mọi trạng thái, kèm dòng hàng, chứng từ và lịch chăm sóc.
+    /// Chặn khi đã xuất kho từ báo giá (đã trừ tồn) — hủy phiếu xuất kho trước.
+    /// </summary>
     [HttpDelete("{id:guid}")]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<object>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
-        var quote = await dbContext.PosQuotes
+        var quote = await dbContext.PosQuotes.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
         if (!CanMutateOwn(quote))
             return StatusCode(403, AppResponse<object>.Fail("Không có quyền xóa báo giá của nhân viên khác"));
-        if (quote.Status != PosQuoteStatus.Draft)
-            return BadRequest(AppResponse<object>.Fail("Chỉ xóa báo giá nháp"));
-        quote.Deleted = DateTime.UtcNow;
-        quote.DeletedBy = CurrentUserEmail;
+        var issued = await dbContext.PosStockIssues.AsNoTracking()
+            .AnyAsync(x => x.QuoteId == id && x.StoreId == storeId && x.Deleted == null);
+        if (issued)
+            return BadRequest(AppResponse<object>.Fail(
+                "Báo giá đã xuất kho — hủy phiếu xuất kho trước khi xóa báo giá"));
+
+        var now = DateTime.UtcNow;
+        var by = CurrentUserEmail;
+        quote.Deleted = now;
+        quote.DeletedBy = by;
+        quote.UpdatedAt = now;
+        quote.UpdatedBy = by;
+        await dbContext.PosQuoteLines.AsTracking()
+            .Where(x => x.QuoteId == id && x.Deleted == null)
+            .ForEachAsync(x => { x.Deleted = now; x.DeletedBy = by; });
+        await dbContext.PosQuoteDocuments.AsTracking()
+            .Where(x => x.QuoteId == id && x.StoreId == storeId && x.Deleted == null)
+            .ForEachAsync(x => { x.Deleted = now; x.DeletedBy = by; });
+        await dbContext.PosQuoteActivities.AsTracking()
+            .Where(x => x.QuoteId == id && x.StoreId == storeId && x.Deleted == null)
+            .ForEachAsync(x => { x.Deleted = now; x.DeletedBy = by; });
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<object>.Success(new { id }));
     }
@@ -360,7 +381,7 @@ public partial class PosQuotesController(
         Guid id, Func<PosQuote, string?> apply)
     {
         var storeId = RequiredStoreId;
-        var quote = await dbContext.PosQuotes
+        var quote = await dbContext.PosQuotes.AsTracking()
             .Include(x => x.Lines.Where(l => l.Deleted == null))
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (quote == null || !OwnsOrManages(quote))
@@ -381,7 +402,7 @@ public partial class PosQuotesController(
     async Task ExpireOverdueAsync(Guid storeId)
     {
         var now = DateTime.UtcNow.Date;
-        var due = await dbContext.PosQuotes
+        var due = await dbContext.PosQuotes.AsTracking()
             .Where(x => x.StoreId == storeId && x.Deleted == null
                 && x.ValidUntil != null && x.ValidUntil.Value.Date < now
                 && (x.Status == PosQuoteStatus.Sent || x.Status == PosQuoteStatus.Revised))

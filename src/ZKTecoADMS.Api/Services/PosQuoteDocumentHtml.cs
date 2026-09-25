@@ -48,11 +48,13 @@ public static class PosQuoteDocumentHtml
         string docNo,
         string? extraNote,
         bool includeImages = false,
-        string? contentRootPath = null)
+        string? contentRootPath = null,
+        bool includeStamp = true)
     {
         var docType = PrintDocumentTypeOf(kind);
         var templateHtml = await ResolveTemplateHtmlAsync(db, quote, docType);
         var (data, lines) = await BuildFieldsAsync(db, quote, kind, docNo, extraNote, includeImages, contentRootPath);
+        if (!includeStamp) data["Con_Dau"] = "<div style=\"height:48px\"></div>";
         return PosPrintTemplateHtmlRenderer.Render(templateHtml, data, lines);
     }
 

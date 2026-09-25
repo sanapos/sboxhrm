@@ -239,7 +239,8 @@ class PosQuote {
 
   bool get canSend => status == 'Draft' || status == 'Revised';
   bool get canDecide => status == 'Sent' || status == 'Revised';
-  bool get canDelete => status == 'Draft';
+  /// Xóa được ở mọi trạng thái; máy chủ chặn khi đã xuất kho từ báo giá.
+  bool get canDelete => true;
   bool get canIssueDocs =>
       status == 'Accepted' && commercialStage != 'Closed';
   bool get canClose =>

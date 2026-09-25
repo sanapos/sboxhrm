@@ -18376,6 +18376,19 @@ class ApiService {
     }
   }
 
+  /// Theo dõi chăm sóc khách tiềm năng (điểm thang 10, lịch hẹn, khách bị bỏ quên).
+  Future<Map<String, dynamic>> getPosQuoteCareOverview({bool all = false}) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/care-overview?all=$all'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosQuoteActivities(String id) async {
     try {
       final response = await http
@@ -18769,6 +18782,37 @@ class ApiService {
   }
 
   // ── Mẫu Word giữ nguyên bố cục (AI gắn mã trường) ──────────
+  /// PDF thật (Chromium trên máy chủ) từ đúng HTML đang in trên máy.
+  Future<Map<String, dynamic>> exportPosQuotePdfFromHtml(
+    String quoteId, {
+    required String html,
+    required String fileName,
+  }) async {
+    try {
+      final response = await _retryOnUnauthorized(
+        () => http
+            .post(Uri.parse('$baseUrl/api/pos/quotes/$quoteId/export/pdf'),
+                headers: _headers,
+                body: json.encode({'html': html, 'fileName': fileName}))
+            .timeout(const Duration(seconds: 120)),
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
+      }
+      String? message;
+      try {
+        final data = json.decode(utf8.decode(response.bodyBytes, allowMalformed: true));
+        if (data is Map) message = (data['message'] ?? data['Message'])?.toString();
+      } catch (_) {}
+      return {
+        'isSuccess': false,
+        'message': message ?? 'Tạo PDF thất bại (${response.statusCode})',
+      };
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> _getBinary(Uri uri,
       {Duration timeout = const Duration(seconds: 120)}) async {
     try {

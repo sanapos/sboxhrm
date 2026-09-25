@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -51,13 +53,41 @@ public partial class PosQuotesController
         return Ok(AppResponse<object>.Success(new { items }));
     }
 
+    /// <summary>
+    /// Theo dõi chăm sóc khách tiềm năng: báo giá đang theo đuổi (nháp / đã gửi / đã sửa) với điểm
+    /// thang 10, xu hướng, lịch hẹn quá hạn / hôm nay, khách lâu chưa liên hệ. <paramref name="all"/> = true
+    /// lấy cả báo giá đã chốt / từ chối / hết hạn.
+    /// </summary>
+    [HttpGet("care-overview")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> CareOverview([FromQuery] bool all = false)
+    {
+        var storeId = RequiredStoreId;
+        var q = ApplyOwnScope(dbContext.PosQuotes.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null));
+        if (!all)
+            q = q.Where(x => x.Status == PosQuoteStatus.Draft
+                || x.Status == PosQuoteStatus.Sent
+                || x.Status == PosQuoteStatus.Revised);
+        var quotes = await q.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+            .Take(500)
+            .ToListAsync();
+        var ids = quotes.Select(x => x.Id).ToList();
+        var acts = await dbContext.PosQuoteActivities.AsNoTracking()
+            .Where(a => ids.Contains(a.QuoteId) && a.StoreId == storeId && a.Deleted == null)
+            .ToListAsync();
+        var names = await EmployeeNamesAsync(quotes.Select(x => x.QuotedByEmployeeId));
+        var (summary, items) = PosQuoteCareBoard.Build(quotes, acts, names, DateTime.UtcNow);
+        return Ok(AppResponse<object>.Success(new { summary, items }));
+    }
+
     [HttpPost("{id:guid}/activities")]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<QuoteActivityDto>>> CreateActivity(
         Guid id, [FromBody] CreateQuoteActivityDto dto)
     {
         var storeId = RequiredStoreId;
-        var quote = await dbContext.PosQuotes
+        var quote = await dbContext.PosQuotes.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<QuoteActivityDto>.Fail("Không tìm thấy báo giá"));

@@ -9,12 +9,17 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 # LibreOffice (headless) xuất PDF từ mẫu Word báo giá / hợp đồng, giữ bố cục.
 # Font: Liberation ~ Times New Roman / Arial, Carlito / Caladea ~ Calibri / Cambria (cùng số đo chữ
 # → dàn trang giống Word), Noto đủ dấu tiếng Việt.
+# Chromium (headless) xuất PDF từ mẫu HTML — cùng bộ máy in của trình duyệt nên đúng bố cục.
 USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-       libreoffice-writer-nogui \
+       libreoffice-writer-nogui chromium \
        fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea fonts-noto-core \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /etc/chromium/policies/managed \
+    && echo '{"URLBlocklist":["file://*","http://*","https://*","ftp://*","ws://*","wss://*"],"URLAllowlist":["file:///tmp/sbox-pdf/"]}' \
+       > /etc/chromium/policies/managed/sbox-pdf.json
+# Policy trên: mẫu HTML (cửa hàng tự soạn) không mở được file khác trên máy chủ hay gọi mạng khi tạo PDF.
 USER $APP_UID
 WORKDIR /app
 EXPOSE 7070

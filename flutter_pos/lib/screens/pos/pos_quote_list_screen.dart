@@ -15,6 +15,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_form_keyboard.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_contract_detail_screen.dart';
+import 'pos_quote_care_board_screen.dart';
 import 'pos_quote_composer_screen.dart';
 import 'pos_quote_editor_screen.dart';
 
@@ -362,18 +363,36 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
   }
 
   Future<void> _delete(PosQuote q) async {
+    final draft = q.status == 'Draft';
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Xóa báo giá nháp?')),
-        content: Text(q.quoteNo),
+        title: Text(tr('Xóa báo giá?')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              [q.quoteNo, if ((q.customerName ?? '').isNotEmpty) q.customerName!]
+                  .join(' — '),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            Text(draft
+                ? tr('Báo giá nháp sẽ bị xóa.')
+                : tr('Báo giá ${PosQuote.statusLabel(q.status).toLowerCase()} sẽ bị xóa cùng hợp đồng, '
+                    'đề nghị thanh toán, biên bản và lịch chăm sóc khách. '
+                    'Báo giá đã xuất kho không xóa được.')),
+          ],
+        ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text(tr('Hủy'))),
           FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
               onPressed: () => Navigator.pop(ctx, true),
-              child: Text(tr('Xóa'))),
+              child: Text(tr('Xóa báo giá'))),
         ],
       ),
     );
@@ -464,6 +483,15 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                       showSelectedIcon: false,
                     ),
                           ),
+                        ),
+                        IconButton(
+                          tooltip: tr('Theo dõi chăm sóc khách'),
+                          onPressed: () async {
+                            await Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const PosQuoteCareBoardScreen()));
+                            if (mounted) await _reloadAll();
+                          },
+                          icon: const Icon(Icons.insights_outlined),
                         ),
                         if (canCreate && !narrow)
                           IconButton(
@@ -945,7 +973,8 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
             if (canDelete && q.canDelete)
               PopupMenuItem(
                 value: 'delete',
-                child: Text(tr('Xóa nháp')),
+                child: Text(tr('Xóa báo giá'),
+                    style: TextStyle(color: Colors.red.shade700)),
               ),
           ],
         ),
