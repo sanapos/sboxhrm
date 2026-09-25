@@ -368,6 +368,56 @@ class PosQuoteExport {
     );
   }
 
+  static final _docxTemplateCache = <String, (bool, DateTime)>{};
+
+  /// Cửa hàng có mẫu Word (giữ bố cục) đang bật cho loại chứng từ này? (nhớ 60 giây)
+  static Future<bool> hasDocxTemplate(String documentType) async {
+    final hit = _docxTemplateCache[documentType];
+    if (hit != null && DateTime.now().difference(hit.$2) < const Duration(seconds: 60)) {
+      return hit.$1;
+    }
+    final res = await ApiService().getPosPrintTemplates(documentType: documentType);
+    final has = res['isSuccess'] == true &&
+        res['data'] is List &&
+        (res['data'] as List).whereType<Map>().any((t) => t['isDocx'] == true && t['isActive'] != false);
+    _docxTemplateCache[documentType] = (has, DateTime.now());
+    return has;
+  }
+
+  /// Xuất từ mẫu Word của cửa hàng (server điền dữ liệu; PDF tạo bằng LibreOffice).
+  static Future<void> exportFromWordTemplate(
+    BuildContext context, {
+    required PosQuote quote,
+    required String documentType,
+    required bool pdf,
+  }) async {
+    final no = docNoOf(quote, documentType) ?? quote.quoteNo;
+    NotificationOverlayManager().showInfo(
+      title: pdf ? 'Đang tạo PDF…' : 'Đang tạo Word…',
+      message: tr('Điền dữ liệu vào mẫu Word của cửa hàng'),
+    );
+    final res = await ApiService().exportPosQuoteFile(
+      quote.id,
+      kind: documentType,
+      format: pdf ? 'pdf' : 'docx',
+    );
+    if (!context.mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager().showError(
+        title: pdf ? 'Không tạo được PDF' : 'Không tạo được Word',
+        message: res['message']?.toString() ?? tr('Vui lòng thử lại'),
+      );
+      return;
+    }
+    await saveAndOpenFileBytes(
+      List<int>.from(res['data'] as List),
+      '${documentType}_$no.${pdf ? 'pdf' : 'docx'}',
+      pdf
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+  }
+
   /// In / xuất / chia sẻ dùng chung cho báo giá, hợp đồng, bàn giao, nghiệm thu.
   static Future<void> run(
     BuildContext context, {
@@ -375,6 +425,13 @@ class PosQuoteExport {
     required String action,
     String documentType = PosPrintDocumentTypes.quote,
   }) async {
+    // Có mẫu Word giữ bố cục → Word / PDF lấy từ mẫu đó (không hỏi con dấu HTML).
+    if ((action == 'word' || action == 'pdf') && await hasDocxTemplate(documentType)) {
+      if (!context.mounted) return;
+      await exportFromWordTemplate(context,
+          quote: quote, documentType: documentType, pdf: action == 'pdf');
+      return;
+    }
     final needsStamp = action == 'print' ||
         action == 'word' ||
         action == 'pdf' ||

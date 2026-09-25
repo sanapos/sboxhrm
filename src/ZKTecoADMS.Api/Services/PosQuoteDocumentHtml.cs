@@ -50,6 +50,22 @@ public static class PosQuoteDocumentHtml
         bool includeImages = false,
         string? contentRootPath = null)
     {
+        var docType = PrintDocumentTypeOf(kind);
+        var templateHtml = await ResolveTemplateHtmlAsync(db, quote, docType);
+        var (data, lines) = await BuildFieldsAsync(db, quote, kind, docNo, extraNote, includeImages, contentRootPath);
+        return PosPrintTemplateHtmlRenderer.Render(templateHtml, data, lines);
+    }
+
+    /// <summary>Dữ liệu điền mẫu (trường chung + từng dòng hàng) — dùng cho mẫu HTML và mẫu Word.</summary>
+    public static async Task<(Dictionary<string, string> Data, List<Dictionary<string, string>> Lines)> BuildFieldsAsync(
+        ZKTecoDbContext db,
+        PosQuote quote,
+        PosQuoteDocumentKind kind,
+        string docNo,
+        string? extraNote,
+        bool includeImages = false,
+        string? contentRootPath = null)
+    {
         var store = quote.Store ?? await db.Stores.AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == quote.StoreId);
         // Chi tiết chi nhánh & MST bên B từ Branch (mã thuế / địa chỉ) — nếu store
@@ -70,11 +86,9 @@ public static class PosQuoteDocumentHtml
         }
         var profile = await db.PosStoreCommercialProfiles.AsNoTracking()
             .FirstOrDefaultAsync(x => x.StoreId == quote.StoreId && x.Deleted == null);
-        var docType = PrintDocumentTypeOf(kind);
-        var templateHtml = await ResolveTemplateHtmlAsync(db, quote, docType);
         var data = BuildData(quote, kind, docNo, extraNote, store, branch, customer, profile);
         var lines = await BuildLinesAsync(db, quote, includeImages, contentRootPath);
-        return PosPrintTemplateHtmlRenderer.Render(templateHtml, data, lines);
+        return (data, lines);
     }
 
     /// <summary>Fallback đồng bộ khi chưa có DbContext (giữ chữ ký cũ).</summary>

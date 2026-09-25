@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/pos_print_template.dart';
 import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
+import '../widgets/pos/pos_docx_template_review.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/pos_barcode_print.dart';
 import '../utils/pos_label_printer_service.dart';
@@ -658,6 +659,19 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
   bool get _isCommercialDoc =>
       PosPrintDocumentTypes.isCommercial(_docType);
+
+  /// Mẫu Word của khách giữ nguyên bố cục: AI chỉ chỗ dữ liệu động → xem lại → lưu.
+  Future<void> _importDocxAi() async {
+    final created = await importPosDocxTemplateWithAi(context, _api, documentType: _docType);
+    if (created && mounted) await _load();
+  }
+
+  Future<void> _reviewDocx() async {
+    final id = _selected?.id;
+    if (id == null) return;
+    final saved = await showPosDocxTemplateReview(context, _api, id);
+    if (saved && mounted) await _load();
+  }
 
   Future<void> _importCustomerTemplate() async {
     try {
@@ -1596,6 +1610,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     _addTemplate();
                   case 'import':
                     _importCustomerTemplate();
+                  case 'import_docx_ai':
+                    _importDocxAi();
+                  case 'docx_review':
+                    _reviewDocx();
                   case 'print':
                     _testPrintTemplate();
                   case 'default':
@@ -1608,7 +1626,14 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                 PopupMenuItem(value: 'add', child: Text(tr('Thêm mẫu'))),
                 if (_isCommercialDoc)
                   PopupMenuItem(
+                      value: 'import_docx_ai',
+                      child: Text(tr('Mẫu Word giữ bố cục (AI)'))),
+                if (_isCommercialDoc)
+                  PopupMenuItem(
                       value: 'import', child: Text(tr('Tải Word / PDF'))),
+                if (_selected?.isDocx == true)
+                  PopupMenuItem(
+                      value: 'docx_review', child: Text(tr('Trường mẫu Word'))),
                 PopupMenuItem(value: 'print', child: Text(tr('In thử'))),
                 if (_selected != null && !_selected!.isDefault)
                   PopupMenuItem(
@@ -1635,6 +1660,18 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             onPressed: _addTemplate,
             icon: const Icon(Icons.add_circle_outline, color: _blue),
           ),
+          if (_isCommercialDoc)
+            IconButton(
+              tooltip: tr('Mẫu Word giữ bố cục (AI gắn dữ liệu)'),
+              onPressed: _importDocxAi,
+              icon: const Icon(Icons.auto_awesome, color: _blue),
+            ),
+          if (_selected?.isDocx == true)
+            IconButton(
+              tooltip: tr('Trường mẫu Word'),
+              onPressed: _reviewDocx,
+              icon: const Icon(Icons.edit_note, color: _blue),
+            ),
           if (_isCommercialDoc)
             IconButton(
               tooltip: tr('Tải mẫu Word / PDF của khách'),

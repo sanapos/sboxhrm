@@ -6,6 +6,15 @@
 # because musl does not provide the _chk variants glibc exposes.
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+# LibreOffice (headless) xuất PDF từ mẫu Word báo giá / hợp đồng, giữ bố cục.
+# Font: Liberation ~ Times New Roman / Arial, Carlito / Caladea ~ Calibri / Cambria (cùng số đo chữ
+# → dàn trang giống Word), Noto đủ dấu tiếng Việt.
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       libreoffice-writer-nogui \
+       fonts-liberation fonts-crosextra-carlito fonts-crosextra-caladea fonts-noto-core \
+    && rm -rf /var/lib/apt/lists/*
 USER $APP_UID
 WORKDIR /app
 EXPOSE 7070

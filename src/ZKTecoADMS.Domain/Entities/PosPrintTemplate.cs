@@ -32,4 +32,13 @@ public class PosPrintTemplate : AuditableEntity<Guid>
     /// Id mẫu chung đã clone (nếu có). Sửa bản cửa hàng không đổi catalog.
     /// </summary>
     public Guid? SourceCatalogId { get; set; }
+
+    /// <summary>
+    /// Mẫu Word giữ nguyên bố cục (đã chèn mã trường), đường dẫn tương đối trong wwwroot, đuôi .docxtpl
+    /// (không phục vụ tĩnh). File gốc lưu cạnh với hậu tố .orig. Null = mẫu HTML.
+    /// </summary>
+    public string? DocxFilePath { get; set; }
+
+    /// <summary>JSON các chỗ AI / người dùng đã gắn mã trường (xem lại, bỏ chỗ nhận sai).</summary>
+    public string? DocxMappingJson { get; set; }
 }

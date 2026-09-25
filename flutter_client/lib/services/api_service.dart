@@ -18768,6 +18768,126 @@ class ApiService {
     }
   }
 
+  // ── Mẫu Word giữ nguyên bố cục (AI gắn mã trường) ──────────
+  Future<Map<String, dynamic>> _getBinary(Uri uri,
+      {Duration timeout = const Duration(seconds: 120)}) async {
+    try {
+      final response = await _retryOnUnauthorized(
+        () => http.get(uri, headers: _binaryDownloadHeaders).timeout(timeout),
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
+      }
+      final body = utf8.decode(response.bodyBytes, allowMalformed: true);
+      String? message;
+      try {
+        final data = json.decode(body);
+        if (data is Map) message = (data['message'] ?? data['Message'])?.toString();
+      } catch (_) {}
+      return {
+        'isSuccess': false,
+        'message': message ?? 'Tải file thất bại (${response.statusCode})',
+      };
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _postDocxMultipart(
+      String path, List<int> bytes, String fileName, Map<String, String> fields) async {
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl$path'));
+      if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
+      request.fields.addAll(fields);
+      request.files.add(http.MultipartFile.fromBytes('file', bytes,
+          filename: fileName,
+          contentType: MediaType('application',
+              'vnd.openxmlformats-officedocument.wordprocessingml.document')));
+      final streamed = await request.send().timeout(const Duration(seconds: 200));
+      return _handleResponse(await http.Response.fromStream(streamed));
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Tải .docx → AI chỉ chỗ dữ liệu động → mẫu Word giữ bố cục.
+  Future<Map<String, dynamic>> importPosDocxTemplate({
+    required List<int> bytes,
+    required String fileName,
+    required String documentType,
+    String? name,
+    bool useAi = true,
+  }) =>
+      _postDocxMultipart('/api/pos/print-templates/docx/import', bytes, fileName, {
+        'documentType': documentType,
+        if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+        'useAi': useAi.toString(),
+      });
+
+  Future<Map<String, dynamic>> getPosDocxTemplateFields() async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/pos/print-templates/docx/fields'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosDocxTemplateMapping(String id) async {
+    try {
+      final response = await http.get(
+          Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/mapping'),
+          headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> savePosDocxTemplateMapping(String id,
+      List<Map<String, dynamic>> replacements, List<String> removeRowParagraphIds) async {
+    try {
+      final response = await http.put(
+          Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/mapping'),
+          headers: _headers,
+          body: jsonEncode({
+            'replacements': replacements,
+            'removeRowParagraphIds': removeRowParagraphIds,
+          }));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> downloadPosDocxTemplate(String id) =>
+      _getBinary(Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/file'));
+
+  Future<Map<String, dynamic>> replacePosDocxTemplate(
+          String id, List<int> bytes, String fileName) =>
+      _postDocxMultipart('/api/pos/print-templates/docx/$id/file', bytes, fileName, {});
+
+  /// Báo giá / hợp đồng / biên bản → PDF (LibreOffice) hoặc Word; tự dùng mẫu Word nếu có.
+  Future<Map<String, dynamic>> exportPosQuoteFile(
+    String quoteId, {
+    String kind = 'Quote',
+    String? docId,
+    String format = 'pdf',
+    bool includeImages = false,
+  }) =>
+      _getBinary(
+          Uri.parse('$baseUrl/api/pos/quotes/$quoteId/export/file').replace(
+            queryParameters: {
+              'kind': kind,
+              if (docId != null) 'docId': docId,
+              'format': format,
+              'includeImages': includeImages.toString(),
+            },
+          ),
+          timeout: const Duration(seconds: 150));
+
   Future<Map<String, dynamic>> importPosPrintTemplateFile({
     required List<int> bytes,
     required String fileName,

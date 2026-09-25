@@ -210,6 +210,8 @@ public static class DependencyInjectionExtensions
         services.AddScoped<TenantScopedGeminiAiService>();
         services.AddScoped<IGeminiAiService>(sp => sp.GetRequiredService<TenantScopedGeminiAiService>());
         services.AddScoped<PosAiMenuService>();
+        services.AddScoped<PosDocxTemplateAiService>();
+        services.AddSingleton<OfficePdfConverter>();
         
         // Register DeepSeek AI service
         services.AddSingleton<IDeepSeekAiService, DeepSeekAiService>();

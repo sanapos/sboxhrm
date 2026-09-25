@@ -852,6 +852,10 @@ CREATE TABLE IF NOT EXISTS "PosQuoteLines" (
 ALTER TABLE "PosQuotes" ADD COLUMN IF NOT EXISTS "CommercialStage" integer NOT NULL DEFAULT 0;
 -- Migration 20260925010000_AddPosQuoteIncludeImages (migrations không tự chạy trên server).
 ALTER TABLE "PosQuotes" ADD COLUMN IF NOT EXISTS "IncludeImages" boolean NOT NULL DEFAULT false;
+
+-- Mẫu Word giữ nguyên bố cục (AI gắn mã trường).
+ALTER TABLE "PosPrintTemplates" ADD COLUMN IF NOT EXISTS "DocxFilePath" text NULL;
+ALTER TABLE "PosPrintTemplates" ADD COLUMN IF NOT EXISTS "DocxMappingJson" text NULL;
 ALTER TABLE "PosStockIssues" ADD COLUMN IF NOT EXISTS "QuoteId" uuid NULL;
 
 CREATE TABLE IF NOT EXISTS "PosQuoteDocuments" (

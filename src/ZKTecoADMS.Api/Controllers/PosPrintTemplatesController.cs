@@ -29,7 +29,8 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
         int SortOrder,
         DateTime CreatedAt,
         DateTime? UpdatedAt,
-        Guid? SourceCatalogId = null);
+        Guid? SourceCatalogId = null,
+        bool IsDocx = false);
 
     public record PrintTemplateCatalogDto(
         Guid Id,
@@ -60,7 +61,7 @@ public class PosPrintTemplatesController(ZKTecoDbContext dbContext) : Authentica
     static PrintTemplateDto ToDto(PosPrintTemplate t) => new(
         t.Id, t.Name, t.DocumentType.ToString(), t.PaperSize.ToString(),
         t.HtmlContent, t.IsDefault, t.IsActive, t.SortOrder,
-        t.CreatedAt, t.UpdatedAt, t.SourceCatalogId);
+        t.CreatedAt, t.UpdatedAt, t.SourceCatalogId, t.DocxFilePath != null);
 
     static PrintTemplateCatalogDto ToCatalogDto(PosPrintTemplateCatalog t) => new(
         t.Id, t.Name, t.DocumentType.ToString(), t.PaperSize.ToString(),

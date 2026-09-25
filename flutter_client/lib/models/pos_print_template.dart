@@ -11,6 +11,7 @@ class PosPrintTemplate {
     this.sourceCatalogId,
     this.createdAt,
     this.updatedAt,
+    this.isDocx = false,
   });
 
   final String id;
@@ -25,14 +26,17 @@ class PosPrintTemplate {
   final String? sourceCatalogId;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  /// Mẫu Word giữ nguyên bố cục (AI gắn mã trường) — sửa qua màn «Trường mẫu Word».
+  final bool isDocx;
 
   /// Tên ngắn trên UI thiết lập: `Hợp đồng 1 · A4 ★`.
   String get shortLabel {
     final paper = PosPrintPaperSizes.shortLabel(paperSize);
     final n = name.trim();
     final star = isDefault && !n.contains('★') && !paper.contains('★') ? ' ★' : '';
-    if (n.isEmpty) return '$paper$star';
-    return '$n · $paper$star';
+    final word = isDocx ? ' · Word' : '';
+    if (n.isEmpty) return '$paper$word$star';
+    return '$n · $paper$word$star';
   }
 
   /// Tên hiển thị rõ loại + khổ (đổi tên cũ «Khổ K80 - Mẫu 1»).
@@ -53,6 +57,7 @@ class PosPrintTemplate {
             '${json['createdAt'] ?? json['CreatedAt'] ?? ''}'),
         updatedAt: DateTime.tryParse(
             '${json['updatedAt'] ?? json['UpdatedAt'] ?? ''}'),
+        isDocx: json['isDocx'] == true || json['IsDocx'] == true,
       );
 
   Map<String, dynamic> toSaveJson() => {
@@ -89,6 +94,7 @@ class PosPrintTemplate {
         sourceCatalogId: sourceCatalogId ?? this.sourceCatalogId,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
+        isDocx: isDocx,
       );
 }
 
