@@ -126,7 +126,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
         .whereType<Map>()
         .map((e) => PosSessionOrderDto.fromJson(Map<String, dynamic>.from(e)))
         .toList();
-    final active = balances.where((b) => b.remainingSessions > 0).toList();
+    final active = balances.where((b) => b.canRedeem).toList();
     setState(() {
       _balances = balances;
       _txns = txns;
@@ -172,7 +172,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
     if (_redeeming) return;
     PosSessionBalanceDto? b;
     for (final x in _balances) {
-      if (x.id == _selectedBalanceId && x.remainingSessions > 0) {
+      if (x.id == _selectedBalanceId && x.canRedeem) {
         b = x;
         break;
       }
@@ -225,7 +225,10 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
   Widget build(BuildContext context) {
     final h = MediaQuery.sizeOf(context).height;
     final bottom = MediaQuery.paddingOf(context).bottom;
-    final remain = _balances.fold<int>(0, (s, b) => s + b.remainingSessions);
+    final remain = _balances
+        .where((b) => !b.isUnlimited && !b.isExpired)
+        .fold<int>(0, (s, b) => s + b.remainingSessions);
+    final memberships = _balances.where((b) => b.isUnlimited && !b.isExpired).toList();
     final used = _balances.fold<int>(0, (s, b) => s + b.usedSessions);
     return SafeArea(
       child: SizedBox(
@@ -271,7 +274,12 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
               Text(
                 remain + used == 0
                     ? tr('Lịch sử mua hàng và gói buổi của khách')
-                    : tr('Còn $remain buổi · đã dùng $used'),
+                    : [
+                        if (memberships.isNotEmpty)
+                          tr('Thẻ tập đến ${_day.format(memberships.map((b) => b.expiresAt!).reduce((a, b) => a.isAfter(b) ? a : b).toLocal())}'),
+                        if (remain > 0 || memberships.isEmpty) tr('Còn $remain buổi'),
+                        tr('đã dùng $used'),
+                      ].join(' · '),
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 8),
@@ -324,7 +332,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
         ),
       );
     }
-    final active = _balances.where((b) => b.remainingSessions > 0).toList();
+    final active = _balances.where((b) => b.canRedeem).toList();
     final sellers = _sellerOpts;
     return ListView(
       children: [
@@ -341,7 +349,9 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
               for (final b in active)
                 DropdownMenuItem(
                   value: b.id,
-                  child: Text(tr('${b.packageName} · còn ${b.remainingSessions}/${b.totalSessions}')),
+                  child: Text(tr(b.isUnlimited
+                      ? '${b.packageName} · thẻ đến ${b.expiresAt != null ? _day.format(b.expiresAt!.toLocal()) : '—'}'
+                      : '${b.packageName} · còn ${b.remainingSessions}/${b.totalSessions}')),
                 ),
             ],
             onChanged: (v) => setState(() => _selectedBalanceId = v),
@@ -411,14 +421,19 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
         side: const BorderSide(color: PosTheme.border),
       ),
       child: ExpansionTile(
-        initiallyExpanded: b.remainingSessions > 0,
+        initiallyExpanded: b.canRedeem,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         title: Text(tr(b.packageName),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         subtitle: Text(
-          tr('Còn ${b.remainingSessions}/${b.totalSessions} · đã dùng ${b.usedSessions}'
-              '${b.expiresAt != null ? ' · HSD ${_day.format(b.expiresAt!.toLocal())}' : ''}'),
-          style: const TextStyle(fontSize: 12),
+          tr('${b.remainLabel}'
+              '${b.expiresAt != null ? ' · HSD ${_day.format(b.expiresAt!.toLocal())}' : ''}'
+              '${b.isExpired ? ' · ĐÃ HẾT HẠN' : (b.daysLeft != null && b.daysLeft! <= 7 ? ' · còn ${b.daysLeft} ngày' : '')}'),
+          style: TextStyle(
+              fontSize: 12,
+              color: b.isExpired || (b.daysLeft != null && b.daysLeft! <= 7)
+                  ? Colors.red.shade700
+                  : null),
         ),
         children: [
           if (rows.isEmpty)

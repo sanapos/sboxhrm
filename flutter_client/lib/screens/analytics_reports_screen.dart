@@ -40,6 +40,7 @@ const _reports = <_ReportSpec>[
   _ReportSpec('Hiệu suất', 'Tài sản đang giao', 'Theo trạng thái và người giữ', '/api/reports/performance/asset-assignment', _PeriodKind.none, ['KPI']),
   _ReportSpec('Tổng hợp', 'Báo cáo điều hành tháng', 'Nhân sự, chấm công, chi phí trong tháng', '/api/reports/executive/monthly-summary', _PeriodKind.month, ['Report']),
   _ReportSpec('Khách sạn', 'Sổ khách lưu trú', 'Khách ở trong kỳ — xuất Excel khai báo tạm trú', '/api/pos/stay-guests/register', _PeriodKind.range, ['PosSell']),
+  _ReportSpec('Gym / Spa', 'Thẻ tập & gói buổi sắp hết hạn', 'Sắp hết hạn 7 ngày, hết hạn 30 ngày, còn ≤ 2 buổi — gọi nhắc gia hạn', '/api/pos/session-balances/expiring', _PeriodKind.none, ['PosSell']),
   _ReportSpec('Tài chính nhân sự', 'Nợ tiền cơm', 'Theo nhân viên', '/api/reports/finance/meal-debt', _PeriodKind.range, ['Meal']),
 ];
 
@@ -107,6 +108,10 @@ const _labels = <String, String>{
   'items': 'Chi tiết', 'byEmployee': 'Theo nhân viên', 'byDepartment': 'Theo phòng ban',
   'byProduct': 'Theo sản phẩm', 'byStatus': 'Theo trạng thái', 'assignments': 'Đang giao',
   'topPerformers': 'Dẫn đầu', 'approvers': 'Theo người duyệt', 'debt': 'Còn nợ', 'paid': 'Đã trả',
+  'customerName': 'Khách hàng', 'phone': 'Điện thoại', 'packageName': 'Thẻ / gói', 'kind': 'Loại',
+  'usedSessions': 'Đã dùng', 'remainingSessions': 'Còn lại', 'expiresAt': 'Hết hạn', 'daysLeft': 'Còn (ngày)',
+  'lastUsedAt': 'Lần tập cuối', 'renewed': 'Đã gia hạn', 'expiringCount': 'Sắp hết hạn',
+  'expiredCount': 'Đã hết hạn', 'lowSessionsCount': 'Sắp hết buổi', 'renewedCount': 'Đã gia hạn',
 };
 
 String _label(String key) {

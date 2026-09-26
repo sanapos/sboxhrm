@@ -381,9 +381,18 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                         (b['remainingSessions'] as num?)?.toInt() ?? 0;
                     final used = (b['usedSessions'] as num?)?.toInt() ??
                         (total - remain);
+                    final unlimited = total >= 9999;
+                    final exp = DateTime.tryParse('${b['expiresAt'] ?? ''}')?.toLocal();
+                    final expText = exp == null
+                        ? ''
+                        : ' · HSD ${exp.day.toString().padLeft(2, '0')}/${exp.month.toString().padLeft(2, '0')}/${exp.year}'
+                            '${exp.isBefore(DateTime.now()) ? ' (hết hạn)' : ''}';
                     return _historyTile(
                       title: b['packageName']?.toString() ?? '—',
-                      subtitle: 'Còn $remain/$total · đã dùng $used',
+                      subtitle: (unlimited
+                              ? 'Thẻ không giới hạn buổi · đã tập $used lượt'
+                              : 'Còn $remain/$total · đã dùng $used') +
+                          expText,
                       amount: remain.toDouble(),
                       positive: remain > 0,
                     );

@@ -28,6 +28,14 @@ public class PosCustomerSessionBalance : AuditableEntity<Guid>
     public DateTime? ExpiresAt { get; set; }
 
     public virtual ICollection<PosCustomerSessionTransaction> Transactions { get; set; } = [];
+
+    /// <summary>
+    /// Số buổi quy ước cho thẻ tập theo thời gian (tháng/quý/năm — không giới hạn buổi).
+    /// Mỗi lần check-in vẫn trừ 1 để đếm lượt tập; hạn dùng quyết định bởi ExpiresAt.
+    /// </summary>
+    public const int UnlimitedSessions = 9999;
+
+    public static bool IsUnlimitedCount(int sessions) => sessions >= UnlimitedSessions;
 }
 
 /// <summary>Sổ cái mua / trừ buổi.</summary>

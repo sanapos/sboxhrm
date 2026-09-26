@@ -1382,6 +1382,25 @@ class PosSessionBalanceDto {
   final DateTime? expiresAt;
   final DateTime? createdAt;
 
+  /// Thẻ tập theo thời gian (tháng/quý/năm) — không giới hạn buổi, chỉ tính hạn.
+  static const unlimitedSessions = 9999;
+  bool get isUnlimited => totalSessions >= unlimitedSessions;
+  bool get isExpired => expiresAt != null && expiresAt!.isBefore(DateTime.now());
+  bool get canRedeem => !isExpired && remainingSessions > 0;
+
+  /// Số ngày còn lại (theo ngày lịch), null nếu không có hạn.
+  int? get daysLeft {
+    if (expiresAt == null) return null;
+    final e = expiresAt!.toLocal();
+    final n = DateTime.now();
+    return DateTime(e.year, e.month, e.day).difference(DateTime(n.year, n.month, n.day)).inDays;
+  }
+
+  /// "Còn 3/10" hoặc "Không giới hạn · đã tập 12 lượt".
+  String get remainLabel => isUnlimited
+      ? 'Không giới hạn buổi · đã tập $usedSessions lượt'
+      : 'Còn $remainingSessions/$totalSessions · đã dùng $usedSessions';
+
   factory PosSessionBalanceDto.fromJson(Map<String, dynamic> json) {
     final total =
         (json['totalSessions'] ?? json['TotalSessions'] as num?)?.toInt() ?? 0;

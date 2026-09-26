@@ -1918,7 +1918,9 @@ public partial class PosSellIndustryController(
 
         return Ok(AppResponse<object>.Success(new
         {
-            remainingSessions = balances.Sum(b => b.RemainingSessions),
+            remainingSessions = balances
+                .Where(b => !PosCustomerSessionBalance.IsUnlimitedCount(b.TotalSessions))
+                .Sum(b => b.RemainingSessions),
             usedSessions = balances.Sum(b => b.UsedSessions),
             balances,
             transactions = txns,
@@ -2068,6 +2070,14 @@ public partial class PosSellIndustryController(
             if (!products.TryGetValue(line.ProductId, out var product)) continue;
             var lineQty = (int)Math.Max(1, Math.Round(line.Qty));
 
+            if (PosCustomerSessionBalance.IsUnlimitedCount(product.SessionPackCount))
+            {
+                // Thẻ tập theo thời gian: SL 3 thẻ tháng = 3 tháng; gia hạn nối tiếp thẻ còn hạn.
+                var days = (product.SessionPackValidDays > 0 ? product.SessionPackValidDays : 30) * lineQty;
+                await AddMembershipAsync(dbContext, storeId, order, product, product.Name, days, actorEmail);
+                continue;
+            }
+
             if (product.SessionPackCount > 0)
             {
                 AddGrantedPack(dbContext, storeId, order, product, product.Name,
@@ -2080,6 +2090,14 @@ public partial class PosSellIndustryController(
             {
                 var child = comp.ComponentProduct;
                 if (child == null || child.SessionPackCount <= 0) continue;
+                if (PosCustomerSessionBalance.IsUnlimitedCount(child.SessionPackCount))
+                {
+                    var days = (child.SessionPackValidDays > 0 ? child.SessionPackValidDays : 30)
+                        * (int)Math.Max(1, Math.Round(comp.Qty)) * lineQty;
+                    await AddMembershipAsync(dbContext, storeId, order, child,
+                        $"{child.Name} · {product.Name}", days, actorEmail);
+                    continue;
+                }
                 var grant = child.SessionPackCount
                     * (int)Math.Max(1, Math.Round(comp.Qty))
                     * lineQty;
@@ -2091,6 +2109,36 @@ public partial class PosSellIndustryController(
         }
     }
 
+    /// <summary>Thẻ tập theo thời gian — bắt đầu từ lúc hết hạn thẻ cùng loại còn hiệu lực (gia hạn nối tiếp).</summary>
+    static async Task AddMembershipAsync(
+        ZKTecoDbContext dbContext,
+        Guid storeId,
+        PosSaleOrder order,
+        PosProduct product,
+        string packageName,
+        int days,
+        string? actorEmail)
+    {
+        if (!order.CustomerId.HasValue || days <= 0) return;
+        var now = DateTime.UtcNow;
+        var customerId = order.CustomerId.Value;
+        var dbLatest = await dbContext.PosCustomerSessionBalances.AsNoTracking()
+            .Where(b => b.StoreId == storeId && b.CustomerId == customerId && b.ProductId == product.Id
+                && b.Deleted == null && b.TotalSessions >= PosCustomerSessionBalance.UnlimitedSessions
+                && b.ExpiresAt != null && b.ExpiresAt > now)
+            .MaxAsync(b => (DateTime?)b.ExpiresAt);
+        // Cùng đơn có thể bán 2 dòng thẻ giống nhau → xét cả bản ghi vừa thêm chưa lưu.
+        var pendingLatest = dbContext.ChangeTracker.Entries<PosCustomerSessionBalance>()
+            .Where(e => e.State == EntityState.Added && e.Entity.CustomerId == customerId
+                && e.Entity.ProductId == product.Id
+                && PosCustomerSessionBalance.IsUnlimitedCount(e.Entity.TotalSessions))
+            .Select(e => e.Entity.ExpiresAt)
+            .Max();
+        var start = new[] { now, dbLatest ?? now, pendingLatest ?? now }.Max();
+        AddGrantedPack(dbContext, storeId, order, product, packageName,
+            PosCustomerSessionBalance.UnlimitedSessions, 0, actorEmail, start.AddDays(days));
+    }
+
     static void AddGrantedPack(
         ZKTecoDbContext dbContext,
         Guid storeId,
@@ -2099,9 +2147,11 @@ public partial class PosSellIndustryController(
         string packageName,
         int grant,
         int validDays,
-        string? actorEmail)
+        string? actorEmail,
+        DateTime? expiresAt = null)
     {
         if (grant <= 0 || !order.CustomerId.HasValue) return;
+        var unlimited = PosCustomerSessionBalance.IsUnlimitedCount(grant);
         var balance = new PosCustomerSessionBalance
         {
             Id = Guid.NewGuid(),
@@ -2111,7 +2161,7 @@ public partial class PosSellIndustryController(
             PackageName = packageName,
             TotalSessions = grant,
             RemainingSessions = grant,
-            ExpiresAt = validDays > 0 ? DateTime.UtcNow.AddDays(validDays) : null,
+            ExpiresAt = expiresAt ?? (validDays > 0 ? DateTime.UtcNow.AddDays(validDays) : null),
             IsActive = true,
             CreatedBy = actorEmail,
         };
@@ -2126,7 +2176,9 @@ public partial class PosSellIndustryController(
             TransactionType = PosSessionTxnType.Purchase,
             SessionDelta = grant,
             RemainingAfter = grant,
-            Note = $"Mua gói {packageName}",
+            Note = unlimited
+                ? $"Mua thẻ {packageName} (hạn {balance.ExpiresAt!.Value.AddHours(7):dd/MM/yyyy})"
+                : $"Mua gói {packageName}",
             IsActive = true,
             CreatedBy = actorEmail,
         });

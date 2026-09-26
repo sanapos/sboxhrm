@@ -2375,6 +2375,25 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       ),
                     ],
                   ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: (int.tryParse(_sessionPackCountCtrl.text.trim()) ?? 0) >= 9999,
+                    title: Text(tr('Thẻ tập theo thời gian (không giới hạn buổi)')),
+                    subtitle: Text(tr('Thẻ tháng / quý / năm: khách tập bao nhiêu lần cũng được đến hết hạn. '
+                        'Bán SL 3 = 3 kỳ; mua gia hạn khi thẻ còn hạn sẽ cộng nối tiếp.')),
+                    onChanged: (v) => setState(() {
+                      if (v == true) {
+                        _sessionPackCountCtrl.text = '9999';
+                        if ((int.tryParse(_sessionPackValidDaysCtrl.text.trim()) ?? 0) <= 0) {
+                          _sessionPackValidDaysCtrl.text = '30';
+                        }
+                      } else {
+                        _sessionPackCountCtrl.text = '';
+                      }
+                    }),
+                  ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _sessionPackValidDaysCtrl,
