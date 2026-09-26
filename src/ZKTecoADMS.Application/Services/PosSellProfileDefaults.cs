@@ -109,7 +109,7 @@ public static class PosSellProfileDefaults
                 s.ShowFloorPlan = true;
                 s.AllowProvisionalBill = true;
                 s.EnableMultiDeviceDraftLock = true;
-                s.PromptGuestCountOnOpen = false;
+                s.PromptGuestCountOnOpen = true; // mô tả ngành: "hỏi số khách" khi mở bàn
                 break;
             case PosSellProfile.Gym:
                 s.EnableResources = false;

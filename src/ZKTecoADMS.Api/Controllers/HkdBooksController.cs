@@ -156,15 +156,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         var (fromDt, toDt, periodLabel) = ResolvePeriod(from, to);
         var profile = await LoadProfileAsync(storeId);
 
-        var orders = await dbContext.PosSaleOrders.AsNoTracking()
-            .Where(o => o.StoreId == storeId
-                        && o.Deleted == null
-                        && o.IsActive
-                        && o.Status == PosSaleOrderStatus.Completed
-                        && (o.SaleDate ?? o.CreatedAt) >= fromDt
-                        && (o.SaleDate ?? o.CreatedAt) < toDt)
-            .OrderBy(o => o.SaleDate ?? o.CreatedAt)
-            .ToListAsync();
+        var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
 
         var expenses = await dbContext.CashTransactions.AsNoTracking()
             .Include(t => t.Category)
@@ -172,6 +164,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                         && t.Deleted == null
                         && t.Status == CashTransactionStatus.Completed
                         && t.Type == CashTransactionType.Expense
+                        && !NonCostCashCategories.Contains(t.Category.Name)
                         && t.TransactionDate >= fromDt
                         && t.TransactionDate < toDt)
             .OrderBy(t => t.TransactionDate)
@@ -515,7 +508,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                 $"MST: {NullDash(profile.TaxCode)}  |  Hộ KD: {NullDash(profile.BusinessName)}",
                 $"1. Tổng doanh thu: {revenueTotal:N0}  |  2. Tổng chi phí hợp lý: {costTotal:N0}",
                 $"Thu nhập tính thuế: {taxableIncome:N0}  |  TNCN ước tính ({profile.PitPercent}%): {pitEst:N0}",
-                "Chi phí = phiếu chi hoàn tất + phiếu nhập hàng. Hộ tự loại trừ khoản không hợp lý khi kê khai.",
+                "Doanh thu đã trừ hàng bán bị trả lại. Chi phí = phiếu nhập hàng + phiếu chi hoàn tất (không gồm chi nhập hàng, trả hàng khách, hoàn cọc — tránh tính trùng). Hộ tự loại trừ khoản không hợp lý khi kê khai.",
             },
             orders.Count + expenses.Count + receipts.Count);
         var (headerRow, dataStartRow) = ReportExcelLayout.ApplyMeta(ws, meta, headers.Length);
@@ -841,30 +834,22 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         Guid storeId, string bookCode, DateTime fromDt, DateTime toDt,
         HkdProfile profile, string periodLabel)
     {
-        var query = dbContext.PosSaleOrders.AsNoTracking()
-            .Where(o => o.StoreId == storeId
-                        && o.Deleted == null
-                        && o.IsActive
-                        && o.Status == PosSaleOrderStatus.Completed
-                        && (o.SaleDate ?? o.CreatedAt) >= fromDt
-                        && (o.SaleDate ?? o.CreatedAt) < toDt);
-        var count = await query.CountAsync();
-        var total = count == 0 ? 0 : await query.SumAsync(o => (decimal?)o.Total) ?? 0;
+        var all = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
+        var count = all.Count;
+        var total = all.Sum(o => o.Total);
         var vatEst = RoundMoney(total * (decimal)(profile.VatPercent / 100.0));
         var pitEst = RoundMoney(total * (decimal)(profile.PitPercent / 100.0));
         var truncated = count > PreviewRowLimit;
-        var slice = await query
-            .OrderBy(o => o.SaleDate ?? o.CreatedAt)
+        var slice = all
             .Take(PreviewRowLimit)
             .Select(o => new
             {
                 o.OrderNo,
                 SaleAt = o.SaleDate ?? o.CreatedAt,
                 o.Total,
-                o.CustomerName,
-                o.PaymentMethod,
+                Desc = BuildRevenueDescription(o, profile.Industry),
             })
-            .ToListAsync();
+            .ToList();
 
         var dto = BasePreview(bookCode, profile, periodLabel);
         dto.RowCount = count;
@@ -898,8 +883,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                     ["stt"] = idx++,
                     ["code"] = o.OrderNo,
                     ["date"] = o.SaleAt.ToString("dd/MM/yyyy"),
-                    ["description"] = BuildRevenueDescription(
-                        o.CustomerName, o.PaymentMethod, profile.Industry),
+                    ["description"] = o.Desc,
                     ["amount"] = o.Total,
                     ["vat"] = RoundMoney(o.Total * (decimal)(profile.VatPercent / 100.0)),
                 });
@@ -935,8 +919,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                     ["stt"] = idx++,
                     ["code"] = o.OrderNo,
                     ["date"] = o.SaleAt.ToString("dd/MM/yyyy"),
-                    ["description"] = BuildRevenueDescription(
-                        o.CustomerName, o.PaymentMethod, profile.Industry),
+                    ["description"] = o.Desc,
                     ["amount"] = o.Total,
                     ["vat"] = RoundMoney(o.Total * (decimal)(profile.VatPercent / 100.0)),
                     ["pit"] = RoundMoney(o.Total * (decimal)(profile.PitPercent / 100.0)),
@@ -965,8 +948,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             {
                 ["stt"] = i++,
                 ["date"] = o.SaleAt.ToString("dd/MM/yyyy"),
-                ["description"] = BuildRevenueDescription(
-                    o.CustomerName, o.PaymentMethod, profile.Industry),
+                ["description"] = o.Desc,
                 ["amount"] = o.Total,
             });
         }
@@ -977,12 +959,13 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         Guid storeId, DateTime fromDt, DateTime toDt,
         HkdProfile profile, string periodLabel)
     {
-        var orderQuery = CompletedOrdersQuery(storeId, fromDt, toDt);
+        var allOrders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
         var expenseQuery = dbContext.CashTransactions.AsNoTracking()
             .Where(t => t.StoreId == storeId
                         && t.Deleted == null
                         && t.Status == CashTransactionStatus.Completed
                         && t.Type == CashTransactionType.Expense
+                        && !NonCostCashCategories.Contains(t.Category.Name)
                         && t.TransactionDate >= fromDt
                         && t.TransactionDate < toDt);
         var receiptQuery = dbContext.PosStockReceipts.AsNoTracking()
@@ -992,11 +975,11 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                         && ((r.ImportDate ?? r.CreatedAt) >= fromDt)
                         && ((r.ImportDate ?? r.CreatedAt) < toDt));
 
-        var orderCount = await orderQuery.CountAsync();
+        var orderCount = allOrders.Count;
         var expenseCount = await expenseQuery.CountAsync();
         var receiptCount = await receiptQuery.CountAsync();
         var rowCount = orderCount + expenseCount + receiptCount;
-        var revenueTotal = orderCount == 0 ? 0 : await orderQuery.SumAsync(o => (decimal?)o.Total) ?? 0;
+        var revenueTotal = allOrders.Sum(o => o.Total);
         var cashCost = expenseCount == 0 ? 0 : await expenseQuery.SumAsync(t => (decimal?)t.Amount) ?? 0;
         var purchaseCost = receiptCount == 0
             ? 0
@@ -1005,18 +988,16 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         var taxableIncome = revenueTotal - costTotal;
         var pitEst = RoundMoney(Math.Max(0, taxableIncome) * (decimal)(profile.PitPercent / 100.0));
 
-        var orderSlice = await orderQuery
-            .OrderBy(o => o.SaleDate ?? o.CreatedAt)
+        var orderSlice = allOrders
             .Take(PreviewRowLimit)
             .Select(o => new
             {
                 o.OrderNo,
                 SaleAt = o.SaleDate ?? o.CreatedAt,
                 o.Total,
-                o.CustomerName,
-                o.PaymentMethod,
+                Desc = BuildRevenueDescription(o, profile.Industry),
             })
-            .ToListAsync();
+            .ToList();
         var expenseSlice = await expenseQuery
             .OrderBy(t => t.TransactionDate)
             .ThenBy(t => t.TransactionCode)
@@ -1050,8 +1031,8 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             rows.Add((
                 o.SaleAt,
                 o.OrderNo,
-                BuildRevenueDescription(o.CustomerName, o.PaymentMethod, profile.Industry),
-                "Doanh thu",
+                o.Desc,
+                o.Total < 0 ? "Giảm doanh thu (trả hàng)" : "Doanh thu",
                 o.Total));
         }
         foreach (var t in expenseSlice)
@@ -1409,10 +1390,43 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                         && (o.SaleDate ?? o.CreatedAt) >= fromDt
                         && (o.SaleDate ?? o.CreatedAt) < toDt);
 
-    private Task<List<PosSaleOrder>> LoadCompletedOrdersAsync(Guid storeId, DateTime fromDt, DateTime toDt) =>
-        CompletedOrdersQuery(storeId, fromDt, toDt)
-            .OrderBy(o => o.SaleDate ?? o.CreatedAt)
+    /// <summary>
+    /// Phiếu chi hệ thống không phải chi phí hợp lý của hộ: nhập hàng (đã tính qua phiếu nhập),
+    /// trả hàng khách (ghi giảm doanh thu), hoàn cọc đặt chỗ (trả lại tiền giữ hộ).
+    /// </summary>
+    private static readonly string[] NonCostCashCategories = ["Nhập hàng", "Trả hàng khách", "Hoàn cọc đặt chỗ"];
+    private const string CustomerRefundCategory = "Trả hàng khách";
+
+    /// <summary>
+    /// Đơn bán hoàn thành trong kỳ + mỗi phiếu chi trả hàng khách thành một dòng âm
+    /// «Hàng bán bị trả lại» — sổ doanh thu và S2c cộng ra doanh thu thuần.
+    /// </summary>
+    private async Task<List<PosSaleOrder>> LoadCompletedOrdersAsync(Guid storeId, DateTime fromDt, DateTime toDt)
+    {
+        var orders = await CompletedOrdersQuery(storeId, fromDt, toDt).ToListAsync();
+        var refunds = await dbContext.CashTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive
+                        && t.Status == CashTransactionStatus.Completed
+                        && t.Type == CashTransactionType.Expense
+                        && t.Category.Name == CustomerRefundCategory
+                        && t.TransactionDate >= fromDt && t.TransactionDate < toDt)
+            .Select(t => new { t.TransactionCode, t.TransactionDate, t.Amount, t.Description, t.ContactName })
             .ToListAsync();
+        foreach (var r in refunds)
+        {
+            orders.Add(new PosSaleOrder
+            {
+                OrderNo = r.TransactionCode,
+                SaleDate = r.TransactionDate,
+                CreatedAt = r.TransactionDate,
+                Total = -Math.Abs(r.Amount),
+                CustomerName = r.ContactName,
+                Note = string.IsNullOrWhiteSpace(r.Description) ? null : r.Description,
+                Status = PosSaleOrderStatus.Completed,
+            });
+        }
+        return orders.OrderBy(o => o.SaleDate ?? o.CreatedAt).ToList();
+    }
 
     private static string NormalizePreviewBook(string? book)
     {
@@ -1502,7 +1516,9 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
     }
 
     private static string BuildRevenueDescription(PosSaleOrder o, string industry) =>
-        BuildRevenueDescription(o.CustomerName, o.PaymentMethod, industry);
+        o.Total < 0
+            ? "Hàng bán bị trả lại" + (string.IsNullOrWhiteSpace(o.Note) ? "" : " — " + o.Note!.Trim())
+            : BuildRevenueDescription(o.CustomerName, o.PaymentMethod, industry);
 
     private static string BuildRevenueDescription(
         string? customerName, string? paymentMethod, string industry)

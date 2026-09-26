@@ -1807,10 +1807,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     // Phiếu chờ duyệt chưa trừ; đã duyệt / tự duyệt mới trừ (hủy = không trừ).
     double latePenaltyTotal = 0;
     for (final t in _penaltyTickets) {
-      final type = t['type']?.toString() ?? '';
-      if (type != 'Late' && type != 'EarlyLeave' && type != 'UnauthorizedLeave') {
-        continue;
-      }
+      // Mọi loại phiếu (trễ, sớm, vắng, quên chấm, vi phạm, tái phạm) — phiếu «trừ lương».
       final st = t['status']?.toString() ?? '';
       if (st != 'Approved' && st != 'AutoApproved') continue;
       // Phiếu thu tiền mặt (có phiếu thu sổ quỹ) → không trừ lương.
