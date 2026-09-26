@@ -669,18 +669,6 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   bool get _canEditTpl => _perm.canEdit('PosPrintTemplates');
   bool get _canDeleteTpl => _perm.canDelete('PosPrintTemplates');
 
-  // Quyền module «Mẫu in» (server chặn cùng mức) — ẩn / khóa thao tác không được phép.
-  PermissionProvider get _perm => context.read<PermissionProvider>();
-  bool get _canCreateTpl => _perm.canCreate('PosPrintTemplates');
-  bool get _canEditTpl => _perm.canEdit('PosPrintTemplates');
-  bool get _canDeleteTpl => _perm.canDelete('PosPrintTemplates');
-
-  // Quyền module «Mẫu in» (server chặn cùng mức) — ẩn / khóa thao tác không được phép.
-  PermissionProvider get _perm => context.read<PermissionProvider>();
-  bool get _canCreateTpl => _perm.canCreate('PosPrintTemplates');
-  bool get _canEditTpl => _perm.canEdit('PosPrintTemplates');
-  bool get _canDeleteTpl => _perm.canDelete('PosPrintTemplates');
-
   Future<void> _importDocxAi() async {
     final created = await importPosDocxTemplateWithAi(context, _api, documentType: _docType);
     if (created && mounted) await _load();
