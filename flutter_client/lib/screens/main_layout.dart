@@ -79,6 +79,7 @@ import 'advance_report_screen.dart';
 import 'business_trip_report_screen.dart';
 import 'leave_report_screen.dart';
 import 'attendance_report_screen.dart';
+import 'analytics_reports_screen.dart';
 import 'late_early_report_screen.dart';
 import 'travel_hours_report_screen.dart';
 import 'asset_report_screen.dart';
@@ -2098,6 +2099,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'ShiftSwap',
+    ),
+    // Thêm mới ở CUỐI danh sách — điều hướng dùng chỉ số (NavigationNotifier).
+    NavItem(
+      icon: Icons.insert_chart_outlined,
+      activeIcon: Icons.insert_chart,
+      label: 'Báo cáo phân tích',
+      subtitle: 'Chuyên cần, phép, KPI, điều hành',
+      screen: const AnalyticsReportsScreen(),
+      group: 'Báo cáo',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'AttendanceReport',
     ),
   ];
 

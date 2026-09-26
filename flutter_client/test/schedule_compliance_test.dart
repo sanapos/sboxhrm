@@ -74,6 +74,29 @@ void main() {
     expect(result.byDepartment.single.label, 'Bếp');
   });
 
+  test('Theo ca: định mức (ưu tiên theo thứ) ↔ xếp lịch ↔ có mặt thực tế', () {
+    ScheduleComplianceRow r(String name, ScheduleComplianceStatus s) => ScheduleComplianceRow(
+          employeeId: name, employeeCode: name, employeeName: name, department: 'Bếp',
+          date: DateTime(2026, 9, 25), // thứ 6 (weekday 5)
+          scheduledShift: 'CA P8', actualShift: '', checkIn: null, checkOut: null,
+          lateMinutes: 0, earlyMinutes: 0, status: s,
+        );
+    final rows = computeShiftStaffing([
+      r('a', ScheduleComplianceStatus.onTime),
+      r('b', ScheduleComplianceStatus.lateEarly),
+      r('c', ScheduleComplianceStatus.absent),
+      r('d', ScheduleComplianceStatus.onLeave),
+    ], [
+      {
+        'shiftName': 'CA P8', 'department': null, 'minEmployees': 2, 'maxEmployees': 5,
+        'dailyQuotas': [{'dayOfWeek': 5, 'minEmployees': 3, 'maxEmployees': 4}],
+      },
+    ]);
+    final x = rows.single;
+    expect((x.scheduled, x.present, x.lateEarly, x.absent, x.onLeave), (4, 2, 1, 1, 1));
+    expect((x.minRequired, x.maxAllowed, x.status), (3, 4, 'Thiếu người'));
+  });
+
   test('Nhân viên không có lịch trong kỳ → không báo đi làm ngoài lịch', () {
     final records = computeDailyShiftRecords(
       attendances: [_punch(21, 8, 0), _punch(21, 13, 0)],

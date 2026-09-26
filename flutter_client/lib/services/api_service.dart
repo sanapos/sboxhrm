@@ -5707,6 +5707,29 @@ class ApiService {
     }
   }
 
+  /// Báo cáo phân tích máy chủ (JSON) — `path` dạng `/api/reports/...`.
+  Future<Map<String, dynamic>> getAnalyticsReport(
+      String path, Map<String, String> params) async {
+    try {
+      final uri = Uri.parse('$baseUrl$path').replace(queryParameters: params);
+      final response = await _retryOnUnauthorized(
+        () => http.get(uri, headers: _headers).timeout(const Duration(seconds: 60)),
+      );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Cùng báo cáo nhưng tải file Excel do máy chủ dựng (`format=excel`).
+  Future<Map<String, dynamic>> downloadAnalyticsReportExcel(
+          String path, Map<String, String> params) =>
+      _getBinary(
+        Uri.parse('$baseUrl$path')
+            .replace(queryParameters: {...params, 'format': 'excel'}),
+        timeout: const Duration(seconds: 90),
+      );
+
   /// Độ phủ ca theo định mức (thiếu / cảnh báo / đạt / vượt) — theo ngày, ca, phòng ban.
   Future<Map<String, dynamic>> getShiftCoverageReport({
     required DateTime from,

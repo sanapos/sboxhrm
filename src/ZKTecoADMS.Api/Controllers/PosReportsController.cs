@@ -590,7 +590,8 @@ public partial class PosReportsController(
                     .SumAsync(t => (decimal?)(t.LineAmount ?? 0)) ?? 0;
             var refund = await SumPeriodSaleRefundsAsync(
                 storeId, start, end, IsManager ? null : ids);
-            return (revenue, vat, cogs, count, discount, refund);
+            // Doanh thu chưa VAT (Total đã gồm VAT) — revenueInclVat = revenue + vat mới đúng.
+            return (revenue - vat, vat, cogs, count, discount, refund);
         }
 
         var current = await PeriodAsync(fromDt, toDt);
@@ -671,9 +672,9 @@ public partial class PosReportsController(
                 revenueInclVat = current.revenue + current.vat,
                 refund = current.refund,
                 cogs = current.cogs,
-                profit = current.revenue - current.cogs,
+                profit = current.revenue - current.refund - current.cogs,
                 marginPct = current.revenue > 0
-                    ? Math.Round((current.revenue - current.cogs) / current.revenue * 100, 1)
+                    ? Math.Round((current.revenue - current.refund - current.cogs) / current.revenue * 100, 1)
                     : 0m,
                 orderCount = current.orders,
                 avgOrderValue = current.orders > 0
@@ -688,7 +689,7 @@ public partial class PosReportsController(
                 revenueInclVat = previous.revenue + previous.vat,
                 refund = previous.refund,
                 cogs = previous.cogs,
-                profit = previous.revenue - previous.cogs,
+                profit = previous.revenue - previous.refund - previous.cogs,
                 orderCount = previous.orders,
                 avgOrderValue = previous.orders > 0
                     ? Math.Round(previous.revenue / previous.orders, 0)
@@ -697,7 +698,7 @@ public partial class PosReportsController(
             yearAgo = new
             {
                 revenue = yearAgo.revenue,
-                profit = yearAgo.revenue - yearAgo.cogs,
+                profit = yearAgo.revenue - yearAgo.refund - yearAgo.cogs,
                 orderCount = yearAgo.orders,
             },
             changePct = new

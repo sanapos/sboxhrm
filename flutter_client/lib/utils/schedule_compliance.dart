@@ -303,3 +303,99 @@ ScheduleComplianceResult computeScheduleCompliance({
     total: total,
   );
 }
+
+/// Một ca trong ngày: định mức ↔ số người xếp lịch ↔ số người có mặt thực tế.
+class ShiftStaffingRow {
+  final DateTime date;
+  final String shiftName;
+  final int scheduled;
+  final int present;
+  final int lateEarly;
+  final int absent;
+  final int onLeave;
+  final int wrongShift;
+  final int? minRequired;
+  final int? maxAllowed;
+
+  const ShiftStaffingRow({
+    required this.date,
+    required this.shiftName,
+    required this.scheduled,
+    required this.present,
+    required this.lateEarly,
+    required this.absent,
+    required this.onLeave,
+    required this.wrongShift,
+    this.minRequired,
+    this.maxAllowed,
+  });
+
+  /// Có mặt thực tế so với định mức.
+  String get status {
+    final min = minRequired, max = maxAllowed;
+    if (min == null) return 'Chưa có định mức';
+    if (present < min) return 'Thiếu người';
+    if (max != null && max > 0 && present > max) return 'Vượt định mức';
+    return 'Đạt';
+  }
+
+  /// Lịch xếp so với định mức (xếp đủ nhưng vắng → thiếu thực tế).
+  bool get scheduledShort => minRequired != null && scheduled < minRequired!;
+}
+
+/// Gom kết quả đối chiếu theo (ngày, ca theo lịch) và ghép định mức nhân sự
+/// (`/work-schedules/staffing-quotas`): định mức chung (không phòng ban) nếu có,
+/// không thì cộng các định mức theo phòng ban; ưu tiên định mức theo thứ trong tuần.
+List<ShiftStaffingRow> computeShiftStaffing(
+  List<ScheduleComplianceRow> rows,
+  List<Map<String, dynamic>> quotas,
+) {
+  (int, int)? limitsFor(String shiftName, DateTime date) {
+    final qs = quotas
+        .where((q) => (q['shiftName']?.toString() ?? '').trim() == shiftName.trim())
+        .toList();
+    if (qs.isEmpty) return null;
+    final general = qs.where((q) => (q['department']?.toString() ?? '').trim().isEmpty).toList();
+    final use = general.isNotEmpty ? [general.first] : qs;
+    var min = 0, max = 0;
+    for (final q in use) {
+      final daily = (q['dailyQuotas'] as List?)?.whereType<Map>().firstWhere(
+            (d) => (d['dayOfWeek'] as num?)?.toInt() == date.weekday,
+            orElse: () => const {},
+          );
+      min += ((daily?['minEmployees'] ?? q['minEmployees']) as num?)?.toInt() ?? 0;
+      max += ((daily?['maxEmployees'] ?? q['maxEmployees']) as num?)?.toInt() ?? 0;
+    }
+    return (min, max);
+  }
+
+  final groups = <String, List<ScheduleComplianceRow>>{};
+  for (final r in rows) {
+    if (r.status == ScheduleComplianceStatus.offSchedule || r.scheduledShift.isEmpty) continue;
+    groups.putIfAbsent('${_dayKey(r.date)}|${r.scheduledShift}', () => []).add(r);
+  }
+  final out = <ShiftStaffingRow>[];
+  for (final g in groups.values) {
+    int c(ScheduleComplianceStatus s) => g.where((r) => r.status == s).length;
+    final limits = limitsFor(g.first.scheduledShift, g.first.date);
+    out.add(ShiftStaffingRow(
+      date: g.first.date,
+      shiftName: g.first.scheduledShift,
+      scheduled: g.length,
+      present: c(ScheduleComplianceStatus.onTime) +
+          c(ScheduleComplianceStatus.lateEarly) +
+          c(ScheduleComplianceStatus.missingOut),
+      lateEarly: c(ScheduleComplianceStatus.lateEarly),
+      absent: c(ScheduleComplianceStatus.absent),
+      onLeave: c(ScheduleComplianceStatus.onLeave),
+      wrongShift: c(ScheduleComplianceStatus.wrongShift),
+      minRequired: limits?.$1,
+      maxAllowed: limits?.$2,
+    ));
+  }
+  out.sort((a, b) {
+    final d = b.date.compareTo(a.date);
+    return d != 0 ? d : a.shiftName.compareTo(b.shiftName);
+  });
+  return out;
+}

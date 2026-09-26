@@ -48,7 +48,8 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
   DateTime _to = DateTime.now();
   bool _loading = false;
   String? _error;
-  int _tab = 0; // 0 chi tiết, 1 theo NV, 2 theo phòng ban
+  int _tab = 0; // 0 chi tiết, 1 theo NV, 2 theo phòng ban, 3 theo ca (định mức)
+  List<Map<String, dynamic>> _quotas = const [];
   ScheduleComplianceStatus? _statusFilter;
   String _search = '';
   bool _hasSchedules = true;
@@ -114,6 +115,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
           toDate: _isoDate.format(_to),
           status: 'Approved',
         ).catchError((_) => <dynamic>[]),
+        _api.getStaffingQuotas().catchError((_) => <String, dynamic>{}),
       ]);
 
       final shifts = (p[0] as List).map((s) => Map<String, dynamic>.from(s as Map)).toList();
@@ -124,6 +126,11 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
       final profiles = List<Map<String, dynamic>>.from(p[2] as List);
       final schedules = p[3] as List<Map<String, dynamic>>;
       final leaves = p[4] as List;
+      final quotaRes = p[5] as Map<String, dynamic>;
+      final quotas = ((quotaRes['data'] is List ? quotaRes['data'] : const []) as List)
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
       final employees =
           _branchFilter.employees.map((e) => Map<String, dynamic>.from(e)).toList();
 
@@ -168,6 +175,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
       if (!mounted) return;
       setState(() {
         _result = result;
+        _quotas = quotas;
         _hasSchedules = schedules.isNotEmpty;
         _loading = false;
         if (att.truncated) {
@@ -214,6 +222,38 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
 
   Future<void> _export() async {
     final period = '${_dateFmt.format(_from)} – ${_dateFmt.format(_to)}';
+    if (_tab == 3) {
+      final rows = computeShiftStaffing(_result!.rows, _quotas);
+      await ClientExcelExport.export(
+        context: context,
+        title: 'Định mức nhân sự – lịch – chấm công thực tế',
+        sheetName: 'Theo ca',
+        filePrefix: 'DinhMuc_ThucTe',
+        headers: const [
+          'STT', 'Ngày', 'Ca', 'Định mức tối thiểu', 'Định mức tối đa', 'Xếp lịch',
+          'Có mặt', 'Trong đó trễ/sớm', 'Vắng', 'Nghỉ phép', 'Sai ca', 'Đánh giá',
+        ],
+        rows: [
+          for (var i = 0; i < rows.length; i++)
+            [
+              i + 1,
+              _dateFmt.format(rows[i].date),
+              rows[i].shiftName,
+              rows[i].minRequired ?? '',
+              rows[i].maxAllowed ?? '',
+              rows[i].scheduled,
+              rows[i].present,
+              rows[i].lateEarly,
+              rows[i].absent,
+              rows[i].onLeave,
+              rows[i].wrongShift,
+              rows[i].status,
+            ],
+        ],
+        periodLabel: period,
+      );
+      return;
+    }
     if (_tab == 0) {
       final rows = _rows;
       await ClientExcelExport.export(
@@ -323,6 +363,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
                     ButtonSegment(value: 0, label: Text(tr('Chi tiết'))),
                     ButtonSegment(value: 1, label: Text(tr('Theo NV'))),
                     if (_teamView) ButtonSegment(value: 2, label: Text(tr('Phòng ban'))),
+                    if (_teamView) ButtonSegment(value: 3, label: Text(tr('Theo ca'))),
                   ],
                   selected: {_tab},
                   showSelectedIcon: false,
@@ -350,7 +391,12 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
             else if (result != null) ...[
               _summary(result.total),
               const SizedBox(height: 10),
-              if (_tab == 0) ..._details() else ..._stats(_tab == 1 ? result.byEmployee : result.byDepartment),
+              if (_tab == 0)
+                ..._details()
+              else if (_tab == 3)
+                ..._shiftStaffing(computeShiftStaffing(result.rows, _quotas))
+              else
+                ..._stats(_tab == 1 ? result.byEmployee : result.byDepartment),
             ],
           ],
         ),
@@ -497,6 +543,60 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
         ),
       ),
     );
+  }
+
+  /// Theo ca: định mức ↔ xếp lịch ↔ có mặt thực tế.
+  List<Widget> _shiftStaffing(List<ShiftStaffingRow> rows) {
+    if (rows.isEmpty) return [_empty(tr('Không có ca nào có lịch trong kỳ'))];
+    Color statusColor(String s) => switch (s) {
+          'Thiếu người' => const Color(0xFFC62828),
+          'Vượt định mức' => const Color(0xFF7B1FA2),
+          'Đạt' => const Color(0xFF2E7D32),
+          _ => Colors.grey.shade600,
+        };
+    final short = rows.where((r) => r.status == 'Thiếu người').length;
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          tr('$short / ${rows.length} ca thiếu người so với định mức (theo người có mặt thực tế)'),
+          style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+        ),
+      ),
+      for (final r in rows)
+        Card(
+          margin: const EdgeInsets.only(bottom: 6),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(color: statusColor(r.status).withValues(alpha: 0.35)),
+          ),
+          child: ListTile(
+            dense: true,
+            title: Text('${_dateFmt.format(r.date)} · ${r.shiftName}',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text([
+              if (r.minRequired != null)
+                '${tr('Định mức')} ${r.minRequired}–${r.maxAllowed}',
+              '${tr('Xếp lịch')} ${r.scheduled}${r.scheduledShort ? ' (${tr('xếp thiếu')})' : ''}',
+              '${tr('Có mặt')} ${r.present}',
+              if (r.lateEarly > 0) '${tr('trễ/sớm')} ${r.lateEarly}',
+              if (r.absent > 0) '${tr('vắng')} ${r.absent}',
+              if (r.onLeave > 0) '${tr('nghỉ phép')} ${r.onLeave}',
+              if (r.wrongShift > 0) '${tr('sai ca')} ${r.wrongShift}',
+            ].join(' · ')),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor(r.status).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(tr(r.status),
+                  style: TextStyle(fontSize: 12, color: statusColor(r.status), fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ),
+    ];
   }
 
   List<Widget> _stats(List<ScheduleComplianceStat> stats) {

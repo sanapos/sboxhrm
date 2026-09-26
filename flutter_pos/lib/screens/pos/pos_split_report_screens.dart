@@ -2194,6 +2194,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
           'Giá vốn: ${_n(_data?['cogs'])}',
           'LN gộp: ${_n(_data?['grossProfit'])}',
           'Chi phí: ${_n(_data?['expenses'])}',
+          'Thu nhập khác: ${_n(_data?['otherIncome'])}',
           'LN ròng: $net',
           'Biên %: ${_n(_data?['marginPct'])}',
           'Số HĐ: $_orderTotal',
@@ -2283,6 +2284,71 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                     ],
                   ),
                 ),
+                if ((_data?['lines'] as List?)?.isNotEmpty == true)
+                  PosReportCard(
+                    title: 'Báo cáo kết quả kinh doanh',
+                    subtitle: 'Doanh thu thuần = tổng HĐ − hoàn trả − VAT',
+                    child: Column(
+                      children: [
+                        for (final l in (_data!['lines'] as List).whereType<Map>())
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    tr('${l['label']}'),
+                                    style: TextStyle(
+                                      fontWeight: const {'10', '20', '50'}
+                                              .contains('${l['code']}')
+                                          ? FontWeight.w800
+                                          : FontWeight.w400,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  posReportMoney(_n(l['amount'])),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: _n(l['amount']) < 0
+                                        ? const Color(0xFFB42318)
+                                        : const Color(0xFF166534),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                if ((_data?['expenseByCategory'] as List?)?.isNotEmpty == true ||
+                    (_data?['otherIncomeByCategory'] as List?)?.isNotEmpty == true)
+                  PosReportCard(
+                    title: 'Chi phí & thu nhập khác theo khoản mục',
+                    subtitle: 'Từ sổ quỹ — không gồm nhập hàng, tiền bán hàng, cọc, trả hàng',
+                    child: Column(
+                      children: [
+                        for (final c in ((_data?['expenseByCategory'] as List?) ?? const [])
+                            .whereType<Map>())
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Row(children: [
+                              Expanded(child: Text(tr('${c['category']} (${c['count']})'))),
+                              PosReportMoneyLabel(_n(c['amount']), prefix: '-'),
+                            ]),
+                          ),
+                        for (final c in ((_data?['otherIncomeByCategory'] as List?) ?? const [])
+                            .whereType<Map>())
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 3),
+                            child: Row(children: [
+                              Expanded(child: Text(tr('${c['category']} (${c['count']})'))),
+                              PosReportMoneyLabel(_n(c['amount']), prefix: '+'),
+                            ]),
+                          ),
+                      ],
+                    ),
+                  ),
                 PosReportCard(
                   title: 'Hóa đơn gốc',
                   subtitle: '$_orderTotal hóa đơn · bấm để mở phiếu',

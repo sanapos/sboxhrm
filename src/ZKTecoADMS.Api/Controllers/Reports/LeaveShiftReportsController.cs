@@ -1,3 +1,5 @@
+using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Application.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -283,7 +285,7 @@ public class LeaveShiftReportsController(
             var quotas = await db.ShiftStaffingQuotas
                 .Where(q => q.StoreId == storeId
                     && (string.IsNullOrEmpty(department) || q.Department == department))
-                .Select(q => new { q.ShiftTemplateId, ShiftName = q.ShiftTemplate.Name, q.Department, q.MinEmployees, q.MaxEmployees, q.WarningThreshold })
+                .Select(q => new { q.ShiftTemplateId, ShiftName = q.ShiftTemplate.Name, q.Department, q.MinEmployees, q.MaxEmployees, q.WarningThreshold, q.DailyQuotasJson })
                 .ToListAsync(ct);
 
             // Đếm theo (ca, ngày, phòng ban) — định mức riêng phòng ban chỉ đếm NV phòng đó.
@@ -309,9 +311,17 @@ public class LeaveShiftReportsController(
                                 || string.Equals(s.Department, quotaDept, StringComparison.OrdinalIgnoreCase)))
                         .Sum(s => s.Registered);
 
-                    var status = registered < q.MinEmployees ? "Thiếu"
+                    // Định mức theo thứ trong tuần (nếu có) — cùng cách duyệt đăng ký lịch.
+                    var (minReq, maxAllowed) = StaffingQuotaResolver.ResolveLimitsForDate(
+                        new ShiftStaffingQuota
+                        {
+                            MinEmployees = q.MinEmployees,
+                            MaxEmployees = q.MaxEmployees,
+                            DailyQuotasJson = q.DailyQuotasJson,
+                        }, d);
+                    var status = registered < minReq ? "Thiếu"
                         : registered <= q.WarningThreshold ? "Cảnh báo"
-                        : registered > q.MaxEmployees ? "Vượt" : "Đạt";
+                        : maxAllowed > 0 && registered > maxAllowed ? "Vượt" : "Đạt";
 
                     items.Add(new ShiftCoverageItemDto
                     {
@@ -319,11 +329,11 @@ public class LeaveShiftReportsController(
                         ShiftId = q.ShiftTemplateId,
                         ShiftName = q.ShiftName ?? "-",
                         Department = q.Department ?? "(Toàn công ty)",
-                        MinRequired = q.MinEmployees,
-                        MaxAllowed = q.MaxEmployees,
+                        MinRequired = minReq,
+                        MaxAllowed = maxAllowed,
                         Registered = registered,
                         Status = status,
-                        Gap = Math.Max(0, q.MinEmployees - registered)
+                        Gap = Math.Max(0, minReq - registered)
                     });
                 }
             }

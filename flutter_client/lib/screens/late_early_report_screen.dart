@@ -560,24 +560,26 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       return;
     }
 
-    final lines = <String>[];
+    // Số tiền theo bậc phạt cài đặt; dưới bậc 1 (VD trễ 10P, bậc 1 = 15P) → 0,
+    // người phạt tự nhập (không phải lỗi "chưa cấu hình").
     final payloads = <Map<String, dynamic>>[];
+    final amountCtrls = <TextEditingController>[];
+    final hints = <String>[];
     for (final type in needed) {
       final mins = type == 'Late' ? e.lateMinutes : e.earlyMinutes;
       final amount = _amountFor(type, mins);
-      if (amount <= 0) {
-        appNotification.showWarning(
-            title: 'Chưa cấu hình mức phạt',
-            message: tr(
-                'Vào Thiết lập phạt để cấu hình bậc phạt đi trễ / về sớm'));
-        return;
-      }
       final label = type == 'Late' ? 'Đi trễ' : 'Về sớm';
       final draft = _draftExplanations[_draftKey(e, type)]?.trim();
       final desc = (draft != null && draft.isNotEmpty)
           ? draft
           : '$label $mins phút — ${e.employeeName}';
-      lines.add('$label $mins phút → ${_money(amount)}');
+      final m1 = _toInt(
+          _penaltySettings[type == 'Late' ? 'lateMinutes1' : 'earlyMinutes1'], 15);
+      hints.add(amount > 0
+          ? '$label $mins phút — theo bậc phạt'
+          : '$label $mins phút — dưới bậc 1 ($m1 phút), nhập số tiền nếu vẫn phạt');
+      amountCtrls.add(TextEditingController(
+          text: amount > 0 ? NumberFormat('#,###', 'vi_VN').format(amount.round()) : ''));
       payloads.add({
         'employeeId': guid,
         'type': type,
@@ -587,6 +589,8 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
         'description': desc,
       });
     }
+    double parseAmount(String t) =>
+        double.tryParse(t.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
 
     final explanationCtrl = TextEditingController(
       text: _explanationText(e),
@@ -606,11 +610,22 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                 style: vietnameseTextStyle(
                     const TextStyle(fontWeight: FontWeight.w600))),
             const SizedBox(height: 8),
-            ...lines.map((l) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(tr(l), style: vietnameseTextStyle()),
-                )),
-            const SizedBox(height: 12),
+            for (var i = 0; i < payloads.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: TextField(
+                  controller: amountCtrls[i],
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: tr('Số tiền phạt (đ)'),
+                    helperText: tr(hints[i]),
+                    helperMaxLines: 2,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 4),
             TextField(
               controller: explanationCtrl,
               decoration: InputDecoration(
@@ -639,7 +654,17 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     );
     final note = explanationCtrl.text.trim();
     explanationCtrl.dispose();
+    for (var i = 0; i < payloads.length; i++) {
+      payloads[i]['amount'] = parseAmount(amountCtrls[i].text);
+      amountCtrls[i].dispose();
+    }
     if (confirmed != true) return;
+    if (payloads.any((p) => (p['amount'] as double) <= 0)) {
+      appNotification.showWarning(
+          title: 'Chưa nhập số tiền',
+          message: tr('Nhập số tiền phạt lớn hơn 0 cho từng lỗi'));
+      return;
+    }
 
     setState(() => _actionBusy = true);
     try {
