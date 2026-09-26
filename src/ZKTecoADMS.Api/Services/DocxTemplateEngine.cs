@@ -8,8 +8,13 @@ namespace ZKTecoADMS.Api.Services;
 /// <summary>Một đoạn văn trong file Word: Id = "{part}:{chỉ số}" (part: document / header1 / footer2...).</summary>
 public sealed record DocxParagraph(string Id, string Text, bool InTable);
 
-/// <summary>Thay cụm chữ <see cref="Find"/> trong đoạn <see cref="ParagraphId"/> bằng mã trường {Field}.</summary>
-public sealed record DocxReplacement(string ParagraphId, string Find, string Field);
+/// <summary>
+/// Thay cụm chữ <see cref="Find"/> trong đoạn <see cref="ParagraphId"/> bằng mã trường {Field}.
+/// <see cref="Start"/> = vị trí ký tự trong đoạn GỐC (chọn trên màn soạn — đúng lần xuất hiện);
+/// null = lần xuất hiện đầu chưa bị thay (AI / dữ liệu cũ).
+/// Field <c>_Text</c> = sửa câu chữ cố định thành <see cref="Text"/>; <c>_Xoa</c> = xóa cụm chữ.
+/// </summary>
+public sealed record DocxReplacement(string ParagraphId, string Find, string Field, int? Start = null, string? Text = null);
 
 /// <summary>
 /// Mẫu Word giữ nguyên bố cục: chèn mã trường {Field} vào đúng đoạn văn (giữ run / định dạng),
@@ -22,6 +27,8 @@ public static class DocxTemplateEngine
     static readonly Regex TokenRx = new(@"\{([A-Za-z][A-Za-z0-9_]*)\}", RegexOptions.Compiled);
     /// <summary>Trường đặc biệt: xóa cụm chữ (phần thừa của giá trị bị ngắt dòng).</summary>
     public const string ClearField = "_Xoa";
+    /// <summary>Trường đặc biệt: sửa câu chữ cố định (giá trị trong DocxReplacement.Text).</summary>
+    public const string TextField = "_Text";
 
     static readonly Regex PartRx = new(@"^word/(document|header\d*|footer\d*)\.xml$", RegexOptions.Compiled);
 
@@ -69,11 +76,14 @@ public static class DocxTemplateEngine
             for (var i = 0; i < paragraphs.Count; i++)
             {
                 var id = $"{partName}:{i}";
-                foreach (var r in replacements.Where(r => r.ParagraphId == id))
+                var mine = replacements.Where(r => r.ParagraphId == id).ToList();
+                if (mine.Count > 0)
                 {
-                    var value = r.Field == ClearField ? "" : "{" + r.Field + "}";
-                    if (ReplaceInParagraph(paragraphs[i], r.Find, value))
-                        applied.Add(r);
+                    // Xác định vị trí trên chữ GỐC rồi thay từ cuối lên đầu (vị trí phía trước không bị lệch).
+                    var resolved = ResolveRanges(ParagraphText(paragraphs[i]), mine);
+                    foreach (var r in resolved.OrderByDescending(x => x.Start))
+                        ReplaceAt(paragraphs[i], r.Start!.Value, r.Find.Length, ValueOf(r));
+                    applied.AddRange(resolved);
                 }
                 if (removeIds.Contains(id) && paragraphs[i].Ancestors(W + "tr").FirstOrDefault() is { } tr)
                     rowsToRemove.Add(tr);
@@ -182,15 +192,59 @@ public static class DocxTemplateEngine
     static IEnumerable<string> TokensIn(XElement e) =>
         TokenRx.Matches(string.Concat(e.Descendants(W + "t").Select(t => t.Value))).Select(m => m.Groups[1].Value);
 
+    static string ValueOf(DocxReplacement r) => r.Field switch
+    {
+        ClearField => "",
+        TextField => r.Text ?? "",
+        _ => "{" + r.Field + "}",
+    };
+
+    /// <summary>
+    /// Vị trí từng thay thế trong chữ gốc của đoạn: dùng <c>Start</c> nếu đúng chữ ở đó, không thì lần xuất hiện
+    /// đầu tiên chưa bị thay thế khác chiếm. Các vùng không chồng lên nhau. Trả bản ghi có Start đã xác định.
+    /// </summary>
+    public static List<DocxReplacement> ResolveRanges(string text, IEnumerable<DocxReplacement> replacements)
+    {
+        var taken = new List<(int S, int E)>();
+        var result = new List<DocxReplacement>();
+        bool Free(int s, int len) => taken.All(t => s + len <= t.S || s >= t.E);
+        foreach (var r in replacements)
+        {
+            if (string.IsNullOrEmpty(r.Find)) continue;
+            var len = r.Find.Length;
+            var start = -1;
+            if (r.Start is int s && s >= 0 && s + len <= text.Length
+                && string.CompareOrdinal(text, s, r.Find, 0, len) == 0 && Free(s, len))
+                start = s;
+            else
+            {
+                var idx = text.IndexOf(r.Find, StringComparison.Ordinal);
+                while (idx >= 0 && !Free(idx, len))
+                    idx = text.IndexOf(r.Find, idx + 1, StringComparison.Ordinal);
+                start = idx;
+            }
+            if (start < 0) continue;
+            taken.Add((start, start + len));
+            result.Add(r with { Start = start });
+        }
+        return result;
+    }
+
     /// <summary>Thay lần xuất hiện đầu của <paramref name="find"/> (có thể trải nhiều run) — giữ định dạng run đầu.</summary>
     static bool ReplaceInParagraph(XElement p, string find, string replacement)
     {
         if (string.IsNullOrEmpty(find)) return false;
-        var nodes = TextNodes(p);
-        var full = string.Concat(nodes.Select(n => n.Value));
+        var full = ParagraphText(p);
         var start = full.IndexOf(find, StringComparison.Ordinal);
         if (start < 0) return false;
-        var end = start + find.Length;
+        return ReplaceAt(p, start, find.Length, replacement);
+    }
+
+    /// <summary>Thay đoạn chữ [start, start+length) của đoạn văn (có thể trải nhiều run) — giữ định dạng run đầu.</summary>
+    static bool ReplaceAt(XElement p, int start, int length, string replacement)
+    {
+        var nodes = TextNodes(p);
+        var end = start + length;
 
         var pos = 0;
         var placed = false;

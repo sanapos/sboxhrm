@@ -18841,6 +18841,18 @@ class ApiService {
   Future<Map<String, dynamic>> downloadPosDocxTemplate(String id) =>
       _getBinary(Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/file'));
 
+  /// Trang HTML soạn mẫu Word trực quan (giống bản in, đánh dấu vị trí từng chữ).
+  Future<Map<String, dynamic>> getPosDocxTemplateEditor(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/editor'), headers: _headers)
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// PDF xem trước mẫu Word: view = original (file gốc) / fields (trường tô màu) / sample (in thử).
   Future<Map<String, dynamic>> getPosDocxTemplatePreview(String id, String view) => _getBinary(
       Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/preview')

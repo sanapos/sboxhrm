@@ -29,7 +29,7 @@ public class PosDocxTemplatesController(
     const long MaxBytes = 15 * 1024 * 1024;
     static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
-    public sealed record MappingItem(string ParagraphId, string Find, string Field, string? Context);
+    public sealed record MappingItem(string ParagraphId, string Find, string Field, string? Context, int? Start = null, string? Text = null);
 
     public sealed record MappingDto(
         Guid TemplateId,
@@ -136,7 +136,45 @@ public class PosDocxTemplatesController(
         if (t == null) return NotFound(AppResponse<MappingDto>.Fail("Không tìm thấy mẫu Word"));
         var stored = ReadMapping(t);
         var paragraphs = DocxTemplateEngine.ExtractParagraphs(await System.IO.File.ReadAllBytesAsync(OrigPath(t), ct));
-        return Ok(AppResponse<MappingDto>.Success(ToDto(t, stored.Replacements, stored.RemoveRowParagraphIds, paragraphs, [], false)));
+        return Ok(AppResponse<MappingDto>.Success(ToDto(t, Resolve(stored.Replacements, paragraphs), stored.RemoveRowParagraphIds, paragraphs, [], false)));
+    }
+
+    /// <summary>
+    /// Trang HTML soạn mẫu (dựng từ file GỐC + các chỗ đã gắn): bôi đen chữ để gắn trường, bấm ô trường để đổi / bỏ,
+    /// chuột phải một dòng bảng để bỏ / giữ dòng mẫu. Trang báo thao tác lên màn cha qua postMessage.
+    /// </summary>
+    [HttpGet("{id:guid}/editor")]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> Editor(Guid id, CancellationToken ct)
+    {
+        var t = await FindAsync(id, ct);
+        if (t == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy mẫu Word"));
+        var original = await System.IO.File.ReadAllBytesAsync(OrigPath(t), ct);
+        var stored = ReadMapping(t);
+        var paragraphs = DocxTemplateEngine.ExtractParagraphs(original);
+        var ranges = Resolve(stored.Replacements, paragraphs)
+            .GroupBy(r => r.ParagraphId)
+            .ToDictionary(g => g.Key, g => g.Select(r => new DocxHtmlRenderer.Range(r.Start!.Value, r.Find.Length, r.Field, r.Text)).ToList());
+        try
+        {
+            var html = DocxHtmlRenderer.Render(original, ranges, stored.RemoveRowParagraphIds.ToHashSet(), FieldLabels(),
+                PosDocxTemplateAiService.LineFields.Keys.ToHashSet());
+            return Ok(AppResponse<object>.Success(new { html }));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException or System.Xml.XmlException)
+        {
+            logger.LogWarning(ex, "Docx editor render failed for {Id}", id);
+            return BadRequest(AppResponse<object>.Fail("Không dựng được trang soạn cho file Word này — dùng tab «Trường đã gắn»."));
+        }
+    }
+
+    /// <summary>Gắn vị trí (Start) cho các chỗ đã lưu theo chữ gốc của đoạn — giống lúc áp vào file.</summary>
+    static List<DocxReplacement> Resolve(List<DocxReplacement> stored, List<DocxParagraph> paragraphs)
+    {
+        var text = paragraphs.ToDictionary(p => p.Id, p => p.Text);
+        return stored.GroupBy(r => r.ParagraphId)
+            .SelectMany(g => text.TryGetValue(g.Key, out var tx) ? DocxTemplateEngine.ResolveRanges(tx, g) : [])
+            .ToList();
     }
 
     /// <summary>Áp lại từ file gốc theo danh sách người dùng đã duyệt.</summary>
@@ -146,10 +184,11 @@ public class PosDocxTemplatesController(
     {
         var t = await FindAsync(id, ct, track: true);
         if (t == null) return NotFound(AppResponse<MappingDto>.Fail("Không tìm thấy mẫu Word"));
-        var allowed = PosDocxTemplateAiService.DocumentFields.Keys.Concat(PosDocxTemplateAiService.LineFields.Keys).ToHashSet();
+        var allowed = PosDocxTemplateAiService.DocumentFields.Keys.Concat(PosDocxTemplateAiService.LineFields.Keys)
+            .Append(DocxTemplateEngine.TextField).ToHashSet();
         var replacements = (request.Replacements ?? [])
             .Where(r => !string.IsNullOrEmpty(r.Find) && allowed.Contains(r.Field))
-            .Select(r => new DocxReplacement(r.ParagraphId, r.Find, r.Field))
+            .Select(r => new DocxReplacement(r.ParagraphId, r.Find, r.Field, r.Start, r.Text))
             .ToList();
         var original = await System.IO.File.ReadAllBytesAsync(OrigPath(t), ct);
         var applied = await ApplyAndSaveAsync(t, original, replacements, request.RemoveRowParagraphIds ?? [], ct);
@@ -307,7 +346,8 @@ public class PosDocxTemplatesController(
         return new MappingDto(
             t.Id, t.Name, t.DocumentType.ToString(),
             applied.Select(r => new MappingItem(r.ParagraphId, r.Find, r.Field,
-                textById.TryGetValue(r.ParagraphId, out var ctx) ? (ctx.Length > 160 ? ctx[..160] + "…" : ctx) : null)).ToList(),
+                textById.TryGetValue(r.ParagraphId, out var ctx) ? (ctx.Length > 160 ? ctx[..160] + "…" : ctx) : null,
+                r.Start, r.Text)).ToList(),
             removeRows, warnings, aiUsed,
             paragraphs.Select(p => new ParagraphItem(p.Id, p.Text, p.InTable)).ToList());
     }

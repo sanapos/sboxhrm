@@ -229,4 +229,48 @@ public class DocxTemplateEngineTests
         foreach (var key in PosDocxTemplateAiService.LineFields.Keys)
             Assert.True(lines[0].ContainsKey(key), key);
     }
+
+    [Fact]
+    public void Editor_html_marks_paragraph_offsets_and_field_chips()
+    {
+        var docx = SampleDocx();
+        var paras = DocxTemplateEngine.ExtractParagraphs(docx);
+        var pid = paras.First(p => p.Text == "Kính gửi: Công ty TNHH Minh An").Id;
+        var html = DocxHtmlRenderer.Render(docx,
+            new Dictionary<string, List<DocxHtmlRenderer.Range>> { [pid] = [new(10, 20, "Ten_Cong_Ty_Khach", null)] },
+            new HashSet<string>(),
+            new Dictionary<string, string> { ["Ten_Cong_Ty_Khach"] = "Tên công ty khách hàng (bên A)" },
+            PosDocxTemplateAiService.LineFields.Keys.ToHashSet());
+        Assert.Contains($"data-pid=\"{pid}\"", html);
+        Assert.Contains("data-o=\"0\"", html);                 // "Kính gửi: " bắt đầu ở 0
+        Assert.Contains("data-field=\"Ten_Cong_Ty_Khach\"", html);
+        Assert.Contains(">Tên công ty khách hàng</span>", html);
+        Assert.DoesNotContain("TNHH Minh An", html);             // chữ đã gắn không còn hiện
+        Assert.Contains("<table", html);
+    }
+
+    [Fact]
+    public void Resolve_ranges_uses_chosen_occurrence_and_never_overlaps()
+    {
+        var text = "Bên A: An — đại diện An";
+        var r = DocxTemplateEngine.ResolveRanges(text,
+        [
+            new("p", "An", "Nguoi_Dai_Dien_Khach", Start: 21),   // lần thứ 2 đúng như đã chọn
+            new("p", "An", "Khach_Hang"),                         // không vị trí → lần đầu còn trống
+            new("p", "An", "Ghi_Chu"),                            // hết chỗ → bỏ
+        ]);
+        Assert.Equal([21, 7], r.Select(x => x.Start!.Value));
+    }
+
+    /// <summary>Chạy tay: SBOX_DOCX_SAMPLE=đường dẫn .docx → ghi HTML trang soạn ra SBOX_DOCX_OUT.</summary>
+    [Fact]
+    public void Render_local_sample_when_requested()
+    {
+        var path = Environment.GetEnvironmentVariable("SBOX_DOCX_SAMPLE");
+        var outPath = Environment.GetEnvironmentVariable("SBOX_DOCX_OUT");
+        if (string.IsNullOrEmpty(path) || string.IsNullOrEmpty(outPath) || !File.Exists(path)) return;
+        var html = DocxHtmlRenderer.Render(File.ReadAllBytes(path), new Dictionary<string, List<DocxHtmlRenderer.Range>>(),
+            new HashSet<string>(), new Dictionary<string, string>(), new HashSet<string>());
+        File.WriteAllText(outPath, html);
+    }
 }
