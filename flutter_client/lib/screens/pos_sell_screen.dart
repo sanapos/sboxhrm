@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/pos_scale_barcode.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -7909,6 +7910,22 @@ class _PosSellScreenState extends State<PosSellScreen>
   Future<void> _onBarcodeScanned(String code, {bool mergeIfSame = true}) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) return;
+    // Mã cân điện tử: tách mã hàng (PLU) + trọng lượng / thành tiền → thêm đúng số lượng.
+    final scale = PosScaleBarcodeConfig.parse(_industrySettings?.extraJson).decode(trimmed);
+    if (scale != null) {
+      var pick = await lookupOrPickPosProduct(context, _api, scale.plu);
+      final noZeros = scale.plu.replaceFirst(RegExp(r'^0+'), '');
+      if (pick == null && noZeros.isNotEmpty && noZeros != scale.plu && mounted) {
+        pick = await lookupOrPickPosProduct(context, _api, noZeros);
+      }
+      if (!mounted || pick == null) return;
+      final price = pick.product.basePrice;
+      final qty = scale.isWeight
+          ? scale.value
+          : (price > 0 ? double.parse((scale.value / price).toStringAsFixed(3)) : 1.0);
+      await _addPick(pick, mergeIfSame: false, addQty: qty);
+      return;
+    }
     final pick = await lookupOrPickPosProduct(context, _api, trimmed);
     if (!mounted) return;
     if (pick == null) return;

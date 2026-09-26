@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../utils/pos_scale_barcode.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/pos_product.dart';
@@ -394,6 +395,78 @@ class _PosSellIndustrySettingsScreenState
     );
   }
 
+  /// Mã vạch cân điện tử (EAN-13 đầu 20–29) — lưu ExtraJson.scale.
+  Widget _scaleBarcodeCard(PosStoreSellSettingsDto s) {
+    final c = PosScaleBarcodeConfig.parse(s.extraJson);
+    void save(PosScaleBarcodeConfig next) => _patchAndSave(
+        (cur) => cur.copyWith(extraJson: next.mergeIntoExtraJson(cur.extraJson)));
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Đọc mã vạch cân điện tử')),
+              subtitle: Text(tr(
+                  'Hàng cân (thịt, rau, bánh…): quét mã in từ cân → tự thêm đúng trọng lượng / tiền.')),
+              value: c.enabled,
+              onChanged: _saving ? null : (v) => save(c.copyWith(enabled: v)),
+            ),
+            if (c.enabled) ...[
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(tr('Cân in')),
+                trailing: DropdownButton<String>(
+                  value: c.mode,
+                  items: [
+                    DropdownMenuItem(value: 'weight', child: Text(tr('Trọng lượng (gram)'))),
+                    DropdownMenuItem(value: 'price', child: Text(tr('Thành tiền (đ)'))),
+                  ],
+                  onChanged: _saving ? null : (v) => save(c.copyWith(mode: v)),
+                ),
+              ),
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(tr('Số chữ số mã hàng (PLU)')),
+                trailing: DropdownButton<int>(
+                  value: c.pluDigits,
+                  items: [for (final n in const [4, 5, 6]) DropdownMenuItem(value: n, child: Text('$n'))],
+                  onChanged: _saving ? null : (v) => save(c.copyWith(pluDigits: v)),
+                ),
+              ),
+              TextFormField(
+                initialValue: c.prefixes.join(', '),
+                decoration: InputDecoration(
+                  labelText: tr('Đầu mã của cân'),
+                  helperText: tr('Cách nhau dấu phẩy, vd 20, 21. Mã hàng trên cân = mã hàng / mã vạch trong phần mềm.'),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onFieldSubmitted: (v) => save(c.copyWith(
+                  prefixes: v
+                      .split(RegExp(r'[,; ]+'))
+                      .map((e) => e.trim())
+                      .where((e) => RegExp(r'^\d{2}$').hasMatch(e))
+                      .toList(),
+                )),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildForm() {
     final s = _settings!;
     return ListView(
@@ -555,6 +628,8 @@ class _PosSellIndustrySettingsScreenState
                     (cur) => cur.copyWith(enableHourlyBilling: v)),
           ),
           if (s.sellProfile == PosSellProfile.hotel) _hotelPolicyCard(s),
+          if (s.sellProfile == PosSellProfile.retail || s.sellProfile == PosSellProfile.restaurant)
+            _scaleBarcodeCard(s),
           if (s.enableHourlyBilling) ...[
             const SizedBox(height: 4),
             DropdownButtonFormField<String?>(
