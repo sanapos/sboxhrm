@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/work_schedule_load_utils.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
@@ -284,18 +285,13 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
           toDate: toStr,
           status: 'Pending',
         ).catchError((_) => <dynamic>[]),
-        (isEmployee
-                ? _apiService.getMyWorkSchedules(
-                    fromDate: _fromDate,
-                    toDate: _toDate,
-                    pageSize: 1000,
-                  )
-                : _apiService.getWorkSchedules(
-                    fromDate: _fromDate,
-                    toDate: _toDate,
-                    pageSize: 1000,
-                  ))
-            .catchError((_) => <String, dynamic>{}),
+        // Tải đủ mọi trang lịch (một trang 1.000 dòng không đủ cho cửa hàng đông NV).
+        loadAllWorkSchedulesResponse(
+          _apiService,
+          fromDate: _fromDate,
+          toDate: _toDate,
+          mine: isEmployee,
+        ).catchError((_) => <String, dynamic>{}),
       ]);
 
       final phase2 = await Future.wait([

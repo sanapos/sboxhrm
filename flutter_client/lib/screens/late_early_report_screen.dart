@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/work_schedule_load_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -149,11 +150,9 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           _api,
           preferSelfServiceApi: isEmployee,
         ),
-        (isEmployee
-                ? _api.getMyWorkSchedules(
-                    fromDate: _from, toDate: _to, pageSize: 1000)
-                : _api.getWorkSchedules(
-                    fromDate: _from, toDate: _to, pageSize: 1000))
+        // Tải đủ mọi trang lịch (một trang 1.000 dòng không đủ cho cửa hàng đông NV).
+        loadAllWorkSchedulesResponse(_api,
+                fromDate: _from, toDate: _to, mine: isEmployee)
             .catchError((_) => <String, dynamic>{}),
         _api
             .getPenaltyTickets(

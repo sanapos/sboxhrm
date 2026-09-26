@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../../utils/work_schedule_load_utils.dart';
 import 'dart:math' as math;
 import '../../utils/file_saver.dart' as file_saver;
 import '../../utils/web_canvas.dart' as web_canvas;
@@ -751,12 +752,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         _loadWithTimeout(
             _apiService.getHolidaySettings(_fromDate.year), <dynamic>[]),
         _loadWithTimeout(
-          _apiService.getWorkSchedules(
+          // Tải đủ mọi trang lịch (một trang 1.000 dòng không đủ cho cửa hàng đông NV).
+          loadAllWorkSchedulesResponse(
+            _apiService,
             fromDate: _fromDate,
             toDate: _toDate,
-            pageSize: 1000,
           ),
           <String, dynamic>{},
+          // Nhiều trang lịch → cho thêm thời gian (hết giờ sẽ mất ngày nghỉ theo lịch).
+          timeout: const Duration(seconds: 45),
         ),
         _loadWithTimeout(
           _apiService.getPenaltyTickets(

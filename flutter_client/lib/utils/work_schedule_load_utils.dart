@@ -26,3 +26,17 @@ Future<List<Map<String, dynamic>>> loadAllWorkSchedules(
   }
   return all;
 }
+
+/// Như [loadAllWorkSchedules] nhưng trả về dạng response API (`isSuccess` / `data`) —
+/// thay thẳng cho `getWorkSchedules(...)` ở chỗ đang đọc bằng [extractWorkScheduleItems].
+Future<Map<String, dynamic>> loadAllWorkSchedulesResponse(
+  ApiService api, {
+  required DateTime fromDate,
+  required DateTime toDate,
+  bool mine = false,
+}) async =>
+    {
+      'isSuccess': true,
+      'data': await loadAllWorkSchedules(api,
+          fromDate: fromDate, toDate: toDate, mine: mine),
+    };
