@@ -21,6 +21,10 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
   String _maskedKey = '';
   /// Mọi khóa dùng chung (đã che) — khóa hết lượt tự chuyển sang khóa kế tiếp.
   List<String> _keys = const [];
+  /// Khóa (đã che) → giờ hết tạm nghỉ (hết lượt / sai khóa).
+  Map<String, DateTime> _cooling = const {};
+  /// Khóa (đã che) → kết quả lần thử gần nhất.
+  Map<String, Map> _testByKey = const {};
   bool _appendKey = true;
   String? _testDetail;
   String _model = _models.first;
@@ -45,6 +49,11 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
   void _apply(Map<String, dynamic> d) {
     _maskedKey = (d['apiKey'] ?? '').toString();
     _keys = ((d['apiKeys'] as List?) ?? const []).map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+    _cooling = {
+      for (final st in ((d['keyStatus'] as List?) ?? const []).whereType<Map>())
+        if (st['coolingUntil'] != null && DateTime.tryParse(st['coolingUntil'].toString()) != null)
+          st['key'].toString(): DateTime.parse(st['coolingUntil'].toString()).toLocal(),
+    };
     final m = (d['model'] ?? '').toString();
     _model = m.isEmpty ? _models.first : m;
     _enabled = d['enabled'] == true;
@@ -116,12 +125,51 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
       _testDetail = data is Map
           ? (data['detail']?.toString() ?? '').replaceAll(' · ', '\n')
           : res['message']?.toString();
+      _testByKey = {
+        if (data is Map)
+          for (final r in ((data['keys'] as List?) ?? const []).whereType<Map>()) r['key'].toString(): r,
+      };
     });
+    await _load();
     if (res['isSuccess'] == true) {
       AdminHelpers.showSuccess(context, tr('Kết nối AI thành công ($_model)'));
     } else {
       AdminHelpers.showApiError(context, res);
     }
+  }
+
+  /// Khóa đang được dùng: khóa đầu tiên không tạm nghỉ.
+  int get _firstReadyIndex {
+    for (var i = 0; i < _keys.length; i++) {
+      if (!_cooling.containsKey(_keys[i])) return i;
+    }
+    return -1;
+  }
+
+  Widget _keyStatusChip(String masked, bool inUse) {
+    final test = _testByKey[masked];
+    final until = _cooling[masked];
+    final hhmm = until == null
+        ? ''
+        : '${until.hour.toString().padLeft(2, '0')}:${until.minute.toString().padLeft(2, '0')}';
+    final (String label, Color color) = test != null && test['status'] == 'invalid'
+        ? (tr('Sai / bị khóa'), const Color(0xFFB91C1C))
+        : until != null
+            ? (tr('Hết lượt · nghỉ đến $hhmm'), const Color(0xFFC2410C))
+            : test != null && test['status'] == 'error'
+                ? (tr('Lỗi kết nối'), const Color(0xFFB91C1C))
+                : inUse
+                    ? (tr('Đang dùng'), const Color(0xFF15803D))
+                    : (tr('Dự phòng'), Colors.grey.shade700);
+    return Container(
+      margin: const EdgeInsets.only(left: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w600)),
+    );
   }
 
   @override
@@ -150,6 +198,7 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
                 const Icon(Icons.lock, size: 16, color: Colors.grey),
                 const SizedBox(width: 8),
                 Expanded(child: Text('${tr('Khóa')} ${i + 1}: $k', style: const TextStyle(fontFamily: 'monospace', fontSize: 13))),
+                _keyStatusChip(k, i == _firstReadyIndex),
                 IconButton(
                   tooltip: tr('Xóa khóa này'),
                   onPressed: _saving ? null : () => _removeKey(k),
@@ -159,7 +208,8 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
             ),
           if (_keys.isNotEmpty) ...[
             Text(
-              tr('Nhiều khóa: khóa hết lượt / lỗi tự chuyển sang khóa kế tiếp.'),
+              tr('Dùng lần lượt từ khóa 1: khóa nào hết lượt (quota) tạm nghỉ 15 phút và tự chuyển sang khóa kế tiếp; '
+                  'khóa sai / bị khóa nghỉ 6 giờ. Hết giờ nghỉ thì được dùng lại.'),
               style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
             ),
             CheckboxListTile(
@@ -173,10 +223,15 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
           ],
           TextField(
             controller: _keyCtrl,
-            obscureText: true,
+            minLines: 2,
+            maxLines: 6,
+            keyboardType: TextInputType.multiline,
+            autocorrect: false,
+            enableSuggestions: false,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             decoration: InputDecoration(
-              labelText: tr('Gemini API key'),
-              hintText: _maskedKey.isEmpty ? tr('Dán key từ aistudio.google.com') : _maskedKey,
+              labelText: tr('Gemini API key (mỗi dòng một key)'),
+              hintText: tr('Dán 1 hoặc nhiều key từ aistudio.google.com — mỗi tài khoản Google một key'),
               helperText: _maskedKey.isEmpty ? null : tr('Để trống = giữ các khóa hiện tại'),
               border: const OutlineInputBorder(),
             ),

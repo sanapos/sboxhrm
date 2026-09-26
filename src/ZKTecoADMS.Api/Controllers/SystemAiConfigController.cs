@@ -34,6 +34,7 @@ public class SystemAiConfigController(
         {
             apiKey = Mask(cfg?.ApiKey),
             apiKeys = (cfg?.ApiKeys ?? []).Select(GeminiKeyPool.Mask).ToList(),
+            keyStatus = GeminiKeyPool.Status(cfg?.ApiKeys ?? []),
             keyCount = cfg?.ApiKeys.Count ?? 0,
             model = cfg?.Model ?? "gemini-2.5-flash",
             maxOutputTokens = cfg?.MaxOutputTokens ?? 8192,

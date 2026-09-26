@@ -58,6 +58,14 @@ public static class GeminiKeyPool
     public static void MarkExhausted(string key, TimeSpan duration) =>
         CoolingUntil[Fingerprint(key)] = DateTime.UtcNow + duration;
 
+    /// <summary>Giờ (UTC) khóa hết tạm nghỉ; null nếu khóa đang sẵn sàng.</summary>
+    public static DateTime? CoolingUntilOf(string key) =>
+        CoolingUntil.TryGetValue(Fingerprint(key), out var until) && until > DateTime.UtcNow ? until : null;
+
+    /// <summary>Trạng thái từng khóa (đã che) để hiển thị: sẵn sàng / tạm nghỉ đến giờ nào.</summary>
+    public static List<object> Status(IReadOnlyList<string> keys) =>
+        keys.Select((k, i) => (object)new { index = i + 1, key = Mask(k), coolingUntil = CoolingUntilOf(k) }).ToList();
+
     public static bool IsCoolingDown(string key) =>
         CoolingUntil.TryGetValue(Fingerprint(key), out var until) && until > DateTime.UtcNow;
 

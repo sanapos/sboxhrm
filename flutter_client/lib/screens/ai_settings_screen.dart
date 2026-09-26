@@ -32,6 +32,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   String? _geminiMaskedKey;
   /// Mọi khóa Gemini của cửa hàng (đã che) — khóa hết lượt tự chuyển sang khóa kế tiếp.
   List<String> _geminiKeys = const [];
+  /// Khóa (đã che) đang tạm nghỉ vì hết lượt → giờ được dùng lại.
+  Map<String, DateTime> _geminiCooling = const {};
   /// Khóa mới nhập được thêm vào danh sách (không thay các khóa cũ).
   bool _appendKey = true;
 
@@ -67,6 +69,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             .map((e) => e.toString())
             .where((e) => e.isNotEmpty)
             .toList();
+        _geminiCooling = {
+          for (final st in ((d['keyStatus'] as List?) ?? const []).whereType<Map>())
+            if (DateTime.tryParse('${st['coolingUntil']}') != null)
+              st['key'].toString(): DateTime.parse('${st['coolingUntil']}').toLocal(),
+        };
         _geminiModelController.text = d['model'] ?? 'gemini-2.5-flash';
         _geminiMaxTokensController.text =
             (d['maxOutputTokens'] ?? 2048).toString();
@@ -457,6 +464,15 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                         style: const TextStyle(
                             fontFamily: 'monospace', fontSize: 13, color: Color(0xFF52525B))),
                   ),
+                  if (_geminiCooling[k] != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Text(
+                        tr('Hết lượt · nghỉ đến ${_geminiCooling[k]!.hour.toString().padLeft(2, '0')}:'
+                            '${_geminiCooling[k]!.minute.toString().padLeft(2, '0')}'),
+                        style: const TextStyle(fontSize: 11.5, color: Color(0xFFC2410C), fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   if (_geminiKeys.isNotEmpty)
                     IconButton(
                       tooltip: tr('Xóa khóa này'),
@@ -495,15 +511,16 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         ],
         TextFormField(
           controller: controller,
-          obscureText: obscure,
+          // Nhiều dòng để dán nhiều key một lần (ô ẩn ký tự chỉ cho 1 dòng và sẽ dính các key vào nhau).
+          minLines: 2,
+          maxLines: 6,
+          keyboardType: TextInputType.multiline,
+          autocorrect: false,
+          enableSuggestions: false,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
           decoration: InputDecoration(
-            hintText: tr('sk-... hoặc AIza...'),
+            hintText: tr('AIza... — mỗi dòng một key (mỗi tài khoản Google một key)'),
             prefixIcon: const Icon(Icons.vpn_key, size: 20),
-            suffixIcon: IconButton(
-              icon: Icon(obscure ? Icons.visibility_off : Icons.visibility,
-                  size: 20),
-              onPressed: onObscureToggle,
-            ),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(

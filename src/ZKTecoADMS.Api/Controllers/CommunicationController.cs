@@ -1449,6 +1449,7 @@ public class CommunicationController(
                 apiKey = MaskApiKey(GeminiKeyPool.Parse(apiKeyRaw).FirstOrDefault() ?? ""),
                 // Mọi khóa của cửa hàng (che) — hết lượt khóa này tự chuyển khóa kế, rồi tới khóa AI chung.
                 apiKeys = keyList.Select(GeminiKeyPool.Mask).ToList(),
+                keyStatus = GeminiKeyPool.Status(keyList),
                 keyCount = keyList.Count,
                 model = geminiSettings.GetValueOrDefault("gemini_model") ?? dbConfig?.Model ?? runtime.Model,
                 maxOutputTokens = int.TryParse(geminiSettings.GetValueOrDefault("gemini_max_tokens"), out var t)
