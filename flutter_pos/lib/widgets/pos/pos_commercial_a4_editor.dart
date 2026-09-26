@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -73,6 +74,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   bool _htmlEditorOpen = false;
   final _pageScroll = ScrollController();
   double _contentH = 0;
+  double _previewH = 0;
 
   static const _fonts = <(String, String)>[
     ('Times', "'Times New Roman', Times, serif"),
@@ -1153,7 +1155,34 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _pageRuler(paperW),
-                        if (preview && !_htmlEditorOpen)
+                        // Web: xem trước bằng chính trình duyệt (cùng CSS khung soạn + bản in) —
+                        // flutter_html bỏ căn lề / font / cỡ chữ nên lệch với bản in.
+                        if (preview && !_htmlEditorOpen && kIsWeb)
+                          PosA4UniformScale(
+                            scale: scale,
+                            child: SizedBox(
+                              width: _setup.cssWidth,
+                              height: math.max(_setup.cssHeight, _previewH),
+                              child: Material(
+                                color: Colors.white,
+                                elevation: 8,
+                                shadowColor: Colors.black26,
+                                child: PosCommercialWordSurface(
+                                  key: ValueKey('a4-preview-${_previewHtml.hashCode}'),
+                                  html: _previewHtml,
+                                  editable: false,
+                                  pageSetup: _setup,
+                                  onChanged: (_) {},
+                                  onWheel: _onPageWheel,
+                                  onContentHeight: (h) {
+                                    if ((h - _previewH).abs() < 12) return;
+                                    setState(() => _previewH = h);
+                                  },
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (preview && !_htmlEditorOpen)
                           buildPosA4ZoomedPage(_previewHtml, zoom: scale)
                         else
                           PosA4UniformScale(

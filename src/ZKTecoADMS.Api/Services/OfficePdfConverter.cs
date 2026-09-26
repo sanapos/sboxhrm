@@ -141,6 +141,10 @@ public sealed class OfficePdfConverter(ILogger<OfficePdfConverter> logger)
     static string EnsureA4(string html)
     {
         const string css = "<style>@page{size:A4;margin:10mm 8mm}html,body{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style>";
+        // Bảng không tràn khổ giấy (mẫu có tổng độ rộng cột px lớn hơn trang) — khớp khung soạn / xem trước.
+        const string tableCss = "<style>table{max-width:100% !important;table-layout:auto !important}img{max-width:100%;height:auto}</style>";
+        var headEnd = html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase);
+        if (headEnd >= 0) html = html.Insert(headEnd, tableCss);
         if (html.Contains("@page", StringComparison.OrdinalIgnoreCase)) return html;
         var head = html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase);
         if (head >= 0) return html.Insert(head, css);

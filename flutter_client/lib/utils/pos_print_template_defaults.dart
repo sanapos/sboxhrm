@@ -106,6 +106,23 @@ class PosCommercialPageSetup {
 }
 
 /// HTML in A4/A5 — Times + lề (trùng Soạn / Xem / In thử).
+/// CSS NỘI DUNG dùng chung cho khung soạn A4, xem trước và bản in — soạn thấy sao in ra vậy.
+/// Bảng không bao giờ tràn khổ giấy: bỏ bố cục cột cố định (tổng cột px > trang sẽ tràn),
+/// giới hạn tối đa bằng vùng chữ; cột vẫn theo tỉ lệ đã đặt.
+const posCommercialContentCss = r'''
+  body{font-family:"Times New Roman",Times,serif;font-size:13px;line-height:1.15;color:#111;
+    word-wrap:break-word;overflow-wrap:break-word;}
+  h1,h2,h3{text-align:center;margin:8px 0;}
+  h2{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.2px;margin:4px 0;}
+  h3{font-size:13px;font-weight:700;text-align:left;margin:6px 0 1px;text-transform:none;}
+  p{margin:2px 0;text-indent:0;}
+  b,strong{font-weight:700;}
+  table{border-collapse:collapse;width:100%;max-width:100% !important;table-layout:auto !important;margin:8px 0;}
+  col{max-width:100%;}
+  th,td{padding:4px 5px;vertical-align:top;word-wrap:break-word;overflow-wrap:anywhere;min-width:0;}
+  img{max-width:100%;height:auto;}
+''';
+
 String wrapPosCommercialPrintHtml(
   String bodyHtml,
   PosCommercialPageSetup setup,
@@ -123,24 +140,14 @@ String wrapPosCommercialPrintHtml(
 <style>
   @page { size: $page portrait; margin: 0; }
   html,body{margin:0;background:#fff;}
+$posCommercialContentCss
   body{
-    font-family:"Times New Roman",Times,serif;
-    font-size:13px;line-height:1.15;color:#111;
     padding:${setup.paddingCss};
     box-sizing:border-box;
     max-width:$maxW;
     margin:0 auto;
-    word-wrap:break-word;
-    overflow-wrap:anywhere;
     overflow-x:hidden;
   }
-  h1,h2,h3{text-align:center;margin:8px 0;}
-  h2{font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.2px;margin:4px 0;}
-  h3{font-size:13px;font-weight:700;text-align:left;margin:6px 0 1px;text-transform:none;}
-  p{margin:2px 0;text-align:justify;text-indent:0;}
-  b,strong{font-weight:700;}
-  table{border-collapse:collapse;width:100%;max-width:100%;table-layout:fixed;margin:8px 0;}
-  th,td{padding:5px 6px;vertical-align:top;word-wrap:break-word;overflow-wrap:anywhere;}
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style>
 </head><body>$inner</body></html>

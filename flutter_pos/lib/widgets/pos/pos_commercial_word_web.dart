@@ -134,23 +134,16 @@ class PosCommercialWordSurfaceState extends State<PosCommercialWordSurface> {
   body{overflow:visible;}
   ::-webkit-scrollbar{width:12px;}
   ::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:6px;}
+$posCommercialContentCss
   body{
-    font-family:"Times New Roman",Times,serif;
-    font-size:14px;line-height:1.5;color:#111;
     padding:${widget.pageSetup.paddingCss};min-height:100%;box-sizing:border-box;
-    outline:none;word-wrap:break-word;overflow-wrap:anywhere;overflow-x:hidden;
+    outline:none;overflow-x:hidden;
   }
-  table{border-collapse:collapse;width:100%;max-width:100%;table-layout:fixed;}
-  td,th{padding:5px 7px;vertical-align:top;word-wrap:break-word;overflow-wrap:anywhere;}
-  h1,h2,h3{text-align:center;margin:8px 0;}
-  h2{font-size:18px;font-weight:bold;text-transform:uppercase;}
-  p{margin:6px 0;}
-  img{max-width:100%;height:auto;}
   .sbox-img{vertical-align:middle;}
   #sbox-ruler{position:sticky;top:0;z-index:5;height:22px;background:#f8fafc;border-bottom:1px solid #cbd5e1;cursor:ew-resize;user-select:none;}
   #sbox-caret{position:absolute;top:0;width:2px;height:22px;background:#2563eb;}
 </style></head>
-<body contenteditable="$editableAttr"><div id="sbox-ruler" contenteditable="false"><div id="sbox-caret"></div></div>${posPrintProtectItemMarkers(html)}</body>
+<body contenteditable="$editableAttr">${widget.editable ? '<div id="sbox-ruler" contenteditable="false"><div id="sbox-caret"></div></div>' : ''}${posPrintProtectItemMarkers(html)}</body>
 <script>
 function _sboxFlush(){}
 $posCommercialEditorScript
