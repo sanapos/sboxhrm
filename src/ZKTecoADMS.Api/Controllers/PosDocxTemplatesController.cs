@@ -98,7 +98,10 @@ public class PosDocxTemplatesController(
         {
             try
             {
-                analysis = await ai.AnalyzeAsync(paragraphs, PosQuoteDocumentHtml.TitleOf(KindOf(documentType)), ct);
+                var title = PosPrintDocumentTypes.IsCommercial(documentType)
+                    ? PosQuoteDocumentHtml.TitleOf(KindOf(documentType))
+                    : PosPrintTemplateDefaults.DocumentTitle(documentType);
+                analysis = await ai.AnalyzeAsync(paragraphs, title, ct);
                 aiUsed = true;
             }
             catch (Exception ex) when (ex is AiApiException or InvalidOperationException or JsonException)
@@ -292,6 +295,53 @@ public class PosDocxTemplatesController(
         return File(await System.IO.File.ReadAllBytesAsync(cache, ct), "application/pdf", $"{t.Name}-{view}.pdf");
     }
 
+    public sealed record RenderRequest(
+        Dictionary<string, string?>? Data,
+        List<Dictionary<string, string?>>? Lines,
+        string? Format,
+        string? FileName);
+
+    /// <summary>
+    /// Điền dữ liệu chứng từ do máy bán hàng dựng sẵn (cùng bộ trường như mẫu HTML: hóa đơn, trả hàng, giao hàng…)
+    /// vào mẫu Word → PDF (mặc định) hoặc .docx. Giá trị là chữ thuần; HTML (ảnh, con dấu) bị bỏ qua.
+    /// </summary>
+    [HttpPost("{id:guid}/render")]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "PosSell", "PosSaleOrders", "PosSaleReturns", "PosPrintTemplates")]
+    [RequestSizeLimit(5_000_000)]
+    public async Task<IActionResult> RenderWithData(Guid id, [FromBody] RenderRequest body, CancellationToken ct)
+    {
+        var storeId = RequiredStoreId;
+        var t = await db.PosPrintTemplates.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null && x.DocxFilePath != null, ct);
+        if (t == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy mẫu Word"));
+        var path = TemplatePath(t);
+        if (!System.IO.File.Exists(path))
+            return NotFound(AppResponse<object>.Fail("Thiếu file mẫu trên máy chủ — tải lại file Word."));
+
+        static string Clean(string? v) => (v ?? "").Length > 4000 ? v![..4000] : v ?? "";
+        var data = (body.Data ?? []).Where(kv => kv.Key.Length <= 60)
+            .ToDictionary(kv => kv.Key, kv => Clean(kv.Value));
+        var lines = (body.Lines ?? []).Take(2000)
+            .Select(l => (IReadOnlyDictionary<string, string>)l.Where(kv => kv.Key.Length <= 60)
+                .ToDictionary(kv => kv.Key, kv => Clean(kv.Value)))
+            .ToList();
+        var filled = DocxTemplateEngine.Render(await System.IO.File.ReadAllBytesAsync(path, ct), data, lines);
+
+        var name = string.Concat((body.FileName ?? t.Name).Where(c => char.IsLetterOrDigit(c) || c is '_' or '-'));
+        if (name.Length == 0) name = "ChungTu";
+        if (string.Equals(body.Format, "docx", StringComparison.OrdinalIgnoreCase))
+            return File(filled, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", name + ".docx");
+        try
+        {
+            var converter = HttpContext.RequestServices.GetRequiredService<OfficePdfConverter>();
+            return File(await converter.ToPdfAsync(filled, ".docx", ct), "application/pdf", name + ".pdf");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(AppResponse<object>.Fail(ex.Message));
+        }
+    }
+
     static Dictionary<string, string> FieldLabels()
     {
         var labels = new Dictionary<string, string>();
@@ -350,6 +400,13 @@ public class PosDocxTemplatesController(
                 r.Start, r.Text)).ToList(),
             removeRows, warnings, aiUsed,
             paragraphs.Select(p => new ParagraphItem(p.Id, p.Text, p.InTable)).ToList());
+    }
+
+    static class PosPrintDocumentTypes
+    {
+        public static bool IsCommercial(PosPrintDocumentType t) => t is PosPrintDocumentType.Quote
+            or PosPrintDocumentType.Contract or PosPrintDocumentType.Handover or PosPrintDocumentType.Acceptance
+            or PosPrintDocumentType.PaymentRequest or PosPrintDocumentType.StockIssue;
     }
 
     static PosQuoteDocumentKind KindOf(PosPrintDocumentType t) => t switch

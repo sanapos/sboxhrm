@@ -18932,6 +18932,44 @@ class ApiService {
   }
 
   // ── Mẫu Word giữ nguyên bố cục (AI gắn mã trường) ──────────
+  /// Điền dữ liệu chứng từ (cùng bộ trường mẫu HTML) vào mẫu Word → PDF / docx (máy chủ LibreOffice).
+  Future<Map<String, dynamic>> renderPosDocxTemplate(
+    String templateId, {
+    required Map<String, String> data,
+    required List<Map<String, String>> lines,
+    String format = 'pdf',
+    String? fileName,
+  }) async {
+    try {
+      final response = await _retryOnUnauthorized(
+        () => http
+            .post(Uri.parse('$baseUrl/api/pos/print-templates/docx/$templateId/render'),
+                headers: _headers,
+                body: json.encode({
+                  'data': data,
+                  'lines': lines,
+                  'format': format,
+                  if (fileName != null) 'fileName': fileName,
+                }))
+            .timeout(const Duration(seconds: 120)),
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {'isSuccess': true, 'data': response.bodyBytes.toList()};
+      }
+      String? message;
+      try {
+        final d = json.decode(utf8.decode(response.bodyBytes, allowMalformed: true));
+        if (d is Map) message = (d['message'] ?? d['Message'])?.toString();
+      } catch (_) {}
+      return {
+        'isSuccess': false,
+        'message': message ?? 'Không điền được mẫu Word (${response.statusCode})',
+      };
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// PDF thật (Chromium trên máy chủ) từ đúng HTML đang in trên máy.
   Future<Map<String, dynamic>> exportPosQuotePdfFromHtml(
     String quoteId, {

@@ -26,6 +26,7 @@ import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_thermal_printer_service.dart';
 import 'pos_print_template_runtime.dart';
+import 'pos_docx_print.dart';
 import 'pos_sell_store_settings.dart';
 import 'pos_printer_peripheral.dart';
 import 'pos_vietqr_helper.dart';
@@ -694,8 +695,26 @@ Future<bool> printPosSaleOrder({
   final saleDate =
       printOrder.saleDate?.toLocal() ?? printOrder.createdAt?.toLocal() ?? DateTime.now();
 
+  // Mẫu Word (A4, giữ bố cục file khách): máy chủ điền dữ liệu → PDF.
+  if (template != null && template.isDocx) {
+    final ok = await printWithPosDocxTemplate(
+      context,
+      template: template,
+      data: buildSaleOrderPrintData(
+        printOrder,
+        storeName: branchName,
+        storeAddress: storeAddress,
+        storePhone: storePhone,
+        paperSize: template.paperSize,
+      ),
+      lines: buildSaleOrderPrintLines(printOrder.lines, mergeSameItems: mergeSameItems),
+      title: 'Hóa đơn ${printOrder.orderNo.isEmpty ? 'tạm' : printOrder.orderNo}',
+    );
+    if (ok) return true;
+  }
+
   // Fallback HTML/PDF chỉ trên web khi caller cho phép.
-  if (template != null && template.htmlContent.trim().isNotEmpty) {
+  if (template != null && template.htmlContent.trim().isNotEmpty && !template.isDocx) {
     final html = renderSaleOrderTemplate(
       template.htmlContent,
       printOrder,

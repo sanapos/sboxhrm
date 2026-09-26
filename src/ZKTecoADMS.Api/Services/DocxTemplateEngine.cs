@@ -444,6 +444,18 @@ public static class DocxTemplateEngine
             ["Ghi_Chu"] = "Giao hàng giờ hành chính",
             ["Nguoi_Bao_Gia"] = "Phạm Thu Hà",
             ["Nhan_Vien"] = "Phạm Thu Hà",
+            ["MST_Cua_Hang"] = "0312345678",
+            ["Dien_Thoai_Chi_Nhanh"] = "0909 123 456",
+            ["Ma_Don_Hang"] = "HD000123",
+            ["Gio"] = DateTime.UtcNow.AddHours(7).ToString("HH:mm"),
+            ["Nguoi_Ban"] = "Phạm Thu Hà",
+            ["Ten_Ban"] = "Bàn 5",
+            ["Phi_Giao_Hang"] = "30.000",
+            ["Phu_Thu"] = "0",
+            ["Khach_Can_Tra"] = "24.300.000",
+            ["Khach_Thanh_Toan"] = "24.500.000",
+            ["Tien_Thua"] = "200.000",
+            ["Con_Lai"] = "0",
         };
         var lines = new List<IReadOnlyDictionary<string, string>>
         {

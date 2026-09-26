@@ -1,4 +1,6 @@
 import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
+import '../widgets/pos/pos_pdf_preview_dialog.dart';
 import '../providers/permission_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
@@ -662,17 +664,22 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   bool get _isCommercialDoc =>
       PosPrintDocumentTypes.isCommercial(_docType);
 
+  /// Loại phiếu dùng được mẫu Word A4 giữ bố cục (báo giá / HĐ / biên bản + hóa đơn bán, trả, giao hàng).
+  bool get _supportsWordTpl =>
+      _isCommercialDoc ||
+      const [
+        PosPrintDocumentTypes.saleInvoice,
+        PosPrintDocumentTypes.saleOrder,
+        PosPrintDocumentTypes.saleReturn,
+        PosPrintDocumentTypes.delivery,
+      ].contains(_docType);
+
   /// Mẫu Word của khách giữ nguyên bố cục: AI chỉ chỗ dữ liệu động → xem lại → lưu.
   // Quyền module «Mẫu in» (server chặn cùng mức) — ẩn / khóa thao tác không được phép.
   PermissionProvider get _perm => context.read<PermissionProvider>();
   bool get _canCreateTpl => _perm.canCreate('PosPrintTemplates');
   bool get _canEditTpl => _perm.canEdit('PosPrintTemplates');
   bool get _canDeleteTpl => _perm.canDelete('PosPrintTemplates');
-
-  Future<void> _importDocxAi() async {
-    final created = await importPosDocxTemplateWithAi(context, _api, documentType: _docType);
-    if (created && mounted) await _load();
-  }
 
   Future<void> _reviewDocx() async {
     final id = _selected?.id;
@@ -690,6 +697,28 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       );
       if (pick == null || pick.files.isEmpty) return;
       final f = pick.files.first;
+      final lower = f.name.toLowerCase();
+      // Word .docx: luôn giữ nguyên bố cục file (không chuyển sang HTML) → AI gắn trường → trình soạn mẫu.
+      if (lower.endsWith('.docx')) {
+        if (!mounted) return;
+        final created = await importPosDocxTemplateWithAi(context, _api, documentType: _docType, file: f);
+        if (created && mounted) await _load();
+        return;
+      }
+      if (lower.endsWith('.doc')) {
+        NotificationOverlayManager().showError(
+          title: 'File Word cũ (.doc)',
+          message: tr('Mở file bằng Word → Lưu thành (.docx) rồi tải lên để giữ nguyên bố cục.'),
+        );
+        return;
+      }
+      if (!_isCommercialDoc) {
+        NotificationOverlayManager().showError(
+          title: 'Chỉ nhận file Word',
+          message: tr('Hóa đơn A4: tải file Word (.docx). PDF không giữ được chữ để gắn dữ liệu.'),
+        );
+        return;
+      }
       final bytes = f.bytes;
       if (bytes == null) {
         NotificationOverlayManager().showError(
@@ -730,6 +759,22 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   }
 
   Future<void> _testPrintTemplate() async {
+    // Mẫu Word: in thử = PDF điền dữ liệu mẫu (đúng như bản in thật).
+    if (_selected?.isDocx == true) {
+      final res = await _api.getPosDocxTemplatePreview(_selected!.id, 'sample');
+      if (!mounted) return;
+      if (res['isSuccess'] != true || res['data'] is! List) {
+        NotificationOverlayManager().showError(
+            title: 'Không dựng được bản in thử', message: res['message']?.toString() ?? '');
+        return;
+      }
+      await showPosPdfPreviewDialog(
+        context,
+        bytes: Uint8List.fromList(List<int>.from(res['data'] as List)),
+        title: tr('In thử · ${_selected!.name}'),
+      );
+      return;
+    }
     if (_isCommercialDoc) {
       final paper = PosPrintPaperSizes.normalizeCommercialPaper(_commercialPaper);
       final raw = (_legacyHtml ?? '').trim().isEmpty
@@ -1618,8 +1663,6 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     _addTemplate();
                   case 'import':
                     _importCustomerTemplate();
-                  case 'import_docx_ai':
-                    _importDocxAi();
                   case 'docx_review':
                     _reviewDocx();
                   case 'print':
@@ -1633,16 +1676,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               itemBuilder: (_) => [
                 if (_canCreateTpl)
                   PopupMenuItem(value: 'add', child: Text(tr('Thêm mẫu'))),
-                if (_isCommercialDoc && _canCreateTpl)
+                if (_supportsWordTpl && _canCreateTpl)
                   PopupMenuItem(
-                      value: 'import_docx_ai',
-                      child: Text(tr('Mẫu Word giữ bố cục (AI)'))),
-                if (_isCommercialDoc && _canCreateTpl)
-                  PopupMenuItem(
-                      value: 'import', child: Text(tr('Tải Word / PDF'))),
+                      value: 'import', child: Text(tr('Tải mẫu Word (giữ bố cục)'))),
                 if (_selected?.isDocx == true && _canEditTpl)
                   PopupMenuItem(
-                      value: 'docx_review', child: Text(tr('Trường mẫu Word'))),
+                      value: 'docx_review', child: Text(tr('Soạn mẫu Word'))),
                 PopupMenuItem(value: 'print', child: Text(tr('In thử'))),
                 if (_selected != null && !_selected!.isDefault && _canEditTpl)
                   PopupMenuItem(
@@ -1670,21 +1709,15 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             onPressed: _addTemplate,
             icon: const Icon(Icons.add_circle_outline, color: _blue),
           ),
-          if (_isCommercialDoc && _canCreateTpl)
-            IconButton(
-              tooltip: tr('Mẫu Word giữ bố cục (AI gắn dữ liệu)'),
-              onPressed: _importDocxAi,
-              icon: const Icon(Icons.auto_awesome, color: _blue),
-            ),
           if (_selected?.isDocx == true && _canEditTpl)
             IconButton(
-              tooltip: tr('Trường mẫu Word'),
+              tooltip: tr('Soạn mẫu Word (gắn trường, sửa chữ, xem bản in)'),
               onPressed: _reviewDocx,
               icon: const Icon(Icons.edit_note, color: _blue),
             ),
-          if (_isCommercialDoc && _canCreateTpl)
+          if (_supportsWordTpl && _canCreateTpl)
             IconButton(
-              tooltip: tr('Tải mẫu Word / PDF của khách'),
+              tooltip: tr('Tải mẫu Word của khách (giữ nguyên bố cục, AI gắn dữ liệu)'),
               onPressed: _importCustomerTemplate,
               icon: const Icon(Icons.upload_file_outlined, color: _blue),
             ),

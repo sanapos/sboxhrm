@@ -21,15 +21,20 @@ Future<bool> importPosDocxTemplateWithAi(
   BuildContext context,
   ApiService api, {
   required String documentType,
+  /// File .docx đã chọn sẵn (nút tải mẫu chung); null = mở hộp chọn file.
+  PlatformFile? file,
 }) async {
-  final pick = await FilePicker.platform.pickFiles(
-    type: FileType.custom,
-    allowedExtensions: const ['docx'],
-    withData: true,
-  );
-  if (pick == null || pick.files.isEmpty || pick.files.first.bytes == null) return false;
-  final f = pick.files.first;
-  if (!context.mounted) return false;
+  var f = file;
+  if (f == null) {
+    final pick = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['docx'],
+      withData: true,
+    );
+    if (pick == null || pick.files.isEmpty) return false;
+    f = pick.files.first;
+  }
+  if (f.bytes == null || !context.mounted) return false;
 
   showDialog<void>(
     context: context,

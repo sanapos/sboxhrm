@@ -61,6 +61,21 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
         ["Bao_Hanh"] = "Thời hạn bảo hành chung",
         ["Ghi_Chu"] = "Ghi chú",
         ["Nguoi_Bao_Gia"] = "Người lập báo giá",
+        // Hóa đơn bán / trả hàng / giao hàng (khớp dữ liệu in HTML trên máy bán hàng).
+        ["Ten_Cua_Hang"] = "Tên cửa hàng / chi nhánh",
+        ["Dia_Chi_Chi_Nhanh"] = "Địa chỉ chi nhánh",
+        ["Dien_Thoai_Chi_Nhanh"] = "Điện thoại chi nhánh",
+        ["MST_Cua_Hang"] = "Mã số thuế cửa hàng",
+        ["Ma_Don_Hang"] = "Số hóa đơn / mã đơn hàng",
+        ["Gio"] = "Giờ lập hóa đơn",
+        ["Nguoi_Ban"] = "Nhân viên bán hàng / thu ngân",
+        ["Ten_Ban"] = "Bàn / phòng",
+        ["Phi_Giao_Hang"] = "Phí giao hàng",
+        ["Phu_Thu"] = "Phụ thu",
+        ["Khach_Can_Tra"] = "Khách cần trả",
+        ["Khach_Thanh_Toan"] = "Khách đã thanh toán",
+        ["Tien_Thua"] = "Tiền thừa trả khách",
+        ["Con_Lai"] = "Còn nợ lại",
         [ClearField] = "XÓA chữ này (phần thừa khi một giá trị bị ngắt sang dòng / ô khác)",
     };
 
