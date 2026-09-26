@@ -216,7 +216,12 @@ public class CommunicationFilterDto
 /// </summary>
 public class UpdateGeminiConfigDto
 {
+    /// <summary>Một hoặc nhiều khóa (mỗi dòng một khóa).</summary>
     public string? ApiKey { get; set; }
+    /// <summary>true = thêm vào danh sách khóa hiện có; false/null = thay toàn bộ bằng khóa mới.</summary>
+    public bool? AppendApiKey { get; set; }
+    /// <summary>Mặt nạ khóa cần xóa (dạng AIza****abcd như màn hình hiển thị).</summary>
+    public List<string>? RemoveApiKeys { get; set; }
     public string? Model { get; set; }
     public int? MaxOutputTokens { get; set; }
     public double? Temperature { get; set; }

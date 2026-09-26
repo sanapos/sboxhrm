@@ -30,6 +30,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   bool _geminiConfigured = false;
   bool _geminiObscure = true;
   String? _geminiMaskedKey;
+  /// Mọi khóa Gemini của cửa hàng (đã che) — khóa hết lượt tự chuyển sang khóa kế tiếp.
+  List<String> _geminiKeys = const [];
+  /// Khóa mới nhập được thêm vào danh sách (không thay các khóa cũ).
+  bool _appendKey = true;
 
   bool _isLoading = true;
   bool _isSaving = false;
@@ -59,6 +63,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       if (gemini['isSuccess'] == true && gemini['data'] != null) {
         final d = gemini['data'];
         _geminiMaskedKey = d['apiKey'] ?? '';
+        _geminiKeys = ((d['apiKeys'] as List?) ?? const [])
+            .map((e) => e.toString())
+            .where((e) => e.isNotEmpty)
+            .toList();
         _geminiModelController.text = d['model'] ?? 'gemini-2.5-flash';
         _geminiMaxTokensController.text =
             (d['maxOutputTokens'] ?? 2048).toString();
@@ -86,12 +94,39 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     if (mounted) setState(() => _isSaving = false);
   }
 
+  Future<void> _removeGeminiKey(String masked) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xóa khóa AI?')),
+        content: Text(masked),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Xóa'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _isSaving = true);
+    final result = await _apiService.updateGeminiConfig({'removeApiKeys': [masked]});
+    if (!mounted) return;
+    if (result['isSuccess'] == true) {
+      appNotification.showSuccess(title: 'Đã xóa', message: tr('Đã xóa khóa AI'));
+      await _loadAllConfigs();
+    } else {
+      appNotification.showError(
+          title: 'Lỗi', message: result['message']?.toString() ?? tr('Không xóa được khóa'));
+    }
+    if (mounted) setState(() => _isSaving = false);
+  }
+
   Future<void> _saveGeminiConfig() async {
     setState(() => _isSaving = true);
     try {
       final data = <String, dynamic>{};
       if (_geminiApiKeyController.text.isNotEmpty) {
         data['apiKey'] = _geminiApiKeyController.text.trim();
+        data['appendApiKey'] = _appendKey && _geminiKeys.isNotEmpty;
       }
       if (_geminiModelController.text.isNotEmpty) {
         data['model'] = _geminiModelController.text.trim();
@@ -145,7 +180,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         final success = data['success'] == true;
         setState(() {
           _testSuccess = success;
-          if (success && !isQuotaError) {
+          if (data['keys'] is List) {
+            // Nhiều khóa: kết quả từng khóa.
+            _testResult = '${data['message']}\n\n${(data['detail'] ?? '').toString().replaceAll(' · ', '\n')}';
+          } else if (success && !isQuotaError) {
             _testResult =
                 '${data['message']}\n\nTiêu đề mẫu: ${data['sampleTitle']}';
           } else if (isQuotaError) {
@@ -401,28 +439,52 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       icon: Icons.key,
       iconColor: const Color(0xFFF59E0B),
       children: [
-        if (maskedKey != null && maskedKey.isNotEmpty) ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(8),
+        if (_geminiKeys.isNotEmpty || (maskedKey != null && maskedKey.isNotEmpty)) ...[
+          for (final (i, k) in (_geminiKeys.isNotEmpty ? _geminiKeys : [maskedKey!]).indexed)
+            Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lock, size: 16, color: Color(0xFF71717A)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('${tr('Khóa')} ${i + 1}: $k',
+                        style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 13, color: Color(0xFF52525B))),
+                  ),
+                  if (_geminiKeys.isNotEmpty)
+                    IconButton(
+                      tooltip: tr('Xóa khóa này'),
+                      onPressed: _isSaving ? null : () => _removeGeminiKey(k),
+                      icon: const Icon(Icons.close, size: 18, color: Color(0xFFB91C1C)),
+                    ),
+                ],
+              ),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.lock, size: 16, color: Color(0xFF71717A)),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(tr('Key hiện tại: $maskedKey'),
-                      style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 13,
-                          color: Color(0xFF71717A))),
-                ),
-              ],
+          Padding(
+            padding: const EdgeInsets.only(top: 2, bottom: 8),
+            child: Text(
+              tr('Có thể thêm nhiều khóa: khóa nào hết lượt (quota) hoặc lỗi sẽ tự chuyển sang khóa kế tiếp, '
+                  'hết khóa của cửa hàng thì dùng AI chung của hệ thống.'),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
             ),
           ),
-          const SizedBox(height: 12),
+          CheckboxListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: _appendKey,
+            onChanged: (v) => setState(() => _appendKey = v ?? true),
+            title: Text(tr('Thêm vào danh sách (giữ các khóa cũ)'),
+                style: const TextStyle(fontSize: 13)),
+            subtitle: Text(tr('Bỏ chọn để thay toàn bộ bằng khóa mới'),
+                style: const TextStyle(fontSize: 12)),
+          ),
           Text(tr('Nhập API Key mới (để trống nếu không đổi):'),
               style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
           const SizedBox(height: 8),

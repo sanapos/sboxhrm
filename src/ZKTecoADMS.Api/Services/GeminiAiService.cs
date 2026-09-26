@@ -43,6 +43,8 @@ public sealed record AiFilePart(string MimeType, byte[] Data);
 public class GeminiConfig
 {
     public string ApiKey { get; set; } = string.Empty;
+    /// <summary>Mọi khóa đã cấu hình (khóa đầu = <see cref="ApiKey"/>); hết lượt thì chuyển khóa kế.</summary>
+    public List<string> ApiKeys { get; set; } = [];
     public string Model { get; set; } = "gemini-2.5-flash";
     public int MaxOutputTokens { get; set; } = 2048;
     public double Temperature { get; set; } = 0.7;
@@ -569,6 +571,9 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         }
     }
 
+    public const string QuotaMessage = "AI đang quá tải hoặc đã hết lượt sử dụng. Vui lòng thử lại sau ít phút.";
+    public const string InvalidKeyMessage = "API Key không hợp lệ hoặc không có quyền truy cập. Vui lòng kiểm tra lại API Key.";
+
     private static string ParseGeminiError(System.Net.HttpStatusCode statusCode, string responseBody)
     {
         try
@@ -578,15 +583,20 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
             
             if (root.TryGetProperty("error", out var error))
             {
+                // Khóa sai Google trả 400 INVALID_ARGUMENT / API_KEY_INVALID — không phải lỗi model.
+                if (responseBody.Contains("API_KEY_INVALID", StringComparison.Ordinal)
+                    || responseBody.Contains("API key not valid", StringComparison.OrdinalIgnoreCase)
+                    || responseBody.Contains("API key expired", StringComparison.OrdinalIgnoreCase))
+                    return InvalidKeyMessage;
                 var code = error.TryGetProperty("code", out var c) ? c.GetInt32() : (int)statusCode;
                 var status = error.TryGetProperty("status", out var s) ? s.GetString() : "";
                 
                 return code switch
                 {
-                    429 or _ when status == "RESOURCE_EXHAUSTED" =>
-                        "AI đang quá tải hoặc đã hết lượt sử dụng. Vui lòng thử lại sau ít phút.",
+                    429 => QuotaMessage,
+                    _ when status == "RESOURCE_EXHAUSTED" => QuotaMessage,
                     400 => "Yêu cầu không hợp lệ. Vui lòng kiểm tra lại cấu hình model.",
-                    401 or 403 => "API Key không hợp lệ hoặc không có quyền truy cập. Vui lòng kiểm tra lại API Key.",
+                    401 or 403 => InvalidKeyMessage,
                     404 => $"Model không tồn tại. Vui lòng chọn model khác.",
                     500 or 503 => "Máy chủ Google đang gặp sự cố. Vui lòng thử lại sau.",
                     _ => $"Lỗi Gemini API (mã {code}): {(error.TryGetProperty("message", out var m) ? m.GetString() : "Không rõ")}"
@@ -602,8 +612,8 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
 public class AiApiException : Exception
 {
     public int StatusCode { get; }
-    public bool IsQuotaError => StatusCode == 429;
-    public bool IsAuthError => StatusCode == 401 || StatusCode == 403;
+    public bool IsQuotaError => StatusCode == 429 || Message == GeminiAiService.QuotaMessage;
+    public bool IsAuthError => StatusCode == 401 || StatusCode == 403 || Message == GeminiAiService.InvalidKeyMessage;
     
     public AiApiException(string message, int statusCode) : base(message)
     {

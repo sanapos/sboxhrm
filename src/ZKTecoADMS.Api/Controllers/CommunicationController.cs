@@ -1443,9 +1443,13 @@ public class CommunicationController(
             var enabled = dbConfig?.Enabled
                 ?? (bool.TryParse(enabledRaw, out var e) ? e : runtime.Enabled);
 
+            var keyList = GeminiKeyPool.Parse(geminiSettings.GetValueOrDefault("gemini_api_key"));
             var config = new
             {
-                apiKey = MaskApiKey(apiKeyRaw),
+                apiKey = MaskApiKey(GeminiKeyPool.Parse(apiKeyRaw).FirstOrDefault() ?? ""),
+                // Mọi khóa của cửa hàng (che) — hết lượt khóa này tự chuyển khóa kế, rồi tới khóa AI chung.
+                apiKeys = keyList.Select(GeminiKeyPool.Mask).ToList(),
+                keyCount = keyList.Count,
                 model = geminiSettings.GetValueOrDefault("gemini_model") ?? dbConfig?.Model ?? runtime.Model,
                 maxOutputTokens = int.TryParse(geminiSettings.GetValueOrDefault("gemini_max_tokens"), out var t)
                     ? t
@@ -1496,6 +1500,10 @@ public class CommunicationController(
                 .AsTracking()
                 .Where(s => s.StoreId == storeId && settingKeys.Contains(s.Key))
                 .ToDictionaryAsync(s => s.Key);
+            // Nhiều khóa: thêm / thay / xóa từng khóa (null = không đổi).
+            settings["gemini_api_key"] = GeminiKeyPool.Merge(
+                existingSettingsMap.GetValueOrDefault("gemini_api_key")?.Value,
+                dto.ApiKey, dto.AppendApiKey == true, dto.RemoveApiKeys);
 
             foreach (var (key, value) in settings)
             {
@@ -1580,6 +1588,21 @@ public class CommunicationController(
             if (!geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
             {
                 return Ok(AppResponse<object>.Fail("Gemini AI chưa được bật hoặc chưa cấu hình API Key"));
+            }
+
+            // Nhiều khóa riêng của cửa hàng → kiểm tra từng khóa, báo khóa nào dùng được.
+            var storeCfg = await GeminiStoreConfigLoader.LoadFromDbAsync(dbContext, RequiredStoreId);
+            if (storeCfg is { ApiKeys.Count: > 1 })
+            {
+                var keyResults = await GeminiKeyTester.TestAllAsync(
+                    storeCfg, HttpContext.RequestServices.GetRequiredService<IConfiguration>(),
+                    HttpContext.RequestServices.GetRequiredService<ILogger<GeminiAiService>>(),
+                    HttpContext.RequestAborted);
+                var anyOk = keyResults.Any(r => r.Status is "ok" or "quota");
+                var summary = GeminiKeyTester.Summary(keyResults);
+                return Ok(anyOk
+                    ? AppResponse<object>.Success(new { success = true, message = summary, detail = GeminiKeyTester.Detail(keyResults), keys = keyResults })
+                    : AppResponse<object>.Fail($"{summary} {GeminiKeyTester.Detail(keyResults)}"));
             }
 
             var result = await geminiAiService.GenerateCommunicationContentAsync(

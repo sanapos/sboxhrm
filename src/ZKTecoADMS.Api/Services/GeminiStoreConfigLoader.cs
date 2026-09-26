@@ -63,8 +63,8 @@ public static class GeminiStoreConfigLoader
             .GroupBy(s => s.Key)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.LastModified ?? s.CreatedAt).First().Value);
 
-        var apiKey = map.GetValueOrDefault(AppSettingKeys.GeminiApiKey);
-        if (string.IsNullOrWhiteSpace(apiKey))
+        var keys = GeminiKeyPool.Parse(map.GetValueOrDefault(AppSettingKeys.GeminiApiKey));
+        if (keys.Count == 0)
             return null;
 
         var enabled = true;
@@ -74,7 +74,8 @@ public static class GeminiStoreConfigLoader
 
         return new GeminiConfig
         {
-            ApiKey = apiKey.Trim(),
+            ApiKey = keys[0],
+            ApiKeys = keys,
             Model = map.GetValueOrDefault("gemini_model") ?? "gemini-2.5-flash",
             MaxOutputTokens = int.TryParse(map.GetValueOrDefault("gemini_max_tokens"), out var t) ? t : 2048,
             Temperature = double.TryParse(

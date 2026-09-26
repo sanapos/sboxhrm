@@ -19,6 +19,10 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
   final _api = ApiService();
   final _keyCtrl = TextEditingController();
   String _maskedKey = '';
+  /// Mọi khóa dùng chung (đã che) — khóa hết lượt tự chuyển sang khóa kế tiếp.
+  List<String> _keys = const [];
+  bool _appendKey = true;
+  String? _testDetail;
   String _model = _models.first;
   bool _enabled = false;
   bool _configured = false;
@@ -40,6 +44,7 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
 
   void _apply(Map<String, dynamic> d) {
     _maskedKey = (d['apiKey'] ?? '').toString();
+    _keys = ((d['apiKeys'] as List?) ?? const []).map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
     final m = (d['model'] ?? '').toString();
     _model = m.isEmpty ? _models.first : m;
     _enabled = d['enabled'] == true;
@@ -61,6 +66,7 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
     setState(() => _saving = true);
     final res = await _api.saveSystemAiConfig({
       if (_keyCtrl.text.trim().isNotEmpty) 'apiKey': _keyCtrl.text.trim(),
+      if (_keyCtrl.text.trim().isNotEmpty) 'appendApiKey': _appendKey && _keys.isNotEmpty,
       'model': _model,
       'enabled': _enabled,
     });
@@ -79,11 +85,38 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
     }
   }
 
+  Future<void> _removeKey(String masked) async {
+    setState(() => _saving = true);
+    final res = await _api.saveSystemAiConfig({'removeApiKeys': [masked]});
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        _apply(Map<String, dynamic>.from(res['data'] as Map));
+      }
+    });
+    if (res['isSuccess'] == true) {
+      AdminHelpers.showSuccess(context, tr('Đã xóa khóa'));
+    } else {
+      AdminHelpers.showApiError(context, res);
+    }
+  }
+
   Future<void> _test() async {
-    setState(() => _testing = true);
+    setState(() {
+      _testing = true;
+      _testDetail = null;
+    });
     final res = await _api.testSystemAiConfig();
     if (!mounted) return;
-    setState(() => _testing = false);
+    setState(() {
+      _testing = false;
+      final data = res['data'];
+      // Kết quả từng khóa (hoạt động / hết lượt / sai khóa).
+      _testDetail = data is Map
+          ? (data['detail']?.toString() ?? '').replaceAll(' · ', '\n')
+          : res['message']?.toString();
+    });
     if (res['isSuccess'] == true) {
       AdminHelpers.showSuccess(context, tr('Kết nối AI thành công ($_model)'));
     } else {
@@ -111,13 +144,40 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
             style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
           ),
           const SizedBox(height: 12),
+          for (final (i, k) in _keys.indexed)
+            Row(
+              children: [
+                const Icon(Icons.lock, size: 16, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(child: Text('${tr('Khóa')} ${i + 1}: $k', style: const TextStyle(fontFamily: 'monospace', fontSize: 13))),
+                IconButton(
+                  tooltip: tr('Xóa khóa này'),
+                  onPressed: _saving ? null : () => _removeKey(k),
+                  icon: const Icon(Icons.close, size: 18, color: Color(0xFFB91C1C)),
+                ),
+              ],
+            ),
+          if (_keys.isNotEmpty) ...[
+            Text(
+              tr('Nhiều khóa: khóa hết lượt / lỗi tự chuyển sang khóa kế tiếp.'),
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+            ),
+            CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _appendKey,
+              onChanged: (v) => setState(() => _appendKey = v ?? true),
+              title: Text(tr('Thêm vào danh sách (bỏ chọn = thay toàn bộ)'), style: const TextStyle(fontSize: 13)),
+            ),
+          ],
           TextField(
             controller: _keyCtrl,
             obscureText: true,
             decoration: InputDecoration(
               labelText: tr('Gemini API key'),
               hintText: _maskedKey.isEmpty ? tr('Dán key từ aistudio.google.com') : _maskedKey,
-              helperText: _maskedKey.isEmpty ? null : tr('Để trống = giữ key hiện tại'),
+              helperText: _maskedKey.isEmpty ? null : tr('Để trống = giữ các khóa hiện tại'),
               border: const OutlineInputBorder(),
             ),
           ),
@@ -158,6 +218,13 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
               ),
             ],
           ),
+          if (_testDetail != null && _testDetail!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(_testDetail!, style: const TextStyle(fontSize: 12.5)),
+            ),
+          ],
         ],
       ),
     );

@@ -113,6 +113,11 @@ public class PublicSettingsController : ControllerBase
     [HttpGet("{key}")]
     public async Task<ActionResult<AppResponse<string>>> GetSetting(string key)
     {
+        // Không bao giờ trả khóa bí mật qua API không cần đăng nhập, kể cả khi lỡ đánh dấu IsPublic.
+        var lower = (key ?? "").ToLowerInvariant();
+        if (lower.Contains("key") || lower.Contains("secret") || lower.Contains("token") || lower.Contains("password"))
+            return NotFound(AppResponse<string>.Fail("Setting không tồn tại hoặc không được phép truy cập"));
+
         try
         {
             var setting = await _cache.GetOrCreateAsync($"public_setting:{key}", async () =>

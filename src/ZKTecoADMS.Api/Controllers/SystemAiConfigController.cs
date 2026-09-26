@@ -33,6 +33,8 @@ public class SystemAiConfigController(
         return Ok(AppResponse<object>.Success(new
         {
             apiKey = Mask(cfg?.ApiKey),
+            apiKeys = (cfg?.ApiKeys ?? []).Select(GeminiKeyPool.Mask).ToList(),
+            keyCount = cfg?.ApiKeys.Count ?? 0,
             model = cfg?.Model ?? "gemini-2.5-flash",
             maxOutputTokens = cfg?.MaxOutputTokens ?? 8192,
             temperature = cfg?.Temperature ?? 0.7,
@@ -47,7 +49,7 @@ public class SystemAiConfigController(
     {
         var values = new Dictionary<string, string?>
         {
-            ["gemini_api_key"] = string.IsNullOrWhiteSpace(dto.ApiKey) || dto.ApiKey.Contains('*') ? null : dto.ApiKey.Trim(),
+            ["gemini_api_key"] = null, // gộp nhiều khóa bên dưới (thêm / thay / xóa)
             ["gemini_model"] = string.IsNullOrWhiteSpace(dto.Model) ? null : dto.Model.Trim(),
             ["gemini_max_tokens"] = dto.MaxOutputTokens?.ToString(),
             ["gemini_temperature"] = dto.Temperature?.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -57,6 +59,9 @@ public class SystemAiConfigController(
         var existing = await db.AppSettings.IgnoreQueryFilters().AsTracking()
             .Where(s => s.StoreId == null && s.Deleted == null && Keys.Contains(s.Key))
             .ToListAsync(ct);
+        values["gemini_api_key"] = GeminiKeyPool.Merge(
+            existing.FirstOrDefault(s => s.Key == "gemini_api_key")?.Value,
+            dto.ApiKey, dto.AppendApiKey == true, dto.RemoveApiKeys);
         var now = DateTime.UtcNow;
         foreach (var (key, value) in values)
         {
@@ -96,25 +101,13 @@ public class SystemAiConfigController(
         if (cfg == null || !cfg.IsConfigured)
             return BadRequest(AppResponse<object>.Fail("Chưa nhập API key."));
 
-        var gemini = new GeminiAiService(configuration, geminiLogger);
-        GeminiStoreConfigLoader.Apply(gemini, cfg);
-        try
-        {
-            var json = await gemini.GenerateJsonAsync(
-                "Bạn là bộ kiểm tra kết nối. Chỉ trả JSON.",
-                "Trả về {\"ok\": true, \"model\": \"<tên model của bạn>\"}",
-                maxTokens: 1024,
-                cancellationToken: ct);
-            return Ok(AppResponse<object>.Success(new { ok = true, model = cfg.Model, reply = json }));
-        }
-        catch (AiApiException ex)
-        {
-            return Ok(AppResponse<object>.Fail(ex.Message));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Ok(AppResponse<object>.Fail(ex.Message));
-        }
+        // Kiểm tra từng khóa — khóa hết lượt / sai được đánh dấu để yêu cầu thật bỏ qua.
+        var results = await GeminiKeyTester.TestAllAsync(cfg, configuration, geminiLogger, ct);
+        var ok = results.Any(r => r.Status == "ok");
+        var summary = GeminiKeyTester.Summary(results);
+        return Ok(ok
+            ? AppResponse<object>.Success(new { ok, model = cfg.Model, message = summary, detail = GeminiKeyTester.Detail(results), keys = results })
+            : AppResponse<object>.Fail($"{summary} {GeminiKeyTester.Detail(results)}"));
     }
 
     private static string Mask(string? key)

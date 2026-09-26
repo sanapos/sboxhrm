@@ -11,7 +11,11 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
     private readonly GeminiAiService _inner;
     private readonly ZKTecoDbContext _db;
     private readonly ITenantProvider _tenant;
+    private readonly ILogger<GeminiAiService> _logger;
     private bool _initialized;
+    /// <summary>Khóa + cấu hình theo thứ ưu tiên: khóa của cửa hàng rồi khóa dùng chung (Super Admin).</summary>
+    private readonly List<(string Key, GeminiConfig Config)> _chain = [];
+    private bool _manualOverride;
 
     public TenantScopedGeminiAiService(
         IConfiguration configuration,
@@ -22,18 +26,71 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         _inner = new GeminiAiService(configuration, logger);
         _db = db;
         _tenant = tenant;
+        _logger = logger;
     }
 
     private void EnsureInitialized()
     {
         if (_initialized) return;
         _initialized = true;
-        // Key riêng của cửa hàng → không có thì dùng cấu hình AI chung của Super Admin.
-        var cfg = GeminiStoreConfigLoader.LoadEffectiveAsync(_db, _tenant.StoreId)
-            .GetAwaiter()
-            .GetResult();
-        if (cfg != null)
-            GeminiStoreConfigLoader.Apply(_inner, cfg);
+        // Khóa riêng của cửa hàng trước, sau đó khóa AI chung của Super Admin (dự phòng khi hết lượt).
+        var store = _tenant.StoreId is Guid sid
+            ? GeminiStoreConfigLoader.LoadFromDbAsync(_db, sid).GetAwaiter().GetResult()
+            : null;
+        var platform = GeminiStoreConfigLoader.LoadPlatformAsync(_db).GetAwaiter().GetResult();
+        foreach (var cfg in new[] { store, platform })
+        {
+            if (cfg == null || !cfg.Enabled) continue;
+            foreach (var k in cfg.ApiKeys.Count > 0 ? cfg.ApiKeys : [cfg.ApiKey])
+                if (!string.IsNullOrWhiteSpace(k) && !_chain.Any(c => c.Key == k))
+                    _chain.Add((k, cfg));
+        }
+        var first = _chain.Count > 0 ? _chain[GeminiKeyPool.OrderForUse(_chain.Select(c => c.Key).ToList())[0]] : default;
+        if (first.Config != null)
+            UseKey(first);
+        else if ((store ?? platform) is GeminiConfig off)
+            GeminiStoreConfigLoader.Apply(_inner, off); // đang tắt — giữ cấu hình để báo "đang tắt"
+    }
+
+    private void UseKey((string Key, GeminiConfig Config) entry) =>
+        _inner.UpdateConfig(entry.Key, entry.Config.Model, entry.Config.MaxOutputTokens,
+            entry.Config.Temperature, entry.Config.Enabled);
+
+    /// <summary>
+    /// Gọi AI lần lượt qua các khóa: khóa hết lượt (429) nghỉ 15 phút, khóa sai / hết hạn nghỉ 6 giờ,
+    /// rồi thử khóa kế tiếp. Lỗi khác (nội dung, mạng, model) trả ngay.
+    /// </summary>
+    private async Task<T> WithFailoverAsync<T>(Func<Task<T>> call)
+    {
+        EnsureInitialized();
+        if (_manualOverride || _chain.Count <= 1)
+        {
+            try { return await call(); }
+            catch (AiApiException ex) when (_chain.Count == 1 && (ex.IsQuotaError || ex.IsAuthError))
+            {
+                GeminiKeyPool.MarkExhausted(_chain[0].Key,
+                    ex.IsQuotaError ? TimeSpan.FromMinutes(15) : TimeSpan.FromHours(6));
+                throw;
+            }
+        }
+        AiApiException? last = null;
+        foreach (var i in GeminiKeyPool.OrderForUse(_chain.Select(c => c.Key).ToList()))
+        {
+            UseKey(_chain[i]);
+            try
+            {
+                return await call();
+            }
+            catch (AiApiException ex) when (ex.IsQuotaError || ex.IsAuthError)
+            {
+                GeminiKeyPool.MarkExhausted(_chain[i].Key,
+                    ex.IsQuotaError ? TimeSpan.FromMinutes(15) : TimeSpan.FromHours(6));
+                _logger.LogWarning("Gemini key #{Index} ({Mask}) {Reason} — chuyển khóa kế tiếp",
+                    i + 1, GeminiKeyPool.Mask(_chain[i].Key), ex.IsQuotaError ? "hết lượt" : "không hợp lệ");
+                last = ex;
+            }
+        }
+        throw last!;
     }
 
     public bool IsConfigured
@@ -54,6 +111,8 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         bool? enabled = null)
     {
         EnsureInitialized();
+        // Gọi cấu hình tay (vd. nút «Kiểm tra») → chỉ dùng đúng cấu hình đó, không chuyển khóa.
+        if (!string.IsNullOrWhiteSpace(apiKey)) _manualOverride = true;
         _inner.UpdateConfig(apiKey, model, maxTokens, temperature, enabled);
     }
 
@@ -70,8 +129,7 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         string? context,
         int maxLength)
     {
-        EnsureInitialized();
-        return _inner.GenerateCommunicationContentAsync(prompt, typeLabel, tone, context, maxLength);
+        return WithFailoverAsync(() => _inner.GenerateCommunicationContentAsync(prompt, typeLabel, tone, context, maxLength));
     }
 
     public IAsyncEnumerable<string> StreamGenerateCommunicationContentAsync(
@@ -92,8 +150,7 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         string userPrompt,
         int maxTokens = 1024)
     {
-        EnsureInitialized();
-        return _inner.GeneratePlainTextAsync(systemPrompt, userPrompt, maxTokens);
+        return WithFailoverAsync(() => _inner.GeneratePlainTextAsync(systemPrompt, userPrompt, maxTokens));
     }
 
     public Task<string> GenerateJsonAsync(
@@ -103,8 +160,7 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         int maxTokens = 16384,
         CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
-        return _inner.GenerateJsonAsync(systemPrompt, userPrompt, files, maxTokens, cancellationToken);
+        return WithFailoverAsync(() => _inner.GenerateJsonAsync(systemPrompt, userPrompt, files, maxTokens, cancellationToken));
     }
 
     public Task<string> GenerateAssistantChatAsync(
@@ -113,7 +169,6 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         int maxTokens = 2048,
         CancellationToken cancellationToken = default)
     {
-        EnsureInitialized();
-        return _inner.GenerateAssistantChatAsync(systemPrompt, messages, maxTokens, cancellationToken);
+        return WithFailoverAsync(() => _inner.GenerateAssistantChatAsync(systemPrompt, messages, maxTokens, cancellationToken));
     }
 }
