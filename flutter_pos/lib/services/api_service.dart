@@ -18841,6 +18841,12 @@ class ApiService {
   Future<Map<String, dynamic>> downloadPosDocxTemplate(String id) =>
       _getBinary(Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/file'));
 
+  /// PDF xem trước mẫu Word: view = original (file gốc) / fields (trường tô màu) / sample (in thử).
+  Future<Map<String, dynamic>> getPosDocxTemplatePreview(String id, String view) => _getBinary(
+      Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/preview')
+          .replace(queryParameters: {'view': view}),
+      timeout: const Duration(seconds: 120));
+
   Future<Map<String, dynamic>> replacePosDocxTemplate(
           String id, List<int> bytes, String fileName) =>
       _postDocxMultipart('/api/pos/print-templates/docx/$id/file', bytes, fileName, {});

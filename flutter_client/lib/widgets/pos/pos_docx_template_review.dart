@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
 import '../../utils/file_saver.dart' as file_saver;
 import '../notification_overlay.dart';
+import 'pos_pdf_iframe_stub.dart'
+    if (dart.library.js_interop) 'pos_pdf_iframe_web.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -102,6 +106,10 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
   bool _aiUsed = false;
   bool _loading = true;
   bool _saving = false;
+  /// Đã lưu / thay file ít nhất một lần → màn trước cần tải lại.
+  bool _changed = false;
+  /// Tăng sau mỗi lần lưu để các tab xem trước dựng lại PDF.
+  int _previewVersion = 0;
 
   @override
   void initState() {
@@ -164,11 +172,15 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
       );
       return;
     }
+    setState(() {
+      if (res['data'] is Map) _apply(Map<String, dynamic>.from(res['data'] as Map));
+      _changed = true;
+      _previewVersion++;
+    });
     NotificationOverlayManager().showSuccess(
       title: tr('Đã lưu mẫu Word'),
-      message: tr('Xuất báo giá / hợp đồng sẽ dùng mẫu này (PDF hoặc Word).'),
+      message: tr('Xem tab «Bản in thử» để kiểm tra. Xuất báo giá / hợp đồng sẽ dùng mẫu này.'),
     );
-    Navigator.of(context).pop(true);
   }
 
   Future<void> _download() async {
@@ -202,7 +214,13 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
       title: tr('Đã thay mẫu Word'),
       message: tr('Dùng đúng file bạn đã sửa (giữ các mã {Truong} trong file).'),
     );
-    Navigator.of(context).pop(true);
+    final mapping = await widget.api.getPosDocxTemplateMapping(widget.templateId);
+    if (!mounted) return;
+    setState(() {
+      if (mapping['data'] is Map) _apply(Map<String, dynamic>.from(mapping['data'] as Map));
+      _changed = true;
+      _previewVersion++;
+    });
   }
 
   String _label(String key) {
@@ -296,78 +314,137 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: PosTheme.background,
-      appBar: AppBar(
-        title: Text(_name.isEmpty ? tr('Mẫu Word') : _name),
-        actions: [
-          IconButton(
-              tooltip: tr('Tải file Word để sửa tay'),
-              onPressed: _loading ? null : _download,
-              icon: const Icon(Icons.download)),
-          IconButton(
-              tooltip: tr('Tải lên bản đã sửa'),
-              onPressed: _loading ? null : _uploadEdited,
-              icon: const Icon(Icons.upload_file)),
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton.icon(
-              onPressed: _loading || _saving ? null : _save,
-              icon: _saving
-                  ? const SizedBox(
-                      width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Icon(Icons.save),
-              label: Text(tr('Lưu')),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: _loading
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: _addManual,
-              icon: const Icon(Icons.add),
-              label: Text(tr('Gắn thêm trường')),
-            ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _aiUsed
-                              ? tr('AI đã gắn ${_items.length} chỗ dữ liệu. Kiểm tra từng chỗ, đổi trường nếu sai, xóa chỗ không cần.')
-                              : tr('${_items.length} chỗ đang gắn trường.'),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        if (_removeRows.isNotEmpty)
-                          Text(tr('Đã bỏ ${_removeRows.length} dòng hàng mẫu thừa trong bảng.'),
-                              style: TextStyle(color: Colors.grey.shade700)),
-                        const SizedBox(height: 4),
-                        Text(
-                          tr('Bố cục, bảng, logo của file giữ nguyên. Dòng hàng đầu tiên trong bảng sẽ được lặp lại theo số mặt hàng.'),
-                          style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-                        ),
-                        for (final w in _warnings)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text('• $w',
-                                style: TextStyle(color: Colors.orange.shade800, fontSize: 12)),
-                          ),
-                      ],
-                    ),
+    return PopScope(
+      canPop: false,
+      // ignore: deprecated_member_use
+      onPopInvoked: (didPop) {
+        if (!didPop) Navigator.of(context).pop(_changed);
+      },
+      child: DefaultTabController(
+        length: 4,
+        initialIndex: 1,
+        child: Builder(
+          builder: (context) => Scaffold(
+            backgroundColor: PosTheme.background,
+            appBar: AppBar(
+              title: Text(_name.isEmpty ? tr('Mẫu Word') : _name),
+              actions: [
+                IconButton(
+                    tooltip: tr('Tải file Word để sửa tay'),
+                    onPressed: _loading ? null : _download,
+                    icon: const Icon(Icons.download)),
+                IconButton(
+                    tooltip: tr('Tải lên bản đã sửa'),
+                    onPressed: _loading ? null : _uploadEdited,
+                    icon: const Icon(Icons.upload_file)),
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: FilledButton.icon(
+                    onPressed: _loading || _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.save),
+                    label: Text(tr('Lưu')),
                   ),
                 ),
-                const SizedBox(height: 8),
-                for (final it in _items) _buildItem(it),
               ],
+              bottom: TabBar(
+                isScrollable: true,
+                tabs: [
+                  Tab(icon: const Icon(Icons.description_outlined, size: 18), text: tr('Mẫu gốc')),
+                  Tab(icon: const Icon(Icons.highlight_alt, size: 18), text: tr('Mẫu gắn trường')),
+                  Tab(icon: const Icon(Icons.print_outlined, size: 18), text: tr('Bản in thử')),
+                  Tab(
+                      icon: const Icon(Icons.list_alt, size: 18),
+                      text: tr('Trường đã gắn (${_items.length})')),
+                ],
+              ),
             ),
+            body: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    children: [
+                      _DocxPdfTab(
+                        key: ValueKey('original-${widget.templateId}'),
+                        api: widget.api,
+                        templateId: widget.templateId,
+                        view: 'original',
+                        version: _previewVersion,
+                        hint: tr('Đúng file bạn tải lên — dùng để so sánh với mẫu đã gắn trường.'),
+                      ),
+                      _DocxPdfTab(
+                        key: ValueKey('fields-${widget.templateId}'),
+                        api: widget.api,
+                        templateId: widget.templateId,
+                        view: 'fields',
+                        version: _previewVersion,
+                        hint: tr('Chỗ tô vàng = dữ liệu động của chứng từ; tô xanh = dòng hàng (lặp theo số mặt hàng). '
+                            'Sai / thiếu: sửa ở tab «Trường đã gắn» rồi Lưu.'),
+                      ),
+                      _DocxPdfTab(
+                        key: ValueKey('sample-${widget.templateId}'),
+                        api: widget.api,
+                        templateId: widget.templateId,
+                        view: 'sample',
+                        version: _previewVersion,
+                        hint: tr('Mẫu điền dữ liệu giả (2 dòng hàng) — đúng như khi xuất PDF báo giá / hợp đồng.'),
+                      ),
+                      _buildFieldList(),
+                    ],
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFieldList() {
+    return Scaffold(
+      backgroundColor: PosTheme.background,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addManual,
+        icon: const Icon(Icons.add),
+        label: Text(tr('Gắn thêm trường')),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        children: [
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _aiUsed
+                        ? tr('AI đã gắn ${_items.length} chỗ dữ liệu. Kiểm tra từng chỗ, đổi trường nếu sai, xóa chỗ không cần.')
+                        : tr('${_items.length} chỗ đang gắn trường.'),
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  if (_removeRows.isNotEmpty)
+                    Text(tr('Đã bỏ ${_removeRows.length} dòng hàng mẫu thừa trong bảng.'),
+                        style: TextStyle(color: Colors.grey.shade700)),
+                  const SizedBox(height: 4),
+                  Text(
+                    tr('Bố cục, bảng, logo của file giữ nguyên. Dòng hàng đầu tiên trong bảng sẽ được lặp lại theo số mặt hàng. '
+                        'Sửa xong bấm Lưu rồi xem lại tab «Mẫu gắn trường» / «Bản in thử».'),
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                  ),
+                  for (final w in _warnings)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text('• $w', style: TextStyle(color: Colors.orange.shade800, fontSize: 12)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          for (final it in _items) _buildItem(it),
+        ],
+      ),
     );
   }
 
@@ -422,6 +499,122 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Một tab xem PDF mẫu Word (gốc / gắn trường / in thử) — dựng ở máy chủ bằng LibreOffice nên giống bản in.
+class _DocxPdfTab extends StatefulWidget {
+  const _DocxPdfTab({
+    super.key,
+    required this.api,
+    required this.templateId,
+    required this.view,
+    required this.version,
+    required this.hint,
+  });
+
+  final ApiService api;
+  final String templateId;
+  final String view;
+  final int version;
+  final String hint;
+
+  @override
+  State<_DocxPdfTab> createState() => _DocxPdfTabState();
+}
+
+class _DocxPdfTabState extends State<_DocxPdfTab> with AutomaticKeepAliveClientMixin {
+  Uint8List? _pdf;
+  String? _error;
+  bool _loading = false;
+  int _loadedVersion = -1;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DocxPdfTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.version != _loadedVersion) _load();
+  }
+
+  Future<void> _load() async {
+    final version = widget.version;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final res = await widget.api.getPosDocxTemplatePreview(widget.templateId, widget.view);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _loadedVersion = version;
+      if (res['isSuccess'] == true && res['data'] is List) {
+        _pdf = Uint8List.fromList(List<int>.from(res['data'] as List));
+      } else {
+        _error = res['message']?.toString() ?? tr('Không dựng được bản xem trước');
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          color: const Color(0xFFFFFBEB),
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline, size: 16, color: Color(0xFF92400E)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(widget.hint, style: const TextStyle(fontSize: 12.5, color: Color(0xFF92400E))),
+              ),
+              IconButton(
+                tooltip: tr('Tải lại'),
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.refresh, size: 18),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _loading
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 12),
+                      Text(tr('Đang dựng trang in… (lần đầu 5–15 giây)')),
+                    ],
+                  ),
+                )
+              : _error != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+                      ),
+                    )
+                  : _pdf == null
+                      ? const SizedBox.shrink()
+                      : KeyedSubtree(
+                          key: ValueKey('${widget.view}-$_loadedVersion'),
+                          child: buildPosPdfPreview(_pdf!),
+                        ),
+        ),
+      ],
     );
   }
 }

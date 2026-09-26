@@ -208,6 +208,65 @@ public class PosDocxTemplatesController(
         return Ok(AppResponse<object>.Success(new { ok = true }));
     }
 
+    /// <summary>
+    /// PDF xem trước giống bản in (dựng từ đúng file Word bằng LibreOffice):
+    /// <c>original</c> = file gốc khách tải lên; <c>fields</c> = mẫu với các trường tô màu [Tên trường];
+    /// <c>sample</c> = mẫu điền dữ liệu mẫu (in thử). Lưu tạm theo thời điểm sửa file để mở lại nhanh.
+    /// </summary>
+    [HttpGet("{id:guid}/preview")]
+    [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.View)]
+    public async Task<IActionResult> Preview(Guid id, [FromQuery] string view = "fields", CancellationToken ct = default)
+    {
+        var t = await FindAsync(id, ct);
+        if (t == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy mẫu Word"));
+        view = view is "original" or "sample" ? view : "fields";
+        var source = view == "original" ? OrigPath(t) : TemplatePath(t);
+        if (!System.IO.File.Exists(source))
+            return NotFound(AppResponse<object>.Fail("Thiếu file mẫu trên máy chủ — tải lại file Word."));
+
+        var cache = $"{TemplatePath(t)}.{view}.pdf";
+        var stamp = System.IO.File.GetLastWriteTimeUtc(source);
+        // Dữ liệu mẫu có ngày hôm nay → chỉ dùng lại trong ngày.
+        var fresh = System.IO.File.Exists(cache)
+            && System.IO.File.GetLastWriteTimeUtc(cache) >= stamp
+            && (view != "sample" || System.IO.File.GetLastWriteTimeUtc(cache).AddHours(7).Date == DateTime.UtcNow.AddHours(7).Date);
+        if (!fresh)
+        {
+            var bytes = await System.IO.File.ReadAllBytesAsync(source, ct);
+            var docx = view switch
+            {
+                "fields" => DocxTemplateEngine.HighlightFields(bytes, FieldLabels()),
+                "sample" => RenderSample(bytes),
+                _ => bytes,
+            };
+            try
+            {
+                var converter = HttpContext.RequestServices.GetRequiredService<OfficePdfConverter>();
+                var pdf = await converter.ToPdfAsync(docx, ".docx", ct);
+                await System.IO.File.WriteAllBytesAsync(cache, pdf, ct);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(AppResponse<object>.Fail(ex.Message));
+            }
+        }
+        return File(await System.IO.File.ReadAllBytesAsync(cache, ct), "application/pdf", $"{t.Name}-{view}.pdf");
+    }
+
+    static Dictionary<string, string> FieldLabels()
+    {
+        var labels = new Dictionary<string, string>();
+        foreach (var (k, v) in PosDocxTemplateAiService.LineFields) labels[k] = v;
+        foreach (var (k, v) in PosDocxTemplateAiService.DocumentFields) labels[k] = v;
+        return labels;
+    }
+
+    static byte[] RenderSample(byte[] template)
+    {
+        var (data, lines) = DocxTemplateEngine.SampleData();
+        return DocxTemplateEngine.Render(template, data, lines);
+    }
+
     // ─── Nội bộ ──────────────────────────────────────────────────────
 
     async Task<List<DocxReplacement>> ApplyAndSaveAsync(

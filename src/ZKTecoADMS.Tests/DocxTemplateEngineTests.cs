@@ -192,4 +192,41 @@ public class DocxTemplateEngineTests
         Assert.Contains(a.Replacements, r => r.Field == "Ten_Hang_Hoa");
         Assert.Equal(["document:3"], a.RemoveRowParagraphIds);
     }
+
+    [Fact]
+    public void Highlight_shows_field_labels_and_keeps_fixed_text()
+    {
+        var docx = SampleDocx();
+        var paras = DocxTemplateEngine.ExtractParagraphs(docx);
+        string Id(string text) => paras.First(p => p.Text == text).Id;
+        var (tpl, _) = DocxTemplateEngine.ApplyReplacements(docx,
+        [
+            new(Id("Kính gửi: Công ty TNHH Minh An"), "Công ty TNHH Minh An", "Ten_Cong_Ty_Khach"),
+            new(Id("Tủ bếp gỗ"), "Tủ bếp gỗ", "Ten_Hang_Hoa"),
+        ]);
+        var shown = DocxTemplateEngine.HighlightFields(tpl, new Dictionary<string, string>
+        {
+            ["Ten_Cong_Ty_Khach"] = "Tên công ty khách hàng (bên A / bên mua)",
+            ["Ten_Hang_Hoa"] = "Tên hàng hóa",
+        });
+        var texts = Texts(shown);
+        Assert.Contains("Kính gửi: [Tên công ty khách hàng]", texts);
+        Assert.Contains("[Tên hàng hóa]", texts);
+        Assert.DoesNotContain(texts, t => t.Contains('{'));
+
+        using var zip = new ZipArchive(new MemoryStream(shown));
+        var xml = new StreamReader(zip.GetEntry("word/document.xml")!.Open()).ReadToEnd();
+        Assert.Contains("w:highlight w:val=\"yellow\"", xml);
+        Assert.Contains("w:highlight w:val=\"cyan\"", xml); // dòng hàng
+    }
+
+    [Fact]
+    public void Sample_data_fills_every_catalog_field()
+    {
+        var (data, lines) = DocxTemplateEngine.SampleData();
+        foreach (var key in PosDocxTemplateAiService.DocumentFields.Keys.Where(k => k != "_Xoa"))
+            Assert.True(data.ContainsKey(key), key);
+        foreach (var key in PosDocxTemplateAiService.LineFields.Keys)
+            Assert.True(lines[0].ContainsKey(key), key);
+    }
 }
