@@ -51,10 +51,18 @@ class MobileQuickActionsLayout {
 
   String toStorageValue() => json.encode(toJson());
 
-  MobileQuickActionsLayout normalized({required Set<String> allowedModules}) {
+  /// [packageDefaults]: lối tắt mặc định theo loại gói — dùng khi cửa hàng chưa tự sắp xếp
+  /// (danh sách đang là mặc định chung), để gói chấm công không bị toàn ô bán hàng bị lọc mất.
+  MobileQuickActionsLayout normalized({
+    required Set<String> allowedModules,
+    List<String>? packageDefaults,
+  }) {
     final seen = <String>{};
     final out = <String>[];
-    for (final code in modules) {
+    final isStockDefault = modules.length == defaultModules.length &&
+        List.generate(modules.length, (i) => modules[i] == defaultModules[i]).every((x) => x);
+    final source = isStockDefault && packageDefaults != null ? packageDefaults : modules;
+    for (final code in source) {
       if (out.length >= slotCount) break;
       if (code.isEmpty || !allowedModules.contains(code) || seen.contains(code)) {
         continue;

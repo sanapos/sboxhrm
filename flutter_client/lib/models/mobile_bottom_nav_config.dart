@@ -66,9 +66,29 @@ class MobileBottomNavLayout {
   MobileBottomNavLayout copyWith({List<String>? slots}) =>
       MobileBottomNavLayout(slots: slots ?? this.slots);
 
-  /// Đúng 5 vị trí. Ô không có trong gói để trống tại chỗ, không kéo chức năng khác vào.
-  /// Ô cuối luôn là «Thêm» (app) hoặc «Nhiều hơn» (POS).
+  /// Đúng 5 vị trí. Ô cuối luôn là «Thêm» (app) hoặc «Nhiều hơn» (POS).
+  /// Ô có chức năng ngoài gói / không có quyền: lấp tại chỗ bằng chức năng kế tiếp trong
+  /// [fallbackOrder] (ưu tiên theo gói) — không để ô trống. Ô chủ cửa hàng cố ý để trống giữ nguyên.
   MobileBottomNavLayout normalized({
+    required List<String> defaultSlots,
+    required Set<String> allowedIds,
+    List<String> fallbackOrder = const [],
+  }) {
+    final base = _normalizedStrict(defaultSlots: defaultSlots, allowedIds: allowedIds);
+    if (fallbackOrder.isEmpty) return base;
+    final source = slots.length == slotCount ? slots : defaultSlots;
+    final out = List<String>.from(base.slots);
+    final used = out.toSet();
+    final pool = fallbackOrder.where((id) => allowedIds.contains(id) && !used.contains(id)).toList();
+    for (var i = 0; i < out.length && pool.isNotEmpty; i++) {
+      final wanted = i < source.length ? source[i] : '_empty';
+      // Chỉ lấp ô bị mất do gói / quyền, không lấp ô cố ý trống.
+      if (out[i] == '_empty' && wanted != '_empty') out[i] = pool.removeAt(0);
+    }
+    return MobileBottomNavLayout(slots: out);
+  }
+
+  MobileBottomNavLayout _normalizedStrict({
     required List<String> defaultSlots,
     required Set<String> allowedIds,
   }) {

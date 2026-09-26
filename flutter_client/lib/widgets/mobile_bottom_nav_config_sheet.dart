@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../models/mobile_bottom_nav_config.dart';
 import '../services/mobile_bottom_nav_prefs.dart';
+import 'package:provider/provider.dart';
+
+import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
 import '../utils/mobile_bottom_nav_catalog.dart';
+import '../utils/nav_package_profile.dart';
+import '../utils/permission_navigation.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'mobile_quick_actions_config_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -43,11 +49,31 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
   bool _saving = false;
   late int _page;
 
+  /// Chức năng dùng được theo gói + quyền (ô chọn chỉ hiện các chức năng này).
+  Set<String> _allowedMain = const {};
+  NavPackageKind _kind = NavPackageKind.full;
+
+  Set<String> _computeAllowed(List<MobileBottomNavItemDef> items) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    return {
+      for (final d in items)
+        if (d.moduleCode == null ||
+            PermissionNavigation.canAccessModule(d.moduleCode!,
+                allowedModules: user?.allowedModules, perm: perm, role: user?.role))
+          d.id,
+    };
+  }
+
   @override
   void initState() {
     super.initState();
     _page = widget.initialPage.clamp(0, 1);
-    _mainSlots = List<String>.from(MobileBottomNavPrefs.mainLayout.slots);
+    _allowedMain = _computeAllowed(MobileBottomNavCatalog.mainItems);
+    _kind = NavPackageProfile.detect(_allowedMain);
+    _mainSlots = List<String>.from(MobileBottomNavPrefs.mainCustomized
+        ? MobileBottomNavPrefs.mainLayout.slots
+        : NavPackageProfile.defaultMainSlots(_kind));
     _posSlots = List<String>.from(MobileBottomNavPrefs.posLayout.slots);
     _padToFive(_mainSlots);
     _padToFive(_posSlots);
@@ -80,6 +106,8 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
     final current = _activeSlots[index];
     final options = _catalog
         .where((d) => d.id == current || !used.contains(d.id))
+        // Thanh app: chỉ chức năng có trong gói / được phân quyền (tránh chọn xong lại thành ô trống).
+        .where((d) => _page != 0 || d.id == current || _allowedMain.contains(d.id))
         .toList()
       ..add(
         const MobileBottomNavItemDef(
@@ -151,7 +179,7 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
   Future<void> _resetCurrent() async {
     setState(() {
       if (_page == 0) {
-        _mainSlots = List<String>.from(MobileBottomNavLayout.defaultMainSlots);
+        _mainSlots = List<String>.from(NavPackageProfile.defaultMainSlots(_kind));
       } else {
         _posSlots = List<String>.from(MobileBottomNavLayout.defaultPosSlots);
       }

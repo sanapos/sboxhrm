@@ -200,6 +200,7 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
     return MobileBottomNavPrefs.posLayout.normalized(
       defaultSlots: MobileBottomNavLayout.defaultPosSlots,
       allowedIds: _allowedPosSlotIds(perm),
+      fallbackOrder: const ['PosSell', 'PosSaleOrders', 'PosProducts', 'PosSalesReport'],
     );
   }
 
@@ -282,30 +283,8 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
                     MobileBottomNavCatalog.posTabIndexFor(slotId);
                 final active = _tab == tabForSlot && enabled;
 
-                if (!enabled || def == null) {
-                  return Expanded(
-                    child: Opacity(
-                      opacity: 0.35,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.remove,
-                              size: 20, color: Colors.grey),
-                          const SizedBox(height: 2),
-                          Text(
-                            tr(def?.label ?? 'Trống'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: PosTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
+                // Không có quyền / ô trống: không chiếm chỗ — các ô còn lại dàn đều.
+                if (!enabled || def == null) return const SizedBox.shrink();
 
                 return Expanded(
                   child: InkWell(

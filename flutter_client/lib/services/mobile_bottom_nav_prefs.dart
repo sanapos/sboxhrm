@@ -19,9 +19,13 @@ class MobileBottomNavPrefs {
   static MobileBottomNavLayout get posLayout =>
       _posCache ?? MobileBottomNavLayout.posDefaults();
 
+  /// Cửa hàng đã tự cấu hình thanh dưới (app). False → dùng bộ mặc định theo loại gói.
+  static bool mainCustomized = false;
+
   static void clearCache() {
     _mainCache = null;
     _posCache = null;
+    mainCustomized = false;
   }
 
   static void _notify() => revision.value++;
@@ -39,8 +43,10 @@ class MobileBottomNavPrefs {
     final parsed = await _loadKey(MobileBottomNavLayout.storageKeyMain);
     if (parsed.slots.isNotEmpty) {
       _mainCache = parsed;
+      mainCustomized = true;
       return _mainCache!;
     }
+    mainCustomized = false;
     _mainCache = MobileBottomNavLayout.mainDefaults();
     return _mainCache!;
   }
@@ -90,6 +96,7 @@ class MobileBottomNavPrefs {
       );
       if (res['isSuccess'] == true) {
         if (isMain) {
+          mainCustomized = true;
           _mainCache = layout;
         } else {
           _posCache = layout;

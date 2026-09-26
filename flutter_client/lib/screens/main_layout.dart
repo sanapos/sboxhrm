@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/nav_package_profile.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
@@ -2715,9 +2716,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   }
 
   MobileBottomNavLayout _resolvedMainNavLayout() {
-    return MobileBottomNavPrefs.mainLayout.normalized(
-      defaultSlots: MobileBottomNavLayout.defaultMainSlots,
-      allowedIds: _allowedMainNavSlotIds(),
+    final allowed = _allowedMainNavSlotIds();
+    // Bộ công cụ chính theo loại gói (chấm công / bán hàng / đầy đủ) khi cửa hàng chưa tự cấu hình;
+    // ô bị mất do gói / quyền được lấp bằng công cụ kế tiếp theo ưu tiên của gói.
+    final kind = NavPackageProfile.detect(allowed);
+    final defaults = NavPackageProfile.defaultMainSlots(kind);
+    final base = MobileBottomNavPrefs.mainCustomized
+        ? MobileBottomNavPrefs.mainLayout
+        : MobileBottomNavLayout(slots: List<String>.from(defaults));
+    return base.normalized(
+      defaultSlots: defaults,
+      allowedIds: allowed,
+      fallbackOrder: NavPackageProfile.mainPriority(kind),
     );
   }
 
@@ -2752,6 +2762,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   MobileQuickActionsLayout _resolvedQuickActionsLayout() {
     return MobileQuickActionsPrefs.layout.normalized(
       allowedModules: _allowedQuickActionModuleCodes(),
+      packageDefaults: NavPackageProfile.defaultQuickActions(
+          NavPackageProfile.detect(_allowedMainNavSlotIds())),
     );
   }
 
@@ -2898,8 +2910,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               final isSelected = selectedSlotIndex == index;
               final label = _mobileNavLabelForSlot(slotId, l);
 
+              // Ô trống / không có quyền: không chiếm chỗ (các ô còn lại dàn đều).
               if (slotId == MobileBottomNavCatalog.emptyId || !enabled) {
-                return const Expanded(child: SizedBox(height: 52));
+                return const SizedBox.shrink();
               }
 
               if (slotId == MobileBottomNavCatalog.drawerId) {
