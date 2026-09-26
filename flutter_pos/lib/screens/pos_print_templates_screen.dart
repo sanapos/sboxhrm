@@ -9,10 +9,10 @@ import '../models/pos_print_template.dart';
 import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
 import '../widgets/pos/pos_docx_template_review.dart';
+import '../widgets/pos/pos_print_template_gallery.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/pos_barcode_print.dart';
 import '../utils/pos_label_printer_service.dart';
-import '../utils/pos_label_printer_settings.dart';
 import '../utils/pos_print_template_loader.dart';
 import '../utils/pos_print_template_defaults.dart';
 import '../utils/pos_print_template_renderer.dart';
@@ -22,11 +22,9 @@ import '../utils/pos_print_template_compiler.dart';
 import '../utils/pos_print_template_runtime.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_print_config_session.dart';
-import '../utils/pos_printer_transport.dart';
 import '../utils/pos_sell_print_settings.dart';
 import '../utils/pos_sell_store_settings.dart';
 import '../utils/pos_store_printer_mapper.dart';
-import '../utils/pos_thermal_printer_settings.dart';
 import '../models/pos_print_template_v2.dart';
 import '../widgets/pos/pos_print_template_v2_editor.dart';
 import '../widgets/pos/pos_commercial_a4_editor.dart';
@@ -73,6 +71,8 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
   bool _saving = false;
   bool _testingPrint = false;
   bool _dirty = false;
+  /// false = thư viện mẫu (lưới thẻ), true = đang soạn một mẫu.
+  bool _editing = false;
 
   @override
   void initState() {
@@ -91,7 +91,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({String? keepId}) async {
     setState(() => _loading = true);
 
     _templates = await loadPosPrintTemplates(_api, _docType);
@@ -107,7 +107,8 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           .toList();
     }
 
-    _selected = _templates.where((t) => t.isDefault).firstOrNull ??
+    _selected = (keepId == null ? null : _templates.where((t) => t.id == keepId).firstOrNull) ??
+        _templates.where((t) => t.isDefault).firstOrNull ??
         _templates.firstOrNull;
 
     if (_selected != null) {
@@ -159,7 +160,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       );
       await _syncDevicePrintTemplateId(t.id);
       PosPrintConfigSession.instance.invalidate();
-      await _load();
+      await _load(keepId: t.id);
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
@@ -439,7 +440,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             htmlContent: html,
             documentType: _docType,
             paperSize: paper,
-            isDefault: true,
+            isDefault: _selected!.isDefault,
           )
           .toSaveJson();
       final res = await _api.updatePosPrintTemplate(_selected!.id, body);
@@ -449,12 +450,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         _dirty = false;
         NotificationOverlayManager().showSuccess(
           title: 'Đã lưu',
-          message: tr('Mẫu A4 đã cập nhật — in báo giá / HĐ theo trang này'),
+          message: tr(_selected!.isDefault
+              ? 'Mẫu A4 đang dùng đã cập nhật'
+              : 'Đã lưu. Bấm «Dùng mẫu này» để dùng khi in'),
         );
-        try {
-          await _api.setDefaultPosPrintTemplate(_selected!.id);
-        } catch (_) {}
-        await _load();
+        PosPrintConfigSession.instance.invalidate();
+        await _load(keepId: _selected!.id);
       } else {
         NotificationOverlayManager().showError(
           title: 'Lỗi',
@@ -477,7 +478,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       htmlContent: htmlContent,
       documentType: _docType,
       paperSize: apiPaper,
-      isDefault: true,
+      isDefault: _selected!.isDefault,
     ).toSaveJson();
     final res = await _api.updatePosPrintTemplate(_selected!.id, body);
     if (!mounted) return;
@@ -486,14 +487,15 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       _dirty = false;
       NotificationOverlayManager().showSuccess(
         title: 'Đã lưu',
-        message: tr('Mẫu in đã được cập nhật — toàn cửa hàng sẽ in theo mẫu này'),
+        message: tr(_selected!.isDefault
+            ? 'Mẫu đang dùng đã cập nhật — máy bán hàng in theo bản mới'
+            : 'Đã lưu. Bấm «Dùng mẫu này» để máy bán hàng in theo mẫu này'),
       );
       try {
-        await _api.setDefaultPosPrintTemplate(_selected!.id);
-        await _syncDevicePrintTemplateId(_selected!.id);
+        if (_selected!.isDefault) await _syncDevicePrintTemplateId(_selected!.id);
         PosPrintConfigSession.instance.invalidate();
       } catch (_) {}
-      await _load();
+      await _load(keepId: _selected!.id);
     } else {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
@@ -658,6 +660,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       await _load();
       final created = PosPrintTemplate.fromJson(res['data'] as Map<String, dynamic>);
       _applyTemplate(created);
+      setState(() => _editing = true);
     }
   }
 
@@ -1159,155 +1162,388 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     }
   }
 
+  // ─── Thao tác từ thư viện mẫu ─────────────────────────────────────
+
+  Future<void> _changeDocType(String type) async {
+    if (type == _docType && !_editing) return;
+    void go() {
+      setState(() {
+        _docType = type;
+        _editing = false;
+      });
+      _load();
+    }
+
+    if (_editing && _dirty) {
+      await _confirmDiscard(go);
+    } else {
+      go();
+    }
+  }
+
+  Future<void> _editTemplate(PosPrintTemplate t) async {
+    if (t.isDocx) {
+      // Mẫu Word: trình soạn riêng (mẫu gốc / soạn trên trang in / bản in thử).
+      final saved = await showPosDocxTemplateReview(context, _api, t.id);
+      if (saved && mounted) await _load(keepId: t.id);
+      return;
+    }
+    _applyTemplate(t);
+    setState(() => _editing = true);
+  }
+
+  Future<void> _exitEditor() async {
+    if (_dirty) {
+      await _confirmDiscard(() {
+        setState(() => _editing = false);
+        _load(keepId: _selected?.id);
+      });
+      return;
+    }
+    setState(() => _editing = false);
+  }
+
+  Future<void> _useTemplate(PosPrintTemplate t) async {
+    _selected = t;
+    await _setStoreDefault();
+  }
+
+  Future<void> _testTemplate(PosPrintTemplate t) async {
+    if (!_editing) _applyTemplate(t);
+    await _testPrintTemplate();
+  }
+
+  Future<void> _deleteTemplateOf(PosPrintTemplate t) async {
+    _selected = t;
+    await _deleteTemplate();
+  }
+
+  Future<void> _duplicateTemplate(PosPrintTemplate t) async {
+    final res = await _api.createPosPrintTemplate({
+      'name': '${t.name} (bản sao)',
+      'documentType': t.documentType,
+      'paperSize': t.paperSize,
+      'htmlContent': t.htmlContent,
+      'isDefault': false,
+      'isActive': true,
+      'sortOrder': _templates.length,
+    });
+    if (!mounted) return;
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      NotificationOverlayManager().showSuccess(title: 'Đã nhân bản', message: tr('Sửa bản sao không ảnh hưởng mẫu đang dùng'));
+      final created = PosPrintTemplate.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+      await _load(keepId: created.id);
+    } else {
+      NotificationOverlayManager().showError(title: 'Không nhân bản được', message: res['message']?.toString() ?? '');
+    }
+  }
+
+  Future<void> _onAddTemplate() async {
+    final choice = await showPosPrintAddTemplateSheet(
+      context,
+      documentType: _docType,
+      catalog: _catalog,
+      allowWord: _supportsWordTpl,
+    );
+    if (choice == null || !mounted) return;
+    if (choice == 'word') {
+      await _importCustomerTemplate();
+    } else if (choice == 'blank') {
+      await _addTemplate();
+    } else if (choice.startsWith('catalog:')) {
+      final id = choice.substring('catalog:'.length);
+      final cat = _catalog.where((c) => c.id == id).firstOrNull;
+      if (cat != null) await _adoptCatalog(cat);
+    }
+  }
+
+  // ─── Giao diện ─────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final hubBody = widget.embeddedInSettings &&
-        !HrmPageChrome.showInPageAppBar(context);
-    final hideInnerBar = hubBody ||
-        (Responsive.isMobile(context) &&
-            (ModalRoute.of(context)?.isFirst ?? true));
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      backgroundColor: hubBody
-          ? HrmPageChrome.scaffoldBackground(context)
-          : const Color(0xFFF3F4F6),
-      appBar: hideInnerBar
-          ? null
-          : AppBar(
-              title: Text(tr('Mẫu in')),
-              backgroundColor: PosTheme.kiotBlue,
-              foregroundColor: Colors.white,
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back),
-                tooltip: tr('Quay lại'),
-                onPressed: () => Navigator.maybePop(context),
-              ),
-              actions: Responsive.isMobile(context)
-                  ? [
-                      TextButton(
-                        onPressed: _saving || _selected == null || !_canEditTpl ? null : _save,
-                        child: Text(
-                          _dirty ? tr('Lưu*') : tr('Lưu'),
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ]
-                  : null,
-            ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (!hubBody && !Responsive.isMobile(context))
-            const PosModuleToolbar(activeModule: 'PosSell'),
-          if (!Responsive.isMobile(context)) _buildDocTypeBar(),
-          if (!Responsive.isMobile(context) &&
-              PosPrintDocumentTypes.usageHint(_docType).isNotEmpty)
-            Material(
-              color: const Color(0xFFEFF6FF),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline,
-                        size: 18, color: Color(0xFF1D4ED8)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        tr('${PosPrintPaperSizes.categoryLabel(_docType)} — ${PosPrintDocumentTypes.usageHint(_docType)}'),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF1E3A8A),
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  ],
+    final mobile = Responsive.isMobile(context);
+    final hubBody = widget.embeddedInSettings && !HrmPageChrome.showInPageAppBar(context);
+    final hideInnerBar = hubBody || (mobile && (ModalRoute.of(context)?.isFirst ?? true) && !_editing);
+    return PopScope(
+      canPop: !_editing,
+      onPopInvoked: (didPop) {
+        if (!didPop && _editing) _exitEditor();
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: true,
+        backgroundColor: hubBody ? HrmPageChrome.scaffoldBackground(context) : const Color(0xFFF3F4F6),
+        appBar: hideInnerBar || (!mobile && _editing)
+            ? null
+            : AppBar(
+                title: Text(_editing ? tr('Sửa mẫu in') : tr('Mẫu in')),
+                backgroundColor: PosTheme.kiotBlue,
+                foregroundColor: Colors.white,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: tr('Quay lại'),
+                  onPressed: () => _editing ? _exitEditor() : Navigator.maybePop(context),
                 ),
+                actions: _editing
+                    ? [
+                        TextButton(
+                          onPressed: _saving || _selected == null || !_canEditTpl ? null : _save,
+                          child: Text(_dirty ? tr('Lưu*') : tr('Lưu'),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                        ),
+                      ]
+                    : null,
               ),
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!hubBody && !mobile && !_editing) const PosModuleToolbar(activeModule: 'PosSell'),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _editing
+                      ? _buildEditorView(mobile)
+                      : _buildGalleryView(mobile),
             ),
-          if (!Responsive.isMobile(context)) _buildCatalogBar(),
-          _buildTemplateSelectorBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGalleryView(bool mobile) {
+    final hint = PosPrintDocumentTypes.usageHint(_docType);
+    final header = Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Row(
+        children: [
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : Responsive.isMobile(context)
-                    ? _buildMobileEditorBody()
-                    : Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: TextField(
-                            controller: _nameCtrl,
-                            decoration: InputDecoration(
-                              labelText: tr('Tên mẫu'), hintText: tr('vd. HĐ K80'),
-                              isDense: true,
-                            ),
-                            onChanged: (_) => setState(() => _dirty = true),
-                          ),
-                        ),
-                        if (_legacyHtml != null && !_isCommercialDoc)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Material(
-                              color: const Color(0xFFFFF7ED),
-                              borderRadius: BorderRadius.circular(8),
-                              child: ListTile(
-                                dense: true,
-                                leading: const Icon(Icons.html, color: Color(0xFFB45309)),
-                                title: Text(tr('Đang dùng HTML thuần')),
-                                subtitle: Text(tr('Chỉnh khối V2 rồi lưu sẽ ghi đè HTML. Hoặc sửa HTML ở tab Mã nguồn.')),
-                                trailing: TextButton(
-                                  onPressed: () => setState(() {
-                                    _legacyHtml = null;
-                                    _dirty = true;
-                                  }),
-                                  child: Text(tr('Về V2')),
-                                ),
-                              ),
-                            ),
-                          ),
-                        Expanded(
-                          child: _isCommercialDoc
-                              ? PosCommercialA4Editor(
-                                  html: _legacyHtml ??
-                                      posPrintDefaultHtml(
-                                        documentType: _docType,
-                                        paperSize: _commercialPaper,
-                                      ),
-                                  documentType: _docType,
-                                  paperSize: _commercialPaper,
-                                  onPageSetupChanged: (s) => setState(() {
-                                    _commercialPaper = s.paperSize;
-                                    _dirty = true;
-                                  }),
-                                  onChanged: (html) => setState(() {
-                                    _legacyHtml = html;
-                                    _dirty = true;
-                                  }),
-                                )
-                              : _v2Template == null
-                              ? Center(child: Text(tr('Đang tải…')))
-                              : PosPrintTemplateV2Editor(
-                                  template: _v2Template!,
-                                  onChanged: (v) => setState(() {
-                                    _v2Template = v;
-                                    _legacyHtml = null;
-                                    _dirty = true;
-                                  }),
-                                  onLegacyHtml: _onLegacyHtml,
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (mobile)
+                  InkWell(
+                    onTap: () async {
+                      final t = await showPosPrintDocTypePicker(context, _docType);
+                      if (t != null) _changeDocType(t);
+                    },
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(tr(posPrintDocLabel(_docType)),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                      const Icon(Icons.arrow_drop_down, size: 28),
+                    ]),
+                  )
+                else
+                  Text(tr(posPrintDocLabel(_docType)),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(tr(hint), style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700)),
+              ],
+            ),
           ),
+          if (_canCreateTpl && !mobile)
+            FilledButton.icon(
+              onPressed: _onAddTemplate,
+              icon: const Icon(Icons.add),
+              label: Text(tr('Thêm mẫu')),
+            ),
         ],
       ),
+    );
+
+    final cards = <Widget>[
+      for (final t in _templates)
+        PosPrintTemplateCard(
+          template: t,
+          canEdit: _canEditTpl,
+          onEdit: () => _editTemplate(t),
+          onUse: () => _useTemplate(t),
+          onTestPrint: () => _testTemplate(t),
+          onDuplicate: _canCreateTpl && !t.isDocx ? () => _duplicateTemplate(t) : null,
+          onDelete: _canDeleteTpl ? () => _deleteTemplateOf(t) : null,
+        ),
+      if (_canCreateTpl) PosPrintAddTemplateCard(onTap: _onAddTemplate),
+    ];
+
+    final grid = cards.isEmpty
+        ? Center(child: Text(tr('Chưa có mẫu in cho loại phiếu này')))
+        : GridView.extent(
+            padding: const EdgeInsets.all(16),
+            maxCrossAxisExtent: mobile ? 220 : 260,
+            mainAxisSpacing: 14,
+            crossAxisSpacing: 14,
+            childAspectRatio: mobile ? .58 : .62,
+            children: cards,
+          );
+
+    final main = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
+        if (_templates.isNotEmpty && !_templates.any((t) => t.isDefault))
+          Material(
+            color: const Color(0xFFFFF7ED),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Text(tr('Chưa chọn mẫu đang dùng — bấm «Dùng mẫu này» trên một mẫu để máy bán hàng in theo mẫu đó.'),
+                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF9A3412))),
+            ),
+          ),
+        Expanded(child: grid),
+      ],
+    );
+
+    if (mobile) return main;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          width: 240,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(right: BorderSide(color: Color(0xFFE5E7EB))),
+          ),
+          child: PosPrintDocTypeNav(current: _docType, onSelect: _changeDocType),
+        ),
+        Expanded(child: main),
+      ],
+    );
+  }
+
+  Widget _buildEditorView(bool mobile) {
+    final isDefault = _selected?.isDefault == true;
+    final topBar = mobile
+        ? null
+        : Material(
+            color: Colors.white,
+            elevation: 1,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: _exitEditor,
+                    icon: const Icon(Icons.arrow_back),
+                    label: Text(tr('Tất cả mẫu')),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(tr(posPrintDocLabel(_docType)),
+                      style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 320,
+                    child: TextField(
+                      controller: _nameCtrl,
+                      decoration: InputDecoration(
+                        labelText: tr('Tên mẫu'),
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setState(() => _dirty = true),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (isDefault)
+                    Chip(
+                      avatar: const Icon(Icons.check_circle, size: 16, color: Color(0xFF16A34A)),
+                      label: Text(tr('Đang dùng')),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  const Spacer(),
+                  OutlinedButton.icon(
+                    onPressed: _testingPrint ? null : _testPrintTemplate,
+                    icon: const Icon(Icons.print_outlined, size: 18),
+                    label: Text(tr('In thử')),
+                  ),
+                  if (!isDefault && _canEditTpl) ...[
+                    const SizedBox(width: 8),
+                    OutlinedButton(
+                      onPressed: _dirty ? null : _setStoreDefault,
+                      child: Text(tr('Dùng mẫu này')),
+                    ),
+                  ],
+                  const SizedBox(width: 8),
+                  FilledButton.icon(
+                    onPressed: _saving || _selected == null || !_canEditTpl ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.save_outlined, size: 18),
+                    label: Text(_dirty ? tr('Lưu*') : tr('Lưu')),
+                  ),
+                ],
+              ),
+            ),
+          );
+
+    if (mobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: TextField(
+              controller: _nameCtrl,
+              decoration: InputDecoration(labelText: tr('Tên mẫu'), isDense: true, border: const OutlineInputBorder()),
+              onChanged: (_) => setState(() => _dirty = true),
+            ),
+          ),
+          Expanded(child: _buildMobileEditorBody()),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        topBar!,
+        if (_legacyHtml != null && !_isCommercialDoc)
+          Material(
+            color: const Color(0xFFFFF7ED),
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.html, color: Color(0xFFB45309)),
+              title: Text(tr('Mẫu này đang ở dạng HTML thuần')),
+              subtitle: Text(tr('Bấm «Chuyển sang soạn theo khối» để chỉnh dễ hơn (ghi đè HTML khi lưu).')),
+              trailing: TextButton(
+                onPressed: () => setState(() {
+                  _legacyHtml = null;
+                  _dirty = true;
+                }),
+                child: Text(tr('Chuyển sang soạn theo khối')),
+              ),
+            ),
+          ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: _isCommercialDoc
+                ? PosCommercialA4Editor(
+                    html: _legacyHtml ?? posPrintDefaultHtml(documentType: _docType, paperSize: _commercialPaper),
+                    documentType: _docType,
+                    paperSize: _commercialPaper,
+                    onPageSetupChanged: (s) => setState(() {
+                      _commercialPaper = s.paperSize;
+                      _dirty = true;
+                    }),
+                    onChanged: (html) => setState(() {
+                      _legacyHtml = html;
+                      _dirty = true;
+                    }),
+                  )
+                : _v2Template == null
+                    ? Center(child: Text(tr('Đang tải…')))
+                    : PosPrintTemplateV2Editor(
+                        template: _v2Template!,
+                        onChanged: (v) => setState(() {
+                          _v2Template = v;
+                          _legacyHtml = null;
+                          _dirty = true;
+                        }),
+                        onLegacyHtml: _onLegacyHtml,
+                      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1374,394 +1610,6 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     }),
                     onLegacyHtml: _onLegacyHtml,
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDocTypeBar() {
-    final mobile = Responsive.isMobile(context);
-    final hint = PosPrintDocumentTypes.usageHint(_docType);
-    if (mobile) {
-      return Material(
-        color: Colors.white,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _docType,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: tr('Loại phiếu'),
-                    isDense: true,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                  ),
-                  items: [
-                    for (final e in PosPrintDocumentTypes.all.entries)
-                      DropdownMenuItem(
-                        value: e.key,
-                        child: Text(
-                          tr(PosPrintPaperSizes.isLabelDoc(e.key)
-                              ? 'Tem · ${e.value}'
-                              : e.value),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: (v) {
-                    if (v == null || v == _docType) return;
-                    _docType = v;
-                    _load();
-                  },
-                ),
-              ),
-              if (hint.isNotEmpty)
-                IconButton(
-                  tooltip: hint,
-                  onPressed: () => NotificationOverlayManager().showInfo(
-                    title: PosPrintPaperSizes.categoryLabel(_docType),
-                    message: hint,
-                  ),
-                  icon: const Icon(Icons.info_outline),
-                ),
-            ],
-          ),
-        ),
-      );
-    }
-    return Material(
-      color: Colors.white,
-      child: Container(
-        height: 48,
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: PosTheme.border)),
-        ),
-        child: Scrollbar(
-          controller: _docTypeScrollCtrl,
-          thumbVisibility: true,
-          trackVisibility: true,
-          scrollbarOrientation: ScrollbarOrientation.bottom,
-          child: SingleChildScrollView(
-            controller: _docTypeScrollCtrl,
-            scrollDirection: Axis.horizontal,
-            primary: false,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: PosPrintDocumentTypes.all.entries.map((e) {
-                final active = e.key == _docType;
-                final isLabel = PosPrintPaperSizes.isLabelDoc(e.key);
-                final chipLabel = isLabel ? 'Tem · ${e.value}' : e.value;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: TextButton(
-                    onPressed: () {
-                      if (e.key == _docType) return;
-                      _docType = e.key;
-                      _load();
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: active ? _blue : PosTheme.textPrimary,
-                      backgroundColor:
-                          active ? const Color(0xFFE8F0FE) : null,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      minimumSize: const Size(0, 40),
-                    ),
-                    child: Text(
-                      tr(chipLabel),
-                      style: TextStyle(
-                        fontWeight:
-                            active ? FontWeight.w600 : FontWeight.normal,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCatalogBar() {
-    if (_isCommercialDoc || _catalog.isEmpty) return const SizedBox.shrink();
-    return Material(
-      color: const Color(0xFFF0FDFA),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              tr('Mẫu chung — chọn là cả cửa hàng in giống nhau'),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0F766E),
-              ),
-            ),
-            const SizedBox(height: 6),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _catalog.map((c) {
-                  final isDefault = _templates.any(
-                      (t) => t.sourceCatalogId == c.id && t.isDefault);
-                  final paper = PosPrintPaperSizes.shortLabel(c.paperSize);
-                  final label = c.isRecommended ? '$paper ★' : paper;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: OutlinedButton(
-                      onPressed: () => _adoptCatalog(c),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0F766E),
-                        side: BorderSide(
-                          color: isDefault
-                              ? const Color(0xFF0F766E)
-                              : const Color(0xFF99F6E4),
-                          width: isDefault ? 2 : 1,
-                        ),
-                        backgroundColor: isDefault
-                            ? const Color(0xFFCCFBF1)
-                            : Colors.white,
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                      ),
-                      child: Text(
-                        tr(isDefault ? '$label · dùng' : label),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTemplateSelectorBar() {
-    final selector = DropdownButtonFormField<String>(
-      value: _dropdownValue,
-      isExpanded: true,
-      decoration: InputDecoration(
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-        hintText: trN(_templates.isEmpty ? 'Chưa có mẫu — bấm +' : null),
-      ),
-      selectedItemBuilder: (ctx) => [
-        for (final t in _templates)
-          SizedBox(
-            width: double.infinity,
-            child: Text(
-              tr('${t.shortLabel}${t.isDefault && !t.shortLabel.contains('★') ? ' ★' : ''}'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-            ),
-          ),
-      ],
-      items: _templates
-          .map((t) => DropdownMenuItem(
-                value: t.id,
-                child: Text(
-                  tr('${t.shortLabel}${t.isDefault && !t.shortLabel.contains('★') ? ' ★' : ''}'),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ))
-          .toList(),
-      onChanged: (id) {
-        if (id == null) return;
-        _selectTemplate(_templates.where((t) => t.id == id).firstOrNull);
-      },
-    );
-
-    if (Responsive.isMobile(context)) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 108,
-              child: ClipRect(
-                child: DropdownButtonFormField<String>(
-                value: _docType,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  isDense: true,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6)),
-                ),
-                selectedItemBuilder: (ctx) => [
-                  for (final e in PosPrintDocumentTypes.all.entries)
-                    Text(
-                      tr(PosPrintPaperSizes.isLabelDoc(e.key)
-                          ? 'Tem · ${e.value}'
-                          : e.value),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
-                    ),
-                ],
-                items: [
-                  for (final e in PosPrintDocumentTypes.all.entries)
-                    DropdownMenuItem(
-                      value: e.key,
-                      child: Text(
-                        tr(PosPrintPaperSizes.isLabelDoc(e.key)
-                            ? 'Tem · ${e.value}'
-                            : e.value),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: (v) {
-                  if (v == null || v == _docType) return;
-                  _docType = v;
-                  _load();
-                },
-              ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: ClipRect(child: selector),
-            ),
-            TextButton(
-              onPressed: _saving || _selected == null || !_canEditTpl ? null : _save,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                visualDensity: VisualDensity.compact,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: Text(
-                _dirty ? tr('Lưu*') : tr('Lưu'),
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
-            PopupMenuButton<String>(
-              tooltip: tr('Thao tác mẫu'),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              onSelected: (v) {
-                switch (v) {
-                  case 'add':
-                    _addTemplate();
-                  case 'import':
-                    _importCustomerTemplate();
-                  case 'docx_review':
-                    _reviewDocx();
-                  case 'print':
-                    _testPrintTemplate();
-                  case 'default':
-                    _setStoreDefault();
-                  case 'delete':
-                    _deleteTemplate();
-                }
-              },
-              itemBuilder: (_) => [
-                if (_canCreateTpl)
-                  PopupMenuItem(value: 'add', child: Text(tr('Thêm mẫu'))),
-                if (_supportsWordTpl && _canCreateTpl)
-                  PopupMenuItem(
-                      value: 'import', child: Text(tr('Tải mẫu Word (giữ bố cục)'))),
-                if (_selected?.isDocx == true && _canEditTpl)
-                  PopupMenuItem(
-                      value: 'docx_review', child: Text(tr('Soạn mẫu Word'))),
-                PopupMenuItem(value: 'print', child: Text(tr('In thử'))),
-                if (_selected != null && !_selected!.isDefault && _canEditTpl)
-                  PopupMenuItem(
-                      value: 'default', child: Text(tr('Đặt mặc định CH'))),
-                if (_selected != null && _canDeleteTpl)
-                  PopupMenuItem(
-                      value: 'delete', child: Text(tr('Xóa mẫu'))),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
-      child: Row(
-        children: [
-          Text(tr('Mẫu cửa hàng:'), style: TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(width: 8),
-          Expanded(child: ClipRect(child: selector)),
-          if (_canCreateTpl)
-          IconButton(
-            tooltip: tr('Thêm mẫu'),
-            onPressed: _addTemplate,
-            icon: const Icon(Icons.add_circle_outline, color: _blue),
-          ),
-          if (_selected?.isDocx == true && _canEditTpl)
-            IconButton(
-              tooltip: tr('Soạn mẫu Word (gắn trường, sửa chữ, xem bản in)'),
-              onPressed: _reviewDocx,
-              icon: const Icon(Icons.edit_note, color: _blue),
-            ),
-          if (_supportsWordTpl && _canCreateTpl)
-            IconButton(
-              tooltip: tr('Tải mẫu Word của khách (giữ nguyên bố cục, AI gắn dữ liệu)'),
-              onPressed: _importCustomerTemplate,
-              icon: const Icon(Icons.upload_file_outlined, color: _blue),
-            ),
-          if (_canDeleteTpl)
-          IconButton(
-            tooltip: tr('Xóa mẫu'),
-            onPressed: _selected == null ? null : _deleteTemplate,
-            icon: const Icon(Icons.delete_outline, color: Colors.red),
-          ),
-          IconButton(
-            tooltip: tr('Đặt mặc định toàn cửa hàng'),
-            onPressed: (_selected == null || _selected!.isDefault || !_canEditTpl)
-                ? null
-                : _setStoreDefault,
-            icon: Icon(
-              Icons.storefront_outlined,
-              color: (_selected == null || _selected!.isDefault)
-                  ? Colors.grey
-                  : _blue,
-            ),
-          ),
-          IconButton(
-            tooltip: tr('In thử'),
-            onPressed: _testingPrint || _v2Template == null ? null : _testPrintTemplate,
-            icon: _testingPrint
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.print_outlined, color: _blue),
-          ),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: _blue),
-            onPressed: _saving || _selected == null || !_canEditTpl ? null : _save,
-            icon: _saving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.save, size: 18),
-            label: Text(tr('Lưu')),
           ),
         ],
       ),
