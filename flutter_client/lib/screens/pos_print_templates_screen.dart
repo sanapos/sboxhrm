@@ -1,4 +1,6 @@
 import 'package:file_picker/file_picker.dart';
+import '../providers/permission_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 
 import '../models/pos_print_template.dart';
@@ -661,6 +663,24 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       PosPrintDocumentTypes.isCommercial(_docType);
 
   /// Mẫu Word của khách giữ nguyên bố cục: AI chỉ chỗ dữ liệu động → xem lại → lưu.
+  // Quyền module «Mẫu in» (server chặn cùng mức) — ẩn / khóa thao tác không được phép.
+  PermissionProvider get _perm => context.read<PermissionProvider>();
+  bool get _canCreateTpl => _perm.canCreate('PosPrintTemplates');
+  bool get _canEditTpl => _perm.canEdit('PosPrintTemplates');
+  bool get _canDeleteTpl => _perm.canDelete('PosPrintTemplates');
+
+  // Quyền module «Mẫu in» (server chặn cùng mức) — ẩn / khóa thao tác không được phép.
+  PermissionProvider get _perm => context.read<PermissionProvider>();
+  bool get _canCreateTpl => _perm.canCreate('PosPrintTemplates');
+  bool get _canEditTpl => _perm.canEdit('PosPrintTemplates');
+  bool get _canDeleteTpl => _perm.canDelete('PosPrintTemplates');
+
+  // Quyền module «Mẫu in» (server chặn cùng mức) — ẩn / khóa thao tác không được phép.
+  PermissionProvider get _perm => context.read<PermissionProvider>();
+  bool get _canCreateTpl => _perm.canCreate('PosPrintTemplates');
+  bool get _canEditTpl => _perm.canEdit('PosPrintTemplates');
+  bool get _canDeleteTpl => _perm.canDelete('PosPrintTemplates');
+
   Future<void> _importDocxAi() async {
     final created = await importPosDocxTemplateWithAi(context, _api, documentType: _docType);
     if (created && mounted) await _load();
@@ -1132,7 +1152,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               actions: Responsive.isMobile(context)
                   ? [
                       TextButton(
-                        onPressed: _saving || _selected == null ? null : _save,
+                        onPressed: _saving || _selected == null || !_canEditTpl ? null : _save,
                         child: Text(
                           _dirty ? tr('Lưu*') : tr('Lưu'),
                           style: const TextStyle(
@@ -1589,7 +1609,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               child: ClipRect(child: selector),
             ),
             TextButton(
-              onPressed: _saving || _selected == null ? null : _save,
+              onPressed: _saving || _selected == null || !_canEditTpl ? null : _save,
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 visualDensity: VisualDensity.compact,
@@ -1623,22 +1643,23 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                 }
               },
               itemBuilder: (_) => [
-                PopupMenuItem(value: 'add', child: Text(tr('Thêm mẫu'))),
-                if (_isCommercialDoc)
+                if (_canCreateTpl)
+                  PopupMenuItem(value: 'add', child: Text(tr('Thêm mẫu'))),
+                if (_isCommercialDoc && _canCreateTpl)
                   PopupMenuItem(
                       value: 'import_docx_ai',
                       child: Text(tr('Mẫu Word giữ bố cục (AI)'))),
-                if (_isCommercialDoc)
+                if (_isCommercialDoc && _canCreateTpl)
                   PopupMenuItem(
                       value: 'import', child: Text(tr('Tải Word / PDF'))),
-                if (_selected?.isDocx == true)
+                if (_selected?.isDocx == true && _canEditTpl)
                   PopupMenuItem(
                       value: 'docx_review', child: Text(tr('Trường mẫu Word'))),
                 PopupMenuItem(value: 'print', child: Text(tr('In thử'))),
-                if (_selected != null && !_selected!.isDefault)
+                if (_selected != null && !_selected!.isDefault && _canEditTpl)
                   PopupMenuItem(
                       value: 'default', child: Text(tr('Đặt mặc định CH'))),
-                if (_selected != null)
+                if (_selected != null && _canDeleteTpl)
                   PopupMenuItem(
                       value: 'delete', child: Text(tr('Xóa mẫu'))),
               ],
@@ -1655,29 +1676,33 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           Text(tr('Mẫu cửa hàng:'), style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(width: 8),
           Expanded(child: ClipRect(child: selector)),
+          if (_canCreateTpl)
           IconButton(
             tooltip: tr('Thêm mẫu'),
             onPressed: _addTemplate,
             icon: const Icon(Icons.add_circle_outline, color: _blue),
           ),
-          if (_isCommercialDoc)
+          if (_isCommercialDoc && _canCreateTpl)
             IconButton(
               tooltip: tr('Mẫu Word giữ bố cục (AI gắn dữ liệu)'),
               onPressed: _importDocxAi,
               icon: const Icon(Icons.auto_awesome, color: _blue),
             ),
-          if (_selected?.isDocx == true)
+          if (_selected?.isDocx == true && _canEditTpl)
             IconButton(
               tooltip: tr('Trường mẫu Word'),
               onPressed: _reviewDocx,
               icon: const Icon(Icons.edit_note, color: _blue),
             ),
-          if (_isCommercialDoc)
+          if (_isCommercialDoc && _canCreateTpl)
             IconButton(
               tooltip: tr('Tải mẫu Word / PDF của khách'),
               onPressed: _importCustomerTemplate,
               icon: const Icon(Icons.upload_file_outlined, color: _blue),
             ),
+          if (_canDeleteTpl)
+          if (_canDeleteTpl)
+          if (_canDeleteTpl)
           IconButton(
             tooltip: tr('Xóa mẫu'),
             onPressed: _selected == null ? null : _deleteTemplate,
@@ -1685,7 +1710,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           ),
           IconButton(
             tooltip: tr('Đặt mặc định toàn cửa hàng'),
-            onPressed: (_selected == null || _selected!.isDefault)
+            onPressed: (_selected == null || _selected!.isDefault || !_canEditTpl)
                 ? null
                 : _setStoreDefault,
             icon: Icon(
@@ -1709,7 +1734,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           const SizedBox(width: 8),
           FilledButton.icon(
             style: FilledButton.styleFrom(backgroundColor: _blue),
-            onPressed: _saving || _selected == null ? null : _save,
+            onPressed: _saving || _selected == null || !_canEditTpl ? null : _save,
             icon: _saving
                 ? const SizedBox(
                     width: 16,

@@ -1,3 +1,4 @@
+using ZKTecoADMS.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -415,8 +416,32 @@ public class UploadController : AuthenticatedControllerBase
     [HttpGet("serve")]
     [Authorize]
     [ResponseCache(Duration = 3600)]
-    public IActionResult ServeFile([FromQuery] string path)
-        => ServeWwwrootFile(path, publicOnly: false);
+    public async Task<IActionResult> ServeFile([FromQuery] string path)
+    {
+        // stores/{mã}/... của cửa hàng khác (ảnh CCCD, hồ sơ NV...) → chặn.
+        var normalized = (path ?? "").Trim().Replace('\\', '/').TrimStart('/');
+        if (normalized.StartsWith("stores/", StringComparison.OrdinalIgnoreCase)
+            && !await IsOwnStorePathAsync(normalized, allowSystemRoles: true))
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { isSuccess = false, message = "File thuộc cửa hàng khác" });
+        return ServeWwwrootFile(path, publicOnly: false);
+    }
+
+    /// <summary>
+    /// Đường dẫn nằm trong stores/{mã cửa hàng của người gọi}/. SuperAdmin luôn được;
+    /// Đại lý (quản lý nhiều cửa hàng) được đọc khi <paramref name="allowSystemRoles"/>.
+    /// </summary>
+    private async Task<bool> IsOwnStorePathAsync(string normalized, bool allowSystemRoles)
+    {
+        var role = CurrentUserRole;
+        if (role.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (allowSystemRoles && role.Equals(nameof(Roles.Agent), StringComparison.OrdinalIgnoreCase))
+            return true;
+        var own = await GetStoreFolderAsync("");
+        return own.StartsWith("stores/", StringComparison.Ordinal)
+            && normalized.StartsWith(own, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Media màn hình phụ (không login): chỉ customer-display + ảnh sản phẩm POS.
@@ -534,9 +559,16 @@ public class UploadController : AuthenticatedControllerBase
             return BadRequest(new { isSuccess = false, message = "File path is required" });
         }
 
+        // Chỉ xóa file trong thư mục cửa hàng mình (stores/{mã}/...), không cho "../".
+        var normalized = filePath.Trim().Replace('\\', '/').TrimStart('/');
+        if (normalized.Contains("..", StringComparison.Ordinal)
+            || !await IsOwnStorePathAsync(normalized, allowSystemRoles: false))
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { isSuccess = false, message = "Chỉ được xóa file của cửa hàng mình" });
+
         try
         {
-            var success = await _fileStorageService.DeleteAsync(filePath);
+            var success = await _fileStorageService.DeleteAsync(normalized);
             return Ok(new { isSuccess = success });
         }
         catch (Exception ex)

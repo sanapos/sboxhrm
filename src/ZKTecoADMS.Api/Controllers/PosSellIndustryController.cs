@@ -458,8 +458,9 @@ public partial class PosSellIndustryController(
         return Ok(AppResponse<List<AreaDto>>.Success(list));
     }
 
+    // Thiết lập sơ đồ (khu / bàn / vị trí) = quyền Sửa bán hàng; thu ngân (Tạo) chỉ thao tác bán.
     [HttpPost("service-areas")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<AreaDto>>> CreateArea([FromBody] AreaSaveDto? dto)
     {
         if (!TryGetStoreId(out var storeId))
@@ -977,8 +978,9 @@ public partial class PosSellIndustryController(
         return Ok(AppResponse<List<ResourceDto>>.Success(list));
     }
 
+    // Thiết lập sơ đồ (khu / bàn / vị trí) = quyền Sửa bán hàng; thu ngân (Tạo) chỉ thao tác bán.
     [HttpPost("service-resources")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> CreateResource([FromBody] ResourceSaveDto? dto)
     {
         if (!TryGetStoreId(out var storeId))

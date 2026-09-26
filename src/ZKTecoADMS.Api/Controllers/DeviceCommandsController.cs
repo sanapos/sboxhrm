@@ -1,3 +1,6 @@
+using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Application.DTOs.Devices;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Application.Queries.DeviceCommands.GetCommandsByDevice;
@@ -29,6 +32,23 @@ public class DeviceCommandsController(
     [HttpPost]
     public async Task<ActionResult<DeviceCmdDto>> CreateDeviceCommand(Guid deviceId, [FromBody] DeviceCmdRequest request)
     {
+        // Lệnh đọc (đồng bộ) chỉ cần xem; lệnh sửa người dùng / vân tay / khuôn mặt cần Sửa người
+        // dùng máy; lệnh xóa sạch / khởi động lại / mở cửa cần Sửa thiết bị.
+        var (module, action) = RequiredPermissionFor((DeviceCommandTypes)request.CommandType);
+        var permissionService = HttpContext.RequestServices.GetRequiredService<IModulePermissionService>();
+        var allowed = module == null
+            ? await permissionService.HasPermissionAsync(CurrentUserId, CurrentUserRole, CurrentStoreId,
+                  "Device", ModulePermissionAction.View)
+              || await permissionService.HasPermissionAsync(CurrentUserId, CurrentUserRole, CurrentStoreId,
+                  "DeviceUser", ModulePermissionAction.View)
+              || await permissionService.HasPermissionAsync(CurrentUserId, CurrentUserRole, CurrentStoreId,
+                  "Attendance", ModulePermissionAction.View)
+            : await permissionService.HasPermissionAsync(CurrentUserId, CurrentUserRole, CurrentStoreId,
+                  module, action);
+        if (!allowed)
+            return StatusCode(StatusCodes.Status403Forbidden,
+                AppResponse<object>.Fail("Tài khoản không có quyền gửi lệnh này tới máy chấm công."));
+
         logger.LogInformation("[CreateCommand] DeviceId={DeviceId}, CommandType={CommandType}, Priority={Priority}, Command={Command}", 
             deviceId, request.CommandType, request.Priority, request.Command);
         
@@ -46,6 +66,20 @@ public class DeviceCommandsController(
         
         return Ok(result);
     }
+
+    static (string? Module, ModulePermissionAction Action) RequiredPermissionFor(DeviceCommandTypes type) => type switch
+    {
+        DeviceCommandTypes.SyncAttendances or DeviceCommandTypes.SyncDeviceUsers
+            or DeviceCommandTypes.SyncFingerprints or DeviceCommandTypes.SyncFaces
+            or DeviceCommandTypes.GetDeviceInfo => (null, ModulePermissionAction.View),
+        DeviceCommandTypes.AddDeviceUser or DeviceCommandTypes.UpdateDeviceUser
+            or DeviceCommandTypes.EnrollFingerprint or DeviceCommandTypes.EnrollFace
+            or DeviceCommandTypes.PushFingerprint or DeviceCommandTypes.PushFace
+            or DeviceCommandTypes.PushUserPic => ("DeviceUser", ModulePermissionAction.Edit),
+        DeviceCommandTypes.DeleteDeviceUser or DeviceCommandTypes.DeleteFingerprint
+            or DeviceCommandTypes.DeleteFace => ("DeviceUser", ModulePermissionAction.Delete),
+        _ => ("Device", ModulePermissionAction.Edit), // xóa sạch, khởi động lại, mở / đóng cửa
+    };
 
     [HttpGet("pending")]
     public async Task<ActionResult<AppResponse<IEnumerable<DeviceCommand>>>> GetPendingCommands(Guid deviceId)

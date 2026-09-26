@@ -1035,8 +1035,9 @@ public partial class PosSellIndustryController
         }));
     }
 
+    // Thiết lập sơ đồ (khu / bàn / vị trí) = quyền Sửa bán hàng; thu ngân (Tạo) chỉ thao tác bán.
     [HttpPut("service-resources/layout")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SaveLayout([FromBody] LayoutBatchDto? dto)
     {
         if (!TryGetStoreId(out var storeId))

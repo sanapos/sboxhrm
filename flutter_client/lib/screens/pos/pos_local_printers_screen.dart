@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../../providers/permission_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -274,6 +276,8 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Gán sản phẩm cho máy in lưu trên server → cần quyền Sửa máy in.
+    final canAssign = context.watch<PermissionProvider>().canEdit('PosPrinters');
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
@@ -291,6 +295,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
             onPressed: _loading ? null : () => unawaited(_refreshLinkStatus()),
             icon: const Icon(Icons.wifi_tethering),
           ),
+          if (canAssign)
           IconButton(
             tooltip: tr('Gán sản phẩm (mọi máy)'),
             onPressed: () {

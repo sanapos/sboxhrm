@@ -126,7 +126,8 @@ class _PosSellIndustrySettingsHubScreenState
             const PosSellIndustrySettingsScreen(section: 'resources'),
           ),
         ),
-        if (_showFloorManage)
+        // Thêm / sửa / xếp bàn cần quyền Sửa bán hàng (server chặn cùng mức).
+        if (_showFloorManage && perm.canEdit('PosSell'))
           _tile(
             context,
             icon: Icons.map_outlined,

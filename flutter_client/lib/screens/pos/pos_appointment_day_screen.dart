@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../../providers/permission_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -472,7 +474,9 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                   subtitle: Text(tr(list.isEmpty
                       ? 'Chưa có lịch'
                       : '${list.length} lịch hẹn')),
-                  trailing: TextButton.icon(
+                  trailing: !_canBook
+                      ? null
+                      : TextButton.icon(
                     onPressed: _resources.isEmpty
                         ? null
                         : () {
@@ -724,10 +728,23 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     }
   }
 
+  /// Đặt / sửa / hủy / cọc lịch hẹn = quyền Tạo «Đặt chỗ» (server chặn cùng mức).
+  bool get _canBook => context.read<PermissionProvider>().canCreate('PosBooking');
+
+  bool _denyBooking() {
+    if (_canBook) return false;
+    NotificationOverlayManager().showError(
+      title: 'Không có quyền',
+      message: tr('Tài khoản không có quyền đặt / sửa lịch hẹn'),
+    );
+    return true;
+  }
+
   Future<void> _bookAppointment({
     PosServiceResourceDto? resource,
     TimeOfDay? slotHint,
   }) async {
+    if (_denyBooking()) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => _BookAppointmentDialog(
@@ -742,6 +759,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
   }
 
   Future<void> _editBooking(PosResourceReservationDto existing) async {
+    if (_denyBooking()) return;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => _BookAppointmentDialog(
@@ -765,6 +783,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       ),
     );
     if (action == null || !mounted) return;
+    if (action != 'edit' && _denyBooking()) return;
     if (action == 'edit') {
       await _editBooking(b);
       return;
@@ -1048,14 +1067,16 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _resources.isEmpty
-            ? null
-            : () => unawaited(_bookAppointment()),
-        icon: const Icon(Icons.add),
-        label: Text(tr(_profile.bookActionLabel)),
-        backgroundColor: PosTheme.kiotBlue,
-      ),
+      floatingActionButton: context.watch<PermissionProvider>().canCreate('PosBooking')
+          ? FloatingActionButton.extended(
+              onPressed: _resources.isEmpty
+                  ? null
+                  : () => unawaited(_bookAppointment()),
+              icon: const Icon(Icons.add),
+              label: Text(tr(_profile.bookActionLabel)),
+              backgroundColor: PosTheme.kiotBlue,
+            )
+          : null,
       body: Column(
         children: [
           Material(
@@ -1268,6 +1289,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                 style: TextStyle(
                                     color: PosTheme.textSecondary)),
                             const SizedBox(height: 12),
+                            if (_canBook)
                             TextButton.icon(
                               onPressed: () =>
                                   unawaited(_bookAppointment()),

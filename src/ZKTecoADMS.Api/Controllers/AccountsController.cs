@@ -33,6 +33,7 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
 {
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<IEnumerable<AccountDto>>>> GetStoreAccounts(CancellationToken cancellationToken)
     {
         var query = new GetStoreAccountsQuery(RequiredStoreId);
@@ -54,6 +55,7 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
     
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Create)]
     public async Task<AppResponse<AccountDto>> CreateEmployeeAccount([FromBody] CreateEmployeeAccountRequest request, CancellationToken cancellationToken)
     {
         var command = request.Adapt<CreateEmployeeAccountCommand>();
@@ -64,6 +66,7 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
 
     [HttpPost("bulk")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Create)]
     public async Task<AppResponse<BulkCreateEmployeeAccountsResult>> BulkCreateEmployeeAccounts(
         [FromBody] BulkCreateEmployeeAccountsRequest request,
         CancellationToken cancellationToken)
@@ -80,6 +83,7 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
 
     [HttpPut("{userId}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Edit)]
     public async Task<AppResponse<bool>> UpdateEmployeeAccount(Guid userId, [FromBody] UpdateEmployeeAccountRequest request, CancellationToken cancellationToken)
     {
         var command = request.Adapt<UpdateEmployeeAccountCommand>();
@@ -168,6 +172,7 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
 
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteAccount(Guid id, CancellationToken cancellationToken)
     {
         var user = await userManager.FindByIdAsync(id.ToString());
@@ -225,6 +230,7 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
     /// </summary>
     [HttpPatch("{id}/status")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> SetAccountStatus(
         Guid id,
         [FromBody] SetAccountStatusRequest request,
@@ -300,6 +306,7 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
 
     [HttpPatch("{id}/password")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> ResetUserPassword(Guid id, [FromBody] ResetUserPasswordRequest request, CancellationToken cancellationToken)
     {
         var user = await userManager.FindByIdAsync(id.ToString());

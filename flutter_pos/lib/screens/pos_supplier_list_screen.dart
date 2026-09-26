@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../providers/permission_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../models/pos_purchase.dart';
@@ -205,6 +207,11 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Nhà cung cấp thuộc module Hàng hóa (API /pos/purchase/suppliers).
+    final perm = context.watch<PermissionProvider>();
+    final canCreate = perm.canCreate('PosProducts');
+    final canEdit = perm.canEdit('PosProducts');
+    final canDelete = perm.canDelete('PosProducts');
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
@@ -218,11 +225,12 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
             onPressed: _load,
             icon: const Icon(Icons.refresh),
           ),
-          IconButton(
-            tooltip: tr('Thêm NCC'),
-            onPressed: () => _addOrEdit(),
-            icon: const Icon(Icons.add),
-          ),
+          if (canCreate)
+            IconButton(
+              tooltip: tr('Thêm NCC'),
+              onPressed: () => _addOrEdit(),
+              icon: const Icon(Icons.add),
+            ),
         ],
       ),
       body: Column(
@@ -294,11 +302,12 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                                 style: const TextStyle(
                                     color: PosTheme.textSecondary)),
                             const SizedBox(height: 12),
-                            FilledButton.icon(
-                              onPressed: () => _addOrEdit(),
-                              icon: const Icon(Icons.add_business_outlined),
-                              label: Text(tr('Thêm NCC')),
-                            ),
+                            if (canCreate)
+                              FilledButton.icon(
+                                onPressed: () => _addOrEdit(),
+                                icon: const Icon(Icons.add_business_outlined),
+                                label: Text(tr('Thêm NCC')),
+                              ),
                           ],
                         ),
                       )
@@ -352,23 +361,26 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                                 }
                               },
                               itemBuilder: (_) => [
-                                PopupMenuItem(
-                                    value: 'edit',
-                                    child: Text(tr('Sửa'))),
+                                if (canEdit)
+                                  PopupMenuItem(
+                                      value: 'edit',
+                                      child: Text(tr('Sửa'))),
                                 PopupMenuItem(
                                     value: 'history',
                                     child: Text(tr('Lịch sử'))),
-                                PopupMenuItem(
-                                  value: 'toggle',
-                                  child: Text(tr(s.isActive
-                                      ? 'Ngừng hoạt động'
-                                      : 'Kích hoạt')),
-                                ),
-                                PopupMenuItem(
-                                    value: 'delete',
-                                    child: Text(tr('Xóa'),
-                                        style: const TextStyle(
-                                            color: Colors.red))),
+                                if (canEdit)
+                                  PopupMenuItem(
+                                    value: 'toggle',
+                                    child: Text(tr(s.isActive
+                                        ? 'Ngừng hoạt động'
+                                        : 'Kích hoạt')),
+                                  ),
+                                if (canDelete)
+                                  PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text(tr('Xóa'),
+                                          style: const TextStyle(
+                                              color: Colors.red))),
                               ],
                             ),
                             onTap: () => _showHistory(s),
@@ -378,12 +390,14 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _addOrEdit(),
-        backgroundColor: HrmPageChrome.primaryNavy,
-        icon: const Icon(Icons.add),
-        label: Text(tr('Thêm NCC')),
-      ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              onPressed: () => _addOrEdit(),
+              backgroundColor: HrmPageChrome.primaryNavy,
+              icon: const Icon(Icons.add),
+              label: Text(tr('Thêm NCC')),
+            )
+          : null,
     );
   }
 }

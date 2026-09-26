@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../providers/permission_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/pos_product.dart';
@@ -299,6 +301,10 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final perm = context.watch<PermissionProvider>();
+    final canCreate = perm.canCreate('PosProducts');
+    final canEdit = perm.canEdit('PosProducts');
+    final canDelete = perm.canDelete('PosProducts');
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
@@ -313,12 +319,14 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _editGroup(),
-        icon: const Icon(Icons.add),
-        label: Text(tr('Thêm nhóm')),
-        backgroundColor: PosTheme.kiotBlue,
-      ),
+      floatingActionButton: canCreate
+          ? FloatingActionButton.extended(
+              onPressed: () => _editGroup(),
+              icon: const Icon(Icons.add),
+              label: Text(tr('Thêm nhóm')),
+              backgroundColor: PosTheme.kiotBlue,
+            )
+          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -380,17 +388,21 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (v) {
-                                if (v == 'edit') _editGroup(g);
-                                if (v == 'delete') _delete(g);
-                              },
-                              itemBuilder: (_) => [
-                                PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
-                                PopupMenuItem(value: 'delete', child: Text(tr('Xóa'))),
-                              ],
-                            ),
-                            onTap: () => _editGroup(g),
+                            trailing: canEdit || canDelete
+                                ? PopupMenuButton<String>(
+                                    onSelected: (v) {
+                                      if (v == 'edit') _editGroup(g);
+                                      if (v == 'delete') _delete(g);
+                                    },
+                                    itemBuilder: (_) => [
+                                      if (canEdit)
+                                        PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
+                                      if (canDelete)
+                                        PopupMenuItem(value: 'delete', child: Text(tr('Xóa'))),
+                                    ],
+                                  )
+                                : null,
+                            onTap: canEdit ? () => _editGroup(g) : null,
                           ),
                         );
                       },

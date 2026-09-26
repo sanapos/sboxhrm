@@ -712,7 +712,7 @@ public class SampleDataController(
     /// Xóa toàn bộ dữ liệu mẫu (CreatedBy = "SampleData") của cửa hàng
     /// </summary>
     [HttpDelete("delete/{storeCode}")]
-    [Authorize]
+    [Authorize(Policy = PolicyNames.AtLeastAdmin)]
     public async Task<ActionResult<AppResponse<SampleDataDeleteResult>>> DeleteSampleData(
         string storeCode, CancellationToken ct)
     {
