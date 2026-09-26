@@ -258,6 +258,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IDataScopeService, DataScopeService>();
         services.AddScoped<IModulePermissionService, ModulePermissionService>();
         services.AddScoped<IMealRecordService, MealRecordService>();
+        services.AddScoped<IGymCheckInService, ZKTecoADMS.Infrastructure.Services.GymCheckInService>();
         
         // Repository registration
         services.AddScoped(typeof(IRepositoryPagedQuery<>), typeof(PagedQueryRepository<>));

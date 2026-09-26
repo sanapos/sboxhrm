@@ -80,6 +80,10 @@ public class AttendancesController(
             }
         }
 
+        filter.ExcludedPins = await dbContext.PosGymMemberDevices.AsNoTracking()
+            .Where(m => m.StoreId == storeIdForDevices && m.Deleted == null)
+            .Select(m => m.Pin).Distinct().ToListAsync();
+
         var command = new GetAttsByDevicesQuery(paginationRequest, filter);
 
         var result = await bus.Send(command);

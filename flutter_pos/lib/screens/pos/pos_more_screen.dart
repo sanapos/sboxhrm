@@ -48,6 +48,7 @@ import '../settings_hub_screen.dart';
 import 'pos_quote_list_screen.dart';
 import 'pos_app_settings_screen.dart';
 import 'pos_accounts_screen.dart';
+import 'pos_gym_checkin_screen.dart';
 import 'pos_role_permissions_screen.dart';
 import '../../services/pos_app_update_service.dart';
 import '../../widgets/pos_app_update_dialog.dart';
@@ -66,6 +67,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
 
   bool get _shiftOn => _sell?.enableCashierShift == true;
   bool get _qrOn => _sell?.enableQrTableOrder == true;
+  bool get _gymOn => _sell?.enableSessionPacks == true;
 
   @override
   void initState() {
@@ -204,6 +206,9 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                         const PosSellScreen()),
                     _Item('Đặt lịch', Icons.event_available_outlined, 'PosBooking',
                         const PosAppointmentDayScreen()),
+                    _Item('Check-in hội viên', Icons.fingerprint, 'PosSell',
+                        const PosGymCheckInScreen(),
+                        visible: _gymOn),
                     _Item('Hoá đơn', Icons.receipt_long_outlined, 'PosSaleOrders',
                         const PosSaleOrderListScreen()),
                     _Item('Trả hàng bán', Icons.assignment_return_outlined, 'PosSaleReturns',

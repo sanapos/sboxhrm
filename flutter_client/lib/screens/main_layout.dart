@@ -97,6 +97,7 @@ import 'field_checkin_screen.dart';
 import 'pos_products_screen.dart';
 import 'pos_sell_screen.dart';
 import 'pos_sale_order_list_screen.dart';
+import 'pos/pos_gym_checkin_screen.dart';
 import 'pos/pos_quote_list_screen.dart';
 import 'pos_print_templates_screen.dart';
 import 'pos_sale_return_list_screen.dart';
@@ -2110,6 +2111,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       group: 'Báo cáo',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AttendanceReport',
+    ),
+    NavItem(
+      icon: Icons.fingerprint,
+      activeIcon: Icons.fingerprint,
+      label: 'Check-in hội viên',
+      subtitle: 'Gym: quét máy chấm công',
+      screen: const PosGymCheckInScreen(),
+      group: 'POS',
+      showInSidebar: false,
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosSell',
     ),
   ];
 

@@ -27,8 +27,20 @@ public class DeviceUsersController(IMediator bus, ZKTecoDbContext dbContext) : A
     public async Task<ActionResult<IEnumerable<DeviceUserDto>>> GetDeviceUsersByDevices([FromBody] GetDeviceUsersByDevicesRequest request)
     {
         var query = request.Adapt<GetDeviceUserDevicesQuery>();
-        
-        return Ok(await bus.Send(query));
+        var result = await bus.Send(query);
+
+        // Hội viên gym đăng ký từ POS quản lý ở màn Check-in hội viên — không lẫn vào danh sách nhân sự trên máy.
+        if (result.IsSuccess && result.Data != null)
+        {
+            var memberUserIds = (await dbContext.PosGymMemberDevices.AsNoTracking()
+                    .Where(m => m.Deleted == null && m.DeviceUserId != null)
+                    .Select(m => m.DeviceUserId!.Value).ToListAsync())
+                .ToHashSet();
+            if (memberUserIds.Count > 0)
+                result = AppResponse<IEnumerable<DeviceUserDto>>.Success(
+                    result.Data.Where(u => !memberUserIds.Contains(u.Id)).ToList());
+        }
+        return Ok(result);
     }
 
     [HttpPost]

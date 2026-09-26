@@ -27,6 +27,7 @@ public class PostAttendancesStrategy(IServiceProvider serviceProvider) : IPostSt
     private readonly IGoogleSheetService? _googleSheetService = serviceProvider.GetService<IGoogleSheetService>();
     private readonly IAttendanceNotificationService? _notificationService = serviceProvider.GetService<IAttendanceNotificationService>();
     private readonly IMealRecordService? _mealRecordService = serviceProvider.GetService<IMealRecordService>();
+    private readonly IGymCheckInService? _gymCheckInService = serviceProvider.GetService<IGymCheckInService>();
     private readonly IDeviceCmdService _deviceCmdService = serviceProvider.GetRequiredService<IDeviceCmdService>();
     private readonly IRepository<Attendance> _attendanceRepository =
         serviceProvider.GetRequiredService<IRepository<Attendance>>();
@@ -74,6 +75,31 @@ public class PostAttendancesStrategy(IServiceProvider serviceProvider) : IPostSt
 
         await _attendanceService.CreateAttendancesAsync(attendances);
         _logger.LogInformation("Device-SN-{SN}: successfully saved {Count} attendance records from device {DeviceId}", device.SerialNumber, attendances.Count, device.Id);
+
+        // Hội viên gym (PIN dải 9xxxxxxx đăng ký từ POS): ghi lượt tập, KHÔNG xử lý như chấm công nhân viên.
+        if (_gymCheckInService != null)
+        {
+            try
+            {
+                var memberPins = await _gymCheckInService.GetMemberPinsAsync(device);
+                if (memberPins.Count > 0)
+                {
+                    var gymPunches = attendances.Where(a => memberPins.Contains(a.PIN)).ToList();
+                    if (gymPunches.Count > 0)
+                    {
+                        await _gymCheckInService.ProcessPunchesAsync(device, gymPunches);
+                        attendances = attendances.Where(a => !memberPins.Contains(a.PIN)).ToList();
+                        _logger.LogInformation("Device-SN-{SN}: {Count} gym member check-ins", device.SerialNumber, gymPunches.Count);
+                        if (attendances.Count == 0)
+                            return ClockResponses.Ok;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Device-SN-{SN}: gym check-in processing failed", device.SerialNumber);
+            }
+        }
 
         // Luôn tạo phiếu phạt (đi trễ / về sớm / tái phạm) — kể cả khi đồng bộ log hàng loạt.
         try

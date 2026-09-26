@@ -933,3 +933,55 @@ CREATE TABLE IF NOT EXISTS "PosStayGuests" (
     CONSTRAINT "PK_PosStayGuests" PRIMARY KEY ("Id")
 );
 CREATE INDEX IF NOT EXISTS "IX_PosStayGuests_Store_Session" ON "PosStayGuests" ("StoreId", "ResourceSessionId");
+
+-- Gym: hội viên trên máy chấm công (PIN riêng) + lượt vào/ra — tách biệt chấm công nhân viên
+CREATE TABLE IF NOT EXISTS "PosGymMemberDevices" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "CustomerId" uuid NOT NULL,
+    "DeviceId" uuid NOT NULL,
+    "DeviceUserId" uuid NULL,
+    "Pin" character varying(20) NOT NULL DEFAULT '',
+    "CardNumber" character varying(50) NULL,
+    CONSTRAINT "PK_PosGymMemberDevices" PRIMARY KEY ("Id")
+);
+CREATE INDEX IF NOT EXISTS "IX_PosGymMemberDevices_Device_Pin" ON "PosGymMemberDevices" ("DeviceId", "Pin");
+CREATE INDEX IF NOT EXISTS "IX_PosGymMemberDevices_Store_Customer" ON "PosGymMemberDevices" ("StoreId", "CustomerId");
+
+CREATE TABLE IF NOT EXISTS "PosGymVisits" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "CustomerId" uuid NOT NULL,
+    "DeviceId" uuid NULL,
+    "Pin" character varying(20) NULL,
+    "CheckInAt" timestamp without time zone NOT NULL,
+    "CheckOutAt" timestamp without time zone NULL,
+    "DurationMinutes" integer NULL,
+    "BalanceId" uuid NULL,
+    "PackageName" character varying(200) NULL,
+    "SessionDeducted" boolean NOT NULL DEFAULT false,
+    "Status" character varying(30) NOT NULL DEFAULT 'Ok',
+    "Source" character varying(20) NOT NULL DEFAULT 'Device',
+    "Note" character varying(500) NULL,
+    CONSTRAINT "PK_PosGymVisits" PRIMARY KEY ("Id")
+);
+CREATE INDEX IF NOT EXISTS "IX_PosGymVisits_Store_CheckIn" ON "PosGymVisits" ("StoreId", "CheckInAt");
+CREATE INDEX IF NOT EXISTS "IX_PosGymVisits_Customer_CheckIn" ON "PosGymVisits" ("CustomerId", "CheckInAt");

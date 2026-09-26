@@ -106,6 +106,7 @@ import 'pos/pos_split_report_screens.dart';
 import 'pos/pos_resource_floor_screen.dart';
 import 'pos/pos_appointment_day_screen.dart';
 import 'pos/pos_session_redeem_sheet.dart';
+import 'pos/pos_gym_checkin_screen.dart';
 import 'pos_reports_screen.dart';
 import 'pos_sale_return_list_screen.dart';
 import 'pos_sale_order_list_screen.dart';
@@ -11346,6 +11347,16 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        if (_industrySettings?.enableSessionPacks == true)
+          PopupMenuItem(
+            value: 'gym_checkin',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.fingerprint, size: 20),
+              title: Text(tr('Check-in hội viên (máy chấm công)')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
         PopupMenuItem(
           value: 'fullscreen',
           child: ListTile(
@@ -11552,6 +11563,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         );
       case 'session_redeem':
         await _openSessionRedeem();
+      case 'gym_checkin':
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PosGymCheckInScreen()),
+        );
       case 'eod':
         await Navigator.of(context).push(
           MaterialPageRoute(

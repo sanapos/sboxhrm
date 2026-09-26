@@ -17,6 +17,8 @@ public class GetAttsByDevicesHandler(
     {
         var allowedPins = request.Filter.AllowedPins;
         var hasPinFilter = allowedPins != null && allowedPins.Count > 0;
+        var excludedPins = request.Filter.ExcludedPins ?? [];
+        var hasExcluded = excludedPins.Count > 0;
 
         // FromDate inclusive (start of day), ToDate exclusive (start of next day after To calendar day).
         var fromInclusive = request.Filter.FromDate.Date;
@@ -49,7 +51,8 @@ public class GetAttsByDevicesHandler(
                 a.AttendanceTime >= fromInclusive
                 && a.AttendanceTime < toExclusive
                 && deviceIds.Contains(a.DeviceId)
-                && (!hasPinFilter || allowedPins!.Contains(a.PIN)),
+                && (!hasPinFilter || allowedPins!.Contains(a.PIN))
+                && (!hasExcluded || !excludedPins.Contains(a.PIN)),
             projection: a => new AttendanceDto(
                 a.Id,
                 a.AttendanceTime,

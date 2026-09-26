@@ -1,3 +1,5 @@
+using ZKTecoADMS.Domain.Entities;
+
 namespace ZKTecoADMS.Application.Helpers;
 
 /// <summary>
@@ -58,11 +60,13 @@ public static class DeviceUserPinAllocator
         long next = 1;
         foreach (var p in used)
         {
-            if (p.Length <= MaxPinLength && long.TryParse(p, out var n) && n >= next)
+            // Bỏ qua dải PIN hội viên gym (9xxxxxxx) — nhân viên không nhảy sang dải đó.
+            if (p.Length <= MaxPinLength && long.TryParse(p, out var n) && n >= next
+                && n < PosGymMemberDevice.PinRangeStart)
                 next = n + 1;
         }
 
-        const long max = 99_999_999L; // 8 digits
+        const long max = PosGymMemberDevice.PinRangeStart - 1;
         for (; next <= max; next++)
         {
             var s = next.ToString();
@@ -70,6 +74,24 @@ public static class DeviceUserPinAllocator
                 return s;
         }
 
-        throw new InvalidOperationException("Hết PIN trống trên máy (đã dùng hết dải 1–99999999).");
+        throw new InvalidOperationException("Hết PIN trống trên máy (đã dùng hết dải 1–90000000).");
+    }
+
+    /// <summary>PIN hội viên gym: số kế tiếp trong dải 90000001–99999999.</summary>
+    public static string AllocateMember(HashSet<string> used)
+    {
+        var next = PosGymMemberDevice.PinRangeStart;
+        foreach (var p in used)
+        {
+            if (long.TryParse(p, out var n) && n >= next && n <= PosGymMemberDevice.PinRangeEnd)
+                next = n + 1;
+        }
+        for (; next <= PosGymMemberDevice.PinRangeEnd; next++)
+        {
+            var s = next.ToString();
+            if (!used.Contains(s))
+                return s;
+        }
+        throw new InvalidOperationException("Hết PIN hội viên trống trên máy.");
     }
 }

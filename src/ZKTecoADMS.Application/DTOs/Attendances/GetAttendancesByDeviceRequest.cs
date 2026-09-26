@@ -13,4 +13,7 @@ public class GetAttendancesByDeviceRequest
     /// Null or empty = no PIN filter (admin sees all)
     /// </summary>
     public List<string>? AllowedPins { get; set; }
+
+    /// <summary>PIN hội viên gym (tách biệt chấm công nhân viên) — không hiện trong nhật ký chấm công.</summary>
+    public List<string>? ExcludedPins { get; set; }
 }

@@ -17922,6 +17922,109 @@ class ApiService {
     );
   }
 
+  // ── Gym: hội viên check-in bằng máy chấm công (tách biệt chấm công nhân viên) ──
+  String _gymDate(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<Map<String, dynamic>> getGymMembers({String? search}) async {
+    try {
+      final q = <String, String>{};
+      if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/gym/members').replace(queryParameters: q), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> addGymMember(String customerId, List<String> deviceIds,
+      {String? cardNumber}) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/members'),
+              headers: _headers,
+              body: jsonEncode({
+                'customerId': customerId,
+                'deviceIds': deviceIds,
+                if (cardNumber != null && cardNumber.trim().isNotEmpty) 'cardNumber': cardNumber.trim(),
+              }))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> removeGymMember(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/gym/members/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getGymVisits({DateTime? from, DateTime? to, String? customerId}) async {
+    try {
+      final q = <String, String>{
+        if (from != null) 'from': _gymDate(from),
+        if (to != null) 'to': _gymDate(to),
+        if (customerId != null) 'customerId': customerId,
+      };
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/gym/visits').replace(queryParameters: q), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> gymCheckIn(String customerId) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/check-in'),
+              headers: _headers, body: jsonEncode({'customerId': customerId}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> gymCheckOut(String visitId) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/visits/$visitId/check-out'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getGymReport({required DateTime from, required DateTime to}) async {
+    try {
+      final response = await http
+          .get(
+              Uri.parse('$baseUrl/api/pos/gym/report')
+                  .replace(queryParameters: {'from': _gymDate(from), 'to': _gymDate(to)}),
+              headers: _headers)
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> downloadGymReportExcel({required DateTime from, required DateTime to}) =>
+      _getBinary(Uri.parse('$baseUrl/api/pos/gym/report').replace(
+          queryParameters: {'from': _gymDate(from), 'to': _gymDate(to), 'format': 'excel'}));
+
   Future<Map<String, dynamic>> getPosCustomers({
     String? search,
     double? debtFrom,
