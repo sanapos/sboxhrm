@@ -65,6 +65,32 @@ List<PosPrintDocGroup> posPrintDocGroupsWithOthers() {
 
 String posPrintDocLabel(String type) => PosPrintDocumentTypes.all[type] ?? type;
 
+/// Biểu tượng từng loại phiếu (cột trái / chọn loại phiếu).
+IconData posPrintDocIcon(String type) => switch (type) {
+      PosPrintDocumentTypes.saleInvoice => Icons.receipt_long_outlined,
+      PosPrintDocumentTypes.saleOrder => Icons.shopping_cart_checkout_outlined,
+      PosPrintDocumentTypes.delivery => Icons.local_shipping_outlined,
+      PosPrintDocumentTypes.saleReturn => Icons.assignment_return_outlined,
+      PosPrintDocumentTypes.saleExchange => Icons.swap_horiz,
+      PosPrintDocumentTypes.kitchenSlip => Icons.soup_kitchen_outlined,
+      PosPrintDocumentTypes.kitchenVoid => Icons.no_meals_outlined,
+      PosPrintDocumentTypes.kitchenLabel => Icons.local_cafe_outlined,
+      PosPrintDocumentTypes.barcodeLabel => Icons.qr_code_2,
+      PosPrintDocumentTypes.purchaseOrder => Icons.request_page_outlined,
+      PosPrintDocumentTypes.purchaseReceipt => Icons.move_to_inbox_outlined,
+      PosPrintDocumentTypes.purchaseReturn => Icons.outbox_outlined,
+      PosPrintDocumentTypes.stockTransfer => Icons.compare_arrows,
+      PosPrintDocumentTypes.stockIssue => Icons.inventory_2_outlined,
+      PosPrintDocumentTypes.cashReceipt => Icons.south_west,
+      PosPrintDocumentTypes.cashPayment => Icons.north_east,
+      PosPrintDocumentTypes.quote => Icons.request_quote_outlined,
+      PosPrintDocumentTypes.contract => Icons.handshake_outlined,
+      PosPrintDocumentTypes.handover => Icons.fact_check_outlined,
+      PosPrintDocumentTypes.acceptance => Icons.verified_outlined,
+      PosPrintDocumentTypes.paymentRequest => Icons.payments_outlined,
+      _ => Icons.description_outlined,
+    };
+
 /// Danh sách loại phiếu theo nhóm (máy tính: cột trái).
 class PosPrintDocTypeNav extends StatelessWidget {
   const PosPrintDocTypeNav({super.key, required this.current, required this.onSelect});
@@ -75,47 +101,72 @@ class PosPrintDocTypeNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 16),
       children: [
         for (final g in posPrintDocGroupsWithOthers()) ...[
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 12, 4),
-            child: Row(children: [
-              Icon(g.icon, size: 16, color: Colors.grey.shade600),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(tr(g.title).toUpperCase(),
-                    maxLines: 2,
-                    style: TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey.shade600, letterSpacing: .3)),
-              ),
-            ]),
+            padding: const EdgeInsets.fromLTRB(10, 10, 8, 4),
+            child: Text(tr(g.title).toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8), letterSpacing: .6)),
           ),
-          for (final t in g.types)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-              child: Material(
-                color: t == current ? const Color(0xFFE8F0FE) : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: () => onSelect(t),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                    child: Text(
-                      tr(posPrintDocLabel(t)),
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: t == current ? FontWeight.w700 : FontWeight.w500,
-                        color: t == current ? _blue : const Color(0xFF1F2937),
-                      ),
-                    ),
-                  ),
+          for (final t in g.types) _DocItem(type: t, active: t == current, onTap: () => onSelect(t)),
+        ],
+      ],
+    );
+  }
+}
+
+class _DocItem extends StatefulWidget {
+  const _DocItem({required this.type, required this.active, required this.onTap});
+  final String type;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  State<_DocItem> createState() => _DocItemState();
+}
+
+class _DocItemState extends State<_DocItem> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = widget.active;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          margin: const EdgeInsets.symmetric(vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: a ? const Color(0xFFEFF6FF) : (_hover ? const Color(0xFFF8FAFC) : Colors.transparent),
+            borderRadius: BorderRadius.circular(8),
+            border: Border(left: BorderSide(color: a ? _blue : Colors.transparent, width: 3)),
+          ),
+          child: Row(children: [
+            Icon(posPrintDocIcon(widget.type), size: 17, color: a ? _blue : const Color(0xFF64748B)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                tr(posPrintDocLabel(widget.type)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: a ? FontWeight.w700 : FontWeight.w500,
+                  color: a ? _blue : const Color(0xFF334155),
                 ),
               ),
             ),
-        ],
-      ],
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -195,11 +246,23 @@ class PosPrintTemplateThumb extends StatelessWidget {
     }
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(8),
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFF1F5F9), Color(0xFFE2E8F0)],
+        ),
+        borderRadius: BorderRadius.circular(10),
       ),
-      padding: const EdgeInsets.all(8),
-      child: ClipRect(child: child),
+      padding: const EdgeInsets.fromLTRB(14, 26, 14, 0),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: Colors.white, boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(.08), blurRadius: 6, offset: const Offset(0, 2)),
+          ]),
+          child: child,
+        ),
+      ),
     );
   }
 }
@@ -220,8 +283,15 @@ class _IconThumb extends StatelessWidget {
       );
 }
 
+/// Tên mẫu gọn: bỏ ★ / «· K80» cũ lẫn trong tên.
+String posPrintCleanName(String name) {
+  var n = name.replaceAll('★', '').trim();
+  if (n.isEmpty) return 'Mẫu in';
+  return n;
+}
+
 /// Thẻ một mẫu in của cửa hàng.
-class PosPrintTemplateCard extends StatelessWidget {
+class PosPrintTemplateCard extends StatefulWidget {
   const PosPrintTemplateCard({
     super.key,
     required this.template,
@@ -242,94 +312,150 @@ class PosPrintTemplateCard extends StatelessWidget {
   final bool canEdit;
 
   @override
+  State<PosPrintTemplateCard> createState() => _PosPrintTemplateCardState();
+}
+
+class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    final t = template;
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: t.isDefault ? _green : const Color(0xFFE5E7EB), width: t.isDefault ? 2 : 1),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: canEdit ? onEdit : onTestPrint,
-        child: Padding(
-          padding: const EdgeInsets.all(10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: Stack(children: [
-                  Positioned.fill(
-                    child: PosPrintTemplateThumb(
-                      htmlContent: t.htmlContent,
-                      documentType: t.documentType,
-                      paperSize: t.paperSize,
-                      isDocx: t.isDocx,
-                    ),
-                  ),
-                  if (t.isDefault)
-                    Positioned(
-                      left: 6,
-                      top: 6,
-                      child: _Badge(text: tr('Đang dùng'), color: _green, icon: Icons.check_circle),
-                    ),
-                ]),
-              ),
-              const SizedBox(height: 8),
-              Text(t.name.trim().isEmpty ? tr('Mẫu in') : t.name,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-              const SizedBox(height: 4),
-              Wrap(spacing: 6, runSpacing: 4, children: [
-                _Badge(text: PosPrintPaperSizes.shortLabel(t.paperSize), color: const Color(0xFF475569)),
-                if (t.isDocx) _Badge(text: 'Word', color: const Color(0xFF2B579A)),
-              ]),
-              const SizedBox(height: 6),
-              Row(children: [
+    final t = widget.template;
+    final updated = t.updatedAt ?? t.createdAt;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        transform: Matrix4.translationValues(0, _hover ? -3 : 0, 0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: t.isDefault ? _green : const Color(0xFFE2E8F0), width: t.isDefault ? 1.6 : 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(_hover ? .10 : .04),
+              blurRadius: _hover ? 18 : 8,
+              offset: Offset(0, _hover ? 8 : 3),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: widget.canEdit ? widget.onEdit : widget.onTestPrint,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: canEdit ? onEdit : onTestPrint,
-                    icon: Icon(canEdit ? Icons.edit_outlined : Icons.print_outlined, size: 16),
-                    label: Text(canEdit ? tr('Sửa') : tr('In thử')),
-                    style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+                    child: Stack(children: [
+                      Positioned.fill(
+                        child: PosPrintTemplateThumb(
+                          htmlContent: t.htmlContent,
+                          documentType: t.documentType,
+                          paperSize: t.paperSize,
+                          isDocx: t.isDocx,
+                        ),
+                      ),
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          if (t.isDocx) ...[
+                            _Badge(text: 'Word', color: const Color(0xFF2B579A), solid: true),
+                            const SizedBox(width: 4),
+                          ],
+                          _Badge(text: PosPrintPaperSizes.shortLabel(t.paperSize), color: const Color(0xFF334155), solid: true),
+                        ]),
+                      ),
+                      if (t.isDefault)
+                        Positioned(
+                          left: 6,
+                          top: 6,
+                          child: _Badge(text: tr('Đang dùng'), color: _green, icon: Icons.check_circle, solid: true),
+                        ),
+                    ]),
                   ),
                 ),
-                PopupMenuButton<String>(
-                  tooltip: tr('Thao tác khác'),
-                  onSelected: (v) => switch (v) {
-                    'test' => onTestPrint(),
-                    'dup' => onDuplicate?.call(),
-                    'del' => onDelete?.call(),
-                    _ => null,
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem(value: 'test', child: ListTile(dense: true, leading: const Icon(Icons.print_outlined), title: Text(tr('In thử')))),
-                    if (onDuplicate != null)
-                      PopupMenuItem(value: 'dup', child: ListTile(dense: true, leading: const Icon(Icons.copy_all_outlined), title: Text(tr('Nhân bản')))),
-                    if (onDelete != null)
-                      PopupMenuItem(value: 'del', child: ListTile(dense: true, leading: const Icon(Icons.delete_outline, color: Colors.red), title: Text(tr('Xóa'), style: const TextStyle(color: Colors.red)))),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+                  child: Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(tr(posPrintCleanName(t.name)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF0F172A))),
+                        const SizedBox(height: 2),
+                        Text(
+                          updated == null
+                              ? PosPrintPaperSizes.displayLabel(t.paperSize)
+                              : tr('Cập nhật ${updated.toLocal().day.toString().padLeft(2, '0')}/'
+                                  '${updated.toLocal().month.toString().padLeft(2, '0')}/${updated.toLocal().year}'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                        ),
+                      ]),
+                    ),
+                    PopupMenuButton<String>(
+                      tooltip: tr('Thao tác khác'),
+                      icon: const Icon(Icons.more_vert, color: Color(0xFF64748B)),
+                      onSelected: (v) => switch (v) {
+                        'edit' => widget.onEdit(),
+                        'test' => widget.onTestPrint(),
+                        'dup' => widget.onDuplicate?.call(),
+                        'del' => widget.onDelete?.call(),
+                        _ => null,
+                      },
+                      itemBuilder: (_) => [
+                        if (widget.canEdit)
+                          PopupMenuItem(value: 'edit', child: ListTile(dense: true, leading: const Icon(Icons.edit_outlined), title: Text(tr('Sửa')))),
+                        PopupMenuItem(value: 'test', child: ListTile(dense: true, leading: const Icon(Icons.print_outlined), title: Text(tr('In thử')))),
+                        if (widget.onDuplicate != null)
+                          PopupMenuItem(value: 'dup', child: ListTile(dense: true, leading: const Icon(Icons.copy_all_outlined), title: Text(tr('Nhân bản')))),
+                        if (widget.onDelete != null)
+                          PopupMenuItem(value: 'del', child: ListTile(dense: true, leading: const Icon(Icons.delete_outline, color: Colors.red), title: Text(tr('Xóa'), style: const TextStyle(color: Colors.red)))),
+                      ],
+                    ),
+                  ]),
                 ),
-              ]),
-              const SizedBox(height: 4),
-              SizedBox(
-                width: double.infinity,
-                child: t.isDefault
-                    ? OutlinedButton.icon(
-                        onPressed: null,
-                        icon: const Icon(Icons.check, size: 16, color: _green),
-                        label: Text(tr('Đang dùng'), style: const TextStyle(color: _green)),
-                        style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                      )
-                    : FilledButton(
-                        onPressed: canEdit ? onUse : null,
-                        style: FilledButton.styleFrom(backgroundColor: _green, visualDensity: VisualDensity.compact),
-                        child: Text(tr('Dùng mẫu này'), maxLines: 1, overflow: TextOverflow.ellipsis),
+                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                  child: Row(children: [
+                    if (widget.canEdit)
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: widget.onEdit,
+                          icon: const Icon(Icons.edit_outlined, size: 16),
+                          label: Text(tr('Sửa')),
+                        ),
                       ),
-              ),
-            ],
+                    Expanded(
+                      child: t.isDefault
+                          ? TextButton.icon(
+                              onPressed: widget.onTestPrint,
+                              icon: const Icon(Icons.print_outlined, size: 16),
+                              label: Text(tr('In thử')),
+                            )
+                          : FilledButton(
+                              onPressed: widget.canEdit ? widget.onUse : null,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: _green,
+                                visualDensity: VisualDensity.compact,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: Text(tr('Dùng mẫu này'), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                    ),
+                  ]),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -338,21 +464,23 @@ class PosPrintTemplateCard extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge({required this.text, required this.color, this.icon});
+  const _Badge({required this.text, required this.color, this.icon, this.solid = false});
   final String text;
   final Color color;
   final IconData? icon;
+  final bool solid;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
         decoration: BoxDecoration(
-          color: color.withOpacity(.12),
+          color: solid ? color : color.withOpacity(.12),
           borderRadius: BorderRadius.circular(20),
+          boxShadow: solid ? [BoxShadow(color: Colors.black.withOpacity(.12), blurRadius: 4)] : null,
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (icon != null) ...[Icon(icon, size: 12, color: color), const SizedBox(width: 3)],
-          Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+          if (icon != null) ...[Icon(icon, size: 12, color: solid ? Colors.white : color), const SizedBox(width: 3)],
+          Text(text, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: solid ? Colors.white : color)),
         ]),
       );
 }
@@ -363,26 +491,32 @@ class PosPrintAddTemplateCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Card(
-        elevation: 0,
-        margin: EdgeInsets.zero,
-        color: const Color(0xFFF8FAFC),
+  Widget build(BuildContext context) => Material(
+        color: const Color(0xFFF8FAFF),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: Color(0xFF93C5FD), width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFFBFDBFE), width: 1.5),
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Center(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.add_circle_outline, size: 40, color: _blue),
-              const SizedBox(height: 8),
-              Text(tr('Thêm mẫu'), style: const TextStyle(fontWeight: FontWeight.w700, color: _blue, fontSize: 15)),
-              const SizedBox(height: 4),
-              Text(tr('Mẫu có sẵn · File Word · Mẫu trống'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-            ]),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: const BoxDecoration(color: Color(0xFFDBEAFE), shape: BoxShape.circle),
+                  child: const Icon(Icons.add, size: 30, color: _blue),
+                ),
+                const SizedBox(height: 12),
+                Text(tr('Thêm mẫu'), style: const TextStyle(fontWeight: FontWeight.w800, color: _blue, fontSize: 15)),
+                const SizedBox(height: 4),
+                Text(tr('Mẫu có sẵn · File Word · Mẫu trống'),
+                    textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+              ]),
+            ),
           ),
         ),
       );

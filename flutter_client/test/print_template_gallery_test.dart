@@ -53,7 +53,7 @@ void main() {
       ),
     ));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('Đang dùng'), findsNWidgets(2)); // nhãn trên ảnh + nút
+    expect(find.text('Đang dùng'), findsOneWidget);
     expect(find.text('Dùng mẫu này'), findsNWidgets(2));
     expect(find.text('Word'), findsOneWidget);
     expect(find.text('Thêm mẫu'), findsOneWidget);
