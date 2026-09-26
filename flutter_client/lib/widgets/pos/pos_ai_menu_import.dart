@@ -112,6 +112,8 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
   final _rows = <_MenuRow>[];
   bool _scanning = false;
   bool _importing = false;
+  /// Lỗi đọc menu hiện ngay trên trang (thông báo nổi có thể bị che bởi trang toàn màn hình).
+  String? _scanError;
 
   @override
   void dispose() {
@@ -133,16 +135,21 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
 
   Future<void> _scan() async {
     if (_images.isEmpty) return;
-    setState(() => _scanning = true);
+    setState(() {
+      _scanning = true;
+      _scanError = null;
+    });
     final res = await widget.api.scanPosMenuAi([
       for (final i in _images) (bytes: i.bytes, name: i.name),
     ]);
     if (!mounted) return;
     setState(() => _scanning = false);
     if (res['isSuccess'] != true) {
+      final msg = res['message']?.toString() ?? tr('Vui lòng thử lại sau');
+      setState(() => _scanError = msg);
       NotificationOverlayManager().showError(
         title: tr('Không đọc được menu'),
-        message: res['message']?.toString() ?? tr('Vui lòng thử lại sau'),
+        message: msg,
       );
       return;
     }
@@ -282,6 +289,31 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
                   ? tr('AI đang đọc menu… (có thể mất 30–60 giây)')
                   : (_rows.isEmpty ? tr('Đọc menu bằng AI') : tr('Đọc lại'))),
             ),
+            if (_scanError != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFEBEE),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFEF9A9A)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.error_outline, color: Color(0xFFC62828), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${tr('Không đọc được menu')}: $_scanError',
+                        style: const TextStyle(color: Color(0xFFB71C1C)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

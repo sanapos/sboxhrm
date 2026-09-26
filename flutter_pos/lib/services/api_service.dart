@@ -14886,8 +14886,9 @@ class ApiService {
         request.headers['Authorization'] = authHeaders['Authorization']!;
       }
       for (final img in images) {
-        request.files.add(
-            http.MultipartFile.fromBytes('files', img.bytes, filename: img.name));
+        // Ảnh đã nén lại thành JPEG khi chọn — khai báo rõ để máy chủ không phải đoán theo tên file.
+        request.files.add(http.MultipartFile.fromBytes('files', img.bytes,
+            filename: img.name, contentType: MediaType('image', 'jpeg')));
       }
       final streamed = await request.send().timeout(const Duration(seconds: 200));
       final response = await http.Response.fromStream(streamed);
