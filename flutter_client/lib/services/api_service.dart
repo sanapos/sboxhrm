@@ -21318,6 +21318,52 @@ class ApiService {
     }
   }
 
+  // ── Khách lưu trú (khách sạn) ──
+  Future<Map<String, dynamic>> getPosStayGuests(String sessionId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/stay-guests')
+              .replace(queryParameters: {'sessionId': sessionId}), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosStayGuest(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/stay-guests'), headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosStayGuest(String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(Uri.parse('$baseUrl/api/pos/stay-guests/$id'), headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosStayGuest(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/stay-guests/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> setPosResourceSessionGuests(
       String id, int guestCount) async {
     try {

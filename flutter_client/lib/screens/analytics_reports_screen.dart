@@ -39,6 +39,7 @@ const _reports = <_ReportSpec>[
   _ReportSpec('Hiệu suất', 'Sản lượng', 'Theo nhân viên và sản phẩm', '/api/reports/performance/production-output', _PeriodKind.range, ['KPI']),
   _ReportSpec('Hiệu suất', 'Tài sản đang giao', 'Theo trạng thái và người giữ', '/api/reports/performance/asset-assignment', _PeriodKind.none, ['KPI']),
   _ReportSpec('Tổng hợp', 'Báo cáo điều hành tháng', 'Nhân sự, chấm công, chi phí trong tháng', '/api/reports/executive/monthly-summary', _PeriodKind.month, ['Report']),
+  _ReportSpec('Khách sạn', 'Sổ khách lưu trú', 'Khách ở trong kỳ — xuất Excel khai báo tạm trú', '/api/pos/stay-guests/register', _PeriodKind.range, ['PosSell']),
   _ReportSpec('Tài chính nhân sự', 'Nợ tiền cơm', 'Theo nhân viên', '/api/reports/finance/meal-debt', _PeriodKind.range, ['Meal']),
 ];
 

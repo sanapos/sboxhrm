@@ -905,3 +905,31 @@ WHERE t."CollectionMethod" IS NULL AND t."Status" IN (1, 3);
 -- Đăng ký lịch: dòng lịch lần duyệt ghi vào (hoàn duyệt / xóa phiếu không xóa lịch quản lý xếp sẵn).
 ALTER TABLE "ScheduleRegistrations" ADD COLUMN IF NOT EXISTS "AppliedWorkScheduleId" uuid NULL;
 ALTER TABLE "ScheduleRegistrations" ADD COLUMN IF NOT EXISTS "AppliedCreatedNewSchedule" boolean NOT NULL DEFAULT false;
+
+-- Khách lưu trú (khách sạn): thông tin khai báo tạm trú theo lượt nhận phòng.
+CREATE TABLE IF NOT EXISTS "PosStayGuests" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "ResourceSessionId" uuid NOT NULL,
+    "FullName" character varying(200) NOT NULL DEFAULT '',
+    "IdType" character varying(30) NOT NULL DEFAULT 'CCCD',
+    "IdNumber" character varying(50) NULL,
+    "DateOfBirth" timestamp without time zone NULL,
+    "Gender" character varying(20) NULL,
+    "Nationality" character varying(100) NULL,
+    "Address" character varying(500) NULL,
+    "Phone" character varying(30) NULL,
+    "Note" character varying(500) NULL,
+    "IsPrimary" boolean NOT NULL DEFAULT false,
+    CONSTRAINT "PK_PosStayGuests" PRIMARY KEY ("Id")
+);
+CREATE INDEX IF NOT EXISTS "IX_PosStayGuests_Store_Session" ON "PosStayGuests" ("StoreId", "ResourceSessionId");

@@ -271,6 +271,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosServiceResource> PosServiceResources => Set<PosServiceResource>();
     public DbSet<PosServiceAreaAssignment> PosServiceAreaAssignments => Set<PosServiceAreaAssignment>();
     public DbSet<PosResourceSession> PosResourceSessions => Set<PosResourceSession>();
+    public DbSet<PosStayGuest> PosStayGuests => Set<PosStayGuest>();
     public DbSet<PosResourceReservation> PosResourceReservations => Set<PosResourceReservation>();
     public DbSet<PosKitchenVoidSlip> PosKitchenVoidSlips => Set<PosKitchenVoidSlip>();
     public DbSet<PosCancelReturnAudit> PosCancelReturnAudits => Set<PosCancelReturnAudit>();

@@ -26,6 +26,7 @@ import '../../widgets/pos/pos_deposit_payment_picker.dart';
 import '../../widgets/pos/pos_h_scroll_chip_row.dart';
 import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/pos_stay_guests_sheet.dart';
 import 'pos_appointment_day_screen.dart';
 import 'pos_kitchen_void_list_screen.dart';
 import 'pos_kds_screen.dart';
@@ -2038,6 +2039,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       title: Text(tr('Số khách')),
                       onTap: () => Navigator.pop(ctx, 'guests'),
                     ),
+                    if (_isHotel && (r.openSessionId ?? '').isNotEmpty)
+                      ListTile(
+                        leading: const Icon(Icons.badge_outlined),
+                        title: Text(tr('Khách lưu trú (tạm trú)')),
+                        onTap: () => Navigator.pop(ctx, 'stay_guests'),
+                      ),
                     if (_isHourly) ...[
                       if (r.isPaused)
                         ListTile(
@@ -2122,6 +2129,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
     if (action == 'guests') {
       await _setGuests(r);
+      return;
+    }
+    if (action == 'stay_guests') {
+      await showPosStayGuestsSheet(
+        context,
+        sessionId: r.openSessionId!,
+        roomLabel: r.name.isNotEmpty ? r.name : r.code,
+      );
       return;
     }
     if (action == 'bill') {
