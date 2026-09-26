@@ -268,6 +268,7 @@ public static class PosQuoteDocumentHtml
             ["Nguoi_Dai_Dien_Cua_Hang"] = storeRep,
             ["Chuc_Vu_Cua_Hang"] = storeTitle,
             ["Con_Dau"] = StampHtml(profile?.StampPngBase64),
+            ["Logo"] = StampHtml(profile?.LogoPngBase64),
             ["Tieu_De_In"] = TitleOf(kind),
             ["Ma_Don_Hang"] = docNo,
             ["Ma_Bao_Gia"] = quote.QuoteNo,

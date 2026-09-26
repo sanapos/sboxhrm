@@ -76,6 +76,9 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
         ["Khach_Thanh_Toan"] = "Khách đã thanh toán",
         ["Tien_Thua"] = "Tiền thừa trả khách",
         ["Con_Lai"] = "Còn nợ lại",
+        // Ảnh (chèn đúng chỗ đặt mã, giữ tỉ lệ): lấy từ Hồ sơ thương mại của cửa hàng.
+        ["Logo"] = "Logo cửa hàng (ảnh)",
+        ["Con_Dau"] = "Con dấu / chữ ký (ảnh)",
         [ClearField] = "XÓA chữ này (phần thừa khi một giá trị bị ngắt sang dòng / ô khác)",
     };
 
@@ -116,6 +119,7 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
         ["Chieu_Cao"] = "Chiều cao",
         ["Bao_Hanh"] = "Bảo hành của dòng",
         ["Ghi_Chu"] = "Ghi chú / quy cách của dòng",
+        ["Hinh_Anh"] = "Ảnh sản phẩm của dòng (ảnh)",
     };
 
     const string SystemPrompt = """

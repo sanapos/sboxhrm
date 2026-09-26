@@ -125,10 +125,17 @@ public class PosDocxTemplatesController(
         template.DocxFilePath = RelativePath(template.StoreId, template.Id);
         await System.IO.File.WriteAllBytesAsync(OrigPath(template), original, ct);
 
-        var applied = await ApplyAndSaveAsync(template, original, analysis.Replacements, analysis.RemoveRowParagraphIds, ct);
+        // Quy tắc (nhãn + chỗ trống «……») bổ sung chỗ AI chưa gắn — và vẫn chạy khi AI lỗi / hết lượt.
+        var rules = DocxRuleDetector.Detect(paragraphs);
+        var replacements = DocxRuleDetector.Merge(paragraphs, analysis.Replacements, rules);
+        var ruleAdded = replacements.Count - analysis.Replacements.Count;
+        var warnings = analysis.Warnings.ToList();
+        if (ruleAdded > 0)
+            warnings.Add($"Nhận thêm {ruleAdded} chỗ trống theo nhãn (Họ tên, MST, Địa chỉ…) — kiểm tra lại.");
+        var applied = await ApplyAndSaveAsync(template, original, replacements, analysis.RemoveRowParagraphIds, ct);
         db.PosPrintTemplates.Add(template);
         await db.SaveChangesAsync(ct);
-        return Ok(AppResponse<MappingDto>.Success(ToDto(template, applied, analysis.RemoveRowParagraphIds, paragraphs, analysis.Warnings, aiUsed)));
+        return Ok(AppResponse<MappingDto>.Success(ToDto(template, applied, analysis.RemoveRowParagraphIds, paragraphs, warnings, aiUsed)));
     }
 
     [HttpGet("{id:guid}/mapping")]
@@ -176,7 +183,8 @@ public class PosDocxTemplatesController(
     {
         var text = paragraphs.ToDictionary(p => p.Id, p => p.Text);
         return stored.GroupBy(r => r.ParagraphId)
-            .SelectMany(g => text.TryGetValue(g.Key, out var tx) ? DocxTemplateEngine.ResolveRanges(tx, g) : [])
+            // Đoạn trống (ô bảng trống) không có trong danh sách đoạn chữ → vẫn giữ chỗ chèn trường.
+            .SelectMany(g => DocxTemplateEngine.ResolveRanges(text.TryGetValue(g.Key, out var tx) ? tx : "", g))
             .ToList();
     }
 
@@ -190,8 +198,8 @@ public class PosDocxTemplatesController(
         var allowed = PosDocxTemplateAiService.DocumentFields.Keys.Concat(PosDocxTemplateAiService.LineFields.Keys)
             .Append(DocxTemplateEngine.TextField).ToHashSet();
         var replacements = (request.Replacements ?? [])
-            .Where(r => !string.IsNullOrEmpty(r.Find) && allowed.Contains(r.Field))
-            .Select(r => new DocxReplacement(r.ParagraphId, r.Find, r.Field, r.Start, r.Text))
+            .Where(r => (!string.IsNullOrEmpty(r.Find) || r.Start != null) && allowed.Contains(r.Field))
+            .Select(r => new DocxReplacement(r.ParagraphId, r.Find ?? "", r.Field, r.Start, r.Text))
             .ToList();
         var original = await System.IO.File.ReadAllBytesAsync(OrigPath(t), ct);
         var applied = await ApplyAndSaveAsync(t, original, replacements, request.RemoveRowParagraphIds ?? [], ct);

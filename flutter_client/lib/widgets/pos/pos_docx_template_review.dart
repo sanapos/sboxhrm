@@ -479,21 +479,47 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
       return;
     }
 
-    if (type == 'para' && inTable) {
-      final ok = await showDialog<bool>(
+    if (type == 'para' && pid.isNotEmpty) {
+      final text = _paraText(pid);
+      final action = await showModalBottomSheet<String>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(rowRemoved ? tr('Giữ lại dòng bảng này?') : tr('Bỏ dòng bảng này khi in?')),
-          content: Text(rowRemoved
-              ? tr('Dòng sẽ được in như trong file gốc.')
-              : tr('Dùng cho các dòng hàng mẫu thừa (dòng 2, 3… của bảng hàng trong file gốc).')),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Đồng ý'))),
-          ],
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: Text(text.isEmpty
+                    ? tr('Ô / đoạn trống')
+                    : '«${text.length > 60 ? '${text.substring(0, 60)}…' : text}»'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.add_box_outlined, color: Color(0xFFD97706)),
+                title: Text(text.isEmpty ? tr('Chèn trường vào ô / đoạn này') : tr('Chèn trường vào cuối đoạn này')),
+                subtitle: Text(tr('Dùng cho ô bảng trống (dòng hàng, tổng tiền…), logo / con dấu (ảnh).')),
+                onTap: () => Navigator.pop(ctx, 'insert'),
+              ),
+              if (inTable)
+                ListTile(
+                  leading: const Icon(Icons.table_rows_outlined),
+                  title: Text(rowRemoved
+                      ? tr('Giữ lại dòng bảng này')
+                      : tr('Bỏ dòng bảng này khi in (dòng hàng mẫu thừa)')),
+                  onTap: () => Navigator.pop(ctx, 'row'),
+                ),
+            ],
+          ),
         ),
       );
-      if (ok == true) await _commit(_items.map((e) => e.copy()).toList(), _toggleRow(pid));
+      if (action == null || !mounted) return;
+      if (action == 'row') {
+        await _commit(_items.map((e) => e.copy()).toList(), _toggleRow(pid));
+        return;
+      }
+      final f = await _pickField();
+      if (f == null) return;
+      final items = _items.map((e) => e.copy()).toList()
+        ..add(_Item(pid, '', f, text, start: text.length));
+      await _commit(items, List.of(_removeRows));
     }
   }
 
@@ -519,7 +545,8 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
             runSpacing: 4,
             children: [
               Text(
-                tr('Bôi đen chữ → gắn trường / sửa / xóa · Bấm ô màu để đổi hoặc bỏ · Chuột phải một dòng bảng để bỏ dòng mẫu'),
+                tr('Bôi đen chữ → gắn trường / sửa / xóa · Bấm ô màu để đổi hoặc bỏ · '
+                    'Chuột phải vào ô trống / đoạn → chèn trường, bỏ dòng mẫu'),
                 style: const TextStyle(fontSize: 12.5, color: Color(0xFF1E3A8A)),
               ),
               _legend(const Color(0xFFFDE68A), tr('Trường chứng từ')),

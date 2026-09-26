@@ -255,6 +255,12 @@ public static class DocxHtmlRenderer
             if (node.Name == W + "t" && run?.Name == W + "r")
             {
                 var text = node.Value;
+                foreach (var z in ranges.Where(r => r.Length == 0 && r.Start == offset && !emitted.Contains(r)).ToList())
+                {
+                    emitted.Add(z);
+                    AppendChip(sb, pid, z, ctx, RunStyle(ctx, rp, run));
+                    any = true;
+                }
                 var style = RunStyle(ctx, rp, run);
                 EmitText(sb, pid, text, offset, ranges, emitted, style, ctx);
                 offset += text.Length;
@@ -269,6 +275,12 @@ public static class DocxHtmlRenderer
                 AppendImage(ctx, node, sb);
                 any = true;
             }
+        }
+        // Trường chèn ở cuối đoạn / trong ô trống.
+        foreach (var z in ranges.Where(r => !emitted.Contains(r)))
+        {
+            AppendChip(sb, pid, z, ctx, rp.Css());
+            any = true;
         }
         if (!any) sb.Append("<br>");
         sb.Append("</p>");

@@ -62,7 +62,8 @@ public partial class PosQuotesController
                 if (System.IO.File.Exists(tplPath))
                 {
                     var (data, lines) = await PosQuoteDocumentHtml.BuildFieldsAsync(
-                        dbContext, quote, kind, docNo, doc?.Note ?? quote.Note);
+                        dbContext, quote, kind, docNo, doc?.Note ?? quote.Note,
+                        includeImages, webHostEnvironment.ContentRootPath);
                     if (!includeStamp) data["Con_Dau"] = "";
                     var filled = DocxTemplateEngine.Render(
                         await System.IO.File.ReadAllBytesAsync(tplPath, ct), data,

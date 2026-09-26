@@ -37,6 +37,16 @@ public class DocxTemplateEngineTests
                 s.Write(xml);
             using (var s2 = new StreamWriter(zip.CreateEntry("word/styles.xml").Open()))
                 s2.Write($"<w:styles xmlns:w=\"{Ns}\"/>");
+            using (var s3 = new StreamWriter(zip.CreateEntry("[Content_Types].xml").Open()))
+                s3.Write("<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">" +
+                         "<Default Extension=\"xml\" ContentType=\"application/xml\"/>" +
+                         "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>" +
+                         "<Override PartName=\"/word/document.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml\"/>" +
+                         "</Types>");
+            using (var s4 = new StreamWriter(zip.CreateEntry("_rels/.rels").Open()))
+                s4.Write("<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">" +
+                         "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"word/document.xml\"/>" +
+                         "</Relationships>");
         }
         return ms.ToArray();
     }
@@ -272,5 +282,103 @@ public class DocxTemplateEngineTests
         var html = DocxHtmlRenderer.Render(File.ReadAllBytes(path), new Dictionary<string, List<DocxHtmlRenderer.Range>>(),
             new HashSet<string>(), new Dictionary<string, string>(), new HashSet<string>());
         File.WriteAllText(outPath, html);
+        var paras = DocxTemplateEngine.ExtractParagraphs(File.ReadAllBytes(path));
+        File.WriteAllLines(outPath + ".rules.txt", DocxRuleDetector.Detect(paras)
+            .Select(r => $"{r.ParagraphId}\t{r.Field}\t{paras.First(p => p.Id == r.ParagraphId).Text}"));
+    }
+
+    [Fact]
+    public void Image_fields_are_embedded_as_real_pictures()
+    {
+        var docx = SampleDocx();
+        var paras = DocxTemplateEngine.ExtractParagraphs(docx);
+        var (tpl, _) = DocxTemplateEngine.ApplyReplacements(docx,
+        [
+            new(paras.First(p => p.Text == "Ghi chú: ……………").Id, "……………", "Con_Dau"),
+        ]);
+        var (data, lines) = DocxTemplateEngine.SampleData();
+        var filled = DocxTemplateEngine.Render(tpl, data, lines);
+
+        using var zip = new ZipArchive(new MemoryStream(filled));
+        Assert.NotNull(zip.GetEntry("word/media/sbox_1.png"));
+        var doc = new StreamReader(zip.GetEntry("word/document.xml")!.Open()).ReadToEnd();
+        Assert.Contains("rIdSbox1", doc);
+        Assert.Contains("drawing", doc);
+        Assert.Contains("Ghi chú: ", Texts(filled));
+        var rels = new StreamReader(zip.GetEntry("word/_rels/document.xml.rels")!.Open()).ReadToEnd();
+        Assert.Contains("media/sbox_1.png", rels);
+        var types = new StreamReader(zip.GetEntry("[Content_Types].xml")!.Open()).ReadToEnd();
+        Assert.Contains("Extension=\"png\"", types);
+    }
+
+    /// <summary>Chạy tay: SBOX_DOCX_IMG_OUT=đường dẫn → ghi mẫu thử có ảnh (logo, con dấu, ảnh dòng hàng) đã điền.</summary>
+    [Fact]
+    public void Write_image_sample_when_requested()
+    {
+        var outPath = Environment.GetEnvironmentVariable("SBOX_DOCX_IMG_OUT");
+        if (string.IsNullOrEmpty(outPath)) return;
+        var docx = SampleDocx();
+        var paras = DocxTemplateEngine.ExtractParagraphs(docx);
+        string Id(string text) => paras.First(p => p.Text == text).Id;
+        var (tpl, _) = DocxTemplateEngine.ApplyReplacements(docx,
+        [
+            new(Id("BÁO GIÁ SỐ: BG-001"), "BG-001", "Logo"),
+            new(Id("1"), "1", "STT"),
+            new(Id("Tủ bếp gỗ"), "Tủ bếp gỗ", "Hinh_Anh"),
+            new(Id("15.000.000"), "15.000.000", "Thanh_Tien"),
+            new(Id("Ghi chú: ……………"), "……………", "Con_Dau"),
+        ], [Id("2")]);
+        var (data, lines) = DocxTemplateEngine.SampleData();
+        File.WriteAllBytes(outPath, DocxTemplateEngine.Render(tpl, data, lines));
+    }
+
+    [Fact]
+    public void Rules_bind_blanks_after_known_labels_by_party()
+    {
+        DocxParagraph P(int i, string text) => new($"document:{i}", text, false);
+        var paras = new List<DocxParagraph>
+        {
+            P(0, "BÊN MUA (BÊN A):"),
+            P(1, "Họ tên: ……………………"),
+            P(2, "Mã số thuế: ...................."),
+            P(3, "BÊN BÁN (BÊN B):"),
+            P(4, "Đại diện: ______________   Chức vụ: ________"),
+            P(5, "Hà Nội, ngày …… tháng …… năm 2026"),   // ngày tháng: không đoán
+        };
+        var r = DocxRuleDetector.Detect(paras);
+        Assert.Contains(r, x => x.ParagraphId == "document:1" && x.Field == "Khach_Hang");
+        Assert.Contains(r, x => x.ParagraphId == "document:2" && x.Field == "MST_Khach_Hang");
+        Assert.Contains(r, x => x.ParagraphId == "document:4" && x.Field == "Nguoi_Dai_Dien_Cua_Hang");
+        Assert.Contains(r, x => x.ParagraphId == "document:4" && x.Field == "Chuc_Vu_Cua_Hang");
+        Assert.DoesNotContain(r, x => x.ParagraphId == "document:5");
+
+        // AI đã gắn chỗ đó → quy tắc không chồng.
+        var ai = new List<DocxReplacement> { new("document:1", "……………………", "Ten_Cong_Ty_Khach") };
+        var merged = DocxRuleDetector.Merge(paras, ai, r);
+        Assert.Single(merged, x => x.ParagraphId == "document:1");
+        Assert.Equal("Ten_Cong_Ty_Khach", merged.First(x => x.ParagraphId == "document:1").Field);
+    }
+
+    [Fact]
+    public void Insert_field_into_empty_table_cell_and_end_of_paragraph()
+    {
+        var docx = SampleDocx();
+        // Ô đầu dòng «Tổng cộng» trống: document:11 (đoạn trống không có trong danh sách đoạn chữ).
+        Assert.DoesNotContain(DocxTemplateEngine.ExtractParagraphs(docx), p => p.Id == "document:11");
+        var (tpl, applied) = DocxTemplateEngine.ApplyReplacements(docx,
+        [
+            new("document:11", "", "Ghi_Chu", Start: 0),
+            new("document:0", "", "Ngay", Start: "BÁO GIÁ SỐ: BG-001".Length),
+        ]);
+        Assert.Equal(2, applied.Count);
+        var texts = Texts(tpl);
+        Assert.Contains("{Ghi_Chu}", texts);
+        Assert.Contains("BÁO GIÁ SỐ: BG-001{Ngay}", texts);
+
+        var html = DocxHtmlRenderer.Render(docx,
+            new Dictionary<string, List<DocxHtmlRenderer.Range>> { ["document:11"] = [new(0, 0, "Ghi_Chu", null)] },
+            new HashSet<string>(), new Dictionary<string, string> { ["Ghi_Chu"] = "Ghi chú" },
+            PosDocxTemplateAiService.LineFields.Keys.ToHashSet());
+        Assert.Contains("data-pid=\"document:11\" data-s=\"0\" data-l=\"0\"", html);
     }
 }

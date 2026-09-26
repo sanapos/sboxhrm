@@ -81,8 +81,11 @@ public static class DocxTemplateEngine
                 {
                     // Xác định vị trí trên chữ GỐC rồi thay từ cuối lên đầu (vị trí phía trước không bị lệch).
                     var resolved = ResolveRanges(ParagraphText(paragraphs[i]), mine);
-                    foreach (var r in resolved.OrderByDescending(x => x.Start))
-                        ReplaceAt(paragraphs[i], r.Start!.Value, r.Find.Length, ValueOf(r));
+                    foreach (var r in resolved.OrderByDescending(x => x.Start).ThenBy(x => x.Find.Length == 0 ? 0 : 1))
+                    {
+                        if (r.Find.Length == 0) InsertAt(paragraphs[i], r.Start!.Value, ValueOf(r));
+                        else ReplaceAt(paragraphs[i], r.Start!.Value, r.Find.Length, ValueOf(r));
+                    }
                     applied.AddRange(resolved);
                 }
                 if (removeIds.Contains(id) && paragraphs[i].Ancestors(W + "tr").FirstOrDefault() is { } tr)
@@ -120,8 +123,16 @@ public static class DocxTemplateEngine
         IReadOnlyDictionary<string, string> data,
         IReadOnlyList<IReadOnlyDictionary<string, string>> lines)
     {
-        return ForEachPart(template, readOnly: false, (_, doc) =>
+        var media = new List<DocxImage>();
+        var filled = ForEachPart(template, readOnly: false, (partName, doc) =>
         {
+            ImageSink sink = (bytes, ext) =>
+            {
+                var n = media.Count + 1;
+                var img = new DocxImage(partName, $"rIdSbox{n}", $"media/sbox_{n}.{ext}", bytes, ext, 100000 + n);
+                media.Add(img);
+                return img;
+            };
             foreach (var p in doc.Descendants(W + "p").ToList())
                 NormalizeTokens(p);
 
@@ -137,15 +148,16 @@ public static class DocxTemplateEngine
                 foreach (var line in lines)
                 {
                     var clone = new XElement(tr);
-                    FillTokens(clone, key => line.TryGetValue(key, out var v) ? v : data.GetValueOrDefault(key));
+                    FillTokens(clone, key => line.TryGetValue(key, out var v) ? v : data.GetValueOrDefault(key), sink);
                     anchor.AddAfterSelf(clone);
                     anchor = clone;
                 }
                 tr.Remove();
             }
 
-            FillTokens(doc.Root!, key => data.GetValueOrDefault(key));
+            FillTokens(doc.Root!, key => data.GetValueOrDefault(key), sink);
         });
+        return media.Count == 0 ? filled : AddMedia(filled, media);
     }
 
     // ─── Nội bộ ─────────────────────────────────────────────────────────
@@ -210,7 +222,13 @@ public static class DocxTemplateEngine
         bool Free(int s, int len) => taken.All(t => s + len <= t.S || s >= t.E);
         foreach (var r in replacements)
         {
-            if (string.IsNullOrEmpty(r.Find)) continue;
+            // Chèn trường vào vị trí (ô trống / cuối đoạn): Find rỗng + Start.
+            if (string.IsNullOrEmpty(r.Find))
+            {
+                if (r.Start is int at && at >= 0 && at <= text.Length && taken.All(t => at <= t.S || at >= t.E))
+                    result.Add(r with { Find = "", Start = at });
+                continue;
+            }
             var len = r.Find.Length;
             var start = -1;
             if (r.Start is int s && s >= 0 && s + len <= text.Length
@@ -238,6 +256,31 @@ public static class DocxTemplateEngine
         var start = full.IndexOf(find, StringComparison.Ordinal);
         if (start < 0) return false;
         return ReplaceAt(p, start, find.Length, replacement);
+    }
+
+    /// <summary>
+    /// Chèn chữ / mã trường tại vị trí <paramref name="offset"/> của đoạn. Đoạn trống (ô bảng trống) → tạo run mới
+    /// theo định dạng dấu đoạn (w:pPr/w:rPr) để giữ font / cỡ chữ của ô.
+    /// </summary>
+    static void InsertAt(XElement p, int offset, string value)
+    {
+        var nodes = TextNodes(p);
+        var pos = 0;
+        foreach (var n in nodes)
+        {
+            if (offset >= pos && offset <= pos + n.Value.Length)
+            {
+                n.Value = n.Value[..(offset - pos)] + value + n.Value[(offset - pos)..];
+                n.SetAttributeValue(Xml + "space", "preserve");
+                return;
+            }
+            pos += n.Value.Length;
+        }
+        var markProps = p.Element(W + "pPr")?.Element(W + "rPr");
+        var rPr = markProps == null ? null : new XElement(W + "rPr", markProps.Elements()
+            .Where(e => e.Name.LocalName is not ("ins" or "del" or "moveFrom" or "moveTo" or "rPrChange"))
+            .Select(e => new XElement(e)));
+        p.Add(new XElement(W + "r", rPr, new XElement(W + "t", new XAttribute(Xml + "space", "preserve"), value)));
     }
 
     /// <summary>Thay đoạn chữ [start, start+length) của đoạn văn (có thể trải nhiều run) — giữ định dạng run đầu.</summary>
@@ -278,11 +321,12 @@ public static class DocxTemplateEngine
         }
     }
 
-    static void FillTokens(XElement root, Func<string, string?> lookup)
+    static void FillTokens(XElement root, Func<string, string?> lookup, ImageSink? images = null)
     {
         foreach (var t in root.Descendants(W + "t").ToList())
         {
             if (!t.Value.Contains('{')) continue;
+            if (images != null && TryFillWithImages(t, lookup, images)) continue;
             var replaced = TokenRx.Replace(t.Value, m =>
             {
                 var v = lookup(m.Groups[1].Value);
@@ -315,6 +359,204 @@ public static class DocxTemplateEngine
             after.AddAfterSelf(br, nt);
             after = nt;
         }
+    }
+
+    // ─── Ảnh động (logo, con dấu, ảnh sản phẩm) ───────────────────────
+
+    /// <summary>Ảnh chèn vào một phần (document / header…): quan hệ rId + tệp media.</summary>
+    sealed record DocxImage(string Part, string RelId, string Target, byte[] Bytes, string Ext, int DocPrId);
+
+    delegate DocxImage ImageSink(byte[] bytes, string ext);
+
+    static readonly Regex DataImageRx = new(
+        @"src\s*=\s*[""']data:image/(png|jpe?g|gif);base64,([A-Za-z0-9+/=\s]+)[""']",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>Trường ảnh — gắn được ở màn soạn; giá trị là ảnh nhúng (data:).</summary>
+    public static readonly HashSet<string> ImageKeys = ["Logo", "Con_Dau", "Chu_Ky", "Hinh_Anh"];
+
+    /// <summary>Khung tối đa (mm) theo trường ảnh — giữ tỉ lệ ảnh gốc.</summary>
+    static (double W, double H) ImageBox(string key) => key switch
+    {
+        "Logo" => (40, 22),
+        "Con_Dau" => (38, 38),
+        "Chu_Ky" => (40, 20),
+        "Hinh_Anh" => (22, 22),
+        _ => (30, 30),
+    };
+
+    /// <summary>Ảnh nhúng dạng data: (không tải URL ngoài) → bytes + phần mở rộng.</summary>
+    static (byte[] Bytes, string Ext)? ParseDataImage(string? html)
+    {
+        if (string.IsNullOrEmpty(html)) return null;
+        var m = DataImageRx.Match(html);
+        if (!m.Success) return null;
+        try
+        {
+            var bytes = Convert.FromBase64String(Regex.Replace(m.Groups[2].Value, @"\s", ""));
+            if (bytes.Length < 16 || bytes.Length > 8_000_000) return null;
+            var ext = m.Groups[1].Value.ToLowerInvariant() switch { "jpg" or "jpeg" => "jpeg", var e => e };
+            return (bytes, ext);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Mẩu chữ có mã trường ảnh mang ảnh thật → tách run: chữ / ảnh / chữ. Trả false nếu không có ảnh.</summary>
+    static bool TryFillWithImages(XElement t, Func<string, string?> lookup, ImageSink images)
+    {
+        var run = t.Parent;
+        if (run == null || run.Name != W + "r" || run.Parent == null) return false;
+        var found = TokenRx.Matches(t.Value).Select(m => (m, img: ParseDataImage(lookup(m.Groups[1].Value)))).ToList();
+        if (found.All(f => f.img == null)) return false;
+
+        var rPr = run.Element(W + "rPr");
+        var pieces = new List<XElement>();
+        var last = 0;
+        string Text(string raw) => TokenRx.Replace(raw, m =>
+        {
+            var v = lookup(m.Groups[1].Value);
+            return v == null ? m.Value : LooksLikeHtml(v) ? "" : v;
+        });
+        foreach (var (m, img) in found)
+        {
+            if (img == null) continue;
+            if (m.Index > last) pieces.Add(TextRun(rPr, Text(t.Value[last..m.Index])));
+            pieces.Add(DrawingRun(images(img.Value.Bytes, img.Value.Ext), ImageBox(m.Groups[1].Value)));
+            last = m.Index + m.Length;
+        }
+        if (last < t.Value.Length) pieces.Add(TextRun(rPr, Text(t.Value[last..])));
+
+        var before = t.ElementsBeforeSelf().Where(e => e.Name != W + "rPr").ToList();
+        var after = t.ElementsAfterSelf().ToList();
+        if (before.Count > 0)
+            run.AddBeforeSelf(new XElement(W + "r", rPr == null ? null : new XElement(rPr), before.Select(e => new XElement(e))));
+        XElement anchor = run;
+        foreach (var piece in pieces)
+        {
+            anchor.AddAfterSelf(piece);
+            anchor = piece;
+        }
+        if (after.Count > 0)
+            anchor.AddAfterSelf(new XElement(W + "r", rPr == null ? null : new XElement(rPr), after.Select(e => new XElement(e))));
+        run.Remove();
+        return true;
+    }
+
+    static XElement TextRun(XElement? rPr, string text)
+    {
+        var t = new XElement(W + "t", new XAttribute(Xml + "space", "preserve"));
+        var r = new XElement(W + "r", rPr == null ? null : new XElement(rPr), t);
+        SetTextWithBreaks(t, text);
+        return r;
+    }
+
+    static readonly XNamespace Wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+    static readonly XNamespace A = "http://schemas.openxmlformats.org/drawingml/2006/main";
+    static readonly XNamespace Pic = "http://schemas.openxmlformats.org/drawingml/2006/picture";
+    static readonly XNamespace RelNs = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+
+    static XElement DrawingRun(DocxImage img, (double W, double H) boxMm)
+    {
+        // Kích thước giữ tỉ lệ ảnh, vừa khung (mm → EMU: 36000).
+        double pw = 1, ph = 1;
+        try
+        {
+            var info = SixLabors.ImageSharp.Image.Identify(img.Bytes);
+            pw = Math.Max(1, info.Width);
+            ph = Math.Max(1, info.Height);
+        }
+        catch (Exception)
+        {
+            // Không đọc được kích thước → vuông.
+        }
+        var scale = Math.Min(boxMm.W / pw, boxMm.H / ph);
+        var cx = (long)(pw * scale * 36000);
+        var cy = (long)(ph * scale * 36000);
+        var name = "Sbox image " + img.DocPrId;
+        return new XElement(W + "r",
+            new XElement(W + "drawing",
+                new XElement(Wp + "inline",
+                    new XAttribute("distT", 0), new XAttribute("distB", 0), new XAttribute("distL", 0), new XAttribute("distR", 0),
+                    new XElement(Wp + "extent", new XAttribute("cx", cx), new XAttribute("cy", cy)),
+                    new XElement(Wp + "docPr", new XAttribute("id", img.DocPrId), new XAttribute("name", name)),
+                    new XElement(A + "graphic",
+                        new XElement(A + "graphicData", new XAttribute("uri", Pic.NamespaceName),
+                            new XElement(Pic + "pic",
+                                new XElement(Pic + "nvPicPr",
+                                    new XElement(Pic + "cNvPr", new XAttribute("id", img.DocPrId), new XAttribute("name", name)),
+                                    new XElement(Pic + "cNvPicPr")),
+                                new XElement(Pic + "blipFill",
+                                    new XElement(A + "blip", new XAttribute(RelNs + "embed", img.RelId)),
+                                    new XElement(A + "stretch", new XElement(A + "fillRect"))),
+                                new XElement(Pic + "spPr",
+                                    new XElement(A + "xfrm",
+                                        new XElement(A + "off", new XAttribute("x", 0), new XAttribute("y", 0)),
+                                        new XElement(A + "ext", new XAttribute("cx", cx), new XAttribute("cy", cy))),
+                                    new XElement(A + "prstGeom", new XAttribute("prst", "rect"), new XElement(A + "avLst")))))))));
+    }
+
+    /// <summary>Thêm tệp ảnh + quan hệ (rels) của từng phần + kiểu nội dung vào gói docx.</summary>
+    static byte[] AddMedia(byte[] docx, List<DocxImage> media)
+    {
+        XNamespace pr = "http://schemas.openxmlformats.org/package/2006/relationships";
+        XNamespace ct = "http://schemas.openxmlformats.org/package/2006/content-types";
+        const string imageRel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image";
+        using var input = new MemoryStream(docx);
+        using var output = new MemoryStream();
+        using (var src = new ZipArchive(input, ZipArchiveMode.Read))
+        using (var dst = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var byRels = media.GroupBy(m => $"word/_rels/{m.Part}.xml.rels").ToDictionary(g => g.Key, g => g.ToList());
+            void WriteXml(string name, XDocument doc)
+            {
+                using var os = dst.CreateEntry(name, CompressionLevel.Optimal).Open();
+                doc.Save(os, SaveOptions.DisableFormatting);
+            }
+            foreach (var entry in src.Entries)
+            {
+                if (entry.FullName == "[Content_Types].xml")
+                {
+                    XDocument doc;
+                    using (var s = entry.Open()) doc = XDocument.Load(s);
+                    foreach (var ext in media.Select(m => m.Ext).Distinct())
+                    {
+                        if (doc.Root!.Elements(ct + "Default").Any(d => string.Equals((string?)d.Attribute("Extension"), ext, StringComparison.OrdinalIgnoreCase)))
+                            continue;
+                        doc.Root.AddFirst(new XElement(ct + "Default", new XAttribute("Extension", ext), new XAttribute("ContentType", "image/" + ext)));
+                    }
+                    WriteXml(entry.FullName, doc);
+                    continue;
+                }
+                if (byRels.TryGetValue(entry.FullName, out var imgs))
+                {
+                    XDocument doc;
+                    using (var s = entry.Open()) doc = XDocument.Load(s);
+                    foreach (var m in imgs)
+                        doc.Root!.Add(new XElement(pr + "Relationship", new XAttribute("Id", m.RelId),
+                            new XAttribute("Type", imageRel), new XAttribute("Target", m.Target)));
+                    WriteXml(entry.FullName, doc);
+                    byRels.Remove(entry.FullName);
+                    continue;
+                }
+                using var from = entry.Open();
+                using var to = dst.CreateEntry(entry.FullName, CompressionLevel.Optimal).Open();
+                from.CopyTo(to);
+            }
+            // Phần chưa có tệp rels (header / footer đơn giản) → tạo mới.
+            foreach (var (name, imgs) in byRels)
+                WriteXml(name, new XDocument(new XElement(pr + "Relationships",
+                    imgs.Select(m => new XElement(pr + "Relationship", new XAttribute("Id", m.RelId),
+                        new XAttribute("Type", imageRel), new XAttribute("Target", m.Target))))));
+            foreach (var m in media)
+            {
+                using var os = dst.CreateEntry("word/" + m.Target, CompressionLevel.NoCompression).Open();
+                os.Write(m.Bytes);
+            }
+        }
+        return output.ToArray();
     }
 
     // ─── Bản xem "mẫu gắn trường" ───────────────────────────────────────
@@ -391,6 +633,16 @@ public static class DocxTemplateEngine
             new XElement(W + "t", new XAttribute(Xml + "space", "preserve"), text));
     }
 
+    /// <summary>Ảnh mẫu (khối màu) cho in thử trường ảnh — thấy đúng vị trí / cỡ ảnh.</summary>
+    static string SampleImage(byte r, byte g, byte b, int w, int h)
+    {
+        using var img = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(
+            w, h, new SixLabors.ImageSharp.PixelFormats.Rgba32(r, g, b, 90));
+        using var ms = new MemoryStream();
+        SixLabors.ImageSharp.ImageExtensions.SaveAsPng(img, ms);
+        return "<img src=\"data:image/png;base64," + Convert.ToBase64String(ms.ToArray()) + "\"/>";
+    }
+
     /// <summary>Dữ liệu mẫu để in thử (không cần chọn báo giá / hóa đơn thật).</summary>
     public static (Dictionary<string, string> Data, List<IReadOnlyDictionary<string, string>> Lines) SampleData()
     {
@@ -456,6 +708,8 @@ public static class DocxTemplateEngine
             ["Khach_Thanh_Toan"] = "24.500.000",
             ["Tien_Thua"] = "200.000",
             ["Con_Lai"] = "0",
+            ["Logo"] = SampleImage(0x1E, 0x40, 0xAF, 360, 160),
+            ["Con_Dau"] = SampleImage(0xDC, 0x26, 0x26, 300, 300),
         };
         var lines = new List<IReadOnlyDictionary<string, string>>
         {
@@ -464,12 +718,14 @@ public static class DocxTemplateEngine
                 ["STT"] = "1", ["Ma_Hang"] = "TB01", ["Ten_Hang_Hoa"] = "Tủ bếp gỗ sồi", ["Don_Vi_Tinh"] = "Bộ",
                 ["So_Luong"] = "1", ["Don_Gia"] = "15.000.000", ["Chiet_Khau"] = "0", ["Thanh_Tien"] = "15.000.000",
                 ["Chieu_Dai"] = "3.200", ["Chieu_Rong"] = "600", ["Chieu_Cao"] = "850", ["Bao_Hanh"] = "24 tháng", ["Ghi_Chu"] = "Màu vân gỗ",
+                ["Hinh_Anh"] = SampleImage(0x16, 0xA3, 0x4A, 200, 200),
             },
             new Dictionary<string, string>
             {
                 ["STT"] = "2", ["Ma_Hang"] = "BD02", ["Ten_Hang_Hoa"] = "Mặt đá bếp", ["Don_Vi_Tinh"] = "m",
                 ["So_Luong"] = "4", ["Don_Gia"] = "2.000.000", ["Chiet_Khau"] = "0", ["Thanh_Tien"] = "8.000.000",
                 ["Chieu_Dai"] = "4.000", ["Chieu_Rong"] = "600", ["Chieu_Cao"] = "20", ["Bao_Hanh"] = "12 tháng", ["Ghi_Chu"] = "",
+                ["Hinh_Anh"] = SampleImage(0xEA, 0x58, 0x0C, 200, 200),
             },
         };
         return (data, lines);
