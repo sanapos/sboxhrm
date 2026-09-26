@@ -318,6 +318,82 @@ class _PosSellIndustrySettingsScreenState
     );
   }
 
+  /// Khách sạn: giờ nhận / trả phòng, trả muộn ½ đêm, ân hạn — lưu ExtraJson.hotel.
+  Widget _hotelPolicyCard(PosStoreSellSettingsDto s) {
+    final h = PosHotelStayPolicy.parse(s.extraJson);
+    void save(PosHotelStayPolicy next) => _patchAndSave(
+        (cur) => cur.copyWith(extraJson: next.mergeIntoExtraJson(cur.extraJson)));
+    Future<void> pick(int current, void Function(int) onPicked) async {
+      final t = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay(hour: current ~/ 60, minute: current % 60),
+      );
+      if (t != null) onPicked(t.hour * 60 + t.minute);
+    }
+
+    Widget timeTile(String label, int minute, void Function(int) onPicked) => ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr(label)),
+          trailing: OutlinedButton(
+            onPressed: _saving ? null : () => pick(minute, onPicked),
+            child: Text(PosHotelStayPolicy.fmt(minute)),
+          ),
+        );
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Tính tiền phòng theo đêm')),
+              subtitle: Text(tr(
+                  'Theo giờ nhận / trả phòng. Tắt = tính theo khối 24 giờ kể từ lúc nhận.')),
+              value: h.nightMode,
+              onChanged: _saving ? null : (v) => save(h.copyWith(nightMode: v)),
+            ),
+            if (h.nightMode) ...[
+              timeTile('Giờ nhận phòng', h.checkInMinute,
+                  (m) => save(h.copyWith(checkInMinute: m))),
+              timeTile('Giờ trả phòng', h.checkOutMinute,
+                  (m) => save(h.copyWith(checkOutMinute: m))),
+              timeTile('Trả muộn tính ½ đêm đến', h.lateHalfUntilMinute,
+                  (m) => save(h.copyWith(lateHalfUntilMinute: m))),
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(tr('Ân hạn (phút)')),
+                trailing: DropdownButton<int>(
+                  value: const [0, 15, 30, 45, 60].contains(h.graceMinutes) ? h.graceMinutes : 30,
+                  items: [
+                    for (final g in const [0, 15, 30, 45, 60])
+                      DropdownMenuItem(value: g, child: Text('$g')),
+                  ],
+                  onChanged: _saving ? null : (g) => save(h.copyWith(graceMinutes: g)),
+                ),
+              ),
+              Text(
+                tr('Đến trước ${PosHotelStayPolicy.fmt(h.earlyHalfFromMinute)} tính đêm hôm trước; '
+                    'đến sớm trước giờ nhận +½ đêm; trả sau giờ trả đến '
+                    '${PosHotelStayPolicy.fmt(h.lateHalfUntilMinute)} +½ đêm, sau đó +1 đêm.'),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildForm() {
     final s = _settings!;
     return ListView(
@@ -478,6 +554,7 @@ class _PosSellIndustrySettingsScreenState
                 : (v) => _patchAndSave(
                     (cur) => cur.copyWith(enableHourlyBilling: v)),
           ),
+          if (s.sellProfile == PosSellProfile.hotel) _hotelPolicyCard(s),
           if (s.enableHourlyBilling) ...[
             const SizedBox(height: 4),
             DropdownButtonFormField<String?>(

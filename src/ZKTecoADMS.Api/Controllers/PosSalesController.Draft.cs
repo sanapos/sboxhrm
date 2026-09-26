@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Services;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -1121,6 +1122,8 @@ public partial class PosSalesController
         // Hồ sơ ngành yêu cầu chọn bàn/phòng trước khi giữ đơn / thanh toán.
         var sellSettings = await dbContext.PosStoreSellSettings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null);
+        // Khách sạn (dịch vụ tính theo ngày): tính theo đêm với giờ nhận / trả phòng của cửa hàng.
+        var hotelPolicy = HotelStayPolicy.Parse(sellSettings?.ExtraJson);
         var resourceId = dto.ServiceResourceId ?? existing?.ServiceResourceId;
         if (sellSettings?.RequireResourceOnSale == true && !resourceId.HasValue)
             return (null, null, "Cần chọn bàn/phòng trước khi lưu đơn");
@@ -1480,6 +1483,8 @@ public partial class PosSalesController
                     ? 0
                     : PosServiceBillingHelper.CalcBillableQty(
                         p.ServiceBillingMode, extra, extra, p.BillRoundMinutes);
+                if (p.ServiceBillingMode == PosServiceBillingMode.PerDay && hotelPolicy.NightMode)
+                    lineQty = PosHotelNightMath.Nights(started, ended ?? DateTime.UtcNow, hotelPolicy);
                 lineStarted ??= started;
                 if (complete) lineEnded ??= ended ?? DateTime.UtcNow;
                 grossLine = p.OpeningFee + (unitPrice + toppingExtra) * lineQty;

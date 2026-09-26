@@ -1535,6 +1535,119 @@ DateTime? parsePosApiUtc(String? raw) {
 }
 
 /// Tính phút / qty phía client (đồng bộ PosServiceBillingMath server).
+/// Giờ nhận / trả phòng khách sạn (ExtraJson.hotel) — khớp HotelStayPolicy bên C#.
+class PosHotelStayPolicy {
+  final bool nightMode;
+  final int checkInMinute;
+  final int checkOutMinute;
+  final int lateHalfUntilMinute;
+  final int earlyHalfFromMinute;
+  final int graceMinutes;
+  final double halfFraction;
+
+  const PosHotelStayPolicy({
+    this.nightMode = true,
+    this.checkInMinute = 14 * 60,
+    this.checkOutMinute = 12 * 60,
+    this.lateHalfUntilMinute = 18 * 60,
+    this.earlyHalfFromMinute = 5 * 60,
+    this.graceMinutes = 30,
+    this.halfFraction = 0.5,
+  });
+
+  static int _time(dynamic raw, int fallback) {
+    final parts = raw?.toString().split(':');
+    if (parts == null || parts.length < 2) return fallback;
+    final h = int.tryParse(parts[0]), m = int.tryParse(parts[1]);
+    if (h == null || m == null || h < 0 || h > 23 || m < 0 || m > 59) return fallback;
+    return h * 60 + m;
+  }
+
+  static PosHotelStayPolicy parse(String? extraJson) {
+    const d = PosHotelStayPolicy();
+    if (extraJson == null || extraJson.trim().isEmpty) return d;
+    try {
+      final root = jsonDecode(extraJson);
+      final h = root is Map ? (root['hotel'] ?? root['Hotel']) : null;
+      if (h is! Map) return d;
+      final g = h['graceMinutes'];
+      final f = h['halfFraction'];
+      return PosHotelStayPolicy(
+        nightMode: h['nightMode'] != false,
+        checkInMinute: _time(h['checkIn'], d.checkInMinute),
+        checkOutMinute: _time(h['checkOut'], d.checkOutMinute),
+        lateHalfUntilMinute: _time(h['lateHalfUntil'], d.lateHalfUntilMinute),
+        earlyHalfFromMinute: _time(h['earlyHalfFrom'], d.earlyHalfFromMinute),
+        graceMinutes: g is num && g >= 0 ? g.toInt() : d.graceMinutes,
+        halfFraction: f is num && f > 0 && f <= 1 ? f.toDouble() : d.halfFraction,
+      );
+    } catch (_) {
+      return d;
+    }
+  }
+
+  static String fmt(int minute) =>
+      '${(minute ~/ 60).toString().padLeft(2, '0')}:${(minute % 60).toString().padLeft(2, '0')}';
+
+  PosHotelStayPolicy copyWith({
+    bool? nightMode,
+    int? checkInMinute,
+    int? checkOutMinute,
+    int? lateHalfUntilMinute,
+    int? graceMinutes,
+  }) =>
+      PosHotelStayPolicy(
+        nightMode: nightMode ?? this.nightMode,
+        checkInMinute: checkInMinute ?? this.checkInMinute,
+        checkOutMinute: checkOutMinute ?? this.checkOutMinute,
+        lateHalfUntilMinute: lateHalfUntilMinute ?? this.lateHalfUntilMinute,
+        earlyHalfFromMinute: earlyHalfFromMinute,
+        graceMinutes: graceMinutes ?? this.graceMinutes,
+        halfFraction: halfFraction,
+      );
+
+  /// Ghi đè khóa "hotel" trong ExtraJson, giữ các khóa khác.
+  String mergeIntoExtraJson(String? extraJson) {
+    Map<String, dynamic> root = {};
+    try {
+      final r = extraJson == null || extraJson.trim().isEmpty ? null : jsonDecode(extraJson);
+      if (r is Map) root = Map<String, dynamic>.from(r);
+    } catch (_) {}
+    root.remove('Hotel');
+    root['hotel'] = {
+      'nightMode': nightMode,
+      'checkIn': fmt(checkInMinute),
+      'checkOut': fmt(checkOutMinute),
+      'lateHalfUntil': fmt(lateHalfUntilMinute),
+      'earlyHalfFrom': fmt(earlyHalfFromMinute),
+      'graceMinutes': graceMinutes,
+      'halfFraction': halfFraction,
+    };
+    return jsonEncode(root);
+  }
+
+  /// Số đêm (có thể lẻ ½) — cùng công thức PosHotelNightMath.Nights bên máy chủ.
+  double nights(DateTime startUtc, DateTime endUtc) {
+    final start = startUtc.toUtc().add(const Duration(hours: 7));
+    var end = endUtc.toUtc().add(const Duration(hours: 7));
+    if (!end.isAfter(start)) end = start;
+    final startMin = start.hour * 60 + start.minute;
+    final day0 = DateTime.utc(start.year, start.month, start.day);
+    final anchor = startMin < earlyHalfFromMinute ? day0.subtract(const Duration(days: 1)) : day0;
+    var extra = 0.0;
+    if (startMin >= earlyHalfFromMinute && startMin < checkInMinute - graceMinutes) {
+      extra += halfFraction;
+    }
+    var n = 1;
+    while (end.isAfter(anchor.add(Duration(days: n, minutes: lateHalfUntilMinute)))) {
+      n++;
+    }
+    final checkout = anchor.add(Duration(days: n, minutes: checkOutMinute));
+    if (end.isAfter(checkout.add(Duration(minutes: graceMinutes)))) extra += halfFraction;
+    return n + extra;
+  }
+}
+
 class PosServiceBillingCalc {
   static DateTime _asUtc(DateTime value) {
     if (value.isUtc) return value;

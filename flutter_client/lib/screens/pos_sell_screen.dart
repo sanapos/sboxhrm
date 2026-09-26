@@ -4377,13 +4377,17 @@ class _PosSellScreenState extends State<PosSellScreen>
         graceMinutes: line.product.graceMinutes,
         roundAfterMinutes: line.product.roundAfterMinutes,
       );
-      final qty = PosServiceBillingCalc.extraQty(
-        mode: mode,
-        billableMinutes: billable,
-        openingMinutes: line.product.openingMinutes,
-        billRoundMinutes: line.product.billRoundMinutes,
-        fallbackQty: line.qty,
-      );
+      final hotel = PosHotelStayPolicy.parse(_industrySettings?.extraJson);
+      // Khách sạn: tính theo đêm (giờ nhận / trả phòng) — khớp máy chủ.
+      final qty = mode == PosServiceBillingMode.perDay && hotel.nightMode
+          ? hotel.nights(started, DateTime.now().toUtc())
+          : PosServiceBillingCalc.extraQty(
+              mode: mode,
+              billableMinutes: billable,
+              openingMinutes: line.product.openingMinutes,
+              billRoundMinutes: line.product.billRoundMinutes,
+              fallbackQty: line.qty,
+            );
       if ((line.qty - qty).abs() > 0.0001) {
         line.qty = qty;
         changed = true;
@@ -5357,13 +5361,16 @@ class _PosSellScreenState extends State<PosSellScreen>
           graceMinutes: p.graceMinutes,
           roundAfterMinutes: p.roundAfterMinutes,
         );
-        qty = PosServiceBillingCalc.extraQty(
-          mode: mode,
-          billableMinutes: billable,
-          openingMinutes: p.openingMinutes,
-          billRoundMinutes: p.billRoundMinutes,
-          fallbackQty: 1,
-        );
+        final hotel = PosHotelStayPolicy.parse(_industrySettings?.extraJson);
+        qty = mode == PosServiceBillingMode.perDay && hotel.nightMode
+            ? hotel.nights(_tab.serviceStartedAt!, DateTime.now().toUtc())
+            : PosServiceBillingCalc.extraQty(
+                mode: mode,
+                billableMinutes: billable,
+                openingMinutes: p.openingMinutes,
+                billRoundMinutes: p.billRoundMinutes,
+                fallbackQty: 1,
+              );
       }
       var unitPrice = view.basePrice;
       if (p.isTimedService &&
