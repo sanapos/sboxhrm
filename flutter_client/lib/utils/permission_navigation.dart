@@ -37,6 +37,8 @@ class PermissionNavigation {
   }) {
     if (bypassPackageFilter) return true;
     if (moduleCode == null || moduleCode.isEmpty) return true;
+    // Lịch sử thao tác có ở mọi gói (quyền xem vẫn theo vai trò).
+    if (moduleCode == 'ActivityLog') return true;
     if (PermissionModules.selfServiceModules.contains(moduleCode)) {
       return true;
     }

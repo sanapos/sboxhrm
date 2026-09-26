@@ -196,7 +196,8 @@ public class StorePackageModuleMiddleware
         await _next(context);
     }
 
-    private static string? ResolveModule(string path)
+    /// <summary>Module theo đường dẫn API (dùng chung cho gói dịch vụ + Lịch sử thao tác).</summary>
+    public static string? ResolveModule(string path)
     {
         // Trả hàng bán: /api/pos/sales/{id}/return|returns/... (không chỉ return-history).
         if (path.StartsWith("/api/pos/sales/", StringComparison.OrdinalIgnoreCase) &&

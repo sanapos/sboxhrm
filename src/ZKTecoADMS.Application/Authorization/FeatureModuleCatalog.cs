@@ -155,6 +155,8 @@ public static class FeatureModuleCatalog
 
         // ══════════ QUẢN TRỊ ══════════
         new("UserManagement", "Tài khoản", "Người dùng, kích hoạt, vai trò", "Quản trị", 90),
+        // Có ở mọi gói (không chọn theo gói); chủ / giám đốc luôn xem được, cấp thêm cho vai trò khác tại Phân quyền.
+        new("ActivityLog", "Lịch sử thao tác", "Ai thêm / sửa / xóa gì, lúc nào (lưu 30 ngày)", "Quản trị", 91, false),
         new("Role", "Phân quyền", "Ma trận quyền, vai trò, module", "Quản trị", 91),
         new("DepartmentPermission", "PQ Phòng ban", "Phân quyền theo sơ đồ cây phòng ban", "Quản trị", 92),
 

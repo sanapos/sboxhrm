@@ -18243,6 +18243,85 @@ class ApiService {
       _getBinary(Uri.parse('$baseUrl/api/pos/gym/report').replace(
           queryParameters: {'from': _gymDate(from), 'to': _gymDate(to), 'format': 'excel'}));
 
+  // ── Lịch sử thao tác (30 ngày) ──
+  Map<String, String> _activityQuery({
+    DateTime? from,
+    DateTime? to,
+    String? userId,
+    String? module,
+    String? action,
+    String? search,
+  }) {
+    String d(DateTime x) =>
+        '${x.year.toString().padLeft(4, '0')}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    return {
+      if (from != null) 'from': d(from),
+      if (to != null) 'to': d(to),
+      if (userId != null && userId.isNotEmpty) 'userId': userId,
+      if (module != null && module.isNotEmpty) 'module': module,
+      if (action != null && action.isNotEmpty) 'action': action,
+      if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+    };
+  }
+
+  Future<Map<String, dynamic>> getActivityLogs({
+    DateTime? from,
+    DateTime? to,
+    String? userId,
+    String? module,
+    String? action,
+    String? search,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final q = _activityQuery(from: from, to: to, userId: userId, module: module, action: action, search: search)
+        ..['page'] = '$page'
+        ..['pageSize'] = '$pageSize';
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/activity-logs').replace(queryParameters: q), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getActivityLogFilters({DateTime? from, DateTime? to}) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/activity-logs/filters').replace(queryParameters: _activityQuery(from: from, to: to)),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getActivityLogDetail(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/activity-logs/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> downloadActivityLogsExcel({
+    DateTime? from,
+    DateTime? to,
+    String? userId,
+    String? module,
+    String? action,
+    String? search,
+  }) =>
+      _getBinary(Uri.parse('$baseUrl/api/activity-logs/export').replace(
+          queryParameters:
+              _activityQuery(from: from, to: to, userId: userId, module: module, action: action, search: search)));
+
   Future<Map<String, dynamic>> getPosCustomers({
     String? search,
     double? debtFrom,

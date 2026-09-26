@@ -52,6 +52,8 @@ public static class DependencyInjectionExtensions
 
         // Add services to the container.
         services.AddScoped<AuditableEntityInterceptor>();
+        services.AddScoped<ActivityAuditCollector>();
+        services.AddScoped<ActivityAuditInterceptor>();
         services.AddDbContext<ZKTecoDbContext>((sp, options) =>
         {
             var auditableInterceptor = sp.GetRequiredService<AuditableEntityInterceptor>();
@@ -63,7 +65,7 @@ public static class DependencyInjectionExtensions
                     builder.MaxBatchSize(100);
                     builder.CommandTimeout(120);
                 })
-                .AddInterceptors(auditableInterceptor)
+                .AddInterceptors(auditableInterceptor, sp.GetRequiredService<ActivityAuditInterceptor>())
                 .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
         });
         services.AddScoped<DbContext>(sp => sp.GetRequiredService<ZKTecoDbContext>());

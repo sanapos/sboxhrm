@@ -29,7 +29,12 @@ public static class DependencyInjectionExtensions
             o.MultipartBodyLengthLimit = ServerOpsService.MaxUploadBytes;
             o.ValueLengthLimit = int.MaxValue;
         });
-        services.AddControllers(o => o.Filters.Add<Controllers.Filters.AgentApiScopeFilter>())
+        services.AddControllers(o =>
+            {
+                o.Filters.Add<Controllers.Filters.AgentApiScopeFilter>();
+                // Lịch sử thao tác của cửa hàng (ai thêm / sửa / xóa gì, lúc nào).
+                o.Filters.Add<Controllers.Filters.ActivityAuditFilter>();
+            })
             .AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
@@ -224,6 +229,7 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<KpiAutoSyncBackgroundService>();
         services.AddHostedService<PenaltyAutoApproveBackgroundService>();
         services.AddHostedService<NotificationCleanupBackgroundService>();
+        services.AddHostedService<ActivityLogCleanupService>();
         services.AddHostedService<RawAttendanceCleanupBackgroundService>();
         services.AddHostedService<PackageDataRetentionBackgroundService>();
         services.AddHostedService<FieldDataCleanupBackgroundService>();

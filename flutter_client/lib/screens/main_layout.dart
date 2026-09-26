@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'activity_log_screen.dart';
 import '../utils/nav_package_profile.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -2123,6 +2124,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSell',
+    ),
+    NavItem(
+      icon: Icons.history_outlined,
+      activeIcon: Icons.history,
+      label: 'Lịch sử thao tác',
+      subtitle: 'Ai thêm / sửa / xóa gì, lúc nào',
+      screen: const ActivityLogScreen(),
+      group: 'Cài đặt',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'ActivityLog',
     ),
   ];
 

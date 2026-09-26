@@ -985,3 +985,6 @@ CREATE TABLE IF NOT EXISTS "PosGymVisits" (
 );
 CREATE INDEX IF NOT EXISTS "IX_PosGymVisits_Store_CheckIn" ON "PosGymVisits" ("StoreId", "CheckInAt");
 CREATE INDEX IF NOT EXISTS "IX_PosGymVisits_Customer_CheckIn" ON "PosGymVisits" ("CustomerId", "CheckInAt");
+
+-- Lịch sử thao tác cửa hàng: lọc theo cửa hàng + thời gian
+CREATE INDEX IF NOT EXISTS "IX_AuditLogs_Store_Timestamp" ON "AuditLogs" ("StoreId", "Timestamp" DESC);
