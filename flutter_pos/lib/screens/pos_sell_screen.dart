@@ -12539,7 +12539,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       color: bg,
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.only(left: 10, right: 2, top: 2, bottom: 2),
+        height: 32,
+        padding: const EdgeInsets.only(left: 8, right: 2),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: borderColor, width: hasItems ? 1.5 : 1),
@@ -12551,7 +12552,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               borderRadius: BorderRadius.circular(4),
               onTap: () => _selectTab(index),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -12585,7 +12586,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                 tooltip: tr('Đóng hóa đơn'),
                 onPressed: () {
                   // Gọi ngay — không qua InkWell cha (tránh nuốt tap).

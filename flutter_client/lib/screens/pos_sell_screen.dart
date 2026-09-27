@@ -12026,23 +12026,29 @@ class _PosSellScreenState extends State<PosSellScreen>
                 _buildFloorActiveTotalsChip(),
                 const SizedBox(width: 6),
               ],
-            ] else ...[
-              _buildDesktopInvoiceTabsCompact(),
-              const SizedBox(width: 6),
             ],
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
-              child: onFloor
-                  ? _buildFloorSearchField()
-                  : _buildProductSearchField(
-                      width: 300,
-                      dense: true,
-                      showBrowse: false,
-                      showBarcode: true,
-                      showAddProduct: false,
-                    ),
-            ),
-            const Spacer(),
+            if (!floorPrimary && _showRetailInvoiceTabs)
+              // Hóa đơn chiếm đúng chỗ cần, ô tìm kiếm dời sang phải; hết chỗ thì cuộn ngang.
+              Expanded(child: _buildInvoiceTabsAndSearch())
+            else ...[
+              if (!floorPrimary) ...[
+                _buildDesktopInvoiceTabsCompact(),
+                const SizedBox(width: 6),
+              ],
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+                child: onFloor
+                    ? _buildFloorSearchField()
+                    : _buildProductSearchField(
+                        width: 300,
+                        dense: true,
+                        showBrowse: false,
+                        showBarcode: true,
+                        showAddProduct: false,
+                      ),
+              ),
+              const Spacer(),
+            ],
             ..._spacedTopBarActions([
               if (_isTableOrderMode) _buildTableGuestIconButton(),
               if (_useFloorAsPrimary) _buildBookingToolbarButton(),
@@ -12105,6 +12111,109 @@ class _PosSellScreenState extends State<PosSellScreen>
         ),
       ),
     );
+  }
+
+  /// Dải hóa đơn (giãn theo số hóa đơn) + nút thêm (luôn thấy) + danh sách nhanh + ô tìm hàng.
+  Widget _buildInvoiceTabsAndSearch() {
+    return LayoutBuilder(builder: (context, c) {
+      const addW = 40.0;
+      final showList = _tabs.length >= 4;
+      final listW = showList ? 40.0 : 0.0;
+      final searchW = (c.maxWidth * .38).clamp(220.0, 300.0);
+      final maxTabs = (c.maxWidth - searchW - addW - listW - 20).clamp(90.0, double.infinity);
+      _scheduleEnsureActiveTabVisible();
+      return Row(
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxTabs),
+            child: SizedBox(
+              height: 34,
+              child: SingleChildScrollView(
+                controller: _tabScrollCtrl,
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (var i = 0; i < _tabs.length; i++) ...[
+                      KeyedSubtree(
+                        key: i == _activeTab ? _activeInvoiceTabKey : null,
+                        child: _invoiceTabChip(i),
+                      ),
+                      if (i < _tabs.length - 1) const SizedBox(width: 4),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 36,
+            height: 32,
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              tooltip: tr('Thêm hóa đơn'),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: _kiotBlue,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              icon: const Icon(Icons.add, size: 20),
+              onPressed: _newTab,
+            ),
+          ),
+          if (showList)
+            PopupMenuButton<int>(
+              tooltip: tr('Danh sách hóa đơn (${_tabs.length})'),
+              icon: const Icon(Icons.expand_more, color: Colors.white),
+              onSelected: _selectTab,
+              itemBuilder: (_) => [
+                for (var i = 0; i < _tabs.length; i++)
+                  PopupMenuItem(
+                    value: i,
+                    child: Row(children: [
+                      Icon(
+                        i == _activeTab ? Icons.radio_button_checked : Icons.receipt_long_outlined,
+                        size: 18,
+                        color: i == _activeTab ? _kiotBlue : Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(tr(_tabs[i].label),
+                          style: TextStyle(fontWeight: i == _activeTab ? FontWeight.w700 : FontWeight.normal)),
+                    ]),
+                  ),
+              ],
+            ),
+          const SizedBox(width: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 7),
+            child: _buildProductSearchField(
+              width: searchW,
+              dense: true,
+              showBrowse: false,
+              showBarcode: true,
+              showAddProduct: false,
+            ),
+          ),
+        ],
+      );
+    });
+  }
+
+  final _activeInvoiceTabKey = GlobalKey();
+  int _ensuredTab = -1;
+  int _ensuredTabCount = -1;
+
+  /// Cuộn tới hóa đơn đang chọn / vừa thêm (khi dải hóa đơn dài hơn chỗ hiển thị).
+  void _scheduleEnsureActiveTabVisible() {
+    if (_ensuredTab == _activeTab && _ensuredTabCount == _tabs.length) return;
+    _ensuredTab = _activeTab;
+    _ensuredTabCount = _tabs.length;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _activeInvoiceTabKey.currentContext;
+      if (ctx == null || !mounted) return;
+      Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 200), alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd);
+      Scrollable.ensureVisible(ctx, duration: const Duration(milliseconds: 200), alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart);
+    });
   }
 
   /// Tab hóa đơn gọn — cùng vị trí/khối với tab Phòng bàn|Thực đơn (F&B).
@@ -12469,7 +12578,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       color: bg,
       borderRadius: BorderRadius.circular(6),
       child: Container(
-        padding: const EdgeInsets.only(left: 10, right: 2, top: 2, bottom: 2),
+        height: 32,
+        padding: const EdgeInsets.only(left: 8, right: 2),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: borderColor, width: hasItems ? 1.5 : 1),
@@ -12481,7 +12591,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               borderRadius: BorderRadius.circular(4),
               onTap: () => _selectTab(index),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -12515,7 +12625,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               IconButton(
                 visualDensity: VisualDensity.compact,
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                 tooltip: tr('Đóng hóa đơn'),
                 onPressed: () {
                   // Gọi ngay — không qua InkWell cha (tránh nuốt tap).
