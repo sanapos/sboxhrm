@@ -1,3 +1,4 @@
+import '../screens/design_system_showcase_screen.dart';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -180,6 +181,7 @@ class ZKTecoApp extends StatelessWidget {
             '/login-app': (context) => const LoginScreen(),
             '/landing': (context) => const WebStaticHomeRedirect(),
             '/guide': (context) => const LandingGuideScreen(),
+            '/design-system': (context) => const DesignSystemShowcaseScreen(),
           },
           onGenerateRoute: (settings) {
             if (settings.name == '/customer-display') {

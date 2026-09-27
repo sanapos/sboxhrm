@@ -1,126 +1,22 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_locale.dart';
 import '../l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 import '../utils/vietnamese_font.dart';
 
-import '../widgets/pos/pos_theme.dart';
 import '../utils/play_system_ui.dart';
-/// Hệ thống typography chuẩn cho tiếng Việt
-/// Sử dụng Be Vietnam Pro – font được thiết kế riêng cho tiếng Việt
-/// (Google Fonts + Lâm Bảo), dấu thanh đẹp, được dùng phổ biến trên
-/// các app/website tại Việt Nam.
+
+/// Typography chuẩn tiếng Việt (Be Vietnam Pro) — lấy thang cỡ chữ từ [SboxType].
 class AppTypography {
   AppTypography._();
 
-  static TextTheme _buildTextTheme(Color textColor, Color subtextColor) {
-    const f = kVietnameseFontFamily;
-    const fb = kVietnameseFontFallback;
-    TextStyle s(TextStyle style) => style.copyWith(
-          fontFamily: f,
-          fontFamilyFallback: fb,
-        );
-    return TextTheme(
-      // === DISPLAY: Tiêu đề lớn, dashboard header ===
-      displayLarge: s(TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          height: 1.35,
-          color: textColor,
-          letterSpacing: -0.5)),
-      displayMedium: s(TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          height: 1.35,
-          color: textColor,
-          letterSpacing: -0.3)),
-      displaySmall: s(TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
-          height: 1.35,
-          color: textColor)),
+  static TextTheme get lightTextTheme =>
+      SboxType.textTheme(SboxColors.text, SboxColors.textSecondary, SboxColors.textMuted);
 
-      // === HEADLINE: Tiêu đề section, card header ===
-      headlineLarge: s(TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
-          height: 1.4,
-          color: textColor)),
-      headlineMedium: s(TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          height: 1.4,
-          color: textColor)),
-      headlineSmall: s(TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          height: 1.4,
-          color: textColor)),
-
-      // === TITLE: Tiêu đề item, AppBar, dialog title ===
-      titleLarge: s(TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          height: 1.4,
-          color: textColor)),
-      titleMedium: s(TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          height: 1.4,
-          color: textColor)),
-      titleSmall: s(TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          height: 1.4,
-          color: textColor)),
-
-      // === BODY: Nội dung chính ===
-      bodyLarge: s(TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w400,
-          height: 1.5,
-          color: textColor)),
-      bodyMedium: s(TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          height: 1.5,
-          color: textColor)),
-      bodySmall: s(TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w400,
-          height: 1.5,
-          color: subtextColor)),
-
-      // === LABEL: Nút, badge, form label, caption ===
-      labelLarge: s(TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          height: 1.4,
-          color: textColor)),
-      labelMedium: s(TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          height: 1.4,
-          color: subtextColor)),
-      labelSmall: s(TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-          height: 1.4,
-          color: subtextColor,
-          letterSpacing: 0.3)),
-    );
-  }
-
-  static TextTheme get lightTextTheme => _buildTextTheme(
-        const Color(0xFF18181B),
-        const Color(0xFF71717A),
-      );
-
-  static TextTheme get darkTextTheme => _buildTextTheme(
-        const Color(0xFFE4E4E7),
-        const Color(0xFF9CA3AF),
-      );
+  static TextTheme get darkTextTheme =>
+      SboxType.textTheme(SboxColors.darkText, SboxColors.darkTextSecondary, SboxColors.darkTextSecondary);
 }
 
 class ThemeProvider extends ChangeNotifier {
@@ -162,525 +58,340 @@ class ThemeProvider extends ChangeNotifier {
     await prefs.setString('languageCode', locale.languageCode);
   }
 
-  // Màu chính của ứng dụng — đồng bộ icon trang chủ (kiotBlue).
-  static const Color primaryColor = PosTheme.kiotBlue;
-  static const Color primaryColorLight = Color(0xFF3B8CFF);
-  static const Color primaryColorDark = Color(0xFF0056C7);
-  /// Accent / secondary = xanh brand nhạt hơn (chip, SegmentedButton…).
+  /// Màu chính (nút, liên kết, tab chọn) — xanh thương hiệu tông đậm đủ tương phản.
+  static const Color primaryColor = SboxColors.primary;
+  /// Màu thương hiệu gốc #158DC0 (logo, điểm nhấn).
+  static const Color primaryColorLight = SboxColors.brand500;
+  static const Color primaryColorDark = SboxColors.brand700;
   static const Color accentColor = primaryColorLight;
 
-  ThemeData get lightTheme {
-    final baseTheme = ThemeData(
+  ThemeData get lightTheme => _build(
+        brightness: Brightness.light,
+        page: SboxColors.page,
+        surface: SboxColors.surface,
+        surfaceMuted: SboxColors.surfaceMuted,
+        border: SboxColors.border,
+        text: SboxColors.text,
+        textSecondary: SboxColors.textSecondary,
+        textMuted: SboxColors.textMuted,
+        primary: SboxColors.primary,
+        primarySoft: SboxColors.primarySoft,
+        textTheme: AppTypography.lightTextTheme,
+      );
+
+  ThemeData get darkTheme => _build(
+        brightness: Brightness.dark,
+        page: SboxColors.darkPage,
+        surface: SboxColors.darkSurface,
+        surfaceMuted: SboxColors.darkSurfaceRaised,
+        border: SboxColors.darkBorder,
+        text: SboxColors.darkText,
+        textSecondary: SboxColors.darkTextSecondary,
+        textMuted: SboxColors.darkTextSecondary,
+        primary: SboxColors.brand400,
+        primarySoft: const Color(0xFF0E3448),
+        textTheme: AppTypography.darkTextTheme,
+      );
+
+  static ThemeData _build({
+    required Brightness brightness,
+    required Color page,
+    required Color surface,
+    required Color surfaceMuted,
+    required Color border,
+    required Color text,
+    required Color textSecondary,
+    required Color textMuted,
+    required Color primary,
+    required Color primarySoft,
+    required TextTheme textTheme,
+  }) {
+    final dark = brightness == Brightness.dark;
+    var tt = textTheme;
+    if (kIsWeb) tt = vietnameseTextTheme(tt);
+    final base = ThemeData(
       fontFamily: kVietnameseFontFamily,
       fontFamilyFallback: kVietnameseFontFallback,
+      brightness: brightness,
+      useMaterial3: true,
     );
-    var textTheme = AppTypography.lightTextTheme;
-    if (kIsWeb) {
-      textTheme = vietnameseTextTheme(textTheme);
-    }
-    return baseTheme.copyWith(
-      textTheme: textTheme,
-      scaffoldBackgroundColor: PosTheme.background,
-      primaryColor: primaryColor,
-      colorScheme: const ColorScheme.light(
-        primary: primaryColor,
-        secondary: primaryColorLight,
-        tertiary: primaryColorDark,
-        secondaryContainer: PosTheme.kiotBlueLight,
-        onSecondaryContainer: primaryColor,
-        surface: Colors.white,
+    const btnShape = RoundedRectangleBorder(borderRadius: SboxRadius.mdAll);
+    const btnPad = EdgeInsets.symmetric(horizontal: 18, vertical: 10);
+    final btnText = TextStyle(
+      fontFamily: kVietnameseFontFamily,
+      fontSize: SboxType.body,
+      fontWeight: SboxType.semibold,
+    );
+    OutlineInputBorder inBorder(Color c, [double w = 1]) => OutlineInputBorder(
+          borderRadius: SboxRadius.mdAll,
+          borderSide: BorderSide(color: c, width: w),
+        );
+
+    return base.copyWith(
+      textTheme: tt,
+      scaffoldBackgroundColor: page,
+      canvasColor: surface,
+      primaryColor: primary,
+      dividerColor: border,
+      colorScheme: (dark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(
+        primary: primary,
+        onPrimary: Colors.white,
+        primaryContainer: primarySoft,
+        onPrimaryContainer: dark ? SboxColors.brand100 : SboxColors.brand900,
+        secondary: SboxColors.brand500,
+        onSecondary: Colors.white,
+        secondaryContainer: primarySoft,
+        onSecondaryContainer: dark ? SboxColors.brand100 : SboxColors.brand900,
+        tertiary: SboxColors.brand700,
+        onTertiary: Colors.white,
+        surface: surface,
+        onSurface: text,
+        onSurfaceVariant: textSecondary,
+        surfaceContainerLowest: surface,
+        surfaceContainerLow: surfaceMuted,
+        surfaceContainer: surfaceMuted,
+        surfaceContainerHigh: surfaceMuted,
+        surfaceContainerHighest: dark ? SboxColors.darkSurfaceRaised : SboxColors.slate100,
         surfaceTint: Colors.transparent,
-        error: Color(0xFFEF4444),
-        onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onTertiary: Colors.white,
-        onSurface: Color(0xFF18181B),
+        outline: border,
+        outlineVariant: dark ? SboxColors.darkBorder : SboxColors.divider,
+        error: SboxColors.danger,
         onError: Colors.white,
+        errorContainer: SboxColors.dangerSoft,
+        onErrorContainer: SboxColors.dangerText,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: Colors.white,
+        backgroundColor: surface,
+        foregroundColor: text,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: textTheme.headlineLarge,
-        iconTheme: const IconThemeData(color: Color(0xFF18181B)),
+        titleTextStyle: tt.titleLarge,
+        iconTheme: IconThemeData(color: text),
+        shape: Border(bottom: BorderSide(color: border)),
         systemOverlayStyle: kPlayOverlayOnDarkBg,
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: surface,
         elevation: 0,
-        shadowColor: const Color(0x0A000000),
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: Color(0xFFEEEEF0)),
+          borderRadius: SboxRadius.lgAll,
+          side: BorderSide(color: border),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
+          backgroundColor: primary,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          elevation: 1,
-          shadowColor: primaryColor.withValues(alpha: 0.3),
+          minimumSize: const Size(0, SboxSize.control),
+          padding: btnPad,
+          shape: btnShape,
+          elevation: 0,
+          textStyle: btnText,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: primaryColor,
+          backgroundColor: primary,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+          minimumSize: const Size(0, SboxSize.control),
+          padding: btnPad,
+          shape: btnShape,
           elevation: 0,
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          textStyle: btnText,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor,
-          side: const BorderSide(color: primaryColor),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          foregroundColor: dark ? text : SboxColors.slate700,
+          backgroundColor: surface,
+          side: BorderSide(color: dark ? border : SboxColors.borderStrong),
+          minimumSize: const Size(0, SboxSize.control),
+          padding: btnPad,
+          shape: btnShape,
+          textStyle: btnText,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: const Color(0xFF71717A),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w500),
+          foregroundColor: primary,
+          minimumSize: const Size(0, SboxSize.control),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          shape: btnShape,
+          textStyle: btnText,
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: textSecondary,
+          shape: btnShape,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFFFAFAFA),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE4E4E7), width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: primaryColor, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1),
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        labelStyle:
-            textTheme.bodyMedium?.copyWith(color: const Color(0xFF71717A)),
-        hintStyle:
-            textTheme.bodyMedium?.copyWith(color: const Color(0xFFA1A1AA)),
-        errorStyle:
-            textTheme.labelSmall?.copyWith(color: const Color(0xFFEF4444)),
-        floatingLabelStyle:
-            textTheme.labelMedium?.copyWith(color: primaryColor),
+        fillColor: dark ? SboxColors.darkSurfaceRaised : SboxColors.white,
+        isDense: true,
+        border: inBorder(border),
+        enabledBorder: inBorder(border),
+        focusedBorder: inBorder(primary, 1.5),
+        errorBorder: inBorder(SboxColors.danger),
+        focusedErrorBorder: inBorder(SboxColors.danger, 1.5),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        labelStyle: tt.bodyMedium?.copyWith(color: textSecondary),
+        hintStyle: tt.bodyMedium?.copyWith(color: textMuted),
+        errorStyle: tt.labelSmall?.copyWith(color: SboxColors.danger),
+        floatingLabelStyle: tt.labelMedium?.copyWith(color: primary),
+        prefixIconColor: textMuted,
+        suffixIconColor: textMuted,
       ),
-      dividerTheme: const DividerThemeData(
-        color: Color(0xFFE4E4E7),
+      dividerTheme: DividerThemeData(
+        color: dark ? SboxColors.darkBorder : SboxColors.divider,
         thickness: 1,
+        space: 1,
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: Colors.white,
-        selectedIconTheme: const IconThemeData(color: primaryColor),
-        unselectedIconTheme: const IconThemeData(color: Color(0xFF71717A)),
-        selectedLabelTextStyle: textTheme.labelLarge
-            ?.copyWith(color: primaryColor, fontWeight: FontWeight.w600),
-        unselectedLabelTextStyle:
-            textTheme.labelMedium?.copyWith(color: const Color(0xFF71717A)),
+        backgroundColor: surface,
+        indicatorColor: primarySoft,
+        selectedIconTheme: IconThemeData(color: primary),
+        unselectedIconTheme: IconThemeData(color: textMuted),
+        selectedLabelTextStyle: tt.labelMedium?.copyWith(color: primary, fontWeight: SboxType.semibold),
+        unselectedLabelTextStyle: tt.labelMedium?.copyWith(color: textMuted),
       ),
-      drawerTheme: const DrawerThemeData(
-        backgroundColor: Colors.white,
+      drawerTheme: DrawerThemeData(
+        backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
       ),
-      navigationBarTheme: const NavigationBarThemeData(
-        backgroundColor: Colors.white,
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: Color(0xFFE0E7FF),
-        elevation: 1,
+        indicatorColor: primarySoft,
+        elevation: 0,
+        labelTextStyle: WidgetStateProperty.resolveWith((s) => tt.labelSmall?.copyWith(
+              color: s.contains(WidgetState.selected) ? primary : textMuted,
+              fontWeight: s.contains(WidgetState.selected) ? SboxType.semibold : SboxType.medium,
+            )),
+        iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(
+              color: s.contains(WidgetState.selected) ? primary : textMuted,
+            )),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: primaryColor,
-        unselectedItemColor: Color(0xFF71717A),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: surface,
+        selectedItemColor: primary,
+        unselectedItemColor: textMuted,
+        selectedLabelStyle: const TextStyle(fontFamily: kVietnameseFontFamily, fontSize: SboxType.caption, fontWeight: SboxType.semibold),
+        unselectedLabelStyle: const TextStyle(fontFamily: kVietnameseFontFamily, fontSize: SboxType.caption, fontWeight: SboxType.medium),
       ),
       tabBarTheme: TabBarThemeData(
-        labelColor: primaryColor,
-        unselectedLabelColor: const Color(0xFF71717A),
-        indicatorColor: primaryColor,
-        labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-        unselectedLabelStyle: textTheme.labelLarge,
+        labelColor: primary,
+        unselectedLabelColor: textSecondary,
+        indicatorColor: primary,
+        dividerColor: border,
+        labelStyle: tt.labelLarge?.copyWith(fontWeight: SboxType.semibold),
+        unselectedLabelStyle: tt.labelLarge,
       ),
       dataTableTheme: DataTableThemeData(
-        headingTextStyle: textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
-        dataTextStyle: textTheme.bodySmall,
+        headingRowColor: WidgetStatePropertyAll(dark ? SboxColors.darkSurfaceRaised : SboxColors.slate50),
+        headingRowHeight: SboxSize.tableHeader,
+        dataRowMinHeight: SboxSize.tableRowDense,
+        dataRowMaxHeight: SboxSize.tableRow + 8,
+        headingTextStyle: tt.labelMedium?.copyWith(color: textSecondary, fontWeight: SboxType.semibold),
+        dataTextStyle: tt.bodyMedium?.copyWith(fontSize: SboxType.small),
+        dividerThickness: 1,
+        horizontalMargin: SboxSpace.lg,
+        columnSpacing: SboxSpace.xl,
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: PosTheme.kiotBlueLight,
-        selectedColor: primaryColor.withValues(alpha: 0.18),
-        checkmarkColor: primaryColor,
-        labelStyle:
-            textTheme.labelMedium?.copyWith(color: primaryColorDark),
-        secondaryLabelStyle:
-            textTheme.labelMedium?.copyWith(color: primaryColor),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: primaryColor.withValues(alpha: 0.28)),
-        ),
+        backgroundColor: surface,
+        selectedColor: primarySoft,
+        checkmarkColor: primary,
+        labelStyle: tt.labelMedium?.copyWith(color: text),
+        secondaryLabelStyle: tt.labelMedium?.copyWith(color: primary),
+        side: BorderSide(color: border),
+        shape: const RoundedRectangleBorder(borderRadius: SboxRadius.smAll),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return primaryColor;
-            }
-            return Colors.white;
-          }),
-          foregroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return Colors.white;
-            }
-            return const Color(0xFF586064);
-          }),
-          side: WidgetStateProperty.all(
-            BorderSide(color: primaryColor.withValues(alpha: 0.35)),
-          ),
+          backgroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.selected) ? primarySoft : surface),
+          foregroundColor: WidgetStateProperty.resolveWith(
+              (s) => s.contains(WidgetState.selected) ? (dark ? SboxColors.brand100 : SboxColors.brand800) : textSecondary),
+          side: WidgetStatePropertyAll(BorderSide(color: border)),
+          shape: const WidgetStatePropertyAll(btnShape),
+          textStyle: WidgetStatePropertyAll(btnText.copyWith(fontSize: SboxType.small)),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: const Color(0xFF18181B),
-        contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        backgroundColor: SboxColors.slate900,
+        contentTextStyle: tt.bodyMedium?.copyWith(color: Colors.white),
+        shape: const RoundedRectangleBorder(borderRadius: SboxRadius.mdAll),
         behavior: SnackBarBehavior.floating,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+        titleTextStyle: tt.titleLarge,
+        contentTextStyle: tt.bodyMedium,
+        shape: const RoundedRectangleBorder(borderRadius: SboxRadius.lgAll),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        showDragHandle: false,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(SboxRadius.lg + 4)),
         ),
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Colors.white,
+      popupMenuTheme: PopupMenuThemeData(
+        color: surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
+        textStyle: tt.bodyMedium,
+        shape: RoundedRectangleBorder(borderRadius: SboxRadius.mdAll, side: BorderSide(color: border)),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: primaryColor,
+      tooltipTheme: TooltipThemeData(
+        decoration: const BoxDecoration(color: SboxColors.slate800, borderRadius: SboxRadius.smAll),
+        textStyle: tt.labelSmall?.copyWith(color: Colors.white),
+        waitDuration: const Duration(milliseconds: 400),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: textSecondary,
+        titleTextStyle: tt.bodyMedium?.copyWith(fontWeight: SboxType.medium),
+        subtitleTextStyle: tt.bodySmall,
+        shape: const RoundedRectangleBorder(borderRadius: SboxRadius.mdAll),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: primary,
         foregroundColor: Colors.white,
+        elevation: 2,
+        shape: const RoundedRectangleBorder(borderRadius: SboxRadius.lgAll),
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: primaryColor,
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: primary,
+        linearTrackColor: primarySoft,
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return primaryColor;
-          }
-          return const Color(0xFFA1A1AA);
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return primaryColor.withValues(alpha: 0.5);
-          }
-          return const Color(0xFFE4E4E7);
-        }),
+        thumbColor: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.selected) ? Colors.white : (dark ? textSecondary : SboxColors.white)),
+        trackColor: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.selected) ? primary : (dark ? border : SboxColors.slate300)),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
       checkboxTheme: CheckboxThemeData(
-        fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return primaryColor;
-          }
-          return Colors.transparent;
-        }),
-        checkColor: WidgetStateProperty.all(Colors.white),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
-        ),
+        fillColor: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.selected) ? primary : Colors.transparent),
+        checkColor: const WidgetStatePropertyAll(Colors.white),
+        side: BorderSide(color: dark ? textSecondary : SboxColors.slate400, width: 1.5),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4))),
       ),
       radioTheme: RadioThemeData(
-        fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return primaryColor;
-          }
-          return const Color(0xFF71717A);
-        }),
+        fillColor: WidgetStateProperty.resolveWith(
+            (s) => s.contains(WidgetState.selected) ? primary : textMuted),
       ),
-    );
-  }
-
-  ThemeData get darkTheme {
-    const darkBg = Color(0xFF121212);
-    const darkSurface = Color(0xFF1E1E1E);
-    const darkCard = Color(0xFF2A2A2A);
-    const darkBorder = Color(0xFF3A3A3A);
-    const darkText = Color(0xFFE4E4E7);
-    const darkSubtext = Color(0xFF9CA3AF);
-
-    final baseDarkTheme = ThemeData(
-      fontFamily: kVietnameseFontFamily,
-      fontFamilyFallback: kVietnameseFontFallback,
-      brightness: Brightness.dark,
-    );
-    var textTheme = AppTypography.darkTextTheme;
-    if (kIsWeb) {
-      textTheme = vietnameseTextTheme(textTheme);
-    }
-    return baseDarkTheme.copyWith(
-      textTheme: textTheme,
-      scaffoldBackgroundColor: darkBg,
-      primaryColor: primaryColor,
-      colorScheme: const ColorScheme.dark(
-        primary: primaryColor,
-        secondary: primaryColorLight,
-        tertiary: Color(0xFF2D5F8B),
-        secondaryContainer: Color(0xFF1E3A5F),
-        onSecondaryContainer: primaryColorLight,
-        surface: darkSurface,
-        error: Color(0xFFEF4444),
-        onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onTertiary: Colors.white,
-        onSurface: darkText,
-        onError: Colors.white,
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: darkSurface,
-        elevation: 0,
-        centerTitle: false,
-        titleTextStyle: textTheme.headlineLarge,
-        iconTheme: const IconThemeData(color: darkText),
-        systemOverlayStyle: kPlayOverlayOnDarkBg,
-      ),
-      cardTheme: CardThemeData(
-        color: darkCard,
-        elevation: 0,
-        shadowColor: Colors.black26,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: darkBorder),
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          elevation: 1,
-          shadowColor: primaryColor.withValues(alpha: 0.3),
-        ),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: primaryColor,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          elevation: 0,
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-      ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColorLight,
-          side: const BorderSide(color: primaryColorLight),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-      ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: darkSubtext,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w500),
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: darkSurface,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: darkBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: darkBorder, width: 1),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: primaryColor, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1),
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        labelStyle: textTheme.bodyMedium?.copyWith(color: darkSubtext),
-        hintStyle: textTheme.bodyMedium?.copyWith(color: darkSubtext),
-        errorStyle:
-            textTheme.labelSmall?.copyWith(color: const Color(0xFFEF4444)),
-        floatingLabelStyle:
-            textTheme.labelMedium?.copyWith(color: primaryColorLight),
-      ),
-      dividerTheme: const DividerThemeData(
-        color: darkBorder,
-        thickness: 1,
-      ),
-      navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: darkSurface,
-        selectedIconTheme: const IconThemeData(color: primaryColorLight),
-        unselectedIconTheme: const IconThemeData(color: darkSubtext),
-        selectedLabelTextStyle: textTheme.labelLarge
-            ?.copyWith(color: primaryColorLight, fontWeight: FontWeight.w600),
-        unselectedLabelTextStyle:
-            textTheme.labelMedium?.copyWith(color: darkSubtext),
-      ),
-      drawerTheme: const DrawerThemeData(
-        backgroundColor: darkSurface,
-      ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: darkSurface,
-        selectedItemColor: primaryColorLight,
-        unselectedItemColor: darkSubtext,
-      ),
-      tabBarTheme: TabBarThemeData(
-        labelColor: primaryColorLight,
-        unselectedLabelColor: darkSubtext,
-        indicatorColor: primaryColor,
-        labelStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
-        unselectedLabelStyle: textTheme.labelLarge,
-      ),
-      dataTableTheme: DataTableThemeData(
-        headingTextStyle: textTheme.labelLarge?.copyWith(
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
-        dataTextStyle: textTheme.bodySmall,
-      ),
-      chipTheme: ChipThemeData(
-        backgroundColor: darkCard,
-        selectedColor: primaryColor.withValues(alpha: 0.2),
-        checkmarkColor: primaryColorLight,
-        labelStyle: textTheme.labelMedium?.copyWith(color: darkText),
-        secondaryLabelStyle:
-            textTheme.labelMedium?.copyWith(color: primaryColorLight),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: primaryColorLight.withValues(alpha: 0.35)),
-        ),
-      ),
-      segmentedButtonTheme: SegmentedButtonThemeData(
-        style: ButtonStyle(
-          backgroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return primaryColor;
-            }
-            return darkCard;
-          }),
-          foregroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return Colors.white;
-            }
-            return darkSubtext;
-          }),
-          side: WidgetStateProperty.all(
-            BorderSide(color: primaryColorLight.withValues(alpha: 0.4)),
-          ),
-        ),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: darkCard,
-        contentTextStyle: textTheme.bodyMedium?.copyWith(color: darkText),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: darkCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-      ),
-      bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: darkCard,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-      ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-      ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: primaryColor,
-      ),
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return primaryColor;
-          }
-          return darkSubtext;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return primaryColor.withValues(alpha: 0.5);
-          }
-          return darkBorder;
-        }),
-      ),
-      checkboxTheme: CheckboxThemeData(
-        fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return primaryColor;
-          }
-          return Colors.transparent;
-        }),
-        checkColor: WidgetStateProperty.all(Colors.white),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(4),
-        ),
-      ),
-      radioTheme: RadioThemeData(
-        fillColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return primaryColor;
-          }
-          return darkSubtext;
-        }),
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStatePropertyAll((dark ? SboxColors.slate500 : SboxColors.slate400).withValues(alpha: 0.6)),
+        radius: const Radius.circular(8),
+        thickness: const WidgetStatePropertyAll(6),
       ),
     );
   }
