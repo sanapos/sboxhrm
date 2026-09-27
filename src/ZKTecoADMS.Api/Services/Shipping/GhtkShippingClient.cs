@@ -29,8 +29,24 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
         return http;
     }
 
-    public async Task<ShippingQuoteResult> QuoteAsync(
+    public Task<ShippingQuoteResult> QuoteAsync(
+        PosShippingCarrierSetting settings, ShippingQuoteRequest request, CancellationToken ct = default) =>
+        QuoteTransportAsync(settings, request, "road", ct);
+
+    /// <summary>Hai gói GHTK: đường bộ (tiết kiệm) và đường bay (nhanh, liên tỉnh).</summary>
+    public async Task<IReadOnlyList<ShippingQuoteResult>> QuoteOptionsAsync(
         PosShippingCarrierSetting settings, ShippingQuoteRequest request, CancellationToken ct = default)
+    {
+        var road = await QuoteTransportAsync(settings, request, "road", ct);
+        var fly = await QuoteTransportAsync(settings, request, "fly", ct);
+        var list = new List<ShippingQuoteResult> { road };
+        // Nội tỉnh GHTK thường không có đường bay (trả lỗi / cùng giá) — chỉ hiện khi hợp lệ và khác giá.
+        if (fly.Success && fly.Fee > 0 && fly.Fee != road.Fee) list.Add(fly);
+        return list;
+    }
+
+    async Task<ShippingQuoteResult> QuoteTransportAsync(
+        PosShippingCarrierSetting settings, ShippingQuoteRequest request, string transport, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(settings.ApiToken))
             return new(false, CarrierCode, 0, Message: "Thiếu Token GHTK");
@@ -55,6 +71,7 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
             ["weight"] = Math.Max(1, request.WeightGrams).ToString(),
             ["value"] = ((int)Math.Max(0, request.InsuranceValue)).ToString(),
             ["deliver_option"] = "none",
+            ["transport"] = transport,
         };
         if (!string.IsNullOrWhiteSpace(settings.FromWardName))
             qs["pick_ward"] = settings.FromWardName;
@@ -80,7 +97,13 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
                 return new(false, CarrierCode, 0, Message: msg, RawJson: raw);
             }
             var fee = ParseFee(root);
-            return new(true, CarrierCode, fee, ServiceName: "GHTK", RawJson: raw);
+            // fee.delivery=false: tuyến không hỗ trợ gói này.
+            if (root.TryGetProperty("fee", out var feeObj) && feeObj.ValueKind == JsonValueKind.Object
+                && feeObj.TryGetProperty("delivery", out var dv) && dv.ValueKind == JsonValueKind.False)
+                return new(false, CarrierCode, 0, ServiceName: GhtkServiceName(transport),
+                    Message: "GHTK không hỗ trợ tuyến này", RawJson: raw);
+            return new(true, CarrierCode, fee, ServiceName: GhtkServiceName(transport),
+                ServiceCode: transport, RawJson: raw);
         }
         catch (Exception ex)
         {
@@ -152,7 +175,7 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
             ["pick_money"] = (int)Math.Max(0, request.CodAmount ?? 0),
             ["note"] = request.Note ?? order.Note ?? "",
             ["value"] = (int)Math.Max(0, order.PayableTotal),
-            ["transport"] = "road",
+            ["transport"] = request.ServiceCode is "fly" ? "fly" : "road",
         };
 
         var pickId = GhtkExtraJson.GetPickAddressId(settings.ExtraJson);
@@ -209,6 +232,90 @@ public class GhtkShippingClient(IHttpClientFactory httpClientFactory, ILogger<Gh
         {
             logger.LogWarning(ex, "GHTK create failed");
             return new(false, CarrierCode, Message: ex.Message);
+        }
+    }
+
+    static string GhtkServiceName(string transport) =>
+        transport == "fly" ? "GHTK Đường bay (nhanh)" : "GHTK Đường bộ (tiết kiệm)";
+
+    // ── Hủy / hành trình / nhãn ─────────────────────────────────────
+
+    public async Task<ShippingCancelResult> CancelOrderAsync(
+        PosShippingCarrierSetting settings, string label, CancellationToken ct = default)
+    {
+        try
+        {
+            var http = Client(settings);
+            using var res = await http.PostAsync(
+                $"{BaseUrl(settings)}/services/shipment/cancel/{Uri.EscapeDataString(label)}",
+                new StringContent("", Encoding.UTF8, "application/json"), ct);
+            var raw = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(raw) ? "{}" : raw);
+            var root = doc.RootElement;
+            var ok = root.TryGetProperty("success", out var s) && s.ValueKind == JsonValueKind.True;
+            var msg = root.TryGetProperty("message", out var m) ? m.GetString() : null;
+            return new(ok, CarrierCode, ok ? (msg ?? "Đã hủy vận đơn GHTK") : (msg ?? raw));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GHTK cancel failed");
+            return new(false, CarrierCode, ex.Message);
+        }
+    }
+
+    public async Task<ShippingTrackingResult> GetTrackingAsync(
+        PosShippingCarrierSetting settings, string label, CancellationToken ct = default)
+    {
+        try
+        {
+            var http = Client(settings);
+            using var res = await http.GetAsync(
+                $"{BaseUrl(settings)}/services/shipment/v2/{Uri.EscapeDataString(label)}", ct);
+            var raw = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            var ok = root.TryGetProperty("success", out var s) && s.ValueKind == JsonValueKind.True;
+            if (!ok || !root.TryGetProperty("order", out var order))
+            {
+                var msg = root.TryGetProperty("message", out var m) ? m.GetString() : raw;
+                return new(false, CarrierCode, Message: msg, RawJson: raw);
+            }
+            int? statusId = null;
+            if (order.TryGetProperty("status", out var st))
+            {
+                if (st.ValueKind == JsonValueKind.Number && st.TryGetInt32(out var n)) statusId = n;
+                else if (st.ValueKind == JsonValueKind.String && int.TryParse(st.GetString(), out var ns)) statusId = ns;
+            }
+            var text = order.TryGetProperty("status_text", out var tx) ? tx.GetString() : null;
+            return new(true, CarrierCode, StatusCode: statusId,
+                StatusName: text ?? GhtkWebhookHelper.StatusLabel(statusId), RawJson: raw);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GHTK tracking failed");
+            return new(false, CarrierCode, Message: ex.Message);
+        }
+    }
+
+    /// <summary>Tải nhãn PDF (cần Token — máy bán mở qua link ký của SBOX).</summary>
+    public async Task<(byte[]? Pdf, string? Error)> DownloadLabelAsync(
+        PosShippingCarrierSetting settings, string label, CancellationToken ct = default)
+    {
+        try
+        {
+            var http = Client(settings);
+            using var res = await http.GetAsync(
+                $"{BaseUrl(settings)}/services/label/{Uri.EscapeDataString(label)}?original=portrait&paper_size=A6", ct);
+            var bytes = await res.Content.ReadAsByteArrayAsync(ct);
+            var isPdf = bytes.Length > 4 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F';
+            if (!res.IsSuccessStatusCode || !isPdf)
+                return (null, Encoding.UTF8.GetString(bytes.Take(300).ToArray()));
+            return (bytes, null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GHTK label failed");
+            return (null, ex.Message);
         }
     }
 

@@ -489,8 +489,16 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                   style: TextStyle(fontSize: 11, color: Colors.orange.shade900),
                 ),
               ),
-            if (f.code == 'Ghn')
+            if (f.code == 'Ghn') ...[
               _field(f.shopIdCtrl, label: 'ShopId (GHN)', enabled: canEdit),
+              _HashWebhookGuide(
+                apiBaseUrl: ApiService.baseUrl,
+                carrierPath: 'ghn',
+                title: 'Webhook GHN — cập nhật trạng thái tự động',
+                howTo: 'khachhang.ghn.vn → Chủ cửa hàng → Cấu hình → Webhook (URL Callback): dán link bên dưới.',
+                webhookSecretCtrl: f.webhookSecretCtrl,
+              ),
+            ],
             if (f.code == 'Spx') ...[
               _field(f.shopIdCtrl,
                   label: 'User ID SPX (15 số — Hồ sơ Shop)',
@@ -515,6 +523,13 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
               _field(f.shopIdCtrl,
                   label: 'SĐT tài khoản AhaMove (84…)',
                   enabled: canEdit),
+              _HashWebhookGuide(
+                apiBaseUrl: ApiService.baseUrl,
+                carrierPath: 'ahamove',
+                title: 'Webhook AhaMove — cập nhật trạng thái tự động',
+                howTo: 'Gửi link bên dưới cho AhaMove (hoặc nhập ở trang Developer) làm Callback URL.',
+                webhookSecretCtrl: f.webhookSecretCtrl,
+              ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
@@ -884,7 +899,7 @@ class _ViettelPostWebhookGuide extends StatelessWidget {
             '(header Authorization khi VTP gửi hành trình).',
             webhookSecretCtrl.text.trim().isNotEmpty
                 ? webhookSecretCtrl.text.trim()
-                : 'SboxVtp2026!',
+                : tr('(bấm Lưu — hệ thống tự tạo mã bí mật ngẫu nhiên)'),
             copyLabel: 'Copy secret gợi ý',
           ),
           const SizedBox(height: 6),
@@ -974,7 +989,7 @@ class _GhtkWebhookGuide extends StatelessWidget {
     final root = apiBaseUrl.replaceFirst(RegExp(r'/api/?$'), '');
     final hash = webhookSecretCtrl.text.trim().isNotEmpty
         ? webhookSecretCtrl.text.trim()
-        : 'SboxGhtk2026';
+        : '(bấm Lưu để hệ thống tạo mã)';
     return '$root/api/webhooks/shipping/ghtk?hash=$hash';
   }
 
@@ -1076,7 +1091,7 @@ class _GhtkWebhookGuide extends StatelessWidget {
           Text(
             '1. Lấy Token tại khachhang.giaohangtietkiem.vn → Cấu hình API.\n'
             '2. Dán Token vào ô API Token phía trên → điền điểm lấy hàng → Lưu.\n'
-            '3. Đặt Hash (vd SboxGhtk2026) → copy URL webhook → gửi GHTK / cấu hình callback.\n'
+            '3. Bấm Lưu (hệ thống tự tạo Hash ngẫu nhiên) → copy URL webhook → gửi GHTK / cấu hình callback.\n'
             '4. GHTK gửi form-urlencoded (label_id, status_id, …) → SBOX cập nhật trạng thái đơn.',
             style: TextStyle(fontSize: 11, height: 1.35, color: SboxColors.slate800),
           ),
@@ -1200,6 +1215,67 @@ class _SpxWebhookGuide extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Link webhook có ?hash= (GHN, AhaMove): mã bí mật do hệ thống tự tạo khi bật hãng.
+class _HashWebhookGuide extends StatelessWidget {
+  const _HashWebhookGuide({
+    required this.apiBaseUrl,
+    required this.carrierPath,
+    required this.title,
+    required this.howTo,
+    required this.webhookSecretCtrl,
+  });
+
+  final String apiBaseUrl;
+  final String carrierPath;
+  final String title;
+  final String howTo;
+  final TextEditingController webhookSecretCtrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final root = apiBaseUrl.replaceFirst(RegExp(r'/api/?$'), '');
+    final hash = webhookSecretCtrl.text.trim();
+    final url = hash.isEmpty ? '' : '$root/api/webhooks/shipping/$carrierPath?hash=$hash';
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: SboxColors.brand50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.brand100),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: SboxColors.brand900)),
+        const SizedBox(height: 4),
+        Text(tr(howTo), style: const TextStyle(fontSize: 12, color: SboxColors.slate700)),
+        const SizedBox(height: 6),
+        if (url.isEmpty)
+          Text(tr('Bật hãng rồi bấm Lưu — hệ thống tự tạo mã bí mật và hiện link tại đây.'),
+              style: const TextStyle(fontSize: 12, color: SboxColors.warningText))
+        else
+          Row(children: [
+            Expanded(
+              child: SelectableText(url, style: const TextStyle(fontSize: 12, fontFamily: 'monospace')),
+            ),
+            IconButton(
+              tooltip: tr('Copy link webhook'),
+              icon: const Icon(Icons.copy, size: 18),
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: url));
+                NotificationOverlayManager().showSuccess(
+                    title: 'Đã copy', message: 'Link webhook', duration: const Duration(seconds: 2));
+              },
+            ),
+          ]),
+        const SizedBox(height: 4),
+        Text(tr('Link có mã bí mật riêng của cửa hàng — không gửi cho người ngoài. '
+            'Link cũ không có mã sẽ bị từ chối.'),
+            style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
+      ]),
     );
   }
 }

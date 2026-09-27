@@ -638,15 +638,40 @@ public class ViettelPostShippingClient(
     public async Task<ShippingQuoteResult> QuoteAsync(
         PosShippingCarrierSetting settings, ShippingQuoteRequest request, CancellationToken ct = default)
     {
+        var all = await QuoteOptionsAsync(settings, request, ct);
+        return all.Where(x => x.Success).OrderBy(x => x.Fee).FirstOrDefault() ?? all[0];
+    }
+
+    /// <summary>«THOI_GIAN» VTP dạng "12 giờ", "24h", "2 ngày", "3-4 ngày" → phút (lấy số lớn nhất).</summary>
+    public static int? ParseVtpDurationMinutes(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var t = raw.Trim().ToLowerInvariant();
+        var nums = System.Text.RegularExpressions.Regex.Matches(t, @"\d+(?:[.,]\d+)?")
+            .Select(m => double.TryParse(m.Value.Replace(',', '.'), System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0)
+            .Where(d => d > 0)
+            .ToList();
+        if (nums.Count == 0) return null;
+        var n = nums.Max();
+        if (t.Contains("ngày") || t.Contains("ngay") || t.Contains("day")) return (int)Math.Round(n * 24 * 60);
+        if (t.Contains("phút") || t.Contains("phut") || t.Contains("min")) return (int)Math.Round(n);
+        return (int)Math.Round(n * 60);
+    }
+
+    /// <summary>Mọi gói VTP trả về (getPriceAllNlp): chuyển phát nhanh, tiết kiệm, hỏa tốc…</summary>
+    public async Task<IReadOnlyList<ShippingQuoteResult>> QuoteOptionsAsync(
+        PosShippingCarrierSetting settings, ShippingQuoteRequest request, CancellationToken ct = default)
+    {
         var token = await EnsureTokenAsync(settings, ct);
         if (string.IsNullOrWhiteSpace(token))
-            return new(false, CarrierCode, 0,
-                Message: "Thiếu Token Partner hoặc Username/Password Viettel Post không hợp lệ");
+            return [new(false, CarrierCode, 0,
+                Message: "Thiếu Token Partner hoặc Username/Password Viettel Post không hợp lệ")];
 
         var senderAddr = BuildSenderAddress(settings);
         var receiverAddr = BuildReceiverAddress(request);
         if (string.IsNullOrWhiteSpace(senderAddr) || string.IsNullOrWhiteSpace(receiverAddr))
-            return new(false, CarrierCode, 0, Message: "Thiếu địa chỉ gửi/nhận (số nhà + phường + tỉnh)");
+            return [new(false, CarrierCode, 0, Message: "Thiếu địa chỉ gửi/nhận (số nhà + phường + tỉnh)")];
 
         var body = new Dictionary<string, object?>
         {
@@ -674,7 +699,7 @@ public class ViettelPostShippingClient(
             var root = doc.RootElement;
 
             if (IsApiError(root))
-                return new(false, CarrierCode, 0, Message: ParseApiError(root, raw), RawJson: raw);
+                return [new(false, CarrierCode, 0, Message: ParseApiError(root, raw), RawJson: raw)];
 
             var list = ResolveServiceList(root);
             if (list.ValueKind != JsonValueKind.Array || list.GetArrayLength() == 0)
@@ -682,24 +707,35 @@ public class ViettelPostShippingClient(
                 var msg = ParseApiError(root, raw);
                 if (msg?.Contains("itinerary", StringComparison.OrdinalIgnoreCase) == true)
                     msg = "Địa chỉ gửi/nhận chưa đủ chi tiết (số nhà, phường, tỉnh) — kiểm tra lại điểm lấy hàng";
-                return new(false, CarrierCode, 0, Message: msg ?? "Không có bảng giá", RawJson: raw);
+                return [new(false, CarrierCode, 0, Message: msg ?? "Không có bảng giá", RawJson: raw)];
             }
 
-            var first = list[0];
-            var fee = 0m;
-            if (first.TryGetProperty("GIA_CUOC", out var gc)) fee = gc.GetDecimal();
-            else if (first.TryGetProperty("price", out var p)) fee = p.GetDecimal();
-            else if (first.TryGetProperty("MONEY_TOTAL", out var mt)) fee = mt.GetDecimal();
-            var svc = first.TryGetProperty("TEN_DICHVU", out var tn) ? tn.GetString()
-                : first.TryGetProperty("SERVICE_NAME", out var sn) ? sn.GetString() : "Viettel Post";
-            var svcCode = first.TryGetProperty("MA_DV_CHINH", out var md) ? md.GetString()
-                : first.TryGetProperty("SERVICE_CODE", out var sc) ? sc.GetString() : null;
-            return new(true, CarrierCode, fee, ServiceName: svc, ServiceCode: svcCode, RawJson: raw);
+            var results = new List<ShippingQuoteResult>();
+            foreach (var item in list.EnumerateArray())
+            {
+                var fee = 0m;
+                if (item.TryGetProperty("GIA_CUOC", out var gc) && gc.TryGetDecimal(out var g)) fee = g;
+                else if (item.TryGetProperty("price", out var p) && p.TryGetDecimal(out var pv)) fee = pv;
+                else if (item.TryGetProperty("MONEY_TOTAL", out var mt) && mt.TryGetDecimal(out var mv)) fee = mv;
+                var svc = item.TryGetProperty("TEN_DICHVU", out var tn) ? tn.GetString()
+                    : item.TryGetProperty("SERVICE_NAME", out var sn) ? sn.GetString() : "Viettel Post";
+                var svcCode = item.TryGetProperty("MA_DV_CHINH", out var md) ? md.GetString()
+                    : item.TryGetProperty("SERVICE_CODE", out var sc) ? sc.GetString() : null;
+                var eta = item.TryGetProperty("THOI_GIAN", out var tg)
+                    ? ParseVtpDurationMinutes(tg.ValueKind == JsonValueKind.String ? tg.GetString() : tg.GetRawText())
+                    : null;
+                if (fee <= 0) continue;
+                results.Add(new(true, CarrierCode, fee, ServiceName: $"VTP {svc}", ServiceCode: svcCode,
+                    EtaMinutes: eta));
+            }
+            if (results.Count == 0)
+                return [new(false, CarrierCode, 0, Message: "Viettel Post không trả gói có giá", RawJson: raw)];
+            return results.OrderBy(r => r.Fee).Take(6).ToList();
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "ViettelPost quote failed");
-            return new(false, CarrierCode, 0, Message: ex.Message);
+            return [new(false, CarrierCode, 0, Message: ex.Message)];
         }
     }
 

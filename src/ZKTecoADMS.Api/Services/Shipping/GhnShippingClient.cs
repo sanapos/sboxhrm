@@ -217,12 +217,10 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
         return (null, null, $"Không tìm thấy phường GHN: {wardName}");
     }
 
-    public async Task<ShippingQuoteResult> QuoteAsync(
-        PosShippingCarrierSetting settings, ShippingQuoteRequest request, CancellationToken ct = default)
+    /// <summary>Quận gửi / quận + phường nhận theo mã GHN (resolve từ tên nếu cần).</summary>
+    async Task<(int From, int To, string? ToWard, string? Error)> ResolveRouteAsync(
+        PosShippingCarrierSetting settings, ShippingQuoteRequest request, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(settings.ApiToken) || string.IsNullOrWhiteSpace(settings.ShopId))
-            return new(false, CarrierCode, 0, Message: "Thiếu Token hoặc ShopId GHN");
-
         int fromDistrict;
         if (!int.TryParse(settings.FromDistrictId, out fromDistrict) || fromDistrict <= 0)
         {
@@ -232,21 +230,14 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
                     || !string.IsNullOrWhiteSpace(settings.FromWardName)))
             {
                 var (fid, _, ferr) = await ResolveToAsync(
-                    settings,
-                    settings.FromProvinceName,
-                    settings.FromDistrictName,
-                    settings.FromWardName,
-                    ct);
-                if (fid is > 0)
-                    fromDistrict = fid.Value;
-                else
-                    return new(false, CarrierCode, 0,
-                        Message: ferr ?? "Thiếu FromDistrictId (mã quận lấy hàng GHN) — cấu hình Cài đặt vận chuyển");
+                    settings, settings.FromProvinceName, settings.FromDistrictName, settings.FromWardName, ct);
+                if (fid is > 0) fromDistrict = fid.Value;
+                else return (0, 0, null,
+                    ferr ?? "Thiếu FromDistrictId (mã quận lấy hàng GHN) — cấu hình Cài đặt vận chuyển");
             }
             else
             {
-                return new(false, CarrierCode, 0,
-                    Message: "Thiếu mã/tên quận lấy hàng GHN trong Cài đặt vận chuyển");
+                return (0, 0, null, "Thiếu mã/tên quận lấy hàng GHN trong Cài đặt vận chuyển");
             }
         }
 
@@ -255,47 +246,261 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
         var (toDistrict, toWard, err) = await ResolveToAsync(
             settings, recv.Province, recv.District, recv.Ward, ct);
         if (toDistrict is null or <= 0)
-            return new(false, CarrierCode, 0, Message: err ?? "Không resolve được quận nhận GHN");
+            return (0, 0, null, err ?? "Không resolve được quận nhận GHN");
+        return (fromDistrict, toDistrict.Value, toWard, null);
+    }
 
+    async Task<ShippingQuoteResult> FeeAsync(
+        PosShippingCarrierSetting settings, ShippingQuoteRequest request,
+        int fromDistrict, int toDistrict, string? toWard,
+        int? serviceId, int serviceTypeId, string serviceName, CancellationToken ct)
+    {
         var body = new Dictionary<string, object?>
         {
             ["from_district_id"] = fromDistrict,
-            ["to_district_id"] = toDistrict.Value,
+            ["to_district_id"] = toDistrict,
             ["to_ward_code"] = string.IsNullOrWhiteSpace(toWard) ? null : toWard.Trim(),
-            ["service_type_id"] = 2,
             ["weight"] = Math.Max(50, request.WeightGrams),
             ["length"] = request.LengthCm,
             ["width"] = request.WidthCm,
             ["height"] = request.HeightCm,
             ["insurance_value"] = (int)Math.Max(0, request.InsuranceValue),
+            ["cod_value"] = (int)Math.Max(0, request.CodAmount),
             ["coupon"] = null,
         };
+        if (serviceId is > 0) body["service_id"] = serviceId.Value;
+        else body["service_type_id"] = serviceTypeId;
         if (!string.IsNullOrWhiteSpace(settings.FromWardCode))
             body["from_ward_code"] = settings.FromWardCode.Trim();
 
+        var http = Client(settings);
+        var url = $"{BaseUrl(settings)}/shiip/public-api/v2/shipping-order/fee";
+        using var res = await http.PostAsync(url,
+            new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"), ct);
+        var raw = await res.Content.ReadAsStringAsync(ct);
+        using var doc = JsonDocument.Parse(raw);
+        var root = doc.RootElement;
+        var code = root.TryGetProperty("code", out var c) ? c.GetInt32() : (int)res.StatusCode;
+        if (code != 200)
+        {
+            var msg = root.TryGetProperty("message", out var m) ? m.GetString() : raw;
+            return new(false, CarrierCode, 0, ServiceName: serviceName, Message: msg, RawJson: raw);
+        }
+        var data = root.GetProperty("data");
+        var total = data.TryGetProperty("total", out var t) ? t.GetDecimal() : 0;
+        return new(true, CarrierCode, total, ServiceName: serviceName,
+            ServiceCode: serviceTypeId.ToString(), RawJson: raw);
+    }
+
+    /// <summary>Thời gian giao dự kiến (phút) theo API leadtime GHN.</summary>
+    async Task<int?> LeadtimeMinutesAsync(
+        PosShippingCarrierSetting settings, int fromDistrict, int toDistrict, string? toWard,
+        int serviceId, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(toWard)) return null;
         try
         {
+            var body = new Dictionary<string, object?>
+            {
+                ["from_district_id"] = fromDistrict,
+                ["to_district_id"] = toDistrict,
+                ["to_ward_code"] = toWard.Trim(),
+                ["service_id"] = serviceId,
+            };
+            if (!string.IsNullOrWhiteSpace(settings.FromWardCode))
+                body["from_ward_code"] = settings.FromWardCode.Trim();
             var http = Client(settings);
-            var url = $"{BaseUrl(settings)}/shiip/public-api/v2/shipping-order/fee";
-            using var res = await http.PostAsync(url,
+            using var res = await http.PostAsync(
+                $"{BaseUrl(settings)}/shiip/public-api/v2/shipping-order/leadtime",
                 new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json"), ct);
             var raw = await res.Content.ReadAsStringAsync(ct);
             using var doc = JsonDocument.Parse(raw);
-            var root = doc.RootElement;
-            var code = root.TryGetProperty("code", out var c) ? c.GetInt32() : (int)res.StatusCode;
-            if (code != 200)
-            {
-                var msg = root.TryGetProperty("message", out var m) ? m.GetString() : raw;
-                return new(false, CarrierCode, 0, Message: msg, RawJson: raw);
-            }
-            var data = root.GetProperty("data");
-            var total = data.TryGetProperty("total", out var t) ? t.GetDecimal() : 0;
-            return new(true, CarrierCode, total, ServiceName: "GHN Express", ServiceCode: "2", RawJson: raw);
+            if (!doc.RootElement.TryGetProperty("data", out var data)) return null;
+            if (!data.TryGetProperty("leadtime", out var lt) || !lt.TryGetInt64(out var unix)) return null;
+            var minutes = (int)Math.Round((DateTimeOffset.FromUnixTimeSeconds(unix) - DateTimeOffset.UtcNow).TotalMinutes);
+            return minutes > 0 ? minutes : null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "GHN leadtime failed");
+            return null;
+        }
+    }
+
+    public async Task<ShippingQuoteResult> QuoteAsync(
+        PosShippingCarrierSetting settings, ShippingQuoteRequest request, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(settings.ApiToken) || string.IsNullOrWhiteSpace(settings.ShopId))
+            return new(false, CarrierCode, 0, Message: "Thiếu Token hoặc ShopId GHN");
+        try
+        {
+            var (from, to, ward, err) = await ResolveRouteAsync(settings, request, ct);
+            if (err != null) return new(false, CarrierCode, 0, Message: err);
+            return await FeeAsync(settings, request, from, to, ward, null, 2, "GHN Express", ct);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "GHN quote failed");
             return new(false, CarrierCode, 0, Message: ex.Message);
+        }
+    }
+
+    /// <summary>Mọi gói GHN khả dụng cho tuyến (available-services) + cước + thời gian giao.</summary>
+    public async Task<IReadOnlyList<ShippingQuoteResult>> QuoteOptionsAsync(
+        PosShippingCarrierSetting settings, ShippingQuoteRequest request, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(settings.ApiToken) || string.IsNullOrWhiteSpace(settings.ShopId))
+            return [new(false, CarrierCode, 0, Message: "Thiếu Token hoặc ShopId GHN")];
+        try
+        {
+            var (from, to, ward, err) = await ResolveRouteAsync(settings, request, ct);
+            if (err != null) return [new(false, CarrierCode, 0, Message: err)];
+
+            var services = new List<(int Id, int TypeId, string Name)>();
+            if (int.TryParse(settings.ShopId, out var shopId))
+            {
+                var http = Client(settings);
+                var body = JsonSerializer.Serialize(new { shop_id = shopId, from_district = from, to_district = to });
+                using var res = await http.PostAsync(
+                    $"{BaseUrl(settings)}/shiip/public-api/v2/shipping-order/available-services",
+                    new StringContent(body, Encoding.UTF8, "application/json"), ct);
+                var raw = await res.Content.ReadAsStringAsync(ct);
+                using var doc = JsonDocument.Parse(raw);
+                if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var sv in data.EnumerateArray())
+                    {
+                        var id = sv.TryGetProperty("service_id", out var i) && i.TryGetInt32(out var iv) ? iv : 0;
+                        var type = sv.TryGetProperty("service_type_id", out var ty) && ty.TryGetInt32(out var tv) ? tv : 0;
+                        var name = sv.TryGetProperty("short_name", out var n) ? n.GetString() : null;
+                        if (id > 0 && type > 0)
+                            services.Add((id, type, $"GHN {(string.IsNullOrWhiteSpace(name) ? $"#{type}" : name)}"));
+                    }
+                }
+            }
+            if (services.Count == 0)
+                return [await FeeAsync(settings, request, from, to, ward, null, 2, "GHN Express", ct)];
+
+            var results = new List<ShippingQuoteResult>();
+            foreach (var sv in services.Take(4))
+            {
+                var fee = await FeeAsync(settings, request, from, to, ward, sv.Id, sv.TypeId, sv.Name, ct);
+                if (fee.Success)
+                    fee = fee with { EtaMinutes = await LeadtimeMinutesAsync(settings, from, to, ward, sv.Id, ct) };
+                results.Add(fee);
+            }
+            return results;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GHN quote options failed");
+            return [new(false, CarrierCode, 0, Message: ex.Message)];
+        }
+    }
+
+    // ── Hủy / in nhãn / hành trình ──────────────────────────────────
+
+    public async Task<ShippingCancelResult> CancelOrderAsync(
+        PosShippingCarrierSetting settings, string orderCode, CancellationToken ct = default)
+    {
+        try
+        {
+            var http = Client(settings);
+            var body = JsonSerializer.Serialize(new { order_codes = new[] { orderCode } });
+            using var res = await http.PostAsync(
+                $"{BaseUrl(settings)}/shiip/public-api/v2/switch-status/cancel",
+                new StringContent(body, Encoding.UTF8, "application/json"), ct);
+            var raw = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            var code = root.TryGetProperty("code", out var c) ? c.GetInt32() : (int)res.StatusCode;
+            var msg = root.TryGetProperty("message", out var m) ? m.GetString() : null;
+            if (code != 200) return new(false, CarrierCode, msg ?? raw);
+            if (root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array
+                && data.GetArrayLength() > 0)
+            {
+                var first = data[0];
+                var ok = first.TryGetProperty("result", out var r) && r.ValueKind == JsonValueKind.True;
+                var itemMsg = first.TryGetProperty("message", out var im) ? im.GetString() : null;
+                return new(ok, CarrierCode, ok ? "Đã hủy vận đơn GHN" : (itemMsg ?? "GHN không cho hủy vận đơn này"));
+            }
+            return new(true, CarrierCode, "Đã hủy vận đơn GHN");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GHN cancel failed");
+            return new(false, CarrierCode, ex.Message);
+        }
+    }
+
+    public async Task<ShippingLabelResult> GetPrintLabelAsync(
+        PosShippingCarrierSetting settings, string orderCode, CancellationToken ct = default)
+    {
+        try
+        {
+            var http = Client(settings);
+            var body = JsonSerializer.Serialize(new { order_codes = new[] { orderCode } });
+            using var res = await http.PostAsync(
+                $"{BaseUrl(settings)}/shiip/public-api/v2/a5/gen-token",
+                new StringContent(body, Encoding.UTF8, "application/json"), ct);
+            var raw = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            var token = root.TryGetProperty("data", out var data) && data.TryGetProperty("token", out var t)
+                ? t.GetString() : null;
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                var msg = root.TryGetProperty("message", out var m) ? m.GetString() : raw;
+                return new(false, CarrierCode, Message: msg);
+            }
+            var url = $"{BaseUrl(settings)}/a5/public-api/printA5?token={Uri.EscapeDataString(token)}";
+            return new(true, CarrierCode, LabelUrl: url, PrintCode: token, Message: "Link in nhãn A5 GHN");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GHN label failed");
+            return new(false, CarrierCode, Message: ex.Message);
+        }
+    }
+
+    public async Task<ShippingTrackingResult> GetTrackingAsync(
+        PosShippingCarrierSetting settings, string orderCode, CancellationToken ct = default)
+    {
+        try
+        {
+            var http = Client(settings);
+            var body = JsonSerializer.Serialize(new { order_code = orderCode });
+            using var res = await http.PostAsync(
+                $"{BaseUrl(settings)}/shiip/public-api/v2/shipping-order/detail",
+                new StringContent(body, Encoding.UTF8, "application/json"), ct);
+            var raw = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            var code = root.TryGetProperty("code", out var c) ? c.GetInt32() : (int)res.StatusCode;
+            if (code != 200 || !root.TryGetProperty("data", out var data))
+            {
+                var msg = root.TryGetProperty("message", out var m) ? m.GetString() : raw;
+                return new(false, CarrierCode, Message: msg, RawJson: raw);
+            }
+            var status = data.TryGetProperty("status", out var st) ? st.GetString() : null;
+            var events = new List<ShippingTrackingEvent>();
+            if (data.TryGetProperty("log", out var log) && log.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var e in log.EnumerateArray())
+                {
+                    events.Add(new ShippingTrackingEvent(
+                        null,
+                        e.TryGetProperty("status", out var es) ? es.GetString() : null,
+                        e.TryGetProperty("updated_date", out var ed) ? ed.GetString() : null,
+                        null, null));
+                }
+            }
+            return new(true, CarrierCode, StatusName: status, Events: events, RawJson: raw);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "GHN tracking failed");
+            return new(false, CarrierCode, Message: ex.Message);
         }
     }
 

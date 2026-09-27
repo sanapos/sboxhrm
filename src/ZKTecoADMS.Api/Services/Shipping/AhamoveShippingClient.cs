@@ -449,6 +449,7 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
             using var doc = JsonDocument.Parse(raw);
             var root = doc.RootElement;
             decimal fee = 0;
+            int? etaMinutes = null;
             string? usedService = serviceCode;
 
             JsonElement row = default;
@@ -472,6 +473,9 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
                 var blob = row.TryGetProperty("data", out var inner) ? inner : row;
                 if (blob.TryGetProperty("total_price", out var tp)) fee = tp.GetDecimal();
                 else if (blob.TryGetProperty("total_fee", out var tf)) fee = tf.GetDecimal();
+                // duration (giây) — thời gian giao ước tính của tài xế.
+                if (blob.TryGetProperty("duration", out var du) && du.TryGetDouble(out var sec) && sec > 0)
+                    etaMinutes = (int)Math.Ceiling(sec / 60.0);
             }
             else if (root.TryGetProperty("total_price", out var tp3))
                 fee = tp3.GetDecimal();
@@ -482,7 +486,8 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
             if (fee < 0)
                 return new(false, CarrierCode, 0, Message: ReadError(root, raw), RawJson: raw);
 
-            return new(true, CarrierCode, fee, ServiceName: usedService, ServiceCode: usedService, RawJson: raw);
+            return new(true, CarrierCode, fee, ServiceName: $"AhaMove {usedService}", ServiceCode: usedService,
+                RawJson: raw, EtaMinutes: etaMinutes);
         }
         catch
         {

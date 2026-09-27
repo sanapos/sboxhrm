@@ -27,6 +27,7 @@ import 'pos_staff_commission_report_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import 'pos_shipping_report_screen.dart';
 /// Hub 14 báo cáo — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
 class PosReportsHubScreen extends StatelessWidget {
   const PosReportsHubScreen({super.key});
@@ -59,6 +60,7 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Tổng kết cuối ngày', subtitle: 'Cuối ngày', icon: Icons.nightlight_round, module: 'PosReportEndOfDay', screen: const PosEndOfDayScreen()),
       (label: 'Doanh thu theo nhân viên', subtitle: 'Thu ngân', icon: Icons.badge_outlined, module: 'PosReportStaffRevenue', screen: const PosStaffRevenueReportScreen()),
       (label: 'Hoa hồng nhân viên', subtitle: 'DV / combo', icon: Icons.handshake_outlined, module: 'PosReportStaffCommission', screen: const PosStaffCommissionReportScreen()),
+      (label: 'Vận chuyển', subtitle: 'Hãng / thất bại / hoàn / COD', icon: Icons.local_shipping_outlined, module: 'PosShipping', screen: const PosShippingReportScreen()),
       (label: 'Sổ quỹ', subtitle: 'Tiền mặt', icon: Icons.menu_book_outlined, module: 'PosReportCashbook', screen: const PosCashbookReportScreen()),
       (label: 'Kết quả kinh doanh', subtitle: 'P&L', icon: Icons.account_balance, module: 'PosReportPnl', screen: const PosPnlReportScreen()),
       (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),

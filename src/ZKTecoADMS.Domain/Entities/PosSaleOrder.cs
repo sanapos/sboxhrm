@@ -80,6 +80,33 @@ public class PosSaleOrder : AuditableEntity<Guid>
     [MaxLength(500)]
     public string? DeliveryLabelUrl { get; set; }
 
+    // ── Vận chuyển chuẩn hóa (mọi hãng) ──
+    /// <summary>Mã trạng thái chuẩn ShipmentStatus (created, delivering, delivery_failed, returned…).</summary>
+    [MaxLength(30)] public string? DeliveryStatusCode { get; set; }
+    public DateTime? DeliveryStatusAt { get; set; }
+    /// <summary>Lúc tạo vận đơn với hãng.</summary>
+    public DateTime? DeliveryShippedAt { get; set; }
+    public DateTime? DeliveryPickedAt { get; set; }
+    public DateTime? DeliveryDeliveredAt { get; set; }
+    /// <summary>Số lần giao thất bại.</summary>
+    public int DeliveryFailCount { get; set; }
+    [MaxLength(500)] public string? DeliveryLastReason { get; set; }
+    /// <summary>Hãng báo đã hoàn về shop.</summary>
+    public DateTime? DeliveryReturnedAt { get; set; }
+    /// <summary>Shop xác nhận đã nhận hàng hoàn (nhập kho lại).</summary>
+    public DateTime? DeliveryReturnReceivedAt { get; set; }
+    [MaxLength(200)] public string? DeliveryReturnReceivedBy { get; set; }
+    public DateTime? DeliveryCancelledAt { get; set; }
+    /// <summary>Cước hãng tính cho shop (khác DeliveryFee = phí thu khách).</summary>
+    public decimal? DeliveryCarrierFee { get; set; }
+    /// <summary>Tiền thu hộ (COD) gửi hãng.</summary>
+    public decimal? DeliveryCodAmount { get; set; }
+    /// <summary>shop | customer | fixed</summary>
+    [MaxLength(20)] public string? DeliveryFeePayer { get; set; }
+    [MaxLength(120)] public string? DeliveryServiceName { get; set; }
+    /// <summary>Hãng đã chuyển tiền COD cho shop (đối soát).</summary>
+    public DateTime? DeliveryCodSettledAt { get; set; }
+
     [MaxLength(500)]
     public string? Note { get; set; }
 

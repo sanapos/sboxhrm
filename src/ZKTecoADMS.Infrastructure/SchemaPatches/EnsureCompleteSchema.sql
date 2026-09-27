@@ -1012,3 +1012,45 @@ ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "KitchenSendReplayJson" tex
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_PosSaleOrders_Store_ClientRequestId" ON "PosSaleOrders" ("StoreId", "ClientRequestId") WHERE "ClientRequestId" IS NOT NULL AND "Deleted" IS NULL;
 ALTER TABLE "PosPrintJobs" ADD COLUMN IF NOT EXISTS "ClientRequestId" character varying(64) NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_PosPrintJobs_Store_ClientRequestId" ON "PosPrintJobs" ("StoreId", "ClientRequestId") WHERE "ClientRequestId" IS NOT NULL AND "Deleted" IS NULL;
+
+-- Vận chuyển: trạng thái chuẩn, mốc thời gian, phí hãng, COD, nhật ký hành trình
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryStatusCode" character varying(30) NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryStatusAt" timestamp without time zone NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryShippedAt" timestamp without time zone NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryPickedAt" timestamp without time zone NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryDeliveredAt" timestamp without time zone NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryFailCount" integer NOT NULL DEFAULT 0;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryLastReason" character varying(500) NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryReturnedAt" timestamp without time zone NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryReturnReceivedAt" timestamp without time zone NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryReturnReceivedBy" character varying(200) NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryCancelledAt" timestamp without time zone NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryCarrierFee" numeric(18,2) NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryCodAmount" numeric(18,2) NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryFeePayer" character varying(20) NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryServiceName" character varying(120) NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "DeliveryCodSettledAt" timestamp without time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_PosSaleOrders_Store_DeliveryStatusCode" ON "PosSaleOrders" ("StoreId", "DeliveryStatusCode") WHERE "IsDelivery";
+CREATE TABLE IF NOT EXISTS "PosShipmentEvents" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL,
+    "SaleOrderId" uuid NOT NULL,
+    "CarrierCode" character varying(30) NULL,
+    "TrackingCode" character varying(64) NULL,
+    "StatusCode" character varying(30) NOT NULL,
+    "RawStatus" character varying(200) NULL,
+    "Reason" character varying(500) NULL,
+    "Source" character varying(20) NOT NULL DEFAULT 'webhook',
+    "OccurredAt" timestamp without time zone NOT NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_PosShipmentEvents_Order" ON "PosShipmentEvents" ("SaleOrderId", "OccurredAt");
+CREATE INDEX IF NOT EXISTS "IX_PosShipmentEvents_Store_Status" ON "PosShipmentEvents" ("StoreId", "StatusCode", "OccurredAt");

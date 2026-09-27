@@ -181,6 +181,10 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
           serviceName: (m['serviceName'] ?? m['ServiceName'])?.toString(),
           serviceCode: (m['serviceCode'] ?? m['ServiceCode'])?.toString(),
           message: (m['message'] ?? m['Message'])?.toString(),
+          etaMinutes: (m['etaMinutes'] ?? m['EtaMinutes'] as num?)?.toInt(),
+          badges: [
+            for (final b in (m['badges'] ?? m['Badges'] ?? const []) as List) b.toString(),
+          ],
         ));
       }
     }
@@ -198,10 +202,12 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
     _quotes = list;
     final prev = _selectedCode;
     final best = list.where((q) => q.success).toList();
-    if (prev != null && best.any((q) => q.code == prev)) {
+    if (prev != null && best.any((q) => q.key == prev)) {
       _selectedCode = prev;
     } else {
-      _selectedCode = best.isNotEmpty ? best.first.code : null;
+      // Mặc định chọn gói «Đề xuất» (rẻ mà không chậm quá 1 ngày so với nhanh nhất).
+      final rec = best.where((q) => q.badges.contains('recommended')).firstOrNull;
+      _selectedCode = rec?.key ?? (best.isNotEmpty ? best.first.key : null);
     }
   }
 
@@ -238,7 +244,7 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
       );
       return;
     }
-    final row = _quotes.where((q) => q.code == code).firstOrNull;
+    final row = _quotes.where((q) => q.key == code).firstOrNull;
     if (row == null || !row.success) {
       NotificationOverlayManager().showWarning(
         title: 'Hãng không khả dụng',
@@ -537,6 +543,30 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
     );
   }
 
+  /// «~45 phút», «~12 giờ», «~2 ngày».
+  static String _etaLabel(int minutes) {
+    if (minutes < 90) return '~$minutes phút';
+    final hours = (minutes / 60).round();
+    if (hours < 36) return '~$hours giờ';
+    final days = (minutes / 1440);
+    return '~${days < 10 ? days.toStringAsFixed(days.truncateToDouble() == days ? 0 : 1) : days.round()} ngày';
+  }
+
+  Widget _badge(String code) {
+    final (label, bg, fg) = switch (code) {
+      'cheapest' => ('Rẻ nhất', SboxColors.successSoft, SboxColors.successText),
+      'fastest' => ('Nhanh nhất', SboxColors.warningSoft, SboxColors.warningText),
+      'recommended' => ('Đề xuất', SboxColors.brand50, SboxColors.brand800),
+      _ => (code, SboxColors.slate100, SboxColors.slate700),
+    };
+    return Container(
+      margin: const EdgeInsets.only(left: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(999)),
+      child: Text(tr(label), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: fg)),
+    );
+  }
+
   Widget _quotesTable() {
     if (_quotes.isEmpty) {
       return Center(
@@ -549,12 +579,7 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
       separatorBuilder: (_, __) => const SizedBox(height: 6),
       itemBuilder: (ctx, i) {
         final q = _quotes[i];
-        final selected = _selectedCode == q.code;
-        final successFees =
-            _quotes.where((x) => x.success).map((x) => x.fee).toList();
-        final cheapest = q.success &&
-            successFees.isNotEmpty &&
-            q.fee == successFees.reduce((a, b) => a < b ? a : b);
+        final selected = _selectedCode == q.key;
         return Material(
           color: selected
               ? PosTheme.kiotBlue.withOpacity(0.08)
@@ -563,7 +588,7 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
             onTap:
-                q.success ? () => setState(() => _selectedCode = q.code) : null,
+                q.success ? () => setState(() => _selectedCode = q.key) : null,
             child: Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -602,30 +627,17 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
                                     fontSize: 13),
                               ),
                             ),
-                            if (cheapest)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.green.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  tr('Rẻ nhất'),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.green.shade800,
-                                  ),
-                                ),
-                              ),
+                            for (final b in q.badges) _badge(b),
                           ],
                         ),
-                        if ((q.serviceName ?? '').isNotEmpty)
-                          Text(q.serviceName!,
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: SboxColors.slate700)),
+                        if ((q.serviceName ?? '').isNotEmpty || q.etaMinutes != null)
+                          Text(
+                            [
+                              if ((q.serviceName ?? '').isNotEmpty) q.serviceName!,
+                              if (q.etaMinutes != null) tr('Giao dự kiến ${_etaLabel(q.etaMinutes!)}'),
+                            ].join(' · '),
+                            style: TextStyle(fontSize: 11, color: SboxColors.slate700),
+                          ),
                         if (!q.success)
                           Text(
                             q.message ?? tr('Không báo được giá'),
@@ -669,6 +681,8 @@ class _QuoteRow {
     this.serviceName,
     this.serviceCode,
     this.message,
+    this.etaMinutes,
+    this.badges = const [],
   });
 
   final String code;
@@ -678,4 +692,11 @@ class _QuoteRow {
   final String? serviceName;
   final String? serviceCode;
   final String? message;
+  /// Thời gian giao dự kiến (phút) — null = hãng không trả.
+  final int? etaMinutes;
+  /// cheapest | fastest | recommended
+  final List<String> badges;
+
+  /// Một hãng có nhiều gói → khóa chọn = hãng + gói.
+  String get key => '$code|${serviceCode ?? ''}|${serviceName ?? ''}';
 }

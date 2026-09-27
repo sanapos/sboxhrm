@@ -63,7 +63,9 @@ public record ShippingQuoteResult(
     string? ServiceName = null,
     string? ServiceCode = null,
     string? Message = null,
-    string? RawJson = null);
+    string? RawJson = null,
+    /// <summary>Thời gian giao dự kiến (phút) — null = hãng không trả.</summary>
+    int? EtaMinutes = null);
 
 public record ShippingCreateRequest(
     string CarrierCode,
@@ -83,7 +85,9 @@ public record ShippingCreateRequest(
     /// <summary>customer | shop | fixed — mặc định shop (freeship phía khách với hãng).</summary>
     string? ShipFeePayer = null,
     /// <summary>Khi ShipFeePayer=fixed: phí cố định cộng vào đơn; hãng vẫn shop trả cước.</summary>
-    decimal? FixedShipFee = null);
+    decimal? FixedShipFee = null,
+    /// <summary>Tên gói dịch vụ đã chọn (hiển thị / báo cáo).</summary>
+    string? ServiceName = null);
 
 /// <summary>Ai trả phí ship với hãng vận chuyển.</summary>
 public static class ShippingFeePayer
@@ -138,7 +142,10 @@ public record ShippingCompareQuoteItem(
     string? ServiceName = null,
     string? ServiceCode = null,
     string? Message = null,
-    int? EtaHours = null);
+    int? EtaHours = null,
+    int? EtaMinutes = null,
+    /// <summary>cheapest | fastest | recommended</summary>
+    IReadOnlyList<string>? Badges = null);
 
 public record ShippingCompareResult(
     Guid OrderId,
@@ -202,4 +209,17 @@ public interface IShippingCarrierClient
         PosSaleOrder order,
         ShippingCreateRequest request,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Báo giá tất cả gói dịch vụ của hãng (nhanh / tiết kiệm / đường bay…) kèm thời gian giao.
+    /// Mặc định: 1 gói từ <see cref="QuoteAsync"/>.
+    /// </summary>
+    async Task<IReadOnlyList<ShippingQuoteResult>> QuoteOptionsAsync(
+        PosShippingCarrierSetting settings,
+        ShippingQuoteRequest request,
+        CancellationToken ct = default)
+    {
+        var one = await QuoteAsync(settings, request, ct);
+        return [one];
+    }
 }

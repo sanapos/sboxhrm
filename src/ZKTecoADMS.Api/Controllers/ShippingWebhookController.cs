@@ -31,8 +31,16 @@ public class ShippingWebhookController(
                 : data.TryGetProperty("StatusText", out var st3) ? st3.GetString() : null;
             if (string.IsNullOrWhiteSpace(status) && data.TryGetProperty("StatusName", out var sn))
                 status = sn.GetString();
+            var clientOrderCode = data.TryGetProperty("ClientOrderCode", out var coc) ? coc.GetString() : null;
+            var reason = data.TryGetProperty("Reason", out var rs) && rs.ValueKind == JsonValueKind.String
+                ? rs.GetString() : null;
 
-            var ok = await shipping.ApplyWebhookStatusAsync("Ghn", tracking, tracking, status, ct);
+            // Bắt buộc ?hash= đúng mã bí mật cửa hàng (trước đây ai cũng đổi được trạng thái đơn).
+            var hash = Request.Query["hash"].FirstOrDefault();
+            if (!await shipping.AuthorizeWebhookAsync("Ghn", tracking, clientOrderCode, hash, null, ct))
+                return Unauthorized(new { code = 401, message = "Unauthorized" });
+
+            var ok = await shipping.ApplyWebhookStatusAsync("Ghn", tracking, tracking, status, ct, reason);
             return Ok(new { code = ok ? 200 : 404, message = ok ? "ok" : "order not found" });
         }
         catch (Exception ex)
@@ -215,7 +223,16 @@ public class ShippingWebhookController(
                 : root.TryGetProperty("_id", out var ahaId) ? ahaId.GetString() : null;
             var status = root.TryGetProperty("status", out var st) ? st.GetString()
                 : root.TryGetProperty("statusText", out var st2) ? st2.GetString() : null;
-            var ok = await shipping.ApplyWebhookStatusAsync(carrier, tracking, tracking, status, ct);
+            var reason = root.TryGetProperty("cancel_comment", out var cc) && cc.ValueKind == JsonValueKind.String
+                ? cc.GetString()
+                : root.TryGetProperty("reason", out var rs) && rs.ValueKind == JsonValueKind.String ? rs.GetString() : null;
+
+            var hash = Request.Query["hash"].FirstOrDefault();
+            if (!await shipping.AuthorizeWebhookAsync(carrier, tracking, null, hash,
+                    Request.Headers.Authorization.ToString(), ct))
+                return Unauthorized(new { ok = false, message = "Unauthorized" });
+
+            var ok = await shipping.ApplyWebhookStatusAsync(carrier, tracking, tracking, status, ct, reason);
             return Ok(new { ok });
         }
         catch (Exception ex)

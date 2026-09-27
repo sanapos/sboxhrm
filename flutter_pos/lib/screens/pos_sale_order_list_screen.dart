@@ -1432,6 +1432,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       'widthCm': pick.widthCm,
       'heightCm': pick.heightCm,
       if ((pick.serviceCode ?? '').isNotEmpty) 'serviceCode': pick.serviceCode,
+      if ((pick.serviceName ?? '').isNotEmpty) 'serviceName': pick.serviceName,
       'shipFeePayer': pick.shipFeePayer,
       if (pick.fixedShipFee != null) 'fixedShipFee': pick.fixedShipFee,
     });

@@ -281,6 +281,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosCustomerSessionTransaction> PosCustomerSessionTransactions => Set<PosCustomerSessionTransaction>();
     public DbSet<PosPaymentGatewaySetting> PosPaymentGatewaySettings => Set<PosPaymentGatewaySetting>();
     public DbSet<PosShippingCarrierSetting> PosShippingCarrierSettings => Set<PosShippingCarrierSetting>();
+    public DbSet<PosShipmentEvent> PosShipmentEvents => Set<PosShipmentEvent>();
     public DbSet<PosStoreNotificationCredit> PosStoreNotificationCredits => Set<PosStoreNotificationCredit>();
     public DbSet<PosNotificationCreditPackage> PosNotificationCreditPackages => Set<PosNotificationCreditPackage>();
     public DbSet<PosNotificationCreditPurchase> PosNotificationCreditPurchases => Set<PosNotificationCreditPurchase>();

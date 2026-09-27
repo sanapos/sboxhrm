@@ -20186,6 +20186,76 @@ class ApiService {
     }
   }
 
+  /// Shop xác nhận đã nhận hàng hoàn → nhập kho lại, hủy đơn bán.
+  Future<Map<String, dynamic>> confirmPosShipmentReturn(String orderId, {String? note}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/shipping/shipments/$orderId/confirm-return'),
+            headers: _headers,
+            body: jsonEncode({'note': note}),
+          )
+          .timeout(const Duration(seconds: 45));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Đánh dấu hãng đã chuyển tiền COD cho các đơn.
+  Future<Map<String, dynamic>> settlePosShipmentCod(List<String> orderIds, {bool settled = true}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/shipping/cod-settle'),
+            headers: _headers,
+            body: jsonEncode({'orderIds': orderIds, 'settled': settled}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Hành trình vận đơn (nhật ký trạng thái).
+  Future<Map<String, dynamic>> getPosShipmentEvents(String orderId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/shipping/shipments/$orderId/events'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Map<String, String> _shippingReportQuery(DateTime? from, DateTime? to, String? carrier) {
+    String d(DateTime x) =>
+        '${x.year.toString().padLeft(4, '0')}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    return {
+      if (from != null) 'from': d(from),
+      if (to != null) 'to': d(to),
+      if (carrier != null && carrier.isNotEmpty) 'carrier': carrier,
+    };
+  }
+
+  /// Báo cáo vận chuyển: theo hãng, giao thất bại, hoàn hàng, hủy vận đơn, COD.
+  Future<Map<String, dynamic>> getPosShippingReport({DateTime? from, DateTime? to, String? carrier}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/shipping/report')
+          .replace(queryParameters: _shippingReportQuery(from, to, carrier));
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> exportPosShippingReportExcel({DateTime? from, DateTime? to, String? carrier}) =>
+      _getExcelExport(Uri.parse('$baseUrl/api/pos/shipping/report/excel')
+          .replace(queryParameters: _shippingReportQuery(from, to, carrier)));
+
   Future<Map<String, dynamic>> syncPosShipmentTracking(String orderId) async {
     try {
       final response = await http

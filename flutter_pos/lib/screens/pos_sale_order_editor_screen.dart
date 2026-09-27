@@ -287,6 +287,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
       'widthCm': pick.widthCm,
       'heightCm': pick.heightCm,
       if ((pick.serviceCode ?? '').isNotEmpty) 'serviceCode': pick.serviceCode,
+      if ((pick.serviceName ?? '').isNotEmpty) 'serviceName': pick.serviceName,
       'shipFeePayer': pick.shipFeePayer,
       if (pick.fixedShipFee != null) 'fixedShipFee': pick.fixedShipFee,
     });
@@ -329,10 +330,84 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
     return p.contains('spx') || p.contains('shopee express');
   }
 
-  bool _canManageCarrierShipment(String partner) =>
-      _isViettelPartner(partner) ||
-      _isAhamovePartner(partner) ||
-      _isSpxPartner(partner);
+  // GHN / GHTK đã có in nhãn, hủy, đồng bộ hành trình qua API — mọi hãng đều thao tác được.
+  bool _canManageCarrierShipment(String partner) => partner.trim().isNotEmpty;
+
+  String get _deliveryStatusText => (_order?.deliveryStatus ?? _deliveryStatus).toLowerCase();
+  bool get _shipmentCancelled =>
+      _deliveryStatusText.contains('hủy vận đơn') || _deliveryStatusText == 'cancelled';
+  bool get _shipmentReturning => _deliveryStatusText.contains('hoàn');
+
+  Future<void> _showShipmentEvents() async {
+    final order = _order;
+    if (order == null) return;
+    final res = await _api.getPosShipmentEvents(order.id);
+    if (!mounted) return;
+    final rows = res['data'] is List
+        ? (res['data'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+        : <Map<String, dynamic>>[];
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Hành trình vận đơn ${order.deliveryTrackingCode ?? ''}')),
+        content: SizedBox(
+          width: 460,
+          child: rows.isEmpty
+              ? Text(tr('Chưa có cập nhật từ hãng — bấm «Đồng bộ hành trình»'))
+              : ListView(shrinkWrap: true, children: [
+                  for (final r in rows.reversed)
+                    ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.radio_button_checked, size: 16),
+                      title: Text(tr('${r['label'] ?? r['statusCode']}')),
+                      subtitle: Text([
+                        _fmtEventTime(r['occurredAt']),
+                        if ((r['rawStatus'] ?? '').toString().isNotEmpty) '${r['rawStatus']}',
+                        if ((r['reason'] ?? '').toString().isNotEmpty) tr('Lý do: ${r['reason']}'),
+                      ].join(' · ')),
+                    ),
+                ]),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng')))],
+      ),
+    );
+  }
+
+  String _fmtEventTime(dynamic iso) {
+    final d = DateTime.tryParse('${iso ?? ''}');
+    if (d == null) return '';
+    final l = (d.isUtc ? d : DateTime.utc(d.year, d.month, d.day, d.hour, d.minute)).toLocal();
+    return '${l.day.toString().padLeft(2, '0')}/${l.month.toString().padLeft(2, '0')} '
+        '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _confirmReturnReceived() async {
+    final order = _order;
+    if (order == null) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xác nhận đã nhận hàng hoàn?')),
+        content: Text(tr('Hàng sẽ được nhập lại kho và đơn bán bị hủy (trừ doanh thu, công nợ, điểm).')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Đã nhận hàng'))),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    setState(() => _shippingBusy = true);
+    final res = await _api.confirmPosShipmentReturn(order.id);
+    if (!mounted) return;
+    setState(() => _shippingBusy = false);
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(title: 'Đã nhận hàng hoàn', message: order.orderNo);
+      await _loadOrder(order.id);
+    } else {
+      NotificationOverlayManager().showError(
+          title: 'Không xác nhận được', message: res['message']?.toString() ?? 'Lỗi');
+    }
+  }
 
   Future<void> _openShipmentLabel() async {
     final order = _order;
@@ -794,7 +869,9 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
               DropdownButtonFormField<String>(
                 value: _deliveryStatus,
                 decoration: PosTheme.inputDecoration(label: 'Trạng thái GH'),
-                items: _deliveryStatuses
+                // Trạng thái do hãng cập nhật (Đang lấy hàng, Giao thất bại…) không nằm trong
+                // danh sách chọn tay — vẫn phải hiển thị được, không lỗi ô chọn.
+                items: {..._deliveryStatuses, _deliveryStatus}
                     .map((s) => DropdownMenuItem(value: s, child: Text(tr(s))))
                     .toList(),
                 onChanged: _readOnly ? null : (v) => setState(() => _deliveryStatus = v!),
@@ -811,7 +888,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
               ],
               if (_order != null &&
                   _order!.id.isNotEmpty &&
-                  (_order!.deliveryTrackingCode ?? '').isEmpty) ...[
+                  ((_order!.deliveryTrackingCode ?? '').isEmpty || _shipmentCancelled)) ...[
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: _shippingBusy ? null : _createShipment,
@@ -822,7 +899,9 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.local_shipping_outlined),
-                  label: Text(tr('So sánh cước & tạo vận đơn')),
+                  label: Text(tr(_shipmentCancelled
+                      ? 'Tạo vận đơn mới (vận đơn cũ đã hủy)'
+                      : 'So sánh cước & tạo vận đơn')),
                 ),
               ],
               if ((_order?.deliveryTrackingCode ?? '').isNotEmpty &&
@@ -850,10 +929,22 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
                       label: Text(tr('Đồng bộ hành trình')),
                     ),
                     OutlinedButton.icon(
-                      onPressed: _shippingBusy ? null : _cancelShipment,
-                      icon: const Icon(Icons.cancel_outlined, size: 18),
-                      label: Text(tr('Hủy vận đơn')),
+                      onPressed: _shippingBusy ? null : _showShipmentEvents,
+                      icon: const Icon(Icons.timeline, size: 18),
+                      label: Text(tr('Hành trình')),
                     ),
+                    if (_shipmentReturning)
+                      FilledButton.icon(
+                        onPressed: _shippingBusy ? null : _confirmReturnReceived,
+                        icon: const Icon(Icons.assignment_return_outlined, size: 18),
+                        label: Text(tr('Đã nhận hàng hoàn')),
+                      ),
+                    if (!_shipmentCancelled)
+                      OutlinedButton.icon(
+                        onPressed: _shippingBusy ? null : _cancelShipment,
+                        icon: const Icon(Icons.cancel_outlined, size: 18),
+                        label: Text(tr('Hủy vận đơn')),
+                      ),
                   ],
                 ),
               ],
