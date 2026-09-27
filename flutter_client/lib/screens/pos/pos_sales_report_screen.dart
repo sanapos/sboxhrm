@@ -8,6 +8,7 @@ import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'pos_profit_report_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Báo cáo bán hàng kiểu KiotViet — doanh thu, lợi nhuận, top NV.
 class PosSalesReportScreen extends StatefulWidget {
   const PosSalesReportScreen({super.key});
@@ -136,7 +137,7 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                           (
                             label: 'VAT',
                             value: vat,
-                            color: const Color(0xFF7C3AED),
+                            color: SboxColors.violet,
                           ),
                           (
                             label: 'DT gồm VAT',
@@ -157,12 +158,12 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                           (
                             label: 'Đã thu',
                             value: _num(_data?['totalPaid']),
-                            color: const Color(0xFF166534),
+                            color: SboxColors.successText,
                           ),
                           (
                             label: 'Giảm giá',
                             value: _num(_data?['totalDiscount']),
-                            color: Colors.grey.shade700,
+                            color: SboxColors.slate700,
                           ),
                         ],
                       ),
@@ -214,7 +215,7 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                       (
                         label: 'Hoàn cọc',
                         value: _num(_data?['reservationDepositRefundedCash']),
-                        color: const Color(0xFF7C3AED),
+                        color: SboxColors.violet,
                       ),
                       (
                         label: 'Cọc mất',
@@ -259,12 +260,12 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                       (
                         label: 'Đã xuất',
                         value: _num(_einvoice?['issuedCount']),
-                        color: const Color(0xFF166534),
+                        color: SboxColors.successText,
                       ),
                       (
                         label: 'Không xuất',
                         value: _num(_einvoice?['skippedCount']),
-                        color: const Color(0xFF475569),
+                        color: SboxColors.slate600,
                       ),
                       (
                         label: 'Lỗi',

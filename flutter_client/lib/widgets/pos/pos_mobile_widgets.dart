@@ -12,6 +12,7 @@ import 'pos_theme.dart';
 import '../safe_layout_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../sbox/sbox_table.dart';
 /// Xác nhận và đăng xuất khỏi POS / cửa hàng.
 Future<void> showPosLogoutDialog(BuildContext context) async {
   final l = AppLocalizations.of(context);
@@ -857,31 +858,8 @@ class PosMobilePager extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (total <= pageSize) return const SizedBox.shrink();
-    final pages = (total / pageSize).ceil();
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(tr('Tổng $total $label · Trang $page/$pages'),
-              style: const TextStyle(
-                  fontSize: 12, color: PosTheme.textSecondary),
-            ),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.chevron_left),
-            onPressed: page > 1 ? () => onPageChanged(page - 1) : null,
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.chevron_right),
-            onPressed: page < pages ? () => onPageChanged(page + 1) : null,
-          ),
-        ],
-      ),
-    );
+    // Thanh phân trang chuẩn SBOX (tự gọn trên điện thoại).
+    return SboxPager(page: page, pageSize: pageSize, total: total, onPage: onPageChanged);
   }
 }
 

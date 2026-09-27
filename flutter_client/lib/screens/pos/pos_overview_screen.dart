@@ -19,6 +19,7 @@ import 'pos_qr_menu_screen.dart';
 import 'pos_qr_online_orders_screen.dart';
 import 'pos_kds_screen.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Tổng quan POS mobile — layout đồng bộ với tab Nhiều hơn.
 class PosOverviewScreen extends StatefulWidget {
   const PosOverviewScreen({super.key});
@@ -297,7 +298,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                 ? 'Biên ${margin.toStringAsFixed(1)}%'
                 : 'Chưa có dữ liệu',
             valueColor: cur != null && profit >= 0
-                ? const Color(0xFF059669)
+                ? SboxColors.success
                 : PosTheme.textPrimary,
           ),
           PosMobileMetricTile(
@@ -359,10 +360,10 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Color(0xFFF57C00), size: 20),
+              Icon(Icons.warning_amber_rounded, color: SboxColors.warning, size: 20),
               SizedBox(width: 8),
               Text(tr('Cảnh báo tồn kho'),
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -479,11 +480,11 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
 
   Widget _chipToggle(String label, bool active, VoidCallback onTap) {
     return Material(
-      color: active ? PosTheme.kiotBlueLight : Colors.grey.shade100,
-      borderRadius: BorderRadius.circular(16),
+      color: active ? PosTheme.kiotBlueLight : SboxColors.slate100,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(

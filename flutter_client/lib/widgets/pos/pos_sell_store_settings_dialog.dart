@@ -5,6 +5,7 @@ import 'pos_sell_fee_defaults_fields.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 
 /// Dialog thiết lập cửa hàng, thuế và phụ phí.
@@ -150,7 +151,7 @@ Future<PosSellStoreSettings?> showPosSellStoreSettingsDialog(
                 ] else ...[
                   const SizedBox(height: 6),
                   Text(tr('Thuế suất được thiết lập riêng trên từng hàng hóa (mục Giá bán).'),
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                   ),
                 ],
                 const SizedBox(height: 8),

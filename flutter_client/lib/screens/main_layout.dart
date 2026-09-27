@@ -128,6 +128,7 @@ import '../services/app_icon_badge.dart';
 import '../services/system_notification_service.dart';
 import '../services/app_permission_service.dart';
 
+import '../theme/sbox_tokens.dart';
 export '../utils/navigation_notifier.dart';
 
 /// Global notifiers for screen refresh
@@ -2534,7 +2535,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         titleTextStyle: Theme.of(context)
             .textTheme
             .headlineLarge
-            ?.copyWith(fontSize: 17),
+            ?.copyWith(fontSize: 18),
         title: Text(
           tr(_settingsHubTitle(l)),
           overflow: TextOverflow.ellipsis,
@@ -2544,7 +2545,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         actions: [
           IconButton(
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
+            icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
             onPressed: () => showAiAssistant(context),
             tooltip: tr('Trợ lý ảo AI'),
           ),
@@ -2789,9 +2790,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          color: SboxColors.slate50,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate200),
         ),
         padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
         child: Column(
@@ -2804,7 +2805,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFA1A1AA),
+                      color: SboxColors.slate400,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -2891,7 +2892,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final primaryColor = theme.colorScheme.primary;
     final isDark = theme.brightness == Brightness.dark;
     final surfaceColor = isDark ? const Color(0xFF1E1E2E) : Colors.white;
-    final unselectedColor = isDark ? Colors.white54 : Colors.grey.shade500;
+    final unselectedColor = isDark ? Colors.white54 : SboxColors.slate500;
 
     final layout = _resolvedMainNavLayout();
 
@@ -2966,13 +2967,13 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.remove, size: 20, color: Colors.grey),
+          const Icon(Icons.remove, size: 20, color: SboxColors.slate500),
           const SizedBox(height: 2),
           Text(
             tr(label),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 9, color: SboxColors.slate500),
           ),
         ],
       ),
@@ -3169,7 +3170,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             ),
                           ),
                           Icon(Icons.chevron_left_rounded,
-                              color: const Color(0xFF586064).withValues(alpha: 0.5),
+                              color: SboxColors.slate600.withValues(alpha: 0.5),
                               size: 22),
                         ],
                       )
@@ -3182,7 +3183,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                 width: 26, height: 26),
                           ),
                           Icon(Icons.chevron_right_rounded,
-                              color: const Color(0xFF586064).withValues(alpha: 0.45),
+                              color: SboxColors.slate600.withValues(alpha: 0.45),
                               size: 16),
                         ],
                       ),
@@ -3200,7 +3201,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 final items = groupedItems[groupName]!;
                 final isCollapsed = _collapsedGroups.contains(groupName);
                 final groupColor = _HomeMenuScreen._groupColors[groupName] ??
-                    const Color(0xFF586064);
+                    SboxColors.slate600;
 
                 return [
                   // Group header (only when expanded)
@@ -3289,7 +3290,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                     size: 20,
                                     color: isSelected
                                         ? accentColor
-                                        : const Color(0xFF586064),
+                                        : SboxColors.slate600,
                                   ),
                                   if (_isExpanded) ...[
                                     const SizedBox(width: 12),
@@ -3301,7 +3302,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                                           fontSize: 13,
                                           color: isSelected
                                               ? const Color(0xFF2B3437)
-                                              : const Color(0xFF586064),
+                                              : SboxColors.slate600,
                                           fontWeight: isSelected
                                               ? FontWeight.w700
                                               : FontWeight.w500,
@@ -3359,7 +3360,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       padding: EdgeInsets.all(_isExpanded ? 10 : 8),
       decoration: BoxDecoration(
         color: const Color(0xFFF8F9FA), // surface
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
@@ -3394,7 +3395,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   Text(
                     tr(user?.role ?? 'Employee'),
                     style: const TextStyle(
-                      color: Color(0xFF586064),
+                      color: SboxColors.slate600,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -3404,16 +3405,16 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
             Material(
               color: Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               child: InkWell(
                 onTap: () => _showLogoutDialog(),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 hoverColor: const Color(0xFFE2E9EC),
                 child: Padding(
                   padding: const EdgeInsets.all(6),
                   child: Icon(Icons.logout_rounded,
                       size: 18,
-                      color: const Color(0xFF586064).withValues(alpha: 0.7)),
+                      color: SboxColors.slate600.withValues(alpha: 0.7)),
                 ),
               ),
             ),
@@ -3478,9 +3479,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     setState(() => _topSearchExpanded = false),
                 decoration: InputDecoration(
                   hintText: tr(AppLocalizations.of(context).search),
-                  hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                  hintStyle: const TextStyle(color: SboxColors.slate400),
                   prefixIcon:
-                      const Icon(Icons.search, color: Color(0xFFA1A1AA), size: 20),
+                      const Icon(Icons.search, color: SboxColors.slate400, size: 20),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.close, size: 18),
                     onPressed: () =>
@@ -3490,12 +3491,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   fillColor: Theme.of(context).scaffoldBackgroundColor,
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide:
                         BorderSide(color: Theme.of(context).dividerColor),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide:
                         BorderSide(color: Theme.of(context).dividerColor),
                   ),
@@ -3509,7 +3510,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               onPressed: () => setState(() => _topSearchExpanded = true),
             ),
           IconButton(
-            icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
+            icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
             onPressed: () => showAiAssistant(context),
             tooltip: tr('Trợ lý ảo AI'),
           ),
@@ -3544,7 +3545,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     return PopupMenuButton<String>(
       offset: const Offset(0, 50),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
           CircleAvatar(
@@ -3576,7 +3577,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               ),
               Text(
                 tr(user?.email ?? ''),
-                style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
+                style: const TextStyle(color: SboxColors.slate400, fontSize: 13),
               ),
             ],
           ),
@@ -3692,7 +3693,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             decoration: const BoxDecoration(
               color: Color(0xFFF8F9FA),
               border: Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+                  bottom: BorderSide(color: SboxColors.slate200, width: 1)),
             ),
             child: Row(
               children: [
@@ -3707,7 +3708,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                 ),
                 IconButton(
                   icon: Icon(Icons.close_rounded,
-                      color: const Color(0xFF586064).withValues(alpha: 0.5),
+                      color: SboxColors.slate600.withValues(alpha: 0.5),
                       size: 22),
                   onPressed: () => Navigator.pop(context),
                   padding: EdgeInsets.zero,
@@ -3739,7 +3740,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFFA1A1AA),
+                          color: SboxColors.slate400,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -3754,7 +3755,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                           isSelected ? item.activeIcon : item.icon,
                           color: isSelected
                               ? Theme.of(context).primaryColor
-                              : const Color(0xFF71717A),
+                              : SboxColors.slate500,
                           size: 22,
                         ),
                         title: Text(
@@ -3774,7 +3775,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                             .primaryColor
                             .withValues(alpha: 0.08),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 0),
                         onTap: () {
@@ -4350,7 +4351,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                   .where((g) => groupedItems.containsKey(g))
                   .map((groupName) {
                 final groupColor =
-                    _HomeMenuScreen._groupColors[groupName] ?? Colors.grey;
+                    _HomeMenuScreen._groupColors[groupName] ?? SboxColors.slate500;
                 final groupIcon =
                     _HomeMenuScreen._groupIcons[groupName] ?? Icons.folder;
                 return Padding(
@@ -4427,7 +4428,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                         tr(user?.fullName ?? 'User'),
                         style: TextStyle(
                           fontSize: isMobile ? 20 : 26,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           color: Colors.white,
                           letterSpacing: -0.3,
                         ),
@@ -4530,7 +4531,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
               .map((groupName) {
             final items = groupedItems[groupName]!;
             final groupColor =
-                _HomeMenuScreen._groupColors[groupName] ?? Colors.grey;
+                _HomeMenuScreen._groupColors[groupName] ?? SboxColors.slate500;
             final groupIcon =
                 _HomeMenuScreen._groupIcons[groupName] ?? Icons.folder;
             final groupDesc =
@@ -4570,7 +4571,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                                   tr(NavItem._groupMap[groupName]?.call(l) ??
                                       groupName),
                                   style: const TextStyle(
-                                    fontSize: 15,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                     color: Color(0xFF2B3437),
                                     letterSpacing: -0.3,
@@ -4583,7 +4584,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                               tr(groupDesc),
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF586064),
+                                color: SboxColors.slate600,
                               ),
                             ),
                           ],
@@ -4594,7 +4595,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: groupColor.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(
                           tr('${items.length}'),
@@ -4953,7 +4954,7 @@ class _AttendanceNotificationPopupState
   @override
   Widget build(BuildContext context) {
     final Color accentColor =
-        widget.isCheckIn ? const Color(0xFF22C55E) : const Color(0xFFF59E0B);
+        widget.isCheckIn ? SboxColors.success : SboxColors.warning;
 
     return Positioned(
       top: 16,
@@ -4971,7 +4972,7 @@ class _AttendanceNotificationPopupState
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.15),
@@ -4989,7 +4990,7 @@ class _AttendanceNotificationPopupState
                       builder: (context, child) => Container(
                         height: 3,
                         width: double.infinity,
-                        color: Colors.grey.shade200,
+                        color: SboxColors.slate200,
                         child: FractionallySizedBox(
                           alignment: Alignment.centerLeft,
                           widthFactor:
@@ -5051,7 +5052,7 @@ class _AttendanceNotificationPopupState
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
+                                        color: SboxColors.slate600,
                                       ),
                                     ),
                                     const Spacer(),
@@ -5067,7 +5068,7 @@ class _AttendanceNotificationPopupState
                                           ),
                                           child: Icon(Icons.close,
                                               size: 16,
-                                              color: Colors.grey.shade400),
+                                              color: SboxColors.slate400),
                                         ),
                                       ),
                                     ),
@@ -5079,7 +5080,7 @@ class _AttendanceNotificationPopupState
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1F2937),
+                                    color: SboxColors.slate800,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -5088,14 +5089,14 @@ class _AttendanceNotificationPopupState
                                 Row(
                                   children: [
                                     Icon(Icons.router_outlined,
-                                        size: 12, color: Colors.grey.shade500),
+                                        size: 12, color: SboxColors.slate500),
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
                                         tr(widget.deviceName),
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: Colors.grey.shade500,
+                                          color: SboxColors.slate500,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -5105,7 +5106,7 @@ class _AttendanceNotificationPopupState
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade100,
+                                        color: SboxColors.slate100,
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Row(
@@ -5114,13 +5115,13 @@ class _AttendanceNotificationPopupState
                                           Icon(
                                               _getVerifyIcon(widget.verifyType),
                                               size: 10,
-                                              color: Colors.grey.shade600),
+                                              color: SboxColors.slate600),
                                           const SizedBox(width: 3),
                                           Text(
                                             tr(widget.verifyType),
                                             style: TextStyle(
                                                 fontSize: 9,
-                                                color: Colors.grey.shade600),
+                                                color: SboxColors.slate600),
                                           ),
                                         ],
                                       ),
@@ -5233,13 +5234,13 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
   Color get _statusColor {
     switch (widget.notification.eventType) {
       case 'DeviceOnline':
-        return const Color(0xFF22C55E); // Green
+        return SboxColors.success; // Green
       case 'DeviceOffline':
-        return const Color(0xFFEF4444); // Red
+        return SboxColors.danger; // Red
       case 'NewDeviceDetected':
         return HrmPageChrome.primaryNavy; // Blue
       default:
-        return const Color(0xFF6B7280); // Gray
+        return SboxColors.slate500; // Gray
     }
   }
 
@@ -5290,7 +5291,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.15),
@@ -5308,7 +5309,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                       builder: (context, child) => Container(
                         height: 3,
                         width: double.infinity,
-                        color: Colors.grey.shade200,
+                        color: SboxColors.slate200,
                         child: FractionallySizedBox(
                           alignment: Alignment.centerLeft,
                           widthFactor:
@@ -5366,7 +5367,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade600,
+                                        color: SboxColors.slate600,
                                       ),
                                     ),
                                     const Spacer(),
@@ -5382,7 +5383,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                                           ),
                                           child: Icon(Icons.close,
                                               size: 16,
-                                              color: Colors.grey.shade400),
+                                              color: SboxColors.slate400),
                                         ),
                                       ),
                                     ),
@@ -5394,7 +5395,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF1F2937),
+                                    color: SboxColors.slate800,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -5406,7 +5407,7 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                                       tr('SN: ${widget.notification.serialNumber}'),
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: Colors.grey.shade500,
+                                        color: SboxColors.slate500,
                                         fontFamily: 'monospace',
                                       ),
                                     ),
@@ -5415,14 +5416,14 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                                       const SizedBox(width: 8),
                                       Icon(Icons.location_on_outlined,
                                           size: 11,
-                                          color: Colors.grey.shade500),
+                                          color: SboxColors.slate500),
                                       const SizedBox(width: 2),
                                       Expanded(
                                         child: Text(
                                           tr(widget.notification.location!),
                                           style: TextStyle(
                                             fontSize: 11,
-                                            color: Colors.grey.shade500,
+                                            color: SboxColors.slate500,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,

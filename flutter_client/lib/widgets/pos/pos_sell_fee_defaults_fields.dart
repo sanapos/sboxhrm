@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Tên phụ phí, mức cố định, gợi ý phí GH — dùng chung hub + dialog.
 class PosSellFeeDefaultsFields extends StatelessWidget {
   const PosSellFeeDefaultsFields({
@@ -47,7 +48,7 @@ class PosSellFeeDefaultsFields extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             tr('Mức cố định (tự nhảy khi tạo đơn mới)'),
-            style: TextStyle(fontSize: hintSize, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: hintSize, color: SboxColors.slate700),
           ),
           const SizedBox(height: 6),
           Row(

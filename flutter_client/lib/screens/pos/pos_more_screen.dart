@@ -53,6 +53,7 @@ import 'pos_gym_checkin_screen.dart';
 import 'pos_role_permissions_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Hub «Nhiều hơn» — module POS phụ kiểu KiotViet.
 class PosMoreScreen extends StatefulWidget {
   const PosMoreScreen({super.key});
@@ -230,7 +231,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                 const SizedBox(height: 12),
                 Material(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: ListTile(
                     leading: const Icon(Icons.settings_outlined,
                         color: PosTheme.kiotBlue),
@@ -354,7 +355,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   const SizedBox(height: 12),
                   Material(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     child: ListTile(
                       leading: const Icon(Icons.bar_chart_outlined,
                           color: PosTheme.kiotBlue),
@@ -381,7 +382,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                 const SizedBox(height: 16),
                 Material(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: ListTile(
                     leading: Icon(Icons.logout, color: Colors.red.shade600),
                     title: Text(
@@ -412,7 +413,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                         '$name $label',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: SboxColors.slate600,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),

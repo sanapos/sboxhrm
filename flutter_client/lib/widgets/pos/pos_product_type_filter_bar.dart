@@ -96,9 +96,9 @@ class PosProductTypeFilterBar extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 4),
       child: Material(
         color: selected ? c.color.withOpacity(0.12) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           onTap: () => onChanged(c.type),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),

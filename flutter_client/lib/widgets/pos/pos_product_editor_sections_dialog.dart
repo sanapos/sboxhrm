@@ -4,6 +4,7 @@ import '../../utils/pos_product_editor_prefs.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Dialog chọn mục hiển thị trên form thêm/sửa hàng hóa.
 Future<Set<PosProductEditorSection>?> showPosProductEditorSectionsDialog(
   BuildContext context, {
@@ -49,7 +50,7 @@ class _PosProductEditorSectionsDialogState
               Text(
                 tr('Tắt các mục không dùng để form thêm hàng gọn hơn. '
                 'Khi sửa hàng đã có dữ liệu, mục liên quan vẫn hiện.'),
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 13, color: SboxColors.slate700),
               ),
               const SizedBox(height: 12),
               Wrap(

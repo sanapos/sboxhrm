@@ -9,6 +9,7 @@ import '../../models/device.dart';
 import '../../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Model nội bộ cho yêu cầu chỉnh sửa (có thêm trạng thái xử lý)
 class CorrectionRequestInternal {
   final String id;
@@ -155,11 +156,11 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
       case 'add':
         return Colors.green;
       case 'edit':
-        return Colors.blue;
+        return SboxColors.brand500;
       case 'delete':
         return Colors.red;
       default:
-        return Colors.grey;
+        return SboxColors.slate500;
     }
   }
 
@@ -217,16 +218,16 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                       child: TextField(
                         decoration: InputDecoration(
                           hintText: tr('Tìm nhân viên...'),
-                          hintStyle: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          hintStyle: TextStyle(fontSize: 11, color: SboxColors.slate500),
                           prefixIcon: const Icon(Icons.search, size: 16),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(6),
-                            borderSide: BorderSide(color: Colors.grey[600]!),
+                            borderSide: BorderSide(color: SboxColors.slate600),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(6),
-                            borderSide: BorderSide(color: Colors.grey[600]!),
+                            borderSide: BorderSide(color: SboxColors.slate600),
                           ),
                         ),
                         style: const TextStyle(fontSize: 11),
@@ -241,7 +242,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[600]!),
+                        border: Border.all(color: SboxColors.slate600),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: DropdownButtonHideUnderline(
@@ -254,7 +255,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                           items: [
                             DropdownMenuItem(value: 'all', child: Text(tr('Loại'), style: TextStyle(fontSize: 11))),
                             DropdownMenuItem(value: 'add', child: Row(children: [Icon(Icons.add_circle, size: 12, color: Colors.green), SizedBox(width: 4), Text(tr('Thêm'), style: TextStyle(fontSize: 11))])),
-                            DropdownMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 12, color: Colors.blue), SizedBox(width: 4), Text(tr('Sửa'), style: TextStyle(fontSize: 11))])),
+                            DropdownMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 12, color: SboxColors.brand500), SizedBox(width: 4), Text(tr('Sửa'), style: TextStyle(fontSize: 11))])),
                             DropdownMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 12, color: Colors.red), SizedBox(width: 4), Text(tr('Xóa'), style: TextStyle(fontSize: 11))])),
                           ],
                           onChanged: (value) => setState(() => _filterType = value ?? 'all'),
@@ -269,7 +270,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[600]!),
+                        border: Border.all(color: SboxColors.slate600),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: DropdownButtonHideUnderline(
@@ -296,19 +297,19 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                       height: 32,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[600]!),
+                        border: Border.all(color: SboxColors.slate600),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.date_range, size: 14, color: _filterDateFrom != null ? Colors.blue : Colors.grey[500]),
+                          Icon(Icons.date_range, size: 14, color: _filterDateFrom != null ? SboxColors.brand500 : SboxColors.slate500),
                           const SizedBox(width: 4),
                           Text(
                             tr(_filterDateFrom != null 
                               ? '${DateFormat('dd/MM').format(_filterDateFrom!)} - ${_filterDateTo != null ? DateFormat('dd/MM').format(_filterDateTo!) : '...'}'
                               : 'Ngày'),
-                            style: TextStyle(fontSize: 11, color: _filterDateFrom != null ? Colors.white : Colors.grey[500]),
+                            style: TextStyle(fontSize: 11, color: _filterDateFrom != null ? Colors.white : SboxColors.slate500),
                           ),
                         ],
                       ),
@@ -422,12 +423,12 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
               Expanded(
                 child: InkWell(
                   onTap: () => setState(() => _showPending = !_showPending),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.orange.withValues(alpha: _showPending ? 0.15 : 0.05),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: Colors.orange.withValues(alpha: _showPending ? 0.5 : 0.2)),
                     ),
                     child: Row(
@@ -457,27 +458,27 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
               Expanded(
                 child: InkWell(
                   onTap: () => setState(() => _showProcessed = !_showProcessed),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: _showProcessed ? 0.15 : 0.05),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.withValues(alpha: _showProcessed ? 0.5 : 0.2)),
+                      color: SboxColors.slate500.withValues(alpha: _showProcessed ? 0.15 : 0.05),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: SboxColors.slate500.withValues(alpha: _showProcessed ? 0.5 : 0.2)),
                     ),
                     child: Row(
                       children: [
                         Icon(
                           _showProcessed ? Icons.expand_more : Icons.chevron_right,
-                          color: Colors.grey[400],
+                          color: SboxColors.slate400,
                           size: 18,
                         ),
                         const SizedBox(width: 4),
-                        Icon(Icons.history, color: Colors.grey[400], size: 16),
+                        Icon(Icons.history, color: SboxColors.slate400, size: 16),
                         const SizedBox(width: 6),
                         Text(tr('Đã xử lý (${_filteredProcessedRequests.length}/${processedRequests.length})'),
                           style: TextStyle(
-                            color: Colors.grey[400],
+                            color: SboxColors.slate400,
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -503,8 +504,8 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                     ),
                     child: _buildPendingDeckItem(pendingRequests[i]),
@@ -530,8 +531,8 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                     ),
                     child: _buildProcessedDeckItem(_filteredProcessedRequests[i]),
@@ -556,9 +557,9 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.inbox, size: 36, color: Colors.grey[400]),
+              Icon(Icons.inbox, size: 36, color: SboxColors.slate400),
               const SizedBox(height: 8),
-              Text(tr(message), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text(tr(message), style: TextStyle(color: SboxColors.slate600, fontSize: 12)),
             ],
           ),
         ),
@@ -596,7 +597,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: typeColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: typeColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Icon(typeIcon, color: typeColor, size: 18),
           ),
           const SizedBox(width: 12),
@@ -605,7 +606,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
               Text(tr(request.employeeName), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(tr([typeLabel, DateFormat('dd/MM').format(request.correctionDate), '${request.originalTime} \u2192 ${request.requestedTime}'].join(' \u00b7 ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
           if (_perm.canApprove('AttendanceCorrection'))
@@ -635,7 +636,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
       child: Row(children: [
         Container(
           width: 36, height: 36,
-          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
           child: Icon(isApproved ? Icons.check_circle : Icons.cancel, color: statusColor, size: 18),
         ),
         const SizedBox(width: 12),
@@ -644,12 +645,12 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
             Text(tr(request.employeeName), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
             Text(tr([typeLabel, DateFormat('dd/MM').format(request.correctionDate), request.processedBy ?? ''].where((s) => s.isNotEmpty).join(' \u00b7 ')),
-              style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
           ]),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
           child: Text(tr(isApproved ? '\u0110\u00e3 duy\u1ec7t' : 'T\u1eeb ch\u1ed1i'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor)),
         ),
       ]),
@@ -695,7 +696,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                       const SizedBox(width: 6),
                       Text(
                         tr('(${request.employeeCode})'),
-                        style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                        style: TextStyle(color: SboxColors.slate600, fontSize: 11),
                       ),
                     ],
                   ),
@@ -703,21 +704,21 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                   Row(
                     children: [
                       Icon(Icons.calendar_today,
-                          size: 12, color: Colors.grey[500]),
+                          size: 12, color: SboxColors.slate500),
                       const SizedBox(width: 4),
                       Text(
                         tr(DateFormat('dd/MM/yyyy').format(request.correctionDate)),
-                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                       ),
                       const SizedBox(width: 8),
                       Icon(Icons.access_time,
-                          size: 12, color: Colors.grey[500]),
+                          size: 12, color: SboxColors.slate500),
                       const SizedBox(width: 4),
                       Text(
                         tr(request.originalTime != null
                             ? '${request.originalTime} → ${request.requestedTime}'
                             : request.requestedTime),
-                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                       ),
                       const SizedBox(width: 8),
                       // Correction type badge with color
@@ -757,7 +758,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                 icon: const Icon(Icons.delete_outline, size: 18),
                 tooltip: tr('Xóa'),
                 visualDensity: VisualDensity.compact,
-                style: IconButton.styleFrom(foregroundColor: Colors.grey),
+                style: IconButton.styleFrom(foregroundColor: SboxColors.slate500),
               ),
             if (_perm.canApprove('AttendanceCorrection')) ...[
               IconButton(
@@ -802,7 +803,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
     return Card(
       key: key,
       margin: const EdgeInsets.only(bottom: 8),
-      color: Colors.grey.withValues(alpha: 0.05),
+      color: SboxColors.slate500.withValues(alpha: 0.05),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
@@ -874,15 +875,15 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                   Row(
                     children: [
                       Icon(Icons.calendar_today,
-                          size: 12, color: Colors.grey[500]),
+                          size: 12, color: SboxColors.slate500),
                       const SizedBox(width: 4),
                       Text(
                         tr(DateFormat('dd/MM/yyyy').format(request.correctionDate)),
-                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                       ),
                       const SizedBox(width: 8),
                       Icon(Icons.access_time,
-                          size: 12, color: Colors.grey[500]),
+                          size: 12, color: SboxColors.slate500),
                       const SizedBox(width: 4),
                       Text(
                         tr(request.originalTime != null && request.originalTime!.isNotEmpty
@@ -890,14 +891,14 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
                             : request.requestedTime),
                         style: TextStyle(
                           fontSize: 11, 
-                          color: Colors.grey[600],
+                          color: SboxColors.slate600,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         tr('• ${request.processedBy ?? "-"}'),
-                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 10, color: SboxColors.slate500),
                       ),
                     ],
                   ),
@@ -1172,7 +1173,7 @@ class AttendanceCorrectionTabState extends State<AttendanceCorrectionTab> {
             Text(tr('Bạn có chắc muốn xóa yêu cầu này?')),
             const SizedBox(height: 12),
             Card(
-              color: Colors.grey.withValues(alpha: 0.1),
+              color: SboxColors.slate500.withValues(alpha: 0.1),
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(

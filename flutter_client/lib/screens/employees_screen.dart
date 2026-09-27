@@ -39,6 +39,7 @@ import '../widgets/notification_overlay.dart';
 import 'employee_career_tab.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class EmployeesScreen extends StatefulWidget {
   final String? highlightId;
   const EmployeesScreen({super.key, this.highlightId});
@@ -658,14 +659,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               Text(
                 tr('1) File Export từ SBOX (có dòng tiêu đề "DANH SÁCH NHÂN VIÊN", cột STT + Mã NV + Họ và tên…)\n'
                 '2) File mẫu Import (cột A: Mã NV*, B: Họ và tên*, C: Email công ty…)'),
-                style: TextStyle(fontSize: 12, color: Colors.black87),
+                style: TextStyle(fontSize: 12, color: SboxColors.text),
               ),
               SizedBox(height: 12),
               Text(
                   tr('• Bắt buộc: Họ và tên (hoặc Họ + Tên riêng)\n'
                   '• Mã NV: nếu trống sẽ lấy SĐT hoặc CCCD làm mã\n'
                   '• Ngày sinh / ngày vào làm: dd/MM/yyyy'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
             ],
           ),
         ),
@@ -924,7 +925,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       DropdownMenuItem(
                         value: null,
                         child: Text(tr('Chưa phân công'),
-                            style: TextStyle(color: Colors.grey)),
+                            style: TextStyle(color: SboxColors.slate500)),
                       ),
                       ..._employees.map((emp) {
                         final fullName =
@@ -944,7 +945,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   child: Text(tr(emp.position!),
                                       style: TextStyle(
                                           fontSize: 11,
-                                          color: Colors.grey[500])),
+                                          color: SboxColors.slate500)),
                                 ),
                             ],
                           ),
@@ -1261,7 +1262,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
             ...options.map(
               (o) => ListTile(
-                title: Text(tr(o.label), style: const TextStyle(fontSize: 15)),
+                title: Text(tr(o.label), style: const TextStyle(fontSize: 16)),
                 onTap: () {
                   Navigator.pop(ctx);
                   o.onPick();
@@ -1348,21 +1349,21 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   }) {
     final accent = accentColor ?? Theme.of(context).primaryColor;
     return Material(
-      color: active ? accent.withValues(alpha: 0.08) : const Color(0xFFFAFAFA),
-      borderRadius: BorderRadius.circular(12),
+      color: active ? accent.withValues(alpha: 0.08) : SboxColors.slate50,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           width: double.infinity,
           constraints: const BoxConstraints(minHeight: 58),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: active
                   ? accent.withValues(alpha: 0.45)
-                  : const Color(0xFFE4E4E7),
+                  : SboxColors.slate200,
               width: active ? 1.5 : 1,
             ),
           ),
@@ -1373,19 +1374,19 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               Row(
                 children: [
                   Icon(icon, size: 15,
-                      color: active ? accent : Colors.grey[500]),
+                      color: active ? accent : SboxColors.slate500),
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(tr(title),
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey[600]),
+                            color: SboxColors.slate600),
                         maxLines: 1),
                   ),
                   if (onTap != null)
                     Icon(Icons.expand_more,
-                        size: 16, color: Colors.grey[500]),
+                        size: 16, color: SboxColors.slate500),
                 ],
               ),
               const SizedBox(height: 6),
@@ -1395,7 +1396,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   height: 1.35,
-                  color: active ? accent : const Color(0xFF18181B),
+                  color: active ? accent : SboxColors.slate900,
                 ),
                 maxLines: 2,
                 softWrap: true,
@@ -1536,9 +1537,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       case 'Nghỉ phép':
         return HrmPageChrome.chipLight;
       case 'Đã nghỉ việc':
-        return const Color(0xFFEF4444);
+        return SboxColors.danger;
       default:
-        return const Color(0xFFA1A1AA);
+        return SboxColors.slate400;
     }
   }
 
@@ -1650,8 +1651,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -1727,7 +1728,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   static const _tableHeaderStyle = TextStyle(
     fontWeight: FontWeight.w600,
     fontSize: 13,
-    color: Color(0xFF71717A),
+    color: SboxColors.slate500,
   );
 
   Widget _buildEmployeesDataTable() {
@@ -1756,8 +1757,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
               margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: SboxColors.slate200),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.04),
@@ -1767,7 +1768,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     return SingleChildScrollView(
@@ -1779,12 +1780,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           ),
                           child: DataTable(
                             headingRowColor: WidgetStateProperty.all(
-                                const Color(0xFFFAFAFA)),
+                                SboxColors.slate50),
                             dataRowColor:
                                 WidgetStateProperty.resolveWith<Color?>(
                                     (states) {
                               if (states.contains(WidgetState.hovered)) {
-                                return const Color(0xFFF1F5F9);
+                                return SboxColors.slate100;
                               }
                               return null;
                             }),
@@ -1826,7 +1827,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                   DataCell(Text(
                                     tr(employee.employeeCode),
                                     style: const TextStyle(
-                                      color: Color(0xFF3B82F6),
+                                      color: SboxColors.brand500,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 12,
                                     ),
@@ -1889,7 +1890,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       children: [
         IconButton(
           icon: const Icon(Icons.visibility_outlined,
-              size: 20, color: Color(0xFF71717A)),
+              size: 20, color: SboxColors.slate500),
           tooltip: tr('Xem'),
           onPressed: () => _showEmployeeDetails(employee),
           visualDensity: VisualDensity.compact,
@@ -1917,7 +1918,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
@@ -1929,27 +1930,27 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             tr(totalCount > 0
                 ? 'Hiển thị ${startIndex + 1}-$endIndex / $totalCount'
                 : 'Không có dữ liệu'),
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(tr('Hiển thị:'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
               const SizedBox(width: 8),
               Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: _pageSize,
                     isDense: true,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                     items: _pageSizeOptions
                         .map((s) =>
                             DropdownMenuItem(value: s, child: Text(tr('$s'))))
@@ -1989,7 +1990,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(tr('$_currentPage / $totalPages'),
                     style: const TextStyle(
@@ -2027,7 +2028,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
                   color:
                       Theme.of(context).primaryColor.withValues(alpha: 0.25)),
@@ -2128,10 +2129,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   Text(
                     tr(employee.fullName),
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
                       height: 1.25,
-                      color: Color(0xFF0F172A),
+                      color: SboxColors.slate900,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -2140,7 +2141,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   Text(
                     tr(employee.employeeCode),
                     style: const TextStyle(
-                      color: Color(0xFF3B82F6),
+                      color: SboxColors.brand500,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -2154,8 +2155,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         Icons.business_outlined,
                         size: 14,
                         color: hasDept
-                            ? const Color(0xFF64748B)
-                            : const Color(0xFFCBD5E1),
+                            ? SboxColors.slate500
+                            : SboxColors.slate300,
                       ),
                       const SizedBox(width: 5),
                       Expanded(
@@ -2166,8 +2167,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                             fontWeight:
                                 hasDept ? FontWeight.w500 : FontWeight.w400,
                             color: hasDept
-                                ? const Color(0xFF475569)
-                                : const Color(0xFF94A3B8),
+                                ? SboxColors.slate600
+                                : SboxColors.slate400,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -2180,14 +2181,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     Row(
                       children: [
                         const Icon(Icons.work_outline,
-                            size: 14, color: Color(0xFF94A3B8)),
+                            size: 14, color: SboxColors.slate400),
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
                             tr(position),
                             style: const TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF71717A),
+                              color: SboxColors.slate500,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -2229,7 +2230,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   const SizedBox(height: 3),
                   Text(tr(employee.employeeCode),
                       style: const TextStyle(
-                          color: Color(0xFF3B82F6),
+                          color: SboxColors.brand500,
                           fontSize: 11,
                           fontWeight: FontWeight.w500)),
                   const SizedBox(height: 3),
@@ -2239,8 +2240,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                         Icons.business_outlined,
                         size: 12,
                         color: hasDept
-                            ? const Color(0xFF64748B)
-                            : const Color(0xFFCBD5E1),
+                            ? SboxColors.slate500
+                            : SboxColors.slate300,
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -2249,8 +2250,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             color: hasDept
-                                ? const Color(0xFF475569)
-                                : const Color(0xFF94A3B8),
+                                ? SboxColors.slate600
+                                : SboxColors.slate400,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -2263,12 +2264,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       if (employee.position != null &&
                           employee.position!.trim().isNotEmpty) ...[
                         const Icon(Icons.work_outline,
-                            size: 11, color: Color(0xFFA1A1AA)),
+                            size: 11, color: SboxColors.slate400),
                         const SizedBox(width: 3),
                         Flexible(
                             child: Text(tr(employee.position!),
                                 style: const TextStyle(
-                                    color: Color(0xFF71717A), fontSize: 11),
+                                    color: SboxColors.slate500, fontSize: 11),
                                 overflow: TextOverflow.ellipsis)),
                       ],
                       if (employee.position != null &&
@@ -2277,15 +2278,15 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           employee.phone!.isNotEmpty)
                         Text(tr(' · '),
                             style: TextStyle(
-                                color: Color(0xFFA1A1AA), fontSize: 11)),
+                                color: SboxColors.slate400, fontSize: 11)),
                       if (employee.phone != null &&
                           employee.phone!.isNotEmpty) ...[
                         const Icon(Icons.phone_outlined,
-                            size: 11, color: Color(0xFFA1A1AA)),
+                            size: 11, color: SboxColors.slate400),
                         const SizedBox(width: 3),
                         Text(tr(employee.phone!),
                             style: const TextStyle(
-                                color: Color(0xFF71717A), fontSize: 11)),
+                                color: SboxColors.slate500, fontSize: 11)),
                       ],
                     ],
                   ),
@@ -2301,7 +2302,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   Widget _buildEmployeeCardMenu(Employee employee) {
     return PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 20),
+              icon: Icon(Icons.more_vert, color: SboxColors.slate400, size: 20),
               onSelected: (value) {
                 switch (value) {
                   case 'view':
@@ -2358,10 +2359,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   value: 'salary',
                   child: Row(
                     children: [
-                      Icon(Icons.payments, size: 20, color: Colors.blue),
+                      Icon(Icons.payments, size: 20, color: SboxColors.brand500),
                       SizedBox(width: 12),
                       Text(tr('Salary Settings'),
-                          style: TextStyle(color: Colors.blue)),
+                          style: TextStyle(color: SboxColors.brand500)),
                     ],
                   ),
                 ),
@@ -2502,7 +2503,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     borderRadius: BorderRadius.circular(60),
                     child: CircleAvatar(
                       radius: 55,
-                      backgroundColor: Colors.grey[200],
+                      backgroundColor: SboxColors.slate200,
                       backgroundImage: photoUrl != null
                           ? _apiService.storeImageProvider(photoUrl!)
                           : null,
@@ -2517,12 +2518,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                                       ? Icons.woman_rounded
                                       : Icons.man_rounded,
                                   size: 40,
-                                  color: Colors.grey[400],
+                                  color: SboxColors.slate400,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(tr('Tải ảnh lên'),
                                     style: TextStyle(
-                                        fontSize: 10, color: Colors.grey[500])),
+                                        fontSize: 10, color: SboxColors.slate500)),
                               ],
                             )
                           : null,
@@ -3772,7 +3773,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         style: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.bold,
-          color: Colors.blue,
+          color: SboxColors.brand500,
         ),
       ),
     );
@@ -3790,10 +3791,10 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         child: Container(
           height: 110,
           decoration: BoxDecoration(
-            color: Colors.grey[100],
+            color: SboxColors.slate100,
             borderRadius: BorderRadius.circular(10),
             border:
-                Border.all(color: Colors.grey[300]!, style: BorderStyle.solid),
+                Border.all(color: SboxColors.slate300, style: BorderStyle.solid),
           ),
           child: imageUrl != null
               ? ClipRRect(
@@ -3822,14 +3823,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(icon, size: 28, color: Colors.grey[400]),
+        Icon(icon, size: 28, color: SboxColors.slate400),
         const SizedBox(height: 4),
         Text(tr(label),
-            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate500),
             textAlign: TextAlign.center),
         const SizedBox(height: 2),
         Text(tr('Nhấn để tải lên'),
-            style: TextStyle(fontSize: 9, color: Colors.grey[400])),
+            style: TextStyle(fontSize: 9, color: SboxColors.slate400)),
       ],
     );
   }
@@ -3848,7 +3849,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Crop(
                   image: imageBytes,
                   controller: cropController,
@@ -3864,7 +3865,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   },
                   withCircleUi: isCircle,
                   aspectRatio: isCircle ? 1.0 : aspectRatio,
-                  baseColor: Colors.grey[200]!,
+                  baseColor: SboxColors.slate200,
                   maskColor: Colors.black.withValues(alpha: 0.5),
                   interactive: true,
                   fixCropRect: false,
@@ -3873,7 +3874,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ),
             const SizedBox(height: 12),
             Text(tr('Kéo và thu phóng để chọn vùng ảnh'),
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 12),
             ),
           ],
         );
@@ -3881,7 +3882,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, null),
             child:
-                Text(tr(_l10n.cancel), style: const TextStyle(color: Colors.grey)),
+                Text(tr(_l10n.cancel), style: const TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton.icon(
             onPressed: () => cropController.crop(),
@@ -3930,7 +3931,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                  icon: const Icon(Icons.close, color: SboxColors.slate500),
                   onPressed: () => Navigator.pop(ctx, null)),
             ],
           ),
@@ -4117,7 +4118,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 tr(employee.position ?? 'Nhân viên'),
                 style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey[600],
+                    color: SboxColors.slate600,
                     fontWeight: FontWeight.normal),
               ),
             ],
@@ -4222,7 +4223,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           _buildDetailSection('CCCD / Căn cước', [
             if (employee.idCardFrontUrl != null) ...[
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: AuthCachedImage(
                   imagePath: employee.idCardFrontUrl!,
                   apiService: _apiService,
@@ -4240,7 +4241,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
             ],
             if (employee.idCardBackUrl != null)
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: AuthCachedImage(
                   imagePath: employee.idCardBackUrl!,
                   apiService: _apiService,
@@ -4436,7 +4437,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           style: const TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
-            color: Colors.blue,
+            color: SboxColors.brand500,
           ),
         ),
         const SizedBox(height: 8),
@@ -4454,14 +4455,14 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(icon, size: 18, color: Colors.grey[600]),
+            child: Icon(icon, size: 18, color: SboxColors.slate600),
           ),
           const SizedBox(width: 10),
           SizedBox(
             width: isMobile ? 100 : 140,
             child: Text(
               tr(label),
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              style: TextStyle(color: SboxColors.slate600, fontSize: 12),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -4562,7 +4563,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: SizedBox(
         width: isMobile ? double.infinity : 420,
         height: _scannedPreview != null || _showManualInput ? 560 : 480,
@@ -4652,7 +4653,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                                       : Colors.white.withValues(alpha: 0.6),
                                   width: 2,
                                 ),
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                               child: _hasScanned
                                   ? const Center(
@@ -4671,7 +4672,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                             right: 12,
                             child: IconButton(
                               style: IconButton.styleFrom(
-                                backgroundColor: Colors.black54,
+                                backgroundColor: SboxColors.textSecondary,
                                 padding: const EdgeInsets.all(10),
                               ),
                               icon: Icon(
@@ -4711,7 +4712,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                               : _scannedPreview!),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
-                              color: Color(0xFF586064), fontSize: 11),
+                              color: SboxColors.slate600, fontSize: 11),
                         ),
                       ],
                     )
@@ -4722,7 +4723,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                             Text(tr('Hướng camera vào mã QR trên CCCD'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: Color(0xFF586064),
+                                  color: SboxColors.slate600,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500),
                             ),
@@ -4730,7 +4731,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                             Text(tr('Mã QR nằm ở mặt sau của thẻ căn cước'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: Colors.grey[400], fontSize: 11),
+                                  color: SboxColors.slate400, fontSize: 11),
                             ),
                             const SizedBox(height: 8),
                             TextButton.icon(
@@ -4766,7 +4767,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
             const SizedBox(height: 8),
             Text(tr('Vui lòng kiểm tra:\n• Quyền truy cập camera trong trình duyệt\n• Kết nối qua HTTPS hoặc localhost'),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF586064), fontSize: 11),
+              style: TextStyle(color: SboxColors.slate600, fontSize: 11),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
@@ -4792,11 +4793,11 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
           const Icon(Icons.qr_code, color: HrmPageChrome.primaryNavy, size: 40),
           const SizedBox(height: 12),
           Text(tr('Nhập dữ liệu QR CCCD'),
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
           ),
           const SizedBox(height: 4),
           Text(tr('Dán nội dung QR đã quét từ ứng dụng khác'),
-            style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            style: TextStyle(color: SboxColors.slate500, fontSize: 12),
           ),
           const SizedBox(height: 16),
           TextField(

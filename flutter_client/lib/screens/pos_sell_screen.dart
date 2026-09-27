@@ -121,6 +121,7 @@ import 'settings_hub_screen.dart';
 import 'settings_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 
 /// Tỷ lệ / khoảng cách màn bán hàng theo KiotViet.
@@ -2632,7 +2633,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final panelTitle =
         qr.isTingee ? 'Tingee QR thanh toán' : 'VietQR thanh toán';
     return Material(
-      color: Colors.black54,
+      color: SboxColors.textSecondary,
       child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -2642,7 +2643,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               child: Card(
                 elevation: 8,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -2656,7 +2657,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                             child: Text(
                               tr('Quét mã chuyển khoản'),
                               style: const TextStyle(
-                                fontSize: 17,
+                                fontSize: 18,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -2685,7 +2686,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade700,
+                          color: SboxColors.slate700,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -2846,7 +2847,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             const SizedBox(height: 8),
             Text(
               tr('Mã: $code'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
           ],
         ),
@@ -4612,10 +4613,10 @@ class _PosSellScreenState extends State<PosSellScreen>
             ),
           ),
         );
-    const green = Color(0xFF16A34A);
-    const amber = Color(0xFFD97706);
-    const red = Color(0xFFDC2626);
-    const slate = Color(0xFF475569);
+    const green = SboxColors.success;
+    const amber = SboxColors.warning;
+    const red = SboxColors.danger;
+    const slate = SboxColors.slate600;
 
     if (start == null) {
       return Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
@@ -5483,7 +5484,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (total <= 0 || _expiryBannerDismissed) return const SizedBox.shrink();
     final isExpired = _expiredLotCount > 0;
     return Material(
-      color: isExpired ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+      color: isExpired ? SboxColors.dangerSoft : SboxColors.warningSoft,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
@@ -5491,7 +5492,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             Icon(
               isExpired ? Icons.error_outline : Icons.schedule,
               size: 18,
-              color: isExpired ? const Color(0xFFB91C1C) : const Color(0xFFB45309),
+              color: isExpired ? SboxColors.dangerText : SboxColors.warningText,
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -5503,7 +5504,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: isExpired ? const Color(0xFFB91C1C) : const Color(0xFFB45309),
+                  color: isExpired ? SboxColors.dangerText : SboxColors.warningText,
                 ),
               ),
             ),
@@ -5802,7 +5803,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         width: 36,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFCBD5E1),
+                          color: SboxColors.slate300,
                           borderRadius: BorderRadius.circular(99),
                         ),
                       ),
@@ -5810,19 +5811,19 @@ class _PosSellScreenState extends State<PosSellScreen>
                     const SizedBox(height: 12),
                     Text(tr('Đơn chờ thanh toán'),
                       style:
-                          TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 4),
                     Text(tr('Tự làm mới ~12s — đơn đã thanh toán sẽ biến mất'),
                       style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
+                          fontSize: 12, color: SboxColors.slate600),
                     ),
                     if (loadError != null) ...[
                       const SizedBox(height: 8),
                       Text(
                         tr(loadError!),
                         style: const TextStyle(
-                            fontSize: 12, color: Color(0xFFDC2626)),
+                            fontSize: 12, color: SboxColors.danger),
                       ),
                     ],
                     const SizedBox(height: 12),
@@ -5838,7 +5839,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
+                                color: SboxColors.slate500,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -5891,7 +5892,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF64748B),
+                              color: SboxColors.slate500,
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -5904,7 +5905,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                     : 'Chưa có đơn tạm. Thêm hàng rồi bấm «Giữ đơn» hoặc «+» tab mới để lưu lên server.'),
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Colors.grey.shade600,
+                                  color: SboxColors.slate600,
                                 ),
                               ),
                             )
@@ -5935,7 +5936,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: d.isLocked && !d.isLockedByMe
-                                        ? const Color(0xFFB45309)
+                                        ? SboxColors.warningText
                                         : null,
                                   ),
                                 ),
@@ -5943,7 +5944,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                     ? const Icon(
                                         Icons.lock_outline,
                                         size: 18,
-                                        color: Color(0xFFB45309),
+                                        color: SboxColors.warningText,
                                       )
                                     : const Icon(Icons.chevron_right, size: 20),
                                 onTap: () {
@@ -8459,7 +8460,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   const SizedBox(height: 10),
                   Text(tr('Số lượng khách dùng: ${fmt(usedQty)}'),
                     style: TextStyle(
-                      color: valid ? const Color(0xFF166534) : Colors.red.shade700,
+                      color: valid ? SboxColors.successText : Colors.red.shade700,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -11407,7 +11408,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   'SBOX POS',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: PosTheme.kiotBlue,
                     letterSpacing: 0.3,
                   ),
@@ -11896,7 +11897,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
     if (!_sellReady) {
       return Scaffold(
-        backgroundColor: Color(0xFFF3F4F6),
+        backgroundColor: SboxColors.slate100,
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -12041,9 +12042,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     }) {
       return Material(
         color: selected ? Colors.white : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           onTap: onTap,
           child: Padding(
             padding: EdgeInsets.symmetric(
@@ -12122,7 +12123,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final bar = DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: SizedBox(
         height: dense ? 34 : null,
@@ -12155,7 +12156,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: PosImeAwareFocus(
           child: TextField(
@@ -12165,8 +12166,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           style: const TextStyle(fontSize: 13, height: 1.2),
           decoration: InputDecoration(
             hintText: tr(_sellProfile.floorSearchHint),
-            hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13),
-            prefixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
+            hintStyle: TextStyle(color: SboxColors.slate500, fontSize: 13),
+            prefixIcon: const Icon(Icons.search, size: 18, color: SboxColors.slate500),
             prefixIconConstraints:
                 const BoxConstraints(minWidth: 36, minHeight: 32),
             isDense: true,
@@ -12175,15 +12176,15 @@ class _PosSellScreenState extends State<PosSellScreen>
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: SboxColors.slate300),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: SboxColors.slate300),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: _kiotBlue, width: 1.5),
             ),
             suffixIcon: PosBarcodeScanIcon(
@@ -12449,7 +12450,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       Icon(
                         i == _activeTab ? Icons.radio_button_checked : Icons.receipt_long_outlined,
                         size: 18,
-                        color: i == _activeTab ? _kiotBlue : Colors.grey.shade600,
+                        color: i == _activeTab ? _kiotBlue : SboxColors.slate600,
                       ),
                       const SizedBox(width: 8),
                       Text(tr(_tabs[i].label),
@@ -12577,7 +12578,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           id: 'kitchen',
           icon: Icons.soup_kitchen_outlined,
           label: 'Báo chế biến',
-          iconColor: const Color(0xFFB45309),
+          iconColor: SboxColors.warningText,
           enabled: !_kitchenSending && !_checkingOut && !_parking,
         ));
       }
@@ -12703,9 +12704,9 @@ class _PosSellScreenState extends State<PosSellScreen>
                         color: a.enabled
                             ? const Color(0xFFF4F6F8)
                             : const Color(0xFFF8F8F8),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           onTap: a.enabled
                               ? () => Navigator.pop(ctx, a.id)
                               : null,
@@ -12840,13 +12841,13 @@ class _PosSellScreenState extends State<PosSellScreen>
         borderColor = const Color(0xFFEAB308);
         textColor = const Color(0xFFA16207);
       } else {
-        bg = const Color(0xFFF1F5F9);
+        bg = SboxColors.slate100;
         borderColor = PosTheme.border;
         textColor = PosTheme.textSecondary;
       }
     }
     final closeColor = onBlue
-        ? (active ? Colors.grey.shade600 : (hasItems ? const Color(0xFF7C2D12) : Colors.white70))
+        ? (active ? SboxColors.slate600 : (hasItems ? const Color(0xFF7C2D12) : Colors.white70))
         : PosTheme.textSecondary;
 
     return Material(
@@ -13006,7 +13007,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       padding: const EdgeInsets.symmetric(horizontal: _KiotLayout.sidePadding),
       alignment: Alignment.centerLeft,
       decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
+        color: SboxColors.slate50,
         border: Border(bottom: BorderSide(color: PosTheme.border)),
       ),
       child: Text(
@@ -13109,7 +13110,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         tr('+ ${line.toppings.map((t) => '${posToppingNameWithQty(t.name, t.safeQty)} (+${_moneyFmt.format(t.price * t.safeQty)})').join(', ')}'),
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, height: 1.25, color: Color(0xFF7C3AED)),
+        style: const TextStyle(fontSize: 12, height: 1.25, color: SboxColors.violet),
       ));
     }
     if (!noteExpanded &&
@@ -13140,7 +13141,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           color: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             side: BorderSide(
               color: noteExpanded || priceExpanded
                   ? _kiotBlue.withOpacity(0.45)
@@ -13157,7 +13158,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Material(
-                      color: const Color(0xFFFEE2E2),
+                      color: SboxColors.dangerSoft,
                       borderRadius: BorderRadius.circular(10),
                       child: InkWell(
                         onTap: () => _removeLine(cartIndex),
@@ -13168,7 +13169,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                           child: Icon(
                             Icons.delete_rounded,
                             size: 18,
-                            color: Color(0xFFDC2626),
+                            color: SboxColors.danger,
                           ),
                         ),
                       ),
@@ -13181,7 +13182,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         onLongPress: _lineNeedsStaffPick(line)
                             ? () => unawaited(_assignLineStaff(line))
                             : null,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
                           child: Column(
@@ -13192,7 +13193,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  fontSize: 12.5,
+                                  fontSize: 13,
                                   height: 1.2,
                                   fontWeight: FontWeight.w600,
                                   color: noteExpanded
@@ -13217,7 +13218,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                         fontSize: 11,
                                         color: _staffLabelForLine(line)?.isNotEmpty == true
                                             ? const Color(0xFF0F766E)
-                                            : const Color(0xFFB45309),
+                                            : SboxColors.warningText,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -13244,7 +13245,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     const SizedBox(width: 2),
                     InkWell(
                       onTap: openPriceEditor,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       child: SizedBox(
                         width: 80,
                         child: Padding(
@@ -13279,7 +13280,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                     fontSize: 11,
                                     color: canEditPrice
                                         ? _kiotBlue
-                                        : Colors.grey.shade600,
+                                        : SboxColors.slate600,
                                     decoration: priceExpanded
                                         ? TextDecoration.underline
                                         : TextDecoration.none,
@@ -13408,7 +13409,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       .join('\n')),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF7C3AED),
+                    color: SboxColors.violet,
                   ),
                 ),
             ],
@@ -13702,7 +13703,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       );
     }
     return Material(
-      color: const Color(0xFFEFF6FF),
+      color: SboxColors.brand50,
       borderRadius: BorderRadius.circular(10),
       child: PopupMenuButton<String>(
         tooltip: tr('Đơn vị'),
@@ -13718,7 +13719,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   child: Text(
                     tr(v.label),
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: v.viewKey == line.activeViewKey
                           ? FontWeight.w700
                           : FontWeight.w500,
@@ -13945,7 +13946,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   ),
-                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  style: const TextStyle(fontSize: 12, color: SboxColors.text),
                   items: _sellSellers
                       .map((s) => DropdownMenuItem<String>(
                             value: s['employeeId']?.toString(),
@@ -14245,7 +14246,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(tr('Không chịu thuế GTGT'),
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate600),
               ),
             )
           else if (_vatAmount > 0) ...[
@@ -14258,7 +14259,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           ],
         ] else if (_storeSettings.taxMode == PosSellTaxMode.perItem) ...[
           Text(tr('Thuế VAT theo từng mặt hàng (thiết lập trên hàng hóa)'),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate600),
           ),
           if (_vatAmount > 0) ...[
             const SizedBox(height: 4),
@@ -14347,7 +14348,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 tr('Sẽ tích ${pts.toStringAsFixed(0)} điểm (mỗi ${_moneyFmt.format(_loyaltyRates.earnPerAmount)}đ → 1 điểm)'),
-                style: const TextStyle(fontSize: 11, color: Color(0xFF059669)),
+                style: const TextStyle(fontSize: 11, color: SboxColors.success),
               ),
             );
           }),
@@ -14422,7 +14423,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final selected = exempt ? _tab.vatExempt : (!_tab.vatExempt && _tab.vatRate == rate);
     return Material(
       color: selected ? PosTheme.kiotBlueLight : Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: () {
           setState(() {
@@ -14438,11 +14439,11 @@ class _PosSellScreenState extends State<PosSellScreen>
           });
           _notifyPaymentUi(onMutate);
         },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: selected ? _kiotBlue : PosTheme.border),
           ),
           child: Text(
@@ -14525,21 +14526,21 @@ class _PosSellScreenState extends State<PosSellScreen>
           padding: EdgeInsets.only(right: id == 'mixed' ? 0 : 6),
           child: Material(
             color: !enabled
-                ? const Color(0xFFF3F4F6)
+                ? SboxColors.slate100
                 : selected
                     ? _kiotBlue
                     : Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: InkWell(
               onTap: !enabled
                   ? null
                   : () => _applyPayQuickMode(id, onMutate: onMutate),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: selected ? _kiotBlue : PosTheme.border,
                     width: selected ? 1.5 : 1,
@@ -14839,9 +14840,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       children: [
         qtyBtn(
           icon: Icons.remove_rounded,
-          color: const Color(0xFF475569),
-          bg: const Color(0xFFF1F5F9),
-          border: const Color(0xFFCBD5E1),
+          color: SboxColors.slate600,
+          bg: SboxColors.slate100,
+          border: SboxColors.slate300,
           onPressed: () => unawaited(_adjustQty(line, -1)),
         ),
         SizedBox(
@@ -14852,7 +14853,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             onLongPress: showReturn
                 ? () => unawaited(_showReturnGoodsDialog(line))
                 : null,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: Center(
               child: FittedBox(
                 fit: BoxFit.scaleDown,
@@ -14873,9 +14874,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         ),
         qtyBtn(
           icon: Icons.add_rounded,
-          color: const Color(0xFF475569),
-          bg: const Color(0xFFF1F5F9),
-          border: const Color(0xFFCBD5E1),
+          color: SboxColors.slate600,
+          bg: SboxColors.slate100,
+          border: SboxColors.slate300,
           onPressed: () => unawaited(_adjustQty(line, 1)),
         ),
       ],
@@ -14914,8 +14915,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           backgroundColor: PosTheme.payGreen,
           foregroundColor: Colors.white,
           // Giỏ trống / không quyền: xám rõ — tránh nhìn như nút đang bấm được.
-          disabledBackgroundColor: Colors.grey.shade300,
-          disabledForegroundColor: Colors.grey.shade600,
+          disabledBackgroundColor: SboxColors.slate300,
+          disabledForegroundColor: SboxColors.slate600,
           minimumSize: Size(expanded ? double.infinity : 0, height),
           elevation: busy || _tab.cart.isEmpty || !canPay ? 0 : 2,
           shadowColor: PosTheme.payGreen.withValues(alpha: 0.45),
@@ -15005,13 +15006,13 @@ class _PosSellScreenState extends State<PosSellScreen>
               },
         style: OutlinedButton.styleFrom(
           minimumSize: Size(0, height),
-          foregroundColor: const Color(0xFFB45309),
+          foregroundColor: SboxColors.warningText,
           backgroundColor: provisionalBusy
-              ? const Color(0xFFFEF3C7)
-              : const Color(0xFFFFFBEB),
+              ? SboxColors.warningSoft
+              : SboxColors.warningSoft,
           side: BorderSide(
             color: provisionalBusy
-                ? const Color(0xFFD97706)
+                ? SboxColors.warning
                 : const Color(0xFFCA8A04),
             width: provisionalBusy ? 2 : 1.5,
           ),
@@ -15022,7 +15023,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         ).copyWith(
           overlayColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.pressed)) {
-              return const Color(0xFFF59E0B).withValues(alpha: 0.35);
+              return SboxColors.warning.withValues(alpha: 0.35);
             }
             return null;
           }),
@@ -15033,14 +15034,14 @@ class _PosSellScreenState extends State<PosSellScreen>
                 width: height * 0.44,
                 child: const CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: Color(0xFFB45309),
+                  color: SboxColors.warningText,
                 ),
               )
             : FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(tr('Tạm tính'),
                   maxLines: 1,
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
                 ),
               ),
       );
@@ -15121,7 +15122,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         labelPadding: const EdgeInsets.symmetric(horizontal: 6),
         materialTapTargetSize: MaterialTapTargetSize.padded,
         selectedColor: _kiotBlue,
-        backgroundColor: const Color(0xFFF1F5F9),
+        backgroundColor: SboxColors.slate100,
         side: BorderSide(
           color: selected ? _kiotBlue : PosTheme.border,
         ),
@@ -15336,7 +15337,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final draftCount = _pickerDraftQty.values.fold<double>(0, (a, b) => a + b);
     final draftLines = _pickerDraftQty.length;
     return Material(
-      color: const Color(0xFFF3F4F6),
+      color: SboxColors.slate100,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -16035,7 +16036,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               maxLines: 1,
               style: TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 fontSize: compact ? 16 : 14,
               ),
             ),
@@ -16098,7 +16099,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
+        color: SboxColors.slate50,
         border: Border(bottom: BorderSide(color: PosTheme.border)),
       ),
       child: Row(
@@ -16231,7 +16232,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               child: Text(
                 '${tr(label)}$suffix',
                 maxLines: 1,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
               ),
             ),
     );
@@ -16304,10 +16305,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         onPay();
       },
       style: FilledButton.styleFrom(
-        backgroundColor: payEnabled ? payBg : Colors.grey.shade300,
-        foregroundColor: payEnabled ? Colors.white : Colors.grey.shade600,
-        disabledBackgroundColor: Colors.grey.shade300,
-        disabledForegroundColor: Colors.grey.shade600,
+        backgroundColor: payEnabled ? payBg : SboxColors.slate300,
+        foregroundColor: payEnabled ? Colors.white : SboxColors.slate600,
+        disabledBackgroundColor: SboxColors.slate300,
+        disabledForegroundColor: SboxColors.slate600,
         minimumSize: Size(0, height),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -16317,7 +16318,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         tr(payLabel),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
       ),
     );
 
@@ -16398,7 +16399,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                                   const EdgeInsets.symmetric(horizontal: 14),
                               alignment: Alignment.centerLeft,
                               decoration: const BoxDecoration(
-                                color: Color(0xFFF8FAFC),
+                                color: SboxColors.slate50,
                                 border: Border(
                                     bottom:
                                         BorderSide(color: PosTheme.border)),
@@ -16600,9 +16601,9 @@ class _PosSellScreenState extends State<PosSellScreen>
                   if (_industryUsesTables) ...[
                     Material(
                       color: PosTheme.kiotBlueLight,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         onTap: _openResourceFloor,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -16632,9 +16633,9 @@ class _PosSellScreenState extends State<PosSellScreen>
                     if (_industryUsesTables) const SizedBox(width: 6),
                     Material(
                       color: PosTheme.kiotBlueLight,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         onTap: _openSessionRedeem,
                         child: Padding(
                           padding: EdgeInsets.symmetric(horizontal: 10),
@@ -16664,9 +16665,9 @@ class _PosSellScreenState extends State<PosSellScreen>
                   ],
                   Material(
                     color: PosTheme.kiotBlueLight,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       onTap: _newTab,
                       child: const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 10),
@@ -16822,7 +16823,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   padding: const EdgeInsets.symmetric(
                       horizontal: 24, vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
@@ -17004,7 +17005,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(tr('Ghi chú sản phẩm'),
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
                 PosLineQuickNotesPicker(
@@ -17144,7 +17145,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                           Expanded(
                             child: Text(tr('Chọn khách hàng'),
                               style: TextStyle(
-                                fontSize: 17,
+                                fontSize: 18,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -17245,7 +17246,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             Padding(
               padding: EdgeInsets.all(16),
               child: Text(tr('Chọn bảng giá'),
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
             ...options.map(
@@ -17321,7 +17322,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     Text(
                       tr(value),
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
@@ -17363,7 +17364,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (ctx) => Scaffold(
-          backgroundColor: const Color(0xFFF3F4F6),
+          backgroundColor: SboxColors.slate100,
           appBar: AppBar(
             title: Text(tr('Thanh toán')),
             backgroundColor: Colors.white,
@@ -17449,7 +17450,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   Widget _buildMobileModeBar() {
     if (!_showRetailSellModeBar) return const SizedBox.shrink();
     return Material(
-      color: const Color(0xFFF8FAFC),
+      color: SboxColors.slate50,
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -17536,7 +17537,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   Padding(
                     padding: const EdgeInsets.only(top: 2, right: 2),
                     child: Material(
-                      color: const Color(0xFFFEE2E2),
+                      color: SboxColors.dangerSoft,
                       borderRadius: BorderRadius.circular(10),
                       child: InkWell(
                         onTap: () => _removeLine(cartIndex),
@@ -17547,7 +17548,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                           child: Icon(
                             Icons.delete_rounded,
                             size: 22,
-                            color: Color(0xFFDC2626),
+                            color: SboxColors.danger,
                           ),
                         ),
                       ),
@@ -17587,7 +17588,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF7C3AED),
+                          color: SboxColors.violet,
                         ),
                       ),
                     if (line.product.productType == PosProductType.combo &&
@@ -17608,14 +17609,14 @@ class _PosSellScreenState extends State<PosSellScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
+                          color: SboxColors.successSoft,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(tr('Đã báo bếp'),
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF047857),
+                            color: SboxColors.successText,
                           ),
                         ),
                       )
@@ -17624,7 +17625,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFF7ED),
+                          color: SboxColors.warningSoft,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -17634,7 +17635,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFB45309),
+                            color: SboxColors.warningText,
                           ),
                         ),
                       ),
@@ -17657,7 +17658,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                         tr(PosQtyRules.format(line.qty, product: line.product)),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                           decoration: TextDecoration.underline,
                           decorationStyle: TextDecorationStyle.dotted,
@@ -17674,7 +17675,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   const Spacer(),
                   Text(tr('${_moneyFmt.format(line.lineTotal)} đ'),
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: PosTheme.textPrimary,
                     ),
@@ -17720,7 +17721,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
+                      color: SboxColors.slate300,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -17730,7 +17731,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -17741,7 +17742,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF64748B),
+                      color: SboxColors.slate500,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -17799,16 +17800,16 @@ class _PosSellScreenState extends State<PosSellScreen>
                   child: FilledButton.icon(
                     onPressed: () => Navigator.pop(ctx, 'delete'),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFDC2626),
+                      backgroundColor: SboxColors.danger,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                     icon: const Icon(Icons.delete_rounded, size: 22),
                     label: Text(tr('Xóa khỏi hóa đơn'),
                       style:
-                          TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
@@ -17969,7 +17970,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     const SizedBox(height: 4),
                     Text(
                       tr('Bấm + để chọn nhiều cùng một loại'),
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                      style: TextStyle(fontSize: 12, color: SboxColors.slate700),
                     ),
                     const SizedBox(height: 8),
                     ConstrainedBox(
@@ -18048,13 +18049,13 @@ class _PosSellScreenState extends State<PosSellScreen>
     return ListTile(
       enabled: enabled,
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: enabled ? PosTheme.textPrimary : Colors.grey),
+      leading: Icon(icon, color: enabled ? PosTheme.textPrimary : SboxColors.slate500),
       title: Text(
         tr(label),
         style: TextStyle(
-          fontSize: 15,
+          fontSize: 16,
           fontWeight: FontWeight.w500,
-          color: enabled ? PosTheme.textPrimary : Colors.grey,
+          color: enabled ? PosTheme.textPrimary : SboxColors.slate500,
         ),
       ),
       onTap: enabled ? onTap : null,
@@ -18072,7 +18073,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     return Material(
       color: primary
           ? _kiotBlue.withValues(alpha: 0.1)
-          : const Color(0xFFF1F5F9),
+          : SboxColors.slate100,
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         onTap: onTap,
@@ -18084,7 +18085,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             icon,
             size: compact ? 16 : 18,
             color: onTap == null
-                ? Colors.grey.shade400
+                ? SboxColors.slate400
                 : (primary ? _kiotBlue : PosTheme.textPrimary),
           ),
         ),

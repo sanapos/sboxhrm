@@ -45,6 +45,7 @@ import 'penalty_tickets_screen.dart';
 import 'cash_transaction_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 int? _approvalStatusCode(dynamic status) {
   if (status == null) return null;
   if (status is num) return status.toInt();
@@ -1566,7 +1567,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return Scaffold(
           backgroundColor:
-              isMobile ? PosTheme.background : const Color(0xFFFAFAFA),
+              isMobile ? PosTheme.background : SboxColors.slate50,
           body: Scrollbar(
             controller: _scrollController,
             thumbVisibility: true,
@@ -1593,7 +1594,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFF0F9FF),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFBAE6FD)),
       ),
       child: Row(
@@ -1609,7 +1610,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
-                    color: Color(0xFF0F172A),
+                    color: SboxColors.slate900,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1617,7 +1618,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.45,
-                    color: Colors.grey.shade700,
+                    color: SboxColors.slate700,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1705,7 +1706,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF475569),
+        color: SboxColors.slate600,
       ),
     );
   }
@@ -1813,8 +1814,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   tr(fullName),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
                   ),
                   maxLines: 1,
@@ -1837,7 +1838,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1928,7 +1929,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.pending_actions_outlined,
             'Chờ duyệt',
             '$pendingTotal',
-            const Color(0xFFEF4444),
+            SboxColors.danger,
             'pending_all'));
         break;
     }
@@ -1958,7 +1959,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color.withValues(alpha: 0.30)),
         ),
         child: Row(
@@ -1969,7 +1970,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Text(
                 tr(item['text'] as String),
                 style: TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: color,
                 ),
@@ -1996,7 +1997,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         )),
               ),
             ],
-            const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
+            const Icon(Icons.chevron_right, size: 16, color: SboxColors.slate400),
           ],
         ),
       ),
@@ -2077,13 +2078,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: a.onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           width: 84,
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: a.color.withValues(alpha: 0.18)),
             boxShadow: [
               BoxShadow(
@@ -2126,7 +2127,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   fontSize: 10,
                   height: 1.15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF1E293B),
+                  color: SboxColors.slate800,
                 ),
               ),
             ],
@@ -2145,11 +2146,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFF8FAFC), Color(0xFFEFF3F8)],
+          colors: [SboxColors.slate50, Color(0xFFEFF3F8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE4E9F0)),
       ),
       child: Column(
@@ -2164,7 +2165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: Text(tr('Tổng quan chấm công'),
                   style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: HrmPageChrome.primaryNavy),
                 ),
@@ -2175,7 +2176,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: HrmPageChrome.primaryNavy.withValues(alpha: .08),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
                     tr(_rangeLabel()),
@@ -2229,7 +2230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             size: 14,
                             color: _presetKey == 'custom'
                                 ? Colors.white
-                                : const Color(0xFF475569)),
+                                : SboxColors.slate600),
                         const SizedBox(width: 4),
                         Text(tr('Lựa chọn khác'),
                           style: TextStyle(
@@ -2237,7 +2238,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fontWeight: FontWeight.w600,
                             color: _presetKey == 'custom'
                                 ? Colors.white
-                                : const Color(0xFF475569),
+                                : SboxColors.slate600,
                           ),
                         ),
                       ],
@@ -2282,7 +2283,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF475569),
+                color: SboxColors.slate600,
               ),
             ),
             const SizedBox(height: 10),
@@ -2411,7 +2412,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2)),
               ),
               Padding(
@@ -2432,12 +2433,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Text(tr(title),
                           style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A))),
+                              color: SboxColors.slate900)),
                       Text(tr('${empCards.length} NV · ${deptOrder.length} phòng ban'),
                           style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade600)),
+                              fontSize: 12, color: SboxColors.slate600)),
                     ],
                   )),
                   IconButton(
@@ -2450,7 +2451,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: empCards.isEmpty
                     ? Center(
                         child: Text(tr('Không có nhân viên'),
-                            style: TextStyle(color: Colors.grey.shade500)))
+                            style: TextStyle(color: SboxColors.slate500)))
                     : ListView.builder(
                         controller: sc,
                         padding: const EdgeInsets.symmetric(
@@ -2544,12 +2545,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               .isNotEmpty) ...[
                                             const Icon(Icons.login,
                                                 size: 11,
-                                                color: Color(0xFF22C55E)),
+                                                color: SboxColors.success),
                                             const SizedBox(width: 2),
                                             Text(tr(e['checkIn'] as String),
                                                 style: const TextStyle(
                                                     fontSize: 11,
-                                                    color: Color(0xFF16A34A),
+                                                    color: SboxColors.success,
                                                     fontWeight:
                                                         FontWeight.w600)),
                                           ],
@@ -2577,8 +2578,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
 
     const palette = [
-      Color(0xFF22C55E),
-      Color(0xFF3B82F6),
+      SboxColors.success,
+      SboxColors.brand500,
       HrmPageChrome.chipSoft,
       HrmPageChrome.chipLight,
       HrmPageChrome.chipMid,
@@ -2615,7 +2616,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE4E9F0)),
         boxShadow: [
           BoxShadow(
@@ -2710,7 +2711,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: shiftColor.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: shiftColor.withValues(alpha: 0.18)),
               ),
               child: Column(
@@ -2732,7 +2733,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(width: 6),
                         Text(tr(timeStr),
                             style: TextStyle(
-                                fontSize: 11, color: Colors.grey.shade500)),
+                                fontSize: 11, color: SboxColors.slate500)),
                       ],
                     ]),
                     const SizedBox(height: 8),
@@ -2751,16 +2752,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Icons.how_to_reg_rounded,
                             'Có mặt',
                             presentCount,
-                            const Color(0xFF22C55E),
+                            SboxColors.success,
                             () => showShiftEmpList('Có mặt – $shiftName',
-                                const Color(0xFF22C55E), attendedCards)),
+                                SboxColors.success, attendedCards)),
                         chip(
                             Icons.person_off_rounded,
                             'Vắng',
                             absentCards.length,
-                            const Color(0xFFEF4444),
+                            SboxColors.danger,
                             () => showShiftEmpList('Vắng – $shiftName',
-                                const Color(0xFFEF4444), absentCards)),
+                                SboxColors.danger, absentCards)),
                       ],
                     ),
                   ]),
@@ -2810,7 +2811,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             'leave_today'),
       if (caps.insightPending)
         _InsightChipData(Icons.pending_actions_outlined, 'Chờ duyệt',
-            '$pendingTotal', const Color(0xFFEF4444), 'pending_all'),
+            '$pendingTotal', SboxColors.danger, 'pending_all'),
       if (caps.insightBirthday)
         _InsightChipData(
             Icons.cake_outlined,
@@ -2830,7 +2831,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             'task_detail'),
       if (caps.insightPenalty)
         _InsightChipData(Icons.gavel_outlined, 'Vi phạm', '$penaltyCount',
-            const Color(0xFFDC2626), 'penalty_detail'),
+            SboxColors.danger, 'penalty_detail'),
       if (caps.insightContracts)
         _InsightChipData(
             Icons.assignment_late_outlined,
@@ -2857,13 +2858,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icons.arrow_downward_rounded,
             'Phiếu thu',
             cashInCount > 0 ? '$cashInCount phiếu' : _fmtMoney(cashIn),
-            const Color(0xFF16A34A),
+            SboxColors.success,
             'receipt_detail'),
         _InsightChipData(
             Icons.arrow_upward_rounded,
             'Phiếu chi',
             cashOutCount > 0 ? '$cashOutCount phiếu' : _fmtMoney(cashOut),
-            const Color(0xFFEF4444),
+            SboxColors.danger,
             'payment_detail'),
       ],
     ];
@@ -2946,7 +2947,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF94A3B8),
+              color: SboxColors.slate400,
               letterSpacing: 0.2,
             ),
           ),
@@ -2977,12 +2978,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _showInsightDetail(c),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFE4E9F0)),
           ),
           child: Row(
@@ -3006,7 +3007,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
+                        color: SboxColors.slate500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -3015,8 +3016,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Text(
                       tr(c.value),
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
                         color: c.color,
                         height: 1.15,
                       ),
@@ -3235,7 +3236,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2)),
               ),
               Padding(
@@ -3278,7 +3279,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 : '${items.length} mục';
                           }()),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey.shade600)),
+                                  fontSize: 12, color: SboxColors.slate600)),
                         ],
                       ),
                     ),
@@ -3437,7 +3438,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (sub1.isNotEmpty || sub2.isNotEmpty)
                     Text(tr([sub1, sub2].where((s) => s.isNotEmpty).join(' • ')),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF71717A)),
+                            fontSize: 11, color: SboxColors.slate500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                 ],
@@ -3448,7 +3449,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                     color: accent.withValues(alpha: .1),
-                    borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(10)),
                 child: Text(tr(badge),
                     style: TextStyle(
                         fontSize: 10,
@@ -3456,7 +3457,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         color: accent)),
               ),
             const SizedBox(width: 4),
-            Icon(Icons.chevron_right, size: 18, color: Colors.grey.shade400),
+            Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
           ],
         ),
       ),
@@ -3711,7 +3712,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? (approve ? 'Đã duyệt thành công' : 'Đã từ chối')
                 : (result['message'] ?? 'Thao tác thất bại').toString())),
             backgroundColor:
-                ok ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                ok ? SboxColors.success : SboxColors.danger,
             duration: const Duration(seconds: 2),
           ));
           if (ok) _loadAllData(); // refresh
@@ -3720,7 +3721,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(tr('Lỗi: $e')),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: SboxColors.danger,
           ));
         }
       }
@@ -3759,7 +3760,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               builder: (_) => ScrollableAlertDialog(
                 title: Text(tr('Lý do từ chối'),
                     style:
-                        TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 content: TextField(
                   controller: ctrl,
                   decoration: InputDecoration(
@@ -3772,7 +3773,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Text(tr('Hủy'))),
                   FilledButton(
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEF4444),
+                        backgroundColor: SboxColors.danger,
                         foregroundColor: Colors.white),
                     onPressed: () => Navigator.pop(context, true),
                     child: Text(tr('Từ chối')),
@@ -3810,7 +3811,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: .12),
-                    borderRadius: BorderRadius.circular(5),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(tr(typeLabel),
                       style: TextStyle(
@@ -3826,7 +3827,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis)),
                 const Icon(Icons.open_in_new_rounded,
-                    size: 14, color: Color(0xFF94A3B8)),
+                    size: 14, color: SboxColors.slate400),
               ]),
             ),
             ),
@@ -3839,16 +3840,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (subtitle.isNotEmpty)
                       Text(tr(subtitle),
                           style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF6B7280))),
+                              fontSize: 11, color: SboxColors.slate500)),
                     if (dateStr != null && dateStr.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Row(children: [
                         const Icon(Icons.calendar_today_outlined,
-                            size: 11, color: Color(0xFF9CA3AF)),
+                            size: 11, color: SboxColors.slate400),
                         const SizedBox(width: 4),
                         Text(tr(dateStr),
                             style: const TextStyle(
-                                fontSize: 11, color: Color(0xFF6B7280))),
+                                fontSize: 11, color: SboxColors.slate500)),
                       ]),
                     ],
                     if (extraInfo != null && extraInfo.isNotEmpty) ...[
@@ -3857,12 +3858,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Icon(Icons.notes_rounded,
-                                size: 11, color: Color(0xFF9CA3AF)),
+                                size: 11, color: SboxColors.slate400),
                             const SizedBox(width: 4),
                             Expanded(
                                 child: Text(tr(extraInfo),
                                     style: const TextStyle(
-                                        fontSize: 11, color: Color(0xFF6B7280)),
+                                        fontSize: 11, color: SboxColors.slate500),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis)),
                           ]),
@@ -3887,11 +3888,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Expanded(
                     child: OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFEF4444),
-                        side: const BorderSide(color: Color(0xFFEF4444)),
+                        foregroundColor: SboxColors.danger,
+                        side: const BorderSide(color: SboxColors.danger),
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(7)),
+                            borderRadius: BorderRadius.circular(6)),
                       ),
                       icon: const Icon(Icons.close, size: 14),
                       label:
@@ -3903,11 +3904,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Expanded(
                     child: FilledButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF22C55E),
+                        backgroundColor: SboxColors.success,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 6),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(7)),
+                            borderRadius: BorderRadius.circular(6)),
                         elevation: 0,
                       ),
                       icon: const Icon(Icons.check, size: 14),
@@ -4235,8 +4236,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             : (result['message'] ?? 'Thao tác thất bại')
                                 .toString())),
                         backgroundColor: ok
-                            ? const Color(0xFF22C55E)
-                            : const Color(0xFFEF4444),
+                            ? SboxColors.success
+                            : SboxColors.danger,
                         duration: const Duration(seconds: 2),
                       ));
                       if (ok) {
@@ -4253,7 +4254,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                         content: Text(tr('Lỗi: $e')),
-                        backgroundColor: const Color(0xFFEF4444),
+                        backgroundColor: SboxColors.danger,
                       ));
                     }
                   }
@@ -4274,7 +4275,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     builder: (_) => ScrollableAlertDialog(
                       title: Text(tr('Lý do từ chối'),
                           style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600)),
+                              fontSize: 16, fontWeight: FontWeight.w600)),
                       content: TextField(
                         controller: ctrl,
                         decoration: InputDecoration(
@@ -4288,7 +4289,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: Text(tr('Hủy'))),
                         FilledButton(
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFEF4444),
+                              backgroundColor: SboxColors.danger,
                               foregroundColor: Colors.white),
                           onPressed: () => Navigator.pop(context, true),
                           child: Text(tr('Từ chối')),
@@ -4321,7 +4322,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               decoration: BoxDecoration(
                                 color: HrmPageChrome.chipMid
                                     .withValues(alpha: .12),
-                                borderRadius: BorderRadius.circular(5),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(tr('Ứng lương'),
                                   style: TextStyle(
@@ -4344,7 +4345,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               decoration: BoxDecoration(
                                 color: HrmPageChrome.chip
                                     .withValues(alpha: .1),
-                                borderRadius: BorderRadius.circular(7),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(tr('${_fmtMoney(amt.toDouble())}đ'),
                                   style: const TextStyle(
@@ -4364,17 +4365,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   Text(tr(dept),
                                       style: const TextStyle(
                                           fontSize: 11,
-                                          color: Color(0xFF6B7280))),
+                                          color: SboxColors.slate500)),
                                 if (dateStr.isNotEmpty) ...[
                                   const SizedBox(height: 3),
                                   Row(children: [
                                     const Icon(Icons.calendar_today_outlined,
-                                        size: 11, color: Color(0xFF9CA3AF)),
+                                        size: 11, color: SboxColors.slate400),
                                     const SizedBox(width: 4),
                                     Text(tr(dateStr),
                                         style: const TextStyle(
                                             fontSize: 11,
-                                            color: Color(0xFF6B7280))),
+                                            color: SboxColors.slate500)),
                                   ]),
                                 ],
                                 if (reason.isNotEmpty) ...[
@@ -4384,13 +4385,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         const Icon(Icons.notes_rounded,
-                                            size: 11, color: Color(0xFF9CA3AF)),
+                                            size: 11, color: SboxColors.slate400),
                                         const SizedBox(width: 4),
                                         Expanded(
                                             child: Text(tr(reason),
                                                 style: const TextStyle(
                                                     fontSize: 11,
-                                                    color: Color(0xFF6B7280)),
+                                                    color: SboxColors.slate500),
                                                 maxLines: 2,
                                                 overflow:
                                                     TextOverflow.ellipsis)),
@@ -4418,13 +4419,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Expanded(
                                 child: OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFFEF4444),
+                                    foregroundColor: SboxColors.danger,
                                     side: const BorderSide(
-                                        color: Color(0xFFEF4444)),
+                                        color: SboxColors.danger),
                                     padding:
                                         const EdgeInsets.symmetric(vertical: 6),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(7)),
+                                        borderRadius: BorderRadius.circular(6)),
                                   ),
                                   icon: const Icon(Icons.close, size: 14),
                                   label: Text(tr('Từ chối'),
@@ -4436,12 +4437,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Expanded(
                                 child: FilledButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF22C55E),
+                                    backgroundColor: SboxColors.success,
                                     foregroundColor: Colors.white,
                                     padding:
                                         const EdgeInsets.symmetric(vertical: 6),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(7)),
+                                        borderRadius: BorderRadius.circular(6)),
                                     elevation: 0,
                                   ),
                                   icon: const Icon(Icons.check, size: 14),
@@ -4613,7 +4614,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(children: [
             CircleAvatar(
               radius: 16,
-              backgroundColor: const Color(0xFFFEF3C7),
+              backgroundColor: SboxColors.warningSoft,
               child: Text(
                 tr(fullName.isNotEmpty
                     ? fullName.characters.first.toUpperCase()
@@ -4637,7 +4638,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (dept.isNotEmpty)
                     Text(tr(dept),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF71717A))),
+                            fontSize: 11, color: SboxColors.slate500)),
                 ])),
             if (daysStr.isNotEmpty)
               Container(
@@ -4657,23 +4658,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 6),
             Row(children: [
               const Icon(Icons.calendar_today_outlined,
-                  size: 12, color: Color(0xFF6B7280)),
+                  size: 12, color: SboxColors.slate500),
               const SizedBox(width: 4),
               Text(tr(dateRange),
                   style:
-                      const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                      const TextStyle(fontSize: 11, color: SboxColors.slate500)),
             ]),
           ],
           if (reason.isNotEmpty) ...[
             const SizedBox(height: 4),
             Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Icon(Icons.notes_rounded,
-                  size: 12, color: Color(0xFF9CA3AF)),
+                  size: 12, color: SboxColors.slate400),
               const SizedBox(width: 4),
               Expanded(
                   child: Text(tr(reason),
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFF6B7280)),
+                          fontSize: 11, color: SboxColors.slate500),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis)),
             ]),
@@ -4730,7 +4731,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final dept = (d['department'] ?? '').toString();
       final days = (d['daysUntilExpiry'] as num?)?.toInt() ?? 0;
       final accent =
-          isExpired ? const Color(0xFFEF4444) : HrmPageChrome.chipLight;
+          isExpired ? SboxColors.danger : HrmPageChrome.chipLight;
       final badge = isExpired
           ? '${(-days)} ngày trước'
           : (days == 0 ? 'Hôm nay' : '$days ngày');
@@ -4771,7 +4772,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: .1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 isExpired ? Icons.warning_rounded : Icons.schedule_rounded,
@@ -4792,13 +4793,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (dept.isNotEmpty)
                     Text(tr(dept),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF71717A))),
+                            fontSize: 11, color: SboxColors.slate500)),
                 ])),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                   color: accent.withValues(alpha: .1),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Text(tr(badge),
                   style: TextStyle(
                       fontSize: 10,
@@ -4842,7 +4843,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
         if (expired.isNotEmpty) ...[
           if (expiring.isNotEmpty) const SizedBox(height: 8),
-          sectionHeader('Đã hết hạn', expired.length, const Color(0xFFEF4444)),
+          sectionHeader('Đã hết hạn', expired.length, SboxColors.danger),
           ...expired.map((d) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: contractRow(d, isExpired: true),
@@ -4883,8 +4884,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         (a['_birthdayDay'] as int).compareTo(b['_birthdayDay'] as int));
 
     const pink = HrmPageChrome.chipLight;
-    const green = Color(0xFF22C55E);
-    const grey = Color(0xFF94A3B8);
+    const green = SboxColors.success;
+    const grey = SboxColors.slate400;
 
     Widget empRow(Map<String, dynamic> e, Color color) {
       final ln = (e['lastName'] ?? '').toString().trim();
@@ -4936,7 +4937,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   if (dept.isNotEmpty)
                     Text(tr(dept),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF71717A)),
+                            fontSize: 11, color: SboxColors.slate500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                 ])),
@@ -4944,7 +4945,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(tr('Ngày $day'),
                 style: TextStyle(
@@ -4965,7 +4966,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.09),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: color.withValues(alpha: 0.25)),
           ),
           child: Row(children: [
@@ -4997,7 +4998,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 12, left: 4),
             child: Text(tr('Không có'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate400)),
           )
         else
           ...list.map((e) => empRow(e, color)),
@@ -5010,7 +5011,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Padding(
         padding: const EdgeInsets.all(32),
         child: Text(tr('Không có sinh nhật trong tháng này'),
-            style: TextStyle(color: Colors.grey.shade500)),
+            style: TextStyle(color: SboxColors.slate500)),
       ));
     }
 
@@ -5047,7 +5048,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           '${hours.toStringAsFixed(1)} giờ', HrmPageChrome.chipSoft),
       const SizedBox(height: 8),
       _detailStatRow(Icons.check_circle_outline, 'Đã duyệt', '$approved',
-          const Color(0xFF22C55E)),
+          SboxColors.success),
       const SizedBox(height: 8),
       _detailStatRow(
           Icons.task_alt, 'Hoàn thành', '$completed', HrmPageChrome.primaryNavy),
@@ -5095,7 +5096,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                   child: _detailStatRow(icon, label, value, color)),
               const Icon(Icons.chevron_right,
-                  size: 16, color: Color(0xFFCBD5E1)),
+                  size: 16, color: SboxColors.slate300),
             ],
           ),
         ),
@@ -5107,7 +5108,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           HrmPageChrome.chip),
       const SizedBox(height: 8),
       tappableRow(Icons.radio_button_unchecked, 'Chờ làm', '$todo',
-          const Color(0xFF71717A),
+          SboxColors.slate500,
           statusIndex: WorkTaskStatus.todo.index),
       if (assigned > 0) ...[
         const SizedBox(height: 8),
@@ -5120,29 +5121,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
           statusIndex: WorkTaskStatus.inProgress.index),
       const SizedBox(height: 8),
       tappableRow(Icons.check_circle, 'Hoàn thành', '$done',
-          const Color(0xFF22C55E),
+          SboxColors.success,
           statusIndex: WorkTaskStatus.completed.index),
       const SizedBox(height: 8),
       tappableRow(Icons.warning_amber, 'Quá hạn', '$overdue',
-          const Color(0xFFEF4444),
+          SboxColors.danger,
           overdueOnly: true),
       const SizedBox(height: 12),
       ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: LinearProgressIndicator(
           value: rate / 100,
           minHeight: 10,
-          backgroundColor: const Color(0xFFE4E4E7),
+          backgroundColor: SboxColors.slate200,
           valueColor: AlwaysStoppedAnimation(rate >= 80
-              ? const Color(0xFF22C55E)
+              ? SboxColors.success
               : rate >= 50
                   ? HrmPageChrome.chipLight
-                  : const Color(0xFFEF4444)),
+                  : SboxColors.danger),
         ),
       ),
       const SizedBox(height: 4),
       Text(tr('Tỉ lệ hoàn thành: ${rate.toStringAsFixed(0)}%'),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
     ]);
   }
 
@@ -5189,13 +5190,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Column(children: [
       tappableRow(Icons.receipt_long, 'Tổng phiếu vi phạm', '$total',
-          const Color(0xFFDC2626), null),
+          SboxColors.danger, null),
       const SizedBox(height: 8),
       _detailStatRow(Icons.attach_money, 'Tổng tiền phạt',
-          '${_fmtMoney(totalFine)}đ', const Color(0xFFDC2626)),
+          '${_fmtMoney(totalFine)}đ', SboxColors.danger),
       const SizedBox(height: 8),
       tappableRow(Icons.check_circle_outline, 'Đã duyệt', '$approved',
-          const Color(0xFF22C55E), '1'),
+          SboxColors.success, '1'),
       const SizedBox(height: 8),
       tappableRow(Icons.bolt_outlined, 'Tự duyệt', '$autoApproved',
           HrmPageChrome.primaryNavy, '3'),
@@ -5204,12 +5205,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           HrmPageChrome.chipLight, '0'),
       const SizedBox(height: 8),
       tappableRow(Icons.cancel_outlined, 'Đã hủy', '$cancelled',
-          const Color(0xFF71717A), '2'),
+          SboxColors.slate500, '2'),
       const SizedBox(height: 10),
       Text(tr('Nhấn vào từng mục để xem danh sách'),
         style: TextStyle(
             fontSize: 11,
-            color: Colors.grey.shade500,
+            color: SboxColors.slate500,
             fontStyle: FontStyle.italic),
         textAlign: TextAlign.center,
       ),
@@ -5228,16 +5229,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _toInt(_cashSummary['totalTransactions'] ?? _cashSummary['count'] ?? 0);
     return Column(children: [
       _detailStatRow(Icons.trending_up, 'Tổng thu', '${_fmtMoney(income)}đ',
-          const Color(0xFF22C55E)),
+          SboxColors.success),
       const SizedBox(height: 8),
       _detailStatRow(Icons.trending_down, 'Tổng chi', '${_fmtMoney(expense)}đ',
-          const Color(0xFFEF4444)),
+          SboxColors.danger),
       const SizedBox(height: 8),
       _detailStatRow(
           Icons.account_balance,
           'Tồn quỹ',
           '${net >= 0 ? '+' : ''}${_fmtMoney(net)}đ',
-          net >= 0 ? const Color(0xFF16A34A) : const Color(0xFFDC2626)),
+          net >= 0 ? SboxColors.success : SboxColors.danger),
       const SizedBox(height: 8),
       _detailStatRow(
           Icons.receipt, 'Số giao dịch', '$txCount', HrmPageChrome.chip),
@@ -5258,7 +5259,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8)),
+              borderRadius: BorderRadius.circular(10)),
           child: Icon(icon, size: 16, color: color),
         ),
         const SizedBox(width: 12),
@@ -5311,7 +5312,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : const Color(0xFF475569),
+            color: selected ? Colors.white : SboxColors.slate600,
           ),
         ),
       ),
@@ -5429,7 +5430,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : const Color(0xFF475569),
+            color: selected ? Colors.white : SboxColors.slate600,
           ),
         ),
       ),
@@ -5451,7 +5452,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B),
+              color: SboxColors.slate500,
             ),
           ),
           const SizedBox(height: 4),
@@ -5473,8 +5474,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ..sort((a, b) => shiftCounts[b]!.compareTo(shiftCounts[a]!));
 
     const palette = [
-      Color(0xFF22C55E),
-      Color(0xFF3B82F6),
+      SboxColors.success,
+      SboxColors.brand500,
       HrmPageChrome.chipSoft,
       HrmPageChrome.chipLight,
       HrmPageChrome.chipMid,
@@ -5486,10 +5487,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final double absent = (total - present).clamp(0.0, total);
 
     final Color mainColor = rate >= 85
-        ? const Color(0xFF22C55E)
+        ? SboxColors.success
         : rate >= 70
             ? HrmPageChrome.chipLight
-            : const Color(0xFFEF4444);
+            : SboxColors.danger;
 
     // Build sections with touch-aware radius
     final sections = <PieChartSectionData>[];
@@ -5521,7 +5522,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final isTouched = _touchedDonutIndex == absentIdx;
       sections.add(PieChartSectionData(
         value: absent,
-        color: const Color(0xFFE2E8F0),
+        color: SboxColors.slate200,
         radius: isTouched ? 34 : 26,
         showTitle: false,
       ));
@@ -5537,7 +5538,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final absPct = total > 0 ? (absent / total * 100) : 0.0;
         centerTop = '${absPct.toStringAsFixed(1)}%';
         centerSub = '${absent.toInt()} NV vắng';
-        centerColor = const Color(0xFF94A3B8);
+        centerColor = SboxColors.slate400;
       } else {
         final shiftIdx = shiftNames.isEmpty ? -1 : _touchedDonutIndex;
         if (shiftIdx >= 0 && shiftIdx < shiftNames.length) {
@@ -5619,7 +5620,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                               fontSize: 10,
-                              color: Color(0xFF94A3B8),
+                              color: SboxColors.slate400,
                               fontWeight: FontWeight.w500),
                         ),
                       ),
@@ -5629,7 +5630,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF64748B),
+                              color: SboxColors.slate500,
                               fontWeight: FontWeight.w500),
                         ),
                       ],
@@ -5660,7 +5661,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     tr('+${shiftNames.length - 4} ca'),
                     style: const TextStyle(
                       fontSize: 10,
-                      color: Color(0xFF94A3B8),
+                      color: SboxColors.slate400,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -5677,11 +5678,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _HeroKpi('Tổng NV', '$_totalEmployees', Icons.people_alt_rounded,
           HrmPageChrome.primaryNavy, 'total'),
       _HeroKpi(_presentShiftLabel, '$_presentCount', Icons.how_to_reg_rounded,
-          const Color(0xFF22C55E), 'present'),
+          SboxColors.success, 'present'),
       _HeroKpi('Đi trễ / Về sớm', '$_lateCount', Icons.schedule_rounded,
           HrmPageChrome.chipLight, 'late'),
       _HeroKpi('Vắng', '$_absentCount', Icons.person_off_rounded,
-          const Color(0xFFEF4444), 'absent'),
+          SboxColors.danger, 'absent'),
       _HeroKpi('Vào / Ra', '$_checkIns / $_checkOuts', Icons.swap_horiz_rounded,
           HrmPageChrome.chip, 'inout'),
       _HeroKpi('Thiết bị', '$_onlineDevices/$_totalDevices',
@@ -5748,7 +5749,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final label = _heroKpiShortLabel(k, compact);
     final decoration = BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       border: Border.all(color: const Color(0xFFE4E9F0)),
       boxShadow: [
         BoxShadow(
@@ -5764,7 +5765,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () => _showKpiDetail(k),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: Ink(
             padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
             decoration: decoration,
@@ -5777,7 +5778,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
                         color: k.color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(k.icon, size: 16, color: k.color),
                     ),
@@ -5786,7 +5787,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       tr(k.value),
                       style: TextStyle(
                         fontSize: 22,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: k.color,
                         height: 1,
                       ),
@@ -5802,7 +5803,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     fontSize: 12,
                     height: 1.25,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF475569),
+                    color: SboxColors.slate600,
                   ),
                   maxLines: 2,
                   softWrap: true,
@@ -5818,7 +5819,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _showKpiDetail(k),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Ink(
           padding: const EdgeInsets.fromLTRB(10, 10, 8, 10),
           decoration: decoration,
@@ -5843,7 +5844,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         fontSize: 11,
                         height: 1.2,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
+                        color: SboxColors.slate500,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -5853,7 +5854,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       tr(k.value),
                       style: TextStyle(
                         fontSize: 20,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: k.color,
                         height: 1.1,
                       ),
@@ -5920,7 +5921,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -5946,10 +5947,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A))),
+                                    color: SboxColors.slate900)),
                             Text(tr('${items.length} mục'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600)),
+                                    fontSize: 12, color: SboxColors.slate600)),
                           ],
                         ),
                       ),
@@ -5969,11 +5970,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(Icons.inbox_outlined,
-                                  size: 48, color: Colors.grey.shade400),
+                                  size: 48, color: SboxColors.slate400),
                               const SizedBox(height: 8),
                               Text(tr('Không có dữ liệu'),
                                   style:
-                                      TextStyle(color: Colors.grey.shade600)),
+                                      TextStyle(color: SboxColors.slate600)),
                             ],
                           ),
                         )
@@ -6093,7 +6094,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -6121,10 +6122,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A))),
+                                    color: SboxColors.slate900)),
                             Text(tr('${_dailyReportItems.length} NV · ${deptOrder.length} phòng ban'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600)),
+                                    fontSize: 12, color: SboxColors.slate600)),
                           ],
                         ),
                       ),
@@ -6132,7 +6133,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Row(mainAxisSize: MainAxisSize.min, children: [
                         _totalLegendDot(HrmPageChrome.chipLight, 'Lịch'),
                         const SizedBox(width: 8),
-                        _totalLegendDot(const Color(0xFF22C55E), 'Đã vào'),
+                        _totalLegendDot(SboxColors.success, 'Đã vào'),
                       ]),
                       IconButton(
                         icon: const Icon(Icons.close),
@@ -6147,7 +6148,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: byDept.isEmpty
                       ? Center(
                           child: Text(tr('Chưa có dữ liệu'),
-                              style: TextStyle(color: Colors.grey.shade500)))
+                              style: TextStyle(color: SboxColors.slate500)))
                       : ListView.builder(
                           controller: scrollController,
                           padding: const EdgeInsets.symmetric(
@@ -6195,7 +6196,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     _inOutChip('$presentCount/${emps.length}',
-                                        presentCount, const Color(0xFF22C55E)),
+                                        presentCount, SboxColors.success),
                                   ]),
                                   const SizedBox(height: 6),
                                   // Employee rows
@@ -6242,14 +6243,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           horizontal: 10, vertical: 8),
                                       decoration: BoxDecoration(
                                         color: hasCheckedIn
-                                            ? const Color(0xFFF0FDF4)
-                                            : const Color(0xFFF8FAFC),
+                                            ? SboxColors.successSoft
+                                            : SboxColors.slate50,
                                         borderRadius: BorderRadius.circular(10),
                                         border: Border.all(
                                           color: hasCheckedIn
-                                              ? const Color(0xFF22C55E)
+                                              ? SboxColors.success
                                                   .withValues(alpha: 0.25)
-                                              : Colors.grey.shade200,
+                                              : SboxColors.slate200,
                                         ),
                                       ),
                                       child: Column(
@@ -6260,8 +6261,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             CircleAvatar(
                                               radius: 16,
                                               backgroundColor: (hasCheckedIn
-                                                      ? const Color(0xFF22C55E)
-                                                      : const Color(0xFF94A3B8))
+                                                      ? SboxColors.success
+                                                      : SboxColors.slate400)
                                                   .withValues(alpha: 0.18),
                                               child: Text(
                                                 tr(name.isNotEmpty
@@ -6269,8 +6270,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                     : '?'),
                                                 style: TextStyle(
                                                   color: hasCheckedIn
-                                                      ? const Color(0xFF16A34A)
-                                                      : const Color(0xFF64748B),
+                                                      ? SboxColors.success
+                                                      : SboxColors.slate500,
                                                   fontWeight: FontWeight.bold,
                                                   fontSize: 12,
                                                 ),
@@ -6291,7 +6292,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             if (checkInStr.isNotEmpty) ...[
                                               const Icon(Icons.login,
                                                   size: 11,
-                                                  color: Color(0xFF22C55E)),
+                                                  color: SboxColors.success),
                                               const SizedBox(width: 2),
                                               Text(tr(checkInStr),
                                                   style: TextStyle(
@@ -6308,7 +6309,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                               const SizedBox(width: 5),
                                               const Icon(Icons.logout,
                                                   size: 11,
-                                                  color: Color(0xFFEF4444)),
+                                                  color: SboxColors.danger),
                                               const SizedBox(width: 2),
                                               Text(tr(checkOutStr),
                                                   style: TextStyle(
@@ -6328,7 +6329,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                 child: Icon(
                                                     Icons.person_off_outlined,
                                                     size: 14,
-                                                    color: Color(0xFF94A3B8)),
+                                                    color: SboxColors.slate400),
                                               ),
                                           ]),
                                           // Shift chips: scheduled (yellow→green when punched) + extra punched
@@ -6388,12 +6389,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(
-          color == const Color(0xFF22C55E)
+          color == SboxColors.success
               ? Icons.check_circle_outline
               : Icons.schedule_outlined,
           size: 10,
@@ -6415,7 +6416,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
       const SizedBox(width: 4),
       Text(tr('$label: '),
-          style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+          style: const TextStyle(fontSize: 10, color: SboxColors.slate500)),
       Text(tr('$count NV'),
           style: TextStyle(
               fontSize: 10, color: color, fontWeight: FontWeight.w700)),
@@ -6546,7 +6547,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -6559,11 +6560,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              const Color(0xFFEF4444).withValues(alpha: 0.12),
+                              SboxColors.danger.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.person_off_rounded,
-                            color: Color(0xFFEF4444), size: 20),
+                            color: SboxColors.danger, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -6574,7 +6575,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A))),
+                                    color: SboxColors.slate900)),
                             Text(tr(() {
                               final reportDate = _effectiveDate ??
                                   _selectedDate ??
@@ -6584,7 +6585,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               return '${seenEmpCodes.length} NV · $dateLabel';
                             }()),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600)),
+                                    fontSize: 12, color: SboxColors.slate600)),
                           ],
                         ),
                       ),
@@ -6608,7 +6609,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SizedBox(height: 8),
                               Text(tr('Không có ai vắng mặt'),
                                   style:
-                                      TextStyle(color: Colors.grey.shade600)),
+                                      TextStyle(color: SboxColors.slate600)),
                             ],
                           ),
                         )
@@ -6636,11 +6637,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFEF4444)
+                                        color: SboxColors.danger
                                             .withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(20),
                                         border: Border.all(
-                                            color: const Color(0xFFEF4444)
+                                            color: SboxColors.danger
                                                 .withValues(alpha: 0.3)),
                                       ),
                                       child: Row(
@@ -6649,13 +6650,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             const Icon(
                                                 Icons.access_time_rounded,
                                                 size: 12,
-                                                color: Color(0xFFEF4444)),
+                                                color: SboxColors.danger),
                                             const SizedBox(width: 4),
                                             Text(tr(shiftLabel),
                                                 style: const TextStyle(
                                                     fontSize: 12,
                                                     fontWeight: FontWeight.w700,
-                                                    color: Color(0xFFEF4444))),
+                                                    color: SboxColors.danger)),
                                           ]),
                                     ),
                                     const SizedBox(width: 8),
@@ -6663,13 +6664,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade100,
-                                        borderRadius: BorderRadius.circular(12),
+                                        color: SboxColors.slate100,
+                                        borderRadius: BorderRadius.circular(14),
                                       ),
                                       child: Text(tr('${emps.length} vắng'),
                                           style: TextStyle(
                                               fontSize: 11,
-                                              color: Colors.grey.shade700,
+                                              color: SboxColors.slate700,
                                               fontWeight: FontWeight.w600)),
                                     ),
                                   ]),
@@ -6691,25 +6692,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       margin: const EdgeInsets.only(bottom: 6),
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFEF4444)
+                                        color: SboxColors.danger
                                             .withValues(alpha: 0.04),
                                         borderRadius: BorderRadius.circular(10),
                                         border: Border.all(
-                                            color: const Color(0xFFEF4444)
+                                            color: SboxColors.danger
                                                 .withValues(alpha: 0.15)),
                                       ),
                                       child: Row(children: [
                                         CircleAvatar(
                                           radius: 16,
                                           backgroundColor:
-                                              const Color(0xFFEF4444)
+                                              SboxColors.danger
                                                   .withValues(alpha: 0.12),
                                           child: Text(
                                             tr(empName.isNotEmpty
                                                 ? empName[0].toUpperCase()
                                                 : '?'),
                                             style: const TextStyle(
-                                                color: Color(0xFFDC2626),
+                                                color: SboxColors.danger,
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 12),
                                           ),
@@ -6745,16 +6746,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 7, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFEF4444)
+                                            color: SboxColors.danger
                                                 .withValues(alpha: 0.1),
                                             borderRadius:
-                                                BorderRadius.circular(8),
+                                                BorderRadius.circular(10),
                                           ),
                                           child: Text(
                                             tr(status.isNotEmpty ? status : 'Vắng'),
                                             style: const TextStyle(
                                                 fontSize: 10,
-                                                color: Color(0xFFEF4444),
+                                                color: SboxColors.danger,
                                                 fontWeight: FontWeight.w600),
                                           ),
                                         ),
@@ -6845,7 +6846,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -6858,11 +6859,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
-                              const Color(0xFF22C55E).withValues(alpha: 0.14),
+                              SboxColors.success.withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.check_circle_outline_rounded,
-                            color: Color(0xFF16A34A), size: 20),
+                            color: SboxColors.success, size: 20),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -6873,12 +6874,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A))),
+                                    color: SboxColors.slate900)),
                             Text(
                                 tr('$totalPresent nhân viên'
                                 '${useShiftPairs && shiftOrder.isNotEmpty ? ' · ${shiftOrder.length} ca' : ''}'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600)),
+                                    fontSize: 12, color: SboxColors.slate600)),
                           ],
                         ),
                       ),
@@ -6941,7 +6942,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                     _inOutChip('${emps.length} NV', emps.length,
-                                        const Color(0xFF22C55E)),
+                                        SboxColors.success),
                                     if (lateInShift > 0) ...[
                                       const SizedBox(width: 6),
                                       _lateBadge('⏰ $lateInShift trễ',
@@ -6950,7 +6951,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     if (earlyInShift > 0) ...[
                                       const SizedBox(width: 4),
                                       _lateBadge('🚪 $earlyInShift sớm',
-                                          const Color(0xFFEF4444)),
+                                          SboxColors.danger),
                                     ],
                                   ]),
                                   const SizedBox(height: 6),
@@ -6961,14 +6962,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     final borderColor = hasIssue
                                         ? HrmPageChrome.chipLight
                                             .withValues(alpha: 0.40)
-                                        : const Color(0xFF22C55E)
+                                        : SboxColors.success
                                             .withValues(alpha: 0.25);
                                     final bgColor = hasIssue
-                                        ? const Color(0xFFFFFBEB)
-                                        : const Color(0xFFF0FDF4);
+                                        ? SboxColors.warningSoft
+                                        : SboxColors.successSoft;
                                     final avatarColor = hasIssue
                                         ? HrmPageChrome.chipLight
-                                        : const Color(0xFF22C55E);
+                                        : SboxColors.success;
 
                                     return Container(
                                       margin: const EdgeInsets.only(bottom: 5),
@@ -7006,7 +7007,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                       fontWeight:
                                                           FontWeight.w600,
                                                       fontSize: 13,
-                                                      color: Color(0xFF0F172A)),
+                                                      color: SboxColors.slate900),
                                                   maxLines: 1,
                                                   overflow:
                                                       TextOverflow.ellipsis),
@@ -7027,7 +7028,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                             Row(children: [
                                               const Icon(Icons.login,
                                                   size: 12,
-                                                  color: Color(0xFF22C55E)),
+                                                  color: SboxColors.success),
                                               const SizedBox(width: 2),
                                               Text(tr(fmtTime(emp.checkIn)),
                                                   style: const TextStyle(
@@ -7035,12 +7036,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                       fontWeight:
                                                           FontWeight.w600,
                                                       color:
-                                                          Color(0xFF16A34A))),
+                                                          SboxColors.success)),
                                               if (emp.checkOut != null) ...[
                                                 const SizedBox(width: 6),
                                                 const Icon(Icons.logout,
                                                     size: 12,
-                                                    color: Color(0xFFEF4444)),
+                                                    color: SboxColors.danger),
                                                 const SizedBox(width: 2),
                                                 Text(tr(fmtTime(emp.checkOut)),
                                                     style: const TextStyle(
@@ -7048,7 +7049,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color:
-                                                            Color(0xFFDC2626))),
+                                                            SboxColors.danger)),
                                               ],
                                             ]),
                                             const SizedBox(height: 2),
@@ -7093,7 +7094,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (items.isEmpty) {
       return Center(
         child: Text(tr('Chưa có dữ liệu'),
-            style: TextStyle(color: Colors.grey.shade500)),
+            style: TextStyle(color: SboxColors.slate500)),
       );
     }
     return ListView.separated(
@@ -7102,7 +7103,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       itemCount: items.length,
       separatorBuilder: (_, __) => const SizedBox(height: 5),
       itemBuilder: (_, i) =>
-          _buildKpiDetailRow('present', items[i], const Color(0xFF22C55E)),
+          _buildKpiDetailRow('present', items[i], SboxColors.success),
     );
   }
 
@@ -7184,7 +7185,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -7212,10 +7213,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A))),
+                                    color: SboxColors.slate900)),
                             Text(tr('${groups.length} nhân viên'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600)),
+                                    fontSize: 12, color: SboxColors.slate600)),
                           ],
                         ),
                       ),
@@ -7234,7 +7235,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         HrmPageChrome.chipLight),
                     const SizedBox(width: 8),
                     _inOutChip('🚪 Về sớm: $totalEarlyCount ca',
-                        totalEarlyCount, const Color(0xFFEF4444)),
+                        totalEarlyCount, SboxColors.danger),
                   ]),
                 ),
                 const Divider(height: 1),
@@ -7243,7 +7244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: groups.isEmpty
                       ? Center(
                           child: Text(tr('Không có dữ liệu'),
-                              style: TextStyle(color: Colors.grey.shade500)))
+                              style: TextStyle(color: SboxColors.slate500)))
                       : ListView.separated(
                           controller: scrollController,
                           padding: const EdgeInsets.symmetric(
@@ -7277,12 +7278,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             return Card(
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                                 side: BorderSide(
                                     color: HrmPageChrome.chipLight
                                         .withValues(alpha: 0.35)),
                               ),
-                              color: const Color(0xFFFFFBEB),
+                              color: SboxColors.warningSoft,
                               child: Theme(
                                 data: Theme.of(sheetCtx)
                                     .copyWith(dividerColor: Colors.transparent),
@@ -7309,14 +7310,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       style: const TextStyle(
                                           fontWeight: FontWeight.w700,
                                           fontSize: 13,
-                                          color: Color(0xFF0F172A)),
+                                          color: SboxColors.slate900),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis),
                                   subtitle: Row(children: [
                                     Text(tr('${g.entries.length} ca'),
                                         style: TextStyle(
                                             fontSize: 11,
-                                            color: Colors.grey.shade500)),
+                                            color: SboxColors.slate500)),
                                     if (totLate > 0) ...[
                                       const SizedBox(width: 6),
                                       _lateBadge('⏰ ${fmtMin(totLate)}',
@@ -7325,7 +7326,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     if (totEarly > 0) ...[
                                       const SizedBox(width: 4),
                                       _lateBadge('🚪 ${fmtMin(totEarly)}',
-                                          const Color(0xFFEF4444)),
+                                          SboxColors.danger),
                                     ],
                                   ]),
                                   children: g.entries.map((en) {
@@ -7368,8 +7369,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(12),
+        color: SboxColors.warningSoft,
+        borderRadius: BorderRadius.circular(14),
         border:
             Border.all(color: HrmPageChrome.chipLight.withValues(alpha: 0.35)),
       ),
@@ -7395,7 +7396,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
-                        color: Color(0xFF0F172A)),
+                        color: SboxColors.slate900),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 _buildLateShiftRow(
@@ -7429,28 +7430,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(tr(shiftName),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
         Row(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.login, size: 11, color: Color(0xFF22C55E)),
+          const Icon(Icons.login, size: 11, color: SboxColors.success),
           const SizedBox(width: 2),
           Text(tr(checkIn),
               style: const TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF16A34A),
+                  color: SboxColors.success,
                   fontWeight: FontWeight.w600)),
           const SizedBox(width: 6),
-          const Icon(Icons.logout, size: 11, color: Color(0xFFEF4444)),
+          const Icon(Icons.logout, size: 11, color: SboxColors.danger),
           const SizedBox(width: 2),
           Text(tr(checkOut),
               style: const TextStyle(
                   fontSize: 11,
-                  color: Color(0xFFDC2626),
+                  color: SboxColors.danger,
                   fontWeight: FontWeight.w600)),
         ]),
         if (lateMin > 0)
           _lateBadge('⏰ Trễ ${fmtMin(lateMin)}', HrmPageChrome.chipLight),
         if (earlyMin > 0)
-          _lateBadge('🚪 Sớm ${fmtMin(earlyMin)}', const Color(0xFFEF4444)),
+          _lateBadge('🚪 Sớm ${fmtMin(earlyMin)}', SboxColors.danger),
       ],
     );
   }
@@ -7460,7 +7461,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.30)),
       ),
       child: Text(tr(label),
@@ -7550,7 +7551,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -7577,12 +7578,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A))),
+                                    color: SboxColors.slate900)),
                             Text(
                                 tr('$_checkIns vào · $_checkOuts ra'
                                 '${missingCount > 0 ? ' · $missingCount chưa ra' : ''}'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600)),
+                                    fontSize: 12, color: SboxColors.slate600)),
                           ],
                         ),
                       ),
@@ -7597,7 +7598,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                   child: Row(children: [
                     _inOutChip(
-                        '✅ Đủ cặp', completeCount, const Color(0xFF22C55E)),
+                        '✅ Đủ cặp', completeCount, SboxColors.success),
                     const SizedBox(width: 8),
                     _inOutChip(
                         '⚠️ Thiếu ra', missingCount, HrmPageChrome.chipLight),
@@ -7608,7 +7609,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: rows.isEmpty
                       ? Center(
                           child: Text(tr('Chưa có dữ liệu chấm công'),
-                              style: TextStyle(color: Colors.grey.shade500)))
+                              style: TextStyle(color: SboxColors.slate500)))
                       : ListView.separated(
                           controller: scrollController,
                           padding: const EdgeInsets.symmetric(
@@ -7620,7 +7621,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             final r = rows[i];
                             final color = r.missing
                                 ? HrmPageChrome.chipLight
-                                : const Color(0xFF22C55E);
+                                : SboxColors.success;
                             return Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 10),
@@ -7660,7 +7661,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       Text(tr('Lần ${r.pairIndex}'),
                                           style: TextStyle(
                                               fontSize: 11,
-                                              color: Colors.grey.shade500)),
+                                              color: SboxColors.slate500)),
                                     ],
                                   ),
                                 ),
@@ -7670,25 +7671,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   children: [
                                     Row(children: [
                                       const Icon(Icons.login,
-                                          size: 13, color: Color(0xFF22C55E)),
+                                          size: 13, color: SboxColors.success),
                                       const SizedBox(width: 3),
                                       Text(tr(fmtTime(r.checkIn)),
                                           style: const TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w600,
-                                              color: Color(0xFF22C55E))),
+                                              color: SboxColors.success)),
                                     ]),
                                     const SizedBox(height: 2),
                                     if (r.checkOut != null)
                                       Row(children: [
                                         const Icon(Icons.logout,
-                                            size: 13, color: Color(0xFFEF4444)),
+                                            size: 13, color: SboxColors.danger),
                                         const SizedBox(width: 3),
                                         Text(tr(fmtTime(r.checkOut!)),
                                             style: const TextStyle(
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w600,
-                                                color: Color(0xFFEF4444))),
+                                                color: SboxColors.danger)),
                                       ])
                                     else
                                       Row(children: [
@@ -7862,12 +7863,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             CircleAvatar(
               radius: 18,
               backgroundColor:
-                  (isOnline ? const Color(0xFF22C55E) : const Color(0xFFEF4444))
+                  (isOnline ? SboxColors.success : SboxColors.danger)
                       .withValues(alpha: .12),
               child: Icon(Icons.router_rounded,
                   color: isOnline
-                      ? const Color(0xFF22C55E)
-                      : const Color(0xFFEF4444),
+                      ? SboxColors.success
+                      : SboxColors.danger,
                   size: 18),
             ),
             const SizedBox(width: 12),
@@ -7885,7 +7886,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (ip.isNotEmpty) 'IP: $ip',
                       if (lastSeen.isNotEmpty) 'Mất KN: $lastSeen',
                     ].join('  •  ')),
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                   ),
                 ],
               ),
@@ -7894,8 +7895,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: (isOnline
-                        ? const Color(0xFF22C55E)
-                        : const Color(0xFFEF4444))
+                        ? SboxColors.success
+                        : SboxColors.danger)
                     .withValues(alpha: .1),
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -7905,8 +7906,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                     color: isOnline
-                        ? const Color(0xFF16A34A)
-                        : const Color(0xFFDC2626)),
+                        ? SboxColors.success
+                        : SboxColors.danger),
               ),
             ),
           ],
@@ -7967,7 +7968,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     if (code.isNotEmpty) code,
                     if (dept.isNotEmpty) dept,
                   ].join('  •  ')),
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -7978,24 +7979,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         if (ci.isNotEmpty) ...[
                           const Icon(Icons.login,
-                              size: 12, color: Color(0xFF22C55E)),
+                              size: 12, color: SboxColors.success),
                           const SizedBox(width: 3),
                           Text(tr(ci),
                               style: const TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFF16A34A),
+                                  color: SboxColors.success,
                                   fontWeight: FontWeight.w600)),
                         ],
                         if (ci.isNotEmpty && co.isNotEmpty)
                           const SizedBox(width: 10),
                         if (co.isNotEmpty) ...[
                           const Icon(Icons.logout,
-                              size: 12, color: Color(0xFFEF4444)),
+                              size: 12, color: SboxColors.danger),
                           const SizedBox(width: 3),
                           Text(tr(co),
                               style: const TextStyle(
                                   fontSize: 11,
-                                  color: Color(0xFFDC2626),
+                                  color: SboxColors.danger,
                                   fontWeight: FontWeight.w600)),
                         ],
                       ],
@@ -8009,7 +8010,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
               decoration: BoxDecoration(
                 color: accent.withValues(alpha: .1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 tr(status),
@@ -8021,7 +8022,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           if (kind == 'late') ...[
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+            const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
           ],
         ],
       ),
@@ -8230,7 +8231,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isLate = p.lateMinutes > 0;
     final isEarly = p.earlyMinutes > 0;
     final color =
-        (isLate || isEarly) ? HrmPageChrome.chipLight : const Color(0xFF22C55E);
+        (isLate || isEarly) ? HrmPageChrome.chipLight : SboxColors.success;
     final statusParts = <String>[];
     if (isLate) statusParts.add('Trễ ${p.lateMinutes}p');
     if (isEarly) statusParts.add('Sớm ${p.earlyMinutes}p');
@@ -8269,7 +8270,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(
                   tr('${p.shiftName} · ${fmt(p.checkIn)} → ${fmt(p.checkOut)}'),
                   style:
-                      const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
+                      const TextStyle(fontSize: 11, color: SboxColors.slate400),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -8303,8 +8304,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final color = isTravel
         ? HrmPageChrome.chipLight
         : (checkIn == true
-            ? const Color(0xFF22C55E)
-            : const Color(0xFFEF4444));
+            ? SboxColors.success
+            : SboxColors.danger);
     final stateLabel = isTravel ? a.punchTypeText : (checkIn == true ? 'Vào' : 'Ra');
     final t = a.attendanceTime;
     final timeStr =
@@ -8341,7 +8342,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(
                   tr('$dateStr · ${a.deviceName ?? ''}'.trim()),
                   style:
-                      const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
+                      const TextStyle(fontSize: 11, color: SboxColors.slate400),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -8361,7 +8362,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(tr(stateLabel),
                     style: TextStyle(
@@ -8417,14 +8418,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           if (dept.isNotEmpty)
             Text(tr(dept),
-                style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 11)),
+                style: const TextStyle(color: SboxColors.slate400, fontSize: 11)),
         ])),
         if (checkIn != null)
           Text(tr(_fmtTime(checkIn)),
               style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy)),
         if (checkOut != null) ...[
           Text(tr(' → '),
-              style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+              style: TextStyle(fontSize: 10, color: SboxColors.slate400)),
           Text(tr(_fmtTime(checkOut)),
               style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy)),
         ],
@@ -8433,7 +8434,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Text(tr(statusText),
               style: TextStyle(
@@ -8454,7 +8455,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.person_off_outlined,
       title: _l10n.absentEmployees,
-      color: const Color(0xFFEF4444),
+      color: SboxColors.danger,
       badge: '${withPerm.length + withoutPerm.length} người',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _sectionLabel('${_l10n.authorized} (${withPerm.length})',
@@ -8469,7 +8470,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               true)),
         const SizedBox(height: 12),
         _sectionLabel('${_l10n.unauthorized} (${withoutPerm.length})',
-            const Color(0xFFEF4444)),
+            SboxColors.danger),
         if (withoutPerm.isEmpty)
           _emptyRow('Không có')
         else
@@ -8480,19 +8481,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (notScheduled.isNotEmpty) ...[
           const SizedBox(height: 12),
           _sectionLabel('${_l10n.noSchedule} (${notScheduled.length})',
-              const Color(0xFFA1A1AA)),
+              SboxColors.slate400),
           ...notScheduled.map((e) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(children: [
                   const Icon(Icons.event_busy,
-                      size: 14, color: Color(0xFFA1A1AA)),
+                      size: 14, color: SboxColors.slate400),
                   const SizedBox(width: 8),
                   Expanded(
                       child: Text(
                           tr((e['employeeName'] ?? e['fullName'] ?? 'N/A')
                               .toString()),
                           style: const TextStyle(
-                              fontSize: 12, color: Color(0xFFA1A1AA)))),
+                              fontSize: 12, color: SboxColors.slate400))),
                 ]),
               )),
         ],
@@ -8502,7 +8503,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _absentRow(String name, String detail, bool hasPermission) {
     final color =
-        hasPermission ? HrmPageChrome.chipLight : const Color(0xFFEF4444);
+        hasPermission ? HrmPageChrome.chipLight : SboxColors.danger;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(children: [
@@ -8514,7 +8515,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w500))),
         Text(tr(detail),
-            style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+            style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
       ]),
     );
   }
@@ -8558,7 +8559,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           if (timeStr.isNotEmpty) timeStr,
                         ].join(' • ')),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFFA1A1AA)),
+                            fontSize: 11, color: SboxColors.slate400),
                       ),
                     ],
                   ),
@@ -8568,7 +8569,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
+                        color: SboxColors.warningSoft,
                         borderRadius: BorderRadius.circular(10)),
                     child: Text(tr(lateLabel),
                         style: const TextStyle(
@@ -8584,7 +8585,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(tr('+${entries.length - 8} ca khác'),
                   style:
-                      const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+                      const TextStyle(color: SboxColors.slate500, fontSize: 12)),
             ),
         ]),
       );
@@ -8633,14 +8634,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (dept.isNotEmpty)
                         Text(tr(dept),
                             style: const TextStyle(
-                                fontSize: 11, color: Color(0xFFA1A1AA))),
+                                fontSize: 11, color: SboxColors.slate400)),
                     ])),
                 if (lateLabel.isNotEmpty)
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                        color: const Color(0xFFFEF3C7),
+                        color: SboxColors.warningSoft,
                         borderRadius: BorderRadius.circular(10)),
                     child: Text(tr(lateLabel),
                         style: const TextStyle(
@@ -8688,7 +8689,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                       color: const Color(0xFFFCE7F3),
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   child: Text(tr('🎉'), style: TextStyle(fontSize: 14)),
                 ),
                 const SizedBox(width: 8),
@@ -8702,7 +8703,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (dept.isNotEmpty)
                         Text(tr(dept),
                             style: const TextStyle(
-                                fontSize: 11, color: Color(0xFFA1A1AA))),
+                                fontSize: 11, color: SboxColors.slate400)),
                     ])),
                 Container(
                   padding:
@@ -8710,7 +8711,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   decoration: BoxDecoration(
                       gradient: const LinearGradient(
                           colors: [HrmPageChrome.chipLight, Color(0xFFF472B6)]),
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14)),
                   child: Text(tr(_l10n.today),
                       style: const TextStyle(
                           color: Colors.white,
@@ -8749,11 +8750,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (dept.toString().isNotEmpty)
                         Text(tr(dept.toString()),
                             style: const TextStyle(
-                                fontSize: 11, color: Color(0xFFA1A1AA))),
+                                fontSize: 11, color: SboxColors.slate400)),
                     ])),
                 Text(tr('Ngày $day'),
                     style: const TextStyle(
-                        fontSize: 11, color: Color(0xFFA1A1AA))),
+                        fontSize: 11, color: SboxColors.slate400)),
               ]),
             );
           }),
@@ -8811,7 +8812,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else if (hour >= 14 && hour < 22) {
       currentShift = 'Ca chiều';
       shiftIcon = Icons.wb_twilight;
-      shiftColor = const Color(0xFFEF4444);
+      shiftColor = SboxColors.danger;
     } else {
       currentShift = 'Ca đêm';
       shiftIcon = Icons.nightlight;
@@ -8839,7 +8840,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                   color: shiftColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(14)),
               child: Icon(shiftIcon, color: shiftColor, size: 24),
             ),
             const SizedBox(width: 14),
@@ -8848,11 +8849,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                   Text(tr('Ca hiện tại'),
-                      style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                      style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
                   const SizedBox(height: 2),
                   Text(tr(currentShift),
                       style: TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: shiftColor)),
                 ])),
@@ -8878,7 +8879,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? HrmPageChrome.primaryNavy
                 : rate >= 0.5
                     ? HrmPageChrome.chipLight
-                    : const Color(0xFFEF4444);
+                    : SboxColors.danger;
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 5),
               child: Column(children: [
@@ -8902,7 +8903,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: LinearProgressIndicator(
                     value: rate,
                     minHeight: 5,
-                    backgroundColor: const Color(0xFFE4E4E7),
+                    backgroundColor: SboxColors.slate200,
                     valueColor: AlwaysStoppedAnimation(rateColor),
                   ),
                 ),
@@ -8920,7 +8921,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Icons.event_available, HrmPageChrome.primaryNavy),
           const SizedBox(width: 10),
           _scheduleInfoBox('Nghỉ/Trống', '${_notScheduledEmployees.length}',
-              Icons.event_busy, const Color(0xFFA1A1AA)),
+              Icons.event_busy, SboxColors.slate400),
         ]),
       ]),
     );
@@ -8933,7 +8934,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color.withValues(alpha: 0.12)),
         ),
         child: Column(children: [
@@ -8941,9 +8942,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 4),
           Text(tr(value),
               style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 15, color: color)),
+                  fontWeight: FontWeight.bold, fontSize: 16, color: color)),
           Text(tr(label),
-              style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
+              style: const TextStyle(fontSize: 10, color: SboxColors.slate400),
               textAlign: TextAlign.center),
         ]),
       ),
@@ -8981,7 +8982,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 HrmPageChrome.chip.withValues(alpha: 0.08),
                 HrmPageChrome.chip.withValues(alpha: 0.03),
               ]),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                   color: HrmPageChrome.chip.withValues(alpha: 0.15)),
             ),
@@ -8995,12 +8996,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ? HrmPageChrome.primaryNavy
                             : avgScore >= 50
                                 ? HrmPageChrome.chipLight
-                                : const Color(0xFFEF4444))),
-                Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
+                                : SboxColors.danger)),
+                Container(width: 1, height: 36, color: SboxColors.slate200),
                 Expanded(
                     child: _kpiSummaryItem('NV đánh giá', '$totalKpiEmployees',
                         HrmPageChrome.primaryNavy)),
-                Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
+                Container(width: 1, height: 36, color: SboxColors.slate200),
                 Expanded(
                     child: _kpiSummaryItem(
                         'Đã duyệt',
@@ -9055,7 +9056,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               kpiColor = HrmPageChrome.chipLight;
               kpiLabel = 'Trung bình';
             } else {
-              kpiColor = const Color(0xFFEF4444);
+              kpiColor = SboxColors.danger;
               kpiLabel = 'Cần cải thiện';
             }
 
@@ -9069,7 +9070,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       CircularProgressIndicator(
                           value: pct / 100,
                           strokeWidth: 3,
-                          backgroundColor: const Color(0xFFE4E4E7),
+                          backgroundColor: SboxColors.slate200,
                           valueColor: AlwaysStoppedAnimation(kpiColor)),
                       Text(tr('${pct.toInt()}'),
                           style: TextStyle(
@@ -9090,7 +9091,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ])),
                 Text(tr('${score.toStringAsFixed(0)}/${target.toStringAsFixed(0)}'),
                     style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF71717A))),
+                        fontSize: 12, color: SboxColors.slate500)),
               ]),
             );
           }),
@@ -9106,7 +9107,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               fontSize: 16, fontWeight: FontWeight.bold, color: color)),
       const SizedBox(height: 2),
       Text(tr(label),
-          style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
+          style: const TextStyle(fontSize: 10, color: SboxColors.slate400),
           textAlign: TextAlign.center),
     ]);
   }
@@ -9162,12 +9163,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 case 'Regulation':
                   typeLabel = 'Quy định';
                   typeIcon = Icons.gavel;
-                  typeColor = const Color(0xFFEF4444);
+                  typeColor = SboxColors.danger;
               }
 
               return InkWell(
                 onTap: () => NavigationNotifier.goToCommunication(),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(children: [
@@ -9175,7 +9176,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                             color: typeColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                         child: Icon(typeIcon, size: 16, color: typeColor)),
                     const SizedBox(width: 10),
                     Expanded(
@@ -9193,7 +9194,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     horizontal: 6, vertical: 1),
                                 decoration: BoxDecoration(
                                     color: typeColor.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8)),
+                                    borderRadius: BorderRadius.circular(10)),
                                 child: Text(tr(typeLabel),
                                     style: TextStyle(
                                         fontSize: 10, color: typeColor))),
@@ -9201,12 +9202,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               const SizedBox(width: 6),
                               Text(tr(_fmtDate(created)),
                                   style: const TextStyle(
-                                      fontSize: 10, color: Color(0xFFA1A1AA))),
+                                      fontSize: 10, color: SboxColors.slate400)),
                             ],
                           ]),
                         ])),
                     const Icon(Icons.chevron_right,
-                        size: 16, color: Color(0xFFA1A1AA)),
+                        size: 16, color: SboxColors.slate400),
                   ]),
                 ),
               );
@@ -9244,7 +9245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text(tr('Tiến độ ngày làm việc'),
-                  style: TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
               Text(tr('${(progress * 100).toStringAsFixed(0)}%'),
                   style: const TextStyle(
                       fontSize: 14,
@@ -9257,7 +9258,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 8,
-                    backgroundColor: const Color(0xFFE4E4E7),
+                    backgroundColor: SboxColors.slate200,
                     valueColor:
                         const AlwaysStoppedAnimation(HrmPageChrome.primaryNavy))),
             const SizedBox(height: 12),
@@ -9297,9 +9298,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF18181B))),
+              color: SboxColors.slate900)),
       Text(tr(label),
-          style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+          style: const TextStyle(fontSize: 10, color: SboxColors.slate400)),
     ]);
   }
 
@@ -9309,7 +9310,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
           color: color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color.withValues(alpha: 0.12))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -9323,7 +9324,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Text(tr(label),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+              style: const TextStyle(fontSize: 10, color: SboxColors.slate400)),
         ],
       ),
     );
@@ -9344,7 +9345,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Row(children: [
           _miniChip('Online', '${online.length}', HrmPageChrome.primaryNavy),
           const SizedBox(width: 8),
-          _miniChip('Offline', '${offline.length}', const Color(0xFFEF4444)),
+          _miniChip('Offline', '${offline.length}', SboxColors.danger),
         ]),
         const SizedBox(height: 12),
         if (_devices.isEmpty)
@@ -9364,7 +9365,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     decoration: BoxDecoration(
                         color: isOn
                             ? HrmPageChrome.primaryNavy
-                            : const Color(0xFFEF4444),
+                            : SboxColors.danger,
                         shape: BoxShape.circle)),
                 const SizedBox(width: 10),
                 Expanded(
@@ -9379,7 +9380,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             tr([if (ip.isNotEmpty) ip, if (loc.isNotEmpty) loc]
                                 .join(' • ')),
                             style: const TextStyle(
-                                fontSize: 11, color: Color(0xFFA1A1AA))),
+                                fontSize: 11, color: SboxColors.slate400)),
                     ])),
                 Container(
                   padding:
@@ -9387,16 +9388,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   decoration: BoxDecoration(
                       color: (isOn
                               ? HrmPageChrome.primaryNavy
-                              : const Color(0xFFEF4444))
+                              : SboxColors.danger)
                           .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14)),
                   child: Text(tr(isOn ? 'Online' : 'Offline'),
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: isOn
                               ? HrmPageChrome.primaryNavy
-                              : const Color(0xFFEF4444))),
+                              : SboxColors.danger)),
                 ),
               ]),
             );
@@ -9467,15 +9468,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Icons.pending_actions_outlined,
                   'Chờ duyệt',
                   '$totalPending',
-                  const Color(0xFFEF4444),
+                  SboxColors.danger,
                   'pending_all'));
             },
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: HrmPageChrome.chipLight.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                   color: HrmPageChrome.chipLight.withValues(alpha: 0.2)),
             ),
@@ -9505,7 +9506,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.12)),
       ),
       child: Row(children: [
@@ -9524,20 +9525,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-              color: count > 0 ? color : const Color(0xFFE4E4E7),
+              color: count > 0 ? color : SboxColors.slate200,
               borderRadius: BorderRadius.circular(20)),
           child: Text(tr('$count'),
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: count > 0 ? Colors.white : const Color(0xFFA1A1AA))),
+                  color: count > 0 ? Colors.white : SboxColors.slate400)),
         ),
       ]),
     );
     if (onTap == null) return row;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: row,
     );
   }
@@ -9571,7 +9572,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Chờ làm',
                   '$todo',
                   Icons.hourglass_empty,
-                  const Color(0xFFA1A1AA),
+                  SboxColors.slate400,
                   onTap: () => _openTaskManagement(
                       status: WorkTaskStatus.todo),
                 ),
@@ -9600,7 +9601,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Quá hạn',
                   '$overdue',
                   Icons.error_outline,
-                  const Color(0xFFEF4444),
+                  SboxColors.danger,
                   onTap: () =>
                       _openTaskManagement(overdueOnly: true),
                 ),
@@ -9623,18 +9624,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (todo > 0)
                         Expanded(
                             flex: todo,
-                            child: Container(color: const Color(0xFFE4E4E7))),
+                            child: Container(color: SboxColors.slate200)),
                       if (overdue > 0)
                         Expanded(
                             flex: overdue,
-                            child: Container(color: const Color(0xFFEF4444))),
+                            child: Container(color: SboxColors.danger)),
                     ]),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(tr('Tỷ lệ hoàn thành: ${total > 0 ? (done / total * 100).toStringAsFixed(0) : 0}%'),
                     style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF71717A))),
+                        fontSize: 12, color: SboxColors.slate500)),
               ],
             ]),
     );
@@ -9661,7 +9662,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.15)),
       ),
       child: Row(children: [
@@ -9672,7 +9673,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: TextStyle(
                   fontSize: 16, fontWeight: FontWeight.bold, color: color)),
           Text(tr(label),
-              style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+              style: const TextStyle(fontSize: 10, color: SboxColors.slate400)),
         ]),
       ]),
     );
@@ -9681,7 +9682,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ? box
           : InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: box,
             ),
     );
@@ -9718,7 +9719,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
               HrmPageChrome.primaryNavy.withValues(alpha: 0.03)
             ]),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
                 color: HrmPageChrome.primaryNavy.withValues(alpha: 0.15)),
           ),
@@ -9726,18 +9727,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
                 child: _kpiSummaryItem('Tổng giờ TC',
                     totalHours.toStringAsFixed(1), HrmPageChrome.primaryNavy)),
-            Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
+            Container(width: 1, height: 36, color: SboxColors.slate200),
             Expanded(
                 child: _kpiSummaryItem(
                     'Số NV', '$totalEmployees', HrmPageChrome.chip)),
-            Container(width: 1, height: 36, color: const Color(0xFFE4E4E7)),
+            Container(width: 1, height: 36, color: SboxColors.slate200),
             Expanded(
                 child: _kpiSummaryItem(
                     'Chờ duyệt',
                     '$pending',
                     pending > 0
                         ? HrmPageChrome.chipLight
-                        : const Color(0xFFA1A1AA))),
+                        : SboxColors.slate400)),
           ]),
         ),
         const SizedBox(height: 12),
@@ -9747,7 +9748,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                   color: HrmPageChrome.primaryNavy.withValues(alpha: 0.12)),
             ),
@@ -9761,7 +9762,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       fontWeight: FontWeight.bold,
                       color: HrmPageChrome.primaryNavy)),
               Text(tr('Đã duyệt'),
-                  style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                  style: TextStyle(fontSize: 10, color: SboxColors.slate400)),
             ]),
           )),
           const SizedBox(width: 8),
@@ -9770,7 +9771,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                   color: HrmPageChrome.primaryNavy.withValues(alpha: 0.12)),
             ),
@@ -9784,7 +9785,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       fontWeight: FontWeight.bold,
                       color: HrmPageChrome.primaryNavy)),
               Text(tr('Chi phí TC'),
-                  style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                  style: TextStyle(fontSize: 10, color: SboxColors.slate400)),
             ]),
           )),
         ]),
@@ -9812,19 +9813,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return _DashCard(
       icon: Icons.gavel_outlined,
       title: 'Thống kê vi phạm',
-      color: const Color(0xFFEF4444),
+      color: SboxColors.danger,
       badge: totalTickets > 0 ? '$totalTickets phiếu' : null,
       child: Column(children: [
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFFEF4444).withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
+            color: SboxColors.danger.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.15)),
+                color: SboxColors.danger.withValues(alpha: 0.15)),
           ),
           child: Row(children: [
-            const Icon(Icons.receipt_long, size: 22, color: Color(0xFFEF4444)),
+            const Icon(Icons.receipt_long, size: 22, color: SboxColors.danger),
             const SizedBox(width: 12),
             Expanded(
                 child: Column(
@@ -9834,19 +9835,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFFEF4444))),
+                          color: SboxColors.danger)),
                   Text(tr('Tổng: ${_formatCurrency(totalAmount)}'),
                       style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF71717A))),
+                          fontSize: 12, color: SboxColors.slate500)),
                 ])),
           ]),
         ),
         const SizedBox(height: 12),
         _penaltyTypeRow('Đi trễ', lateCount, HrmPageChrome.chipLight),
         const SizedBox(height: 6),
-        _penaltyTypeRow('Vắng mặt', absentCount, const Color(0xFFEF4444)),
+        _penaltyTypeRow('Vắng mặt', absentCount, SboxColors.danger),
         const SizedBox(height: 6),
-        _penaltyTypeRow('Khác', otherCount, const Color(0xFFA1A1AA)),
+        _penaltyTypeRow('Khác', otherCount, SboxColors.slate400),
         if (totalTickets == 0) ...[
           const SizedBox(height: 8),
           _emptyState('Không có vi phạm tháng này'),
@@ -9868,7 +9869,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
         decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12)),
+            borderRadius: BorderRadius.circular(14)),
         child: Text(tr('$count'),
             style: TextStyle(
                 fontSize: 12, fontWeight: FontWeight.w600, color: color)),
@@ -9903,7 +9904,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                   color: HrmPageChrome.primaryNavy.withValues(alpha: 0.12)),
             ),
@@ -9917,7 +9918,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       fontWeight: FontWeight.bold,
                       color: HrmPageChrome.primaryNavy)),
               Text(tr('Thu'),
-                  style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
             ]),
           )),
           const SizedBox(width: 8),
@@ -9925,22 +9926,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFEF4444).withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
+              color: SboxColors.danger.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.12)),
+                  color: SboxColors.danger.withValues(alpha: 0.12)),
             ),
             child: Column(children: [
               const Icon(Icons.arrow_upward,
-                  size: 20, color: Color(0xFFEF4444)),
+                  size: 20, color: SboxColors.danger),
               const SizedBox(height: 4),
               Text(tr(_formatCurrency(totalExpense)),
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFEF4444))),
+                      color: SboxColors.danger)),
               Text(tr('Chi'),
-                  style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
             ]),
           )),
         ]),
@@ -9949,16 +9950,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             gradient: LinearGradient(colors: [
-              (balance >= 0 ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444))
+              (balance >= 0 ? HrmPageChrome.primaryNavy : SboxColors.danger)
                   .withValues(alpha: 0.08),
-              (balance >= 0 ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444))
+              (balance >= 0 ? HrmPageChrome.primaryNavy : SboxColors.danger)
                   .withValues(alpha: 0.03)
             ]),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
                 color: (balance >= 0
                         ? HrmPageChrome.primaryNavy
-                        : const Color(0xFFEF4444))
+                        : SboxColors.danger)
                     .withValues(alpha: 0.2)),
           ),
           child: Row(children: [
@@ -9966,28 +9967,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 size: 22,
                 color: balance >= 0
                     ? HrmPageChrome.primaryNavy
-                    : const Color(0xFFEF4444)),
+                    : SboxColors.danger),
             const SizedBox(width: 10),
             Expanded(
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                   Text(tr('Số dư'),
-                      style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                      style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
                   Text(tr(_formatCurrency(balance.abs())),
                       style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: balance >= 0
                               ? HrmPageChrome.primaryNavy
-                              : const Color(0xFFEF4444))),
+                              : SboxColors.danger)),
                 ])),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                   color: (balance >= 0
                           ? HrmPageChrome.primaryNavy
-                          : const Color(0xFFEF4444))
+                          : SboxColors.danger)
                       .withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20)),
               child: Text(tr(balance >= 0 ? 'Dương' : 'Âm'),
@@ -9996,7 +9997,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       fontWeight: FontWeight.w600,
                       color: balance >= 0
                           ? HrmPageChrome.primaryNavy
-                          : const Color(0xFFEF4444))),
+                          : SboxColors.danger)),
             ),
           ]),
         ),
@@ -10046,7 +10047,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               'Đi trễ', '$totalLate', Icons.schedule, HrmPageChrome.chipLight),
           const SizedBox(width: 8),
           _monthStatBox('Vắng', '$totalAbsent', Icons.person_off,
-              const Color(0xFFEF4444)),
+              SboxColors.danger),
         ]),
         if (items.isNotEmpty) ...[
           const SizedBox(height: 14),
@@ -10063,7 +10064,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(children: [
-                const Icon(Icons.person, size: 14, color: Color(0xFFEF4444)),
+                const Icon(Icons.person, size: 14, color: SboxColors.danger),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Text(tr(name), style: const TextStyle(fontSize: 13))),
@@ -10071,13 +10072,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                      color: SboxColors.danger.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10)),
                   child: Text(tr('$absentDays ngày'),
                       style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFFEF4444))),
+                          color: SboxColors.danger)),
                 ),
               ]),
             );
@@ -10095,7 +10096,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color.withValues(alpha: 0.12)),
         ),
         child: Row(children: [
@@ -10106,7 +10107,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 14, color: color)),
             Text(tr(label),
-                style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                style: const TextStyle(fontSize: 10, color: SboxColors.slate400)),
           ]),
         ]),
       ),
@@ -10125,8 +10126,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final daysLeft = (d['daysUntilExpiry'] as num?)?.toInt() ?? 0;
       final isUrgent = !isExpired && daysLeft <= 7;
       final statusColor = isExpired
-          ? const Color(0xFFEF4444)
-          : (isUrgent ? const Color(0xFFEF4444) : HrmPageChrome.chipLight);
+          ? SboxColors.danger
+          : (isUrgent ? SboxColors.danger : HrmPageChrome.chipLight);
       final statusText = isExpired
           ? '${(-daysLeft)} ngày trước'
           : (daysLeft == 0 ? 'Hôm nay' : '$daysLeft ngày');
@@ -10138,7 +10139,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(10)),
             child: Icon(isExpired ? Icons.warning_rounded : Icons.schedule,
                 size: 16, color: statusColor),
           ),
@@ -10155,13 +10156,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (department.isNotEmpty)
                   Text(tr(department),
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFFA1A1AA))),
+                          fontSize: 11, color: SboxColors.slate400)),
               ])),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(14)),
             child: Text(tr(statusText),
                 style: TextStyle(
                     fontSize: 11,
@@ -10201,7 +10202,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFEF4444))),
+                            color: SboxColors.danger)),
                   ),
                   ..._expiredContracts
                       .take(3)
@@ -10226,7 +10227,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Text(tr(value),
                 style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 15, color: color)),
+                    fontWeight: FontWeight.bold, fontSize: 16, color: color)),
             const SizedBox(height: 2),
             Text(tr(label),
                 textAlign: TextAlign.center,
@@ -10253,10 +10254,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(children: [
-        Icon(Icons.inbox_outlined, size: 32, color: Colors.grey[300]),
+        Icon(Icons.inbox_outlined, size: 32, color: SboxColors.slate300),
         const SizedBox(height: 8),
         Text(tr(message),
-            style: TextStyle(fontSize: 13, color: Colors.grey[400]),
+            style: TextStyle(fontSize: 13, color: SboxColors.slate400),
             textAlign: TextAlign.center),
       ]),
     );
@@ -10266,7 +10267,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Text(tr(text),
-          style: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA))),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate400)),
     );
   }
 
@@ -10409,7 +10410,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       badge: '$leaveTotal đơn',
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          _leaveStatBox('Đã duyệt', '$approved', const Color(0xFF22C55E)),
+          _leaveStatBox('Đã duyệt', '$approved', SboxColors.success),
           const SizedBox(width: 8),
           _leaveStatBox('Chờ duyệt', '$pending', HrmPageChrome.chipLight),
           const SizedBox(width: 8),
@@ -10421,7 +10422,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Text(tr('Phân loại nghỉ phép'),
               style: TextStyle(
                   fontSize: 11,
-                  color: Color(0xFF71717A),
+                  color: SboxColors.slate500,
                   fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
           ...leaveTypes.map((e) {
@@ -10443,7 +10444,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     child: LinearProgressIndicator(
                         value: pct,
                         minHeight: 6,
-                        backgroundColor: const Color(0xFFE4E4E7),
+                        backgroundColor: SboxColors.slate200,
                         valueColor: const AlwaysStoppedAnimation(barColor)),
                   ),
                 ),
@@ -10480,7 +10481,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   fontSize: 16, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
           Text(tr(label),
-              style: const TextStyle(fontSize: 9, color: Color(0xFF71717A)),
+              style: const TextStyle(fontSize: 9, color: SboxColors.slate500),
               textAlign: TextAlign.center,
               maxLines: 2),
         ]),
@@ -10513,7 +10514,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               tr(initials),
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: Colors.white.withValues(alpha: 0.95),
               ),
             ),
@@ -10543,7 +10544,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   tr(empName.isNotEmpty ? empName : _l10n.loadingOverview),
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: Colors.white.withValues(alpha: 0.95),
                     letterSpacing: -0.3,
                   ),
@@ -10724,7 +10725,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         Text(tr('Chấm công ngay'),
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
@@ -10779,8 +10780,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF4F4F5),
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.slate100,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
@@ -10790,7 +10791,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF71717A))),
+                            color: SboxColors.slate500)),
                   ),
                   Expanded(
                     flex: 2,
@@ -10798,7 +10799,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF71717A))),
+                            color: SboxColors.slate500)),
                   ),
                   Expanded(
                     child: Text(tr('Vào'),
@@ -10806,7 +10807,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF71717A))),
+                            color: SboxColors.slate500)),
                   ),
                   Expanded(
                     child: Text(tr('Ra'),
@@ -10814,7 +10815,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF71717A))),
+                            color: SboxColors.slate500)),
                   ),
                   Expanded(
                     child: Text(tr('Giờ'),
@@ -10822,7 +10823,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF71717A))),
+                            color: SboxColors.slate500)),
                   ),
                 ],
               ),
@@ -10835,7 +10836,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Text(tr('và ${records.length - previewCount} ngày/ca khác'),
                   style: const TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF71717A),
+                    color: SboxColors.slate500,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -10892,11 +10893,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: hasIssue
               ? record.statusColor.withValues(alpha: 0.25)
-              : const Color(0xFFE4E4E7),
+              : SboxColors.slate200,
         ),
       ),
       child: Column(
@@ -10914,14 +10915,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                       ),
                     ),
                     Text(
                       tr(weekday),
                       style: const TextStyle(
                         fontSize: 10,
-                        color: Color(0xFF71717A),
+                        color: SboxColors.slate500,
                       ),
                     ),
                   ],
@@ -10934,7 +10935,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF3F3F46),
+                    color: SboxColors.slate700,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -10947,7 +10948,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF22C55E),
+                    color: SboxColors.success,
                   ),
                 ),
               ),
@@ -10969,7 +10970,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
               ),
@@ -11013,7 +11014,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFFEF4444),
+                      color: SboxColors.danger,
                     ),
                   ),
                 ],
@@ -11109,7 +11110,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final badgeColor = isTravel
         ? HrmPageChrome.chipLight
         : isCheckIn
-            ? const Color(0xFF22C55E)
+            ? SboxColors.success
             : isCheckOut
                 ? HrmPageChrome.primaryNavy
                 : HrmPageChrome.chipLight;
@@ -11163,7 +11164,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
                 if (subtitleParts.isNotEmpty) ...[
@@ -11172,7 +11173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     tr(subtitleParts.join(' · ')),
                     style: const TextStyle(
                       fontSize: 11,
-                      color: Color(0xFF71717A),
+                      color: SboxColors.slate500,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -11206,7 +11207,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     switch (status) {
       case 'checked-in':
         statusText = 'Đã chấm công vào';
-        statusColor = const Color(0xFF22C55E);
+        statusColor = SboxColors.success;
         statusIcon = Icons.login_rounded;
         break;
       case 'checked-out':
@@ -11221,7 +11222,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         break;
       default:
         statusText = 'Không có ca hôm nay';
-        statusColor = const Color(0xFF71717A);
+        statusColor = SboxColors.slate500;
         statusIcon = Icons.event_busy;
     }
 
@@ -11235,7 +11236,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
@@ -11253,7 +11254,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (isLate && lateMin != null)
                         Text(tr('Trễ $lateMin phút'),
                             style: const TextStyle(
-                                fontSize: 12, color: Color(0xFFEF4444))),
+                                fontSize: 12, color: SboxColors.danger)),
                     ],
                   ),
                 ),
@@ -11267,7 +11268,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildTimeBox(
                     'Giờ vào',
                     _fmtAttendanceTime(checkIn),
-                    const Color(0xFF22C55E)),
+                    SboxColors.success),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -11294,14 +11295,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: _buildTimeBox(
                       'Ca bắt đầu',
                       _fmtShiftTime(todayShift['startTime']),
-                      const Color(0xFF71717A)),
+                      SboxColors.slate500),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildTimeBox(
                       'Ca kết thúc',
                       _fmtShiftTime(todayShift['endTime']),
-                      const Color(0xFF71717A)),
+                      SboxColors.slate500),
                 ),
               ],
             ),
@@ -11374,11 +11375,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Expanded(
                   child: _employeeStatTile('Có mặt', '$present',
-                      '$totalDays ca', const Color(0xFF22C55E))),
+                      '$totalDays ca', SboxColors.success)),
               const SizedBox(width: 10),
               Expanded(
                   child: _employeeStatTile(
-                      'Vắng', '$absent', 'ca', const Color(0xFFEF4444))),
+                      'Vắng', '$absent', 'ca', SboxColors.danger)),
             ],
           ),
           const SizedBox(height: 10),
@@ -11427,10 +11428,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       labelStyle: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
-        color: selected ? Colors.white : const Color(0xFF52525B),
+        color: selected ? Colors.white : SboxColors.slate600,
       ),
       selectedColor: HrmPageChrome.chip,
-      backgroundColor: const Color(0xFFF4F4F5),
+      backgroundColor: SboxColors.slate100,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       visualDensity: VisualDensity.compact,
     );
@@ -11449,7 +11450,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(tr(label),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+              style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
           const SizedBox(height: 4),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -11485,7 +11486,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: TextStyle(
                   fontSize: 16, fontWeight: FontWeight.bold, color: color)),
           Text(tr(label),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+              style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
         ],
       ),
     );
@@ -11501,7 +11502,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (todayShift != null) ...[
-            _shiftRow('Hôm nay', todayShift, const Color(0xFF22C55E)),
+            _shiftRow('Hôm nay', todayShift, SboxColors.success),
           ] else
             _emptyRow('Không có ca hôm nay'),
           if (nextShift != null) ...[
@@ -11520,7 +11521,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8)),
+              borderRadius: BorderRadius.circular(10)),
           child: Icon(Icons.work_outline, color: color, size: 16),
         ),
         const SizedBox(width: 10),
@@ -11534,14 +11535,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(
                 tr('${_fmtShiftTime(shift['startTime'])} - ${_fmtShiftTime(shift['endTime'])}'),
                 style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF18181B)),
+                    color: SboxColors.slate900),
               ),
               if (shift['description'] != null)
                 Text(tr(shift['description'].toString()),
                     style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF71717A))),
+                        fontSize: 12, color: SboxColors.slate500)),
             ],
           ),
         ),
@@ -11567,10 +11568,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Color stColor;
                 switch (status.toLowerCase()) {
                   case 'approved':
-                    stColor = const Color(0xFF22C55E);
+                    stColor = SboxColors.success;
                     break;
                   case 'rejected':
-                    stColor = const Color(0xFFEF4444);
+                    stColor = SboxColors.danger;
                     break;
                   default:
                     stColor = HrmPageChrome.chipLight;
@@ -11602,7 +11603,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     fontSize: 13, fontWeight: FontWeight.w600)),
                             Text(tr('$from - $to'),
                                 style: const TextStyle(
-                                    fontSize: 11, color: Color(0xFF71717A))),
+                                    fontSize: 11, color: SboxColors.slate500)),
                           ],
                         ),
                       ),
@@ -11611,7 +11612,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                             color: stColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12)),
+                            borderRadius: BorderRadius.circular(14)),
                         child: Text(tr(status),
                             style: TextStyle(
                                 fontSize: 11,
@@ -11648,8 +11649,8 @@ class _DashCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -11669,9 +11670,9 @@ class _DashCard extends StatelessWidget {
           Expanded(
               child: Text(tr(title),
                   style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF18181B)))),
+                      color: SboxColors.slate900))),
           if (badge != null)
             Container(
                 padding:

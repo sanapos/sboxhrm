@@ -14,6 +14,7 @@ import 'pos_unit_chip_selector.dart';
 import '../../utils/pos_qty_rules.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 typedef PosProductRowAction = void Function(PosProduct product);
 
 typedef PosVariantEditAction = void Function(
@@ -348,7 +349,7 @@ class PosProductDataTable extends StatelessWidget {
           height: 52,
           decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+              bottom: BorderSide(color: SboxColors.slate200, width: 0.5),
             ),
           ),
           child: Row(
@@ -421,7 +422,7 @@ class PosProductDataTable extends StatelessWidget {
       PosProductTableColumn.star => IconButton(
           icon: Icon(
             p.isFavorite ? Icons.star : Icons.star_border,
-            color: p.isFavorite ? const Color(0xFFFFB800) : Colors.grey.shade400,
+            color: p.isFavorite ? const Color(0xFFFFB800) : SboxColors.slate400,
             size: 18,
           ),
           onPressed: canEdit ? () => onToggleFavorite(p, !p.isFavorite) : null,
@@ -450,7 +451,7 @@ class PosProductDataTable extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: inactive ? Colors.grey : PosTheme.textPrimary,
+                  color: inactive ? SboxColors.slate500 : PosTheme.textPrimary,
                   decoration: inactive ? TextDecoration.lineThrough : null,
                 ),
               ),
@@ -490,7 +491,7 @@ class PosProductDataTable extends StatelessWidget {
                   ? moneyFmt.format(p.reservedQty)
                   : '0',
           align: TextAlign.right,
-          color: !p.showsWarehouseStock ? Colors.grey : null,
+          color: !p.showsWarehouseStock ? SboxColors.slate500 : null,
         ),
       PosProductTableColumn.createdAt => _cellText(
           p.createdAt != null ? dateFmt.format(p.createdAt!) : '—',
@@ -503,7 +504,7 @@ class PosProductDataTable extends StatelessWidget {
           color: PosTheme.textSecondary,
         ),
       PosProductTableColumn.actions => IconButton(
-          icon: Icon(Icons.more_horiz, size: 18, color: Colors.grey.shade600),
+          icon: Icon(Icons.more_horiz, size: 18, color: SboxColors.slate600),
           onPressed: () => onEdit(p),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -542,19 +543,19 @@ class PosProductDataTable extends StatelessWidget {
 
   Widget _stockCell(PosProduct p, PosProductUnitView view) {
     if (!p.showsWarehouseStock) {
-      return _cellText('—', align: TextAlign.right, color: Colors.grey);
+      return _cellText('—', align: TextAlign.right, color: SboxColors.slate500);
     }
     if (p.productType == PosProductType.combo) {
       return _cellText(
         PosQtyRules.format(view.onHandQty, allowDecimal: false),
         align: TextAlign.right,
-        color: view.onHandQty <= 0 ? const Color(0xFFE53935) : null,
+        color: view.onHandQty <= 0 ? SboxColors.danger : null,
       );
     }
     final text = _cellText(
       PosQtyRules.format(view.onHandQty, product: p),
       align: TextAlign.right,
-      color: view.onHandQty <= 0 ? const Color(0xFFE53935) : null,
+      color: view.onHandQty <= 0 ? SboxColors.danger : null,
     );
     if (canEdit && p.productType.tracksInventory && onQuickStock != null) {
       return InkWell(
@@ -606,7 +607,7 @@ class PosProductDataTable extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+              bottom: BorderSide(color: SboxColors.slate200, width: 0.5),
             ),
           ),
           child: Row(
@@ -676,7 +677,7 @@ class PosProductDataTable extends StatelessWidget {
       PosQtyRules.format(v.onHandQty, product: parent),
       align: TextAlign.right,
       color: v.onHandQty <= 0
-          ? const Color(0xFFE53935)
+          ? SboxColors.danger
           : PosTheme.textSecondary,
     );
     if (canEdit && onQuickVariantStock != null) {

@@ -24,6 +24,7 @@ import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
+import '../../theme/sbox_tokens.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 final _money = NumberFormat('#,##0', 'vi_VN');
 final _qtyFmt = NumberFormat('#,##0.##', 'vi_VN');
@@ -367,7 +368,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     return withFallbackTopInset(
       context,
       Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: SboxColors.slate100,
       appBar: hideAppBar
           ? null
           : AppBar(
@@ -642,7 +643,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
           child: RepaintBoundary(
             key: _pngKey,
             child: ColoredBox(
-              color: const Color(0xFFF3F4F6),
+              color: SboxColors.slate100,
               child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -650,7 +651,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: PosTheme.border),
                   boxShadow: const [
                     BoxShadow(color: Color(0x14000000), blurRadius: 8, offset: Offset(0, 2)),
@@ -679,7 +680,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFFF0F9FF),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFFBAE6FD)),
         ),
         child: Padding(
@@ -690,7 +691,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               Text(
                 tr('Ca thu ngân trong kỳ (${_cashierShifts.length})'),
                 style: const TextStyle(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   fontSize: 14,
                   color: Color(0xFF0C4A6E),
                 ),
@@ -705,14 +706,14 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.35,
-                  color: Colors.grey.shade700,
+                  color: SboxColors.slate700,
                 ),
               ),
               if (_cashierShifts.isEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
                   tr('Không có ca nào trong khoảng đã chọn.'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
               ] else ...[
                 const SizedBox(height: 8),
@@ -772,7 +773,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
               fontSize: 11,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.6,
-              color: Color(0xFF334155),
+              color: SboxColors.slate700,
             ),
           ),
         );
@@ -784,7 +785,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFFFFDF8),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: SboxColors.slate200),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
@@ -797,12 +798,12 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 Text(tr('TỔNG KẾT CUỐI NGÀY'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   tr('Bill ${k58 ? 'K58' : 'K80'}'),

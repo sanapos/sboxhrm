@@ -37,6 +37,8 @@ import 'pos_sale_return_screen.dart';
 import '../widgets/pos/pos_shipping_compare_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_table.dart';
 enum _ListColumn {
   orderNo('Mã đơn'),
   time('Thời gian'),
@@ -500,20 +502,20 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     Color fg;
     switch (st) {
       case 'Issued':
-        bg = const Color(0xFFDCFCE7);
-        fg = const Color(0xFF166534);
+        bg = SboxColors.successSoft;
+        fg = SboxColors.successText;
       case 'Failed':
-        bg = const Color(0xFFFEE2E2);
-        fg = const Color(0xFFB91C1C);
+        bg = SboxColors.dangerSoft;
+        fg = SboxColors.dangerText;
       case 'Pending':
-        bg = const Color(0xFFFEF3C7);
-        fg = const Color(0xFF92400E);
+        bg = SboxColors.warningSoft;
+        fg = SboxColors.warningText;
       case 'Skipped':
-        bg = const Color(0xFFF1F5F9);
-        fg = const Color(0xFF475569);
+        bg = SboxColors.slate100;
+        fg = SboxColors.slate600;
       default:
-        bg = const Color(0xFFF8FAFC);
-        fg = const Color(0xFF64748B);
+        bg = SboxColors.slate50;
+        fg = SboxColors.slate500;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1175,28 +1177,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       );
     }
     if (_total <= _pageSize) return const SizedBox.shrink();
-    final pages = (_total / _pageSize).ceil();
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          Text(tr('Tổng $_total đơn'),
-              style:
-                  const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: _page > 1 ? () => _load(page: _page - 1) : null,
-          ),
-          Text(tr('Trang $_page / $pages'), style: const TextStyle(fontSize: 12)),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: _page < pages ? () => _load(page: _page + 1) : null,
-          ),
-        ],
-      ),
-    );
+    return SboxPager(page: _page, pageSize: _pageSize, total: _total, onPage: (p) => _load(page: p));
   }
 
   Widget _buildTableHeader() {
@@ -1215,9 +1196,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: SboxColors.slate50,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         children: [
@@ -1265,7 +1246,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               tr(_moneyFmt.format(totalAmount)),
               style: const TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -1289,7 +1270,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       children: [
         Text(tr('${_moneyFmt.format(o.total)} đ'),
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: cancelled ? Colors.red.shade800 : null,
             decoration: cancelled ? TextDecoration.lineThrough : null,
@@ -1825,13 +1806,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             onTap: () => _toggleExpand(o),
             hoverColor: o.status == 'Cancelled'
                 ? Colors.red.shade100.withValues(alpha: 0.35)
-                : const Color(0xFFF1F5F9),
+                : SboxColors.slate100,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                      color: expanded ? Colors.grey.shade200 : Colors.transparent),
+                      color: expanded ? SboxColors.slate200 : Colors.transparent),
                 ),
               ),
               child: Row(
@@ -2002,7 +1983,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final o = _expandedDetail ?? summary;
 
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: SboxColors.slate50,
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2045,14 +2026,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
 
   Widget _buildInfoTab(PosSaleOrder o) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: PosSaleOrderReceiptView(order: o),
     );
   }
 
   Widget _meta(String label, String value) => RichText(
         text: TextSpan(
-          style: const TextStyle(fontSize: 12, color: Colors.black87),
+          style: const TextStyle(fontSize: 12, color: SboxColors.text),
           children: [
             TextSpan(
                 text: tr('$label: '),

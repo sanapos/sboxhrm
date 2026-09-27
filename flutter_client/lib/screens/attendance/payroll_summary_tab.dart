@@ -43,6 +43,7 @@ import '../main_layout.dart' show NavigationNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
+import '../../theme/sbox_tokens.dart';
 // ═══════════════════════════════════════════════════════════════
 //  PayrollColumn – định nghĩa 1 cột bảng lương
 // ═══════════════════════════════════════════════════════════════
@@ -2226,7 +2227,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             ),
             const SizedBox(height: 8),
             Text(tr('Sau khi chốt, hệ thống tạo phiếu lương tại menu Phiếu lương.'),
-              style: TextStyle(fontSize: 13, color: Colors.black54),
+              style: TextStyle(fontSize: 13, color: SboxColors.textSecondary),
             ),
           ],
         ),
@@ -2414,7 +2415,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           : const Icon(Icons.lock_outline, size: 18),
       label: Text(tr(_isFinalizing ? 'Đang chốt...' : 'Chốt lương')),
       style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFF059669),
+        backgroundColor: SboxColors.success,
         foregroundColor: Colors.white,
         minimumSize: const Size(0, 36),
         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -2446,7 +2447,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.view_column, color: Colors.blue),
+                const Icon(Icons.view_column, color: SboxColors.brand500),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Text(tr('Chọn & sắp xếp cột'),
@@ -2481,7 +2482,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     padding: const EdgeInsets.only(bottom: 4, left: 4),
                     child: Text(tr('Cột cố định (không thể di chuyển)'),
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade500)),
+                            fontSize: 11, color: SboxColors.slate500)),
                   ),
                   ...tempColumns.where((c) => _frozenKeys.contains(c.key)).map(
                         (col) => Container(
@@ -2489,18 +2490,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: SboxColors.slate100,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
                             children: [
                               Icon(Icons.lock_outline,
-                                  size: 14, color: Colors.grey.shade400),
+                                  size: 14, color: SboxColors.slate400),
                               const SizedBox(width: 8),
                               Expanded(
                                   child: Text(tr(col.label),
                                       style: const TextStyle(
-                                          fontSize: 13, color: Colors.grey))),
+                                          fontSize: 13, color: SboxColors.slate500))),
                             ],
                           ),
                         ),
@@ -2510,7 +2511,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     padding: const EdgeInsets.only(bottom: 4, left: 4),
                     child: Text(tr('Kéo để sắp xếp thứ tự cột'),
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade500)),
+                            fontSize: 11, color: SboxColors.slate500)),
                   ),
                   // Reorderable columns
                   Expanded(
@@ -2539,13 +2540,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                           margin: const EdgeInsets.only(bottom: 2),
                           decoration: BoxDecoration(
                             color: col.visible
-                                ? Colors.blue.shade50
+                                ? SboxColors.brand50
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
                               color: col.visible
-                                  ? Colors.blue.shade200
-                                  : Colors.grey.shade200,
+                                  ? SboxColors.brand200
+                                  : SboxColors.slate200,
                               width: 0.5,
                             ),
                           ),
@@ -2567,7 +2568,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 8),
                                 child: Icon(Icons.drag_handle,
-                                    size: 18, color: Colors.grey.shade400),
+                                    size: 18, color: SboxColors.slate400),
                               ),
                             ),
                           ),
@@ -3496,13 +3497,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final titleRow = Row(
       children: [
         CircleAvatar(
-          backgroundColor: Colors.blue.shade100,
+          backgroundColor: SboxColors.brand100,
           child: Text(
             tr((row['name'] as String).isNotEmpty
                 ? (row['name'] as String)[0].toUpperCase()
                 : '?'),
             style: TextStyle(
-                color: Colors.blue.shade700, fontWeight: FontWeight.bold),
+                color: SboxColors.brand700, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(width: 12),
@@ -3512,7 +3513,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             children: [
               Text(tr(row['name'] ?? ''), style: const TextStyle(fontSize: 16)),
               Text(tr('${row['code']} • ${row['department']}'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
             ],
           ),
         ),
@@ -3614,7 +3615,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 18,
-                      color: Colors.blue.shade700)),
+                      color: SboxColors.brand700)),
             ],
           ),
         ),
@@ -3683,7 +3684,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
-                  color: Colors.blue.shade700)),
+                  color: SboxColors.brand700)),
         ),
         ...children,
         const Divider(),
@@ -3698,7 +3699,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(tr(label),
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate700)),
           Text(tr(value),
               style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w500, color: color)),
@@ -3730,7 +3731,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             CircularProgressIndicator(),
             SizedBox(height: 12),
             Text(tr('Đang tính toán lương...'),
-                style: TextStyle(color: Colors.grey)),
+                style: TextStyle(color: SboxColors.slate500)),
           ],
         ),
       );
@@ -3780,15 +3781,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.account_balance_wallet_outlined,
-                    size: 64, color: Colors.grey.shade300),
+                    size: 64, color: SboxColors.slate300),
                 const SizedBox(height: 12),
                 Text(tr('Không có dữ liệu lương'),
                     style: TextStyle(
-                        color: Colors.grey.shade500, fontSize: 15)),
+                        color: SboxColors.slate500, fontSize: 16)),
                 const SizedBox(height: 4),
                 Text(tr('Hãy kiểm tra khoảng thời gian hoặc bộ lọc nhân viên'),
                     style: TextStyle(
-                        color: Colors.grey.shade400, fontSize: 12)),
+                        color: SboxColors.slate400, fontSize: 12)),
               ],
             ),
           );
@@ -3910,7 +3911,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.people, color: Colors.blue, size: 20),
+                const Icon(Icons.people, color: SboxColors.brand500, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                     child:
@@ -3951,7 +3952,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 8),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     style: const TextStyle(fontSize: 13),
                     onChanged: (v) => setDialogState(() => filterQuery = v),
@@ -3980,13 +3981,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                           subtitle: Text(
                             tr('${emp.employeeCode} • ${emp.department ?? ''}'),
                             style: TextStyle(
-                                fontSize: 11, color: Colors.grey.shade600),
+                                fontSize: 11, color: SboxColors.slate600),
                           ),
                           secondary: CircleAvatar(
                             radius: 16,
                             backgroundColor: isSelected
-                                ? Colors.blue.shade100
-                                : Colors.grey.shade200,
+                                ? SboxColors.brand100
+                                : SboxColors.slate200,
                             child: Text(
                               tr(emp.fullName.isNotEmpty
                                   ? emp.fullName[0].toUpperCase()
@@ -3994,8 +3995,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isSelected
-                                    ? Colors.blue.shade700
-                                    : Colors.grey.shade600,
+                                    ? SboxColors.brand700
+                                    : SboxColors.slate600,
                               ),
                             ),
                           ),
@@ -4010,7 +4011,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                           ? 'Hiển thị tất cả nhân viên (${pool.length})'
                           : 'Đã chọn ${tempSelected.length}/${pool.length} nhân viên'),
                       style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                          TextStyle(fontSize: 12, color: SboxColors.slate600),
                     ),
                   ),
                 ],
@@ -4065,9 +4066,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          color: SboxColors.slate50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: SboxColors.slate200),
         ),
         child: Row(
           children: [
@@ -4093,20 +4094,20 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     Widget _datePill(DateTime date, bool isFrom) => InkWell(
           onTap: () => _pickSingleDate(isFrom: isFrom),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: Container(
             height: 36,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFAFA),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
-              borderRadius: BorderRadius.circular(8),
+              color: SboxColors.slate50,
+              border: Border.all(color: SboxColors.slate200),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.calendar_today,
-                    size: 13, color: Colors.grey.shade600),
+                    size: 13, color: SboxColors.slate600),
                 const SizedBox(width: 6),
                 // full format for desktop, compact for mobile
                 Text(
@@ -4123,14 +4124,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final fromDate = _datePill(_fromDate, true);
 
     final dateSep =
-        Text(tr('—'), style: TextStyle(color: Colors.grey.shade400, fontSize: 13));
+        Text(tr('—'), style: TextStyle(color: SboxColors.slate400, fontSize: 13));
 
     final toDate = _datePill(_toDate, false);
 
     final poolCount = _payrollEmployeePool().length;
     final employeeFilter = InkWell(
       onTap: _showEmployeeFilterDialog,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         width: double.infinity,
         height: 36,
@@ -4138,13 +4139,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         decoration: BoxDecoration(
           color: _selectedEmployeeIds.isNotEmpty
               ? Theme.of(context).primaryColor.withValues(alpha: 0.08)
-              : const Color(0xFFFAFAFA),
+              : SboxColors.slate50,
           border: Border.all(
             color: _selectedEmployeeIds.isNotEmpty
                 ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
-                : const Color(0xFFE4E4E7),
+                : SboxColors.slate200,
           ),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
@@ -4152,7 +4153,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 size: 14,
                 color: _selectedEmployeeIds.isNotEmpty
                     ? Theme.of(context).primaryColor
-                    : Colors.grey.shade600),
+                    : SboxColors.slate600),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -4188,7 +4189,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 size: 18,
                 color: _selectedEmployeeIds.isNotEmpty
                     ? Theme.of(context).primaryColor
-                    : Colors.grey.shade500),
+                    : SboxColors.slate500),
           ],
         ),
       ),
@@ -4201,13 +4202,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       decoration: BoxDecoration(
         color: _selectedDepartment != null
             ? Theme.of(context).primaryColor.withValues(alpha: 0.08)
-            : const Color(0xFFFAFAFA),
+            : SboxColors.slate50,
         border: Border.all(
           color: _selectedDepartment != null
               ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
-              : const Color(0xFFE4E4E7),
+              : SboxColors.slate200,
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
@@ -4220,11 +4221,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               size: 18,
               color: _selectedDepartment != null
                   ? Theme.of(context).primaryColor
-                  : Colors.grey.shade500),
+                  : SboxColors.slate500),
           hint: Row(
             children: [
               Icon(Icons.business_outlined,
-                  size: 14, color: Colors.grey.shade600),
+                  size: 14, color: SboxColors.slate600),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(tr('Phòng ban'),
@@ -4307,23 +4308,23 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         controller: _searchController,
         decoration: InputDecoration(
           hintText: tr('Tìm nhanh...'),
-          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-          prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey.shade400),
+          hintStyle: TextStyle(color: SboxColors.slate400, fontSize: 13),
+          prefixIcon: Icon(Icons.search, size: 16, color: SboxColors.slate400),
           filled: true,
-          fillColor: const Color(0xFFFAFAFA),
+          fillColor: SboxColors.slate50,
           isDense: true,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide(color: Theme.of(context).primaryColor),
           ),
         ),
@@ -4400,7 +4401,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -4421,7 +4422,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           ),
           subtitle: Text(
             tr(_payrollFilterSummary()),
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -4434,7 +4435,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 _payrollFiltersExpanded
                     ? Icons.expand_less
                     : Icons.expand_more,
-                color: Colors.grey[600],
+                color: SboxColors.slate600,
                 size: 22,
               ),
             ],
@@ -4467,8 +4468,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           Icon(icon,
               size: 16,
               color: _selectedPeriod == value
-                  ? Colors.blue
-                  : Colors.grey.shade600),
+                  ? SboxColors.brand500
+                  : SboxColors.slate600),
           const SizedBox(width: 8),
           Text(tr(label),
               style: TextStyle(
@@ -4476,7 +4477,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 fontWeight: _selectedPeriod == value
                     ? FontWeight.bold
                     : FontWeight.normal,
-                color: _selectedPeriod == value ? Colors.blue : null,
+                color: _selectedPeriod == value ? SboxColors.brand500 : null,
               )),
         ],
       ),
@@ -4519,11 +4520,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       _SummaryItem('Phụ cấp', _currencyFmt.format(totalAllowance.round()),
           const Color(0xFF2D5F8B), Icons.card_giftcard_outlined),
       _SummaryItem('Thưởng', _currencyFmt.format(totalBonus.round()),
-          const Color(0xFF8B5CF6), Icons.emoji_events_outlined),
+          SboxColors.violet, Icons.emoji_events_outlined),
       _SummaryItem('Phạt', _currencyFmt.format(totalPenalty.round()),
-          const Color(0xFFEF4444), Icons.gavel_outlined),
+          SboxColors.danger, Icons.gavel_outlined),
       _SummaryItem('Bảo hiểm', _currencyFmt.format(totalIns.round()),
-          const Color(0xFFF59E0B), Icons.health_and_safety_outlined),
+          SboxColors.warning, Icons.health_and_safety_outlined),
       _SummaryItem('Ứng lương', _currencyFmt.format(totalAdv.round()),
           HrmPageChrome.primaryNavy, Icons.payments_outlined),
       _SummaryItem('KPI', _currencyFmt.format(totalKpiSalary.round()),
@@ -4534,7 +4535,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final netItem = _SummaryItem(
         'THỰC NHẬN',
         _currencyFmt.format(totalNet.round()),
-        const Color(0xFF22C55E),
+        SboxColors.success,
         Icons.savings_outlined);
 
     if (isMobile) {
@@ -4595,7 +4596,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [item.color.withValues(alpha: 0.95), const Color(0xFF15803D)],
+          colors: [item.color.withValues(alpha: 0.95), SboxColors.payHover],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
@@ -4614,7 +4615,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             height: 44,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(item.icon, color: Colors.white, size: 24),
           ),
@@ -4659,7 +4660,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: item.color.withValues(alpha: 0.18)),
         boxShadow: [
           BoxShadow(
@@ -4689,7 +4690,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   tr(item.label),
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade600,
+                    color: SboxColors.slate600,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.3,
                   ),
@@ -4703,7 +4704,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   child: Text(
                     tr(item.value),
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: item.color,
                     ),
@@ -4735,7 +4736,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             height: highlight ? 32 : 26,
             decoration: BoxDecoration(
               color: item.color.withValues(alpha: highlight ? 0.18 : 0.12),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child:
                 Icon(item.icon, color: item.color, size: highlight ? 18 : 14),
@@ -4784,7 +4785,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -4831,7 +4832,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -4855,7 +4856,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           ),
           const SizedBox(width: 16),
           Text(tr('Hiển thị'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           const SizedBox(width: 6),
           PopupMenuButton<int>(
             onSelected: (v) => setState(() {
@@ -4875,15 +4876,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                                 ? FontWeight.bold
                                 : FontWeight.normal,
                             color: n == _rowsPerPage
-                                ? Colors.blue
-                                : Colors.black87,
+                                ? SboxColors.brand500
+                                : SboxColors.text,
                           )),
                     ))
                 .toList(),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: SboxColors.slate300),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -4891,39 +4892,39 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 children: [
                   Text(tr('$_rowsPerPage'),
                       style:
-                          const TextStyle(fontSize: 12, color: Colors.black87)),
+                          const TextStyle(fontSize: 12, color: SboxColors.text)),
                   const SizedBox(width: 4),
                   Icon(Icons.arrow_drop_down,
-                      size: 16, color: Colors.grey.shade600),
+                      size: 16, color: SboxColors.slate600),
                 ],
               ),
             ),
           ),
           Text(tr(' / trang'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           if (onOpenFullscreen != null) ...[
             const SizedBox(width: 8),
             Tooltip(
               message: tr('Xem toàn màn hình'),
               child: Material(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.brand50,
+                borderRadius: BorderRadius.circular(10),
                 child: InkWell(
                   onTap: onOpenFullscreen,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Padding(
                     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.fullscreen,
-                            size: 18, color: Color(0xFF2563EB)),
+                            size: 18, color: SboxColors.brand600),
                         SizedBox(width: 6),
                         Text(tr('Toàn màn hình'),
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF2563EB),
+                            color: SboxColors.brand600,
                           ),
                         ),
                       ],
@@ -4988,7 +4989,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2),
           child: Text(tr('...'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade400)),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate400)),
         );
       }
       final isActive = p == _currentPage;
@@ -4996,14 +4997,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         padding: const EdgeInsets.symmetric(horizontal: 1),
         child: Material(
           color: isActive ? Theme.of(context).primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: InkWell(
             onTap: isActive
                 ? null
                 : () => setState(() {
                       _currentPage = p;
                     }),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: Container(
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               alignment: Alignment.center,
@@ -5011,7 +5012,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                    color: isActive ? Colors.white : Colors.grey.shade700,
+                    color: isActive ? Colors.white : SboxColors.slate700,
                   )),
             ),
           ),
@@ -5022,18 +5023,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   Widget _buildPageNavBtn(IconData icon, bool enabled, VoidCallback onTap) {
     return Material(
-      color: enabled ? const Color(0xFFF1F5F9) : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
+      color: enabled ? SboxColors.slate100 : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           width: 32,
           height: 32,
           alignment: Alignment.center,
           child: Icon(icon,
               size: 18,
-              color: enabled ? Colors.grey.shade700 : Colors.grey.shade300),
+              color: enabled ? SboxColors.slate700 : SboxColors.slate300),
         ),
       ),
     );
@@ -5096,7 +5097,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           decoration: BoxDecoration(
             color: isEven ? Colors.white : const Color(0xFFFAFBFC),
             border: const Border(
-                bottom: BorderSide(color: Color(0xFFE4E4E7), width: 0.5)),
+                bottom: BorderSide(color: SboxColors.slate200, width: 0.5)),
           ),
           child: Text(
             tr(_formatCellValue(key, row, index)),
@@ -5141,14 +5142,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 11,
-                        color: Color(0xFF71717A)),
+                        color: SboxColors.slate500),
                     overflow: TextOverflow.ellipsis),
               ),
               if (isCurrentSort)
                 Icon(
                   _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
                   size: 12,
-                  color: Colors.blue.shade700,
+                  color: SboxColors.brand700,
                 ),
             ],
           ),
@@ -5171,7 +5172,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     children: [
                       // Frozen header
                       Container(
-                        color: const Color(0xFFFAFAFA),
+                        color: SboxColors.slate50,
                         child: Row(
                           children: frozenCols
                               .map((c) => buildHeaderCell(c, colWidth(c)))
@@ -5192,7 +5193,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                               return Container(
                                 color: i.isEven
                                     ? Colors.white
-                                    : const Color(0xFFFAFAFA),
+                                    : SboxColors.slate50,
                                 child: Row(
                                   children: frozenCols
                                       .map((c) =>
@@ -5208,7 +5209,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   ),
                 ),
                 // Divider between frozen and scrollable
-                Container(width: 1, color: Colors.grey.shade300),
+                Container(width: 1, color: SboxColors.slate300),
                 // ── Scrollable columns (right) ──
                 Expanded(
                   child: Scrollbar(
@@ -5224,7 +5225,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                           children: [
                             // Scrollable header
                             Container(
-                              color: const Color(0xFFFAFAFA),
+                              color: SboxColors.slate50,
                               child: Row(
                                 children: scrollableCols
                                     .map((c) => buildHeaderCell(c, colWidth(c)))
@@ -5242,7 +5243,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                                   return Container(
                                     color: i.isEven
                                         ? Colors.white
-                                        : const Color(0xFFFAFAFA),
+                                        : SboxColors.slate50,
                                     child: Row(
                                       children: scrollableCols
                                           .map((c) => buildCell(
@@ -5271,7 +5272,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     switch (key) {
       case 'netSalary':
         final val = (row[key] as num?)?.toDouble() ?? 0;
-        return val >= 0 ? Colors.blue.shade700 : Colors.red;
+        return val >= 0 ? SboxColors.brand700 : Colors.red;
       case 'penalty':
       case 'latePenalty':
       case 'bhxh':
@@ -5522,13 +5523,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF52525B),
+          color: SboxColors.slate600,
         ),
       );
 
   TableRow _buildPayrollHeaderRow(List<PayrollColumn> visibleCols) {
     return TableRow(
-      decoration: const BoxDecoration(color: Color(0xFFFAFAFA)),
+      decoration: const BoxDecoration(color: SboxColors.slate50),
       children: visibleCols
           .map((c) => _payrollTableCell(_payrollHeaderText(c.label)))
           .toList(),
@@ -5552,9 +5553,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             Container(
               height: 28,
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                border: Border.all(color: SboxColors.slate200),
                 borderRadius: BorderRadius.circular(4),
-                color: const Color(0xFFFAFAFA),
+                color: SboxColors.slate50,
               ),
             ),
           );
@@ -5572,7 +5573,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               fontWeight: col.key == 'netSalary' || col.key == 'totalSalary'
                   ? FontWeight.w700
                   : (col.key == 'name' ? FontWeight.w600 : FontWeight.normal),
-              color: color ?? const Color(0xFF18181B),
+              color: color ?? SboxColors.slate900,
             ),
             maxLines: col.key == 'name' ? 1 : null,
             overflow: TextOverflow.ellipsis,
@@ -5629,7 +5630,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     List<PayrollColumn> visibleCols,
   ) {
     return TableRow(
-      decoration: const BoxDecoration(color: Color(0xFFEFF6FF)),
+      decoration: const BoxDecoration(color: SboxColors.brand50),
       children: visibleCols.map((col) {
         final text = _payrollTotalCellText(col, allData);
         return _payrollTableCell(
@@ -5640,8 +5641,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: col.key == 'netSalary'
-                  ? Colors.blue.shade800
-                  : const Color(0xFF1E40AF),
+                  ? SboxColors.brand800
+                  : SboxColors.brand800,
             ),
           ),
         );
@@ -5657,8 +5658,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       columnWidths: columnWidths,
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       border: TableBorder(
-        horizontalInside: BorderSide(color: Colors.grey.shade200, width: 0.5),
-        verticalInside: BorderSide(color: Colors.grey.shade200, width: 0.5),
+        horizontalInside: BorderSide(color: SboxColors.slate200, width: 0.5),
+        verticalInside: BorderSide(color: SboxColors.slate200, width: 0.5),
       ),
       children: rows,
     );
@@ -5668,8 +5669,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return Container(
       height: 18,
       decoration: const BoxDecoration(
-        color: Color(0xFFFAFAFA),
-        border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+        color: SboxColors.slate50,
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Scrollbar(
         thumbVisibility: true,
@@ -5712,7 +5713,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       barrierDismissible: true,
       builder: (dialogCtx) => Dialog.fullscreen(
         child: Scaffold(
-          backgroundColor: const Color(0xFFFAFAFA),
+          backgroundColor: SboxColors.slate50,
           appBar: AppBar(
             title: Text(tr('Bảng tổng hợp lương'),
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
@@ -5735,8 +5736,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               Container(
                 height: headerH,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFFAFAFA),
-                  border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                  color: SboxColors.slate50,
+                  border: Border(bottom: BorderSide(color: SboxColors.slate200)),
                 ),
                 child: _buildPayrollHorizontalClip(
                   tableMinWidth: tableMinWidth,
@@ -5768,8 +5769,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               Container(
                 height: 18,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFFAFAFA),
-                  border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+                  color: SboxColors.slate50,
+                  border: Border(top: BorderSide(color: SboxColors.slate200)),
                 ),
                 child: Scrollbar(
                   thumbVisibility: true,
@@ -5786,12 +5787,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+                  border: Border(top: BorderSide(color: SboxColors.slate200)),
                 ),
                 child: Text(
                   tr('${allData.length} nhân viên · Kỳ ${DateFormat('dd/MM/yyyy').format(_fromDate)} – ${DateFormat('dd/MM/yyyy').format(_toDate)}'),
                   style:
-                      TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
               ),
             ],
@@ -5810,10 +5811,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.table_chart, size: 56, color: Colors.grey.shade200),
+            Icon(Icons.table_chart, size: 56, color: SboxColors.slate200),
             const SizedBox(height: 12),
             Text(tr('Không có dữ liệu'),
-                style: TextStyle(color: Colors.grey.shade500)),
+                style: TextStyle(color: SboxColors.slate500)),
           ],
         ),
       );
@@ -5853,9 +5854,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFAFA),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              color: SboxColors.slate50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: SboxColors.slate200),
             ),
             child: Column(
               children: [
@@ -5874,7 +5875,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                             tr(detailRows[i].key.label),
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade700,
+                              color: SboxColors.slate700,
                             ),
                           ),
                         ),
@@ -5898,7 +5899,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                     ),
                   ),
                   if (i < detailRows.length - 1)
-                    const Divider(height: 1, color: Color(0xFFE4E4E7)),
+                    const Divider(height: 1, color: SboxColors.slate200),
                 ],
               ],
             ),
@@ -5934,13 +5935,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               const EdgeInsets.fromLTRB(16, 0, 16, 12),
           leading: CircleAvatar(
             radius: 16,
-            backgroundColor: Colors.blue.shade50,
+            backgroundColor: SboxColors.brand50,
             child: Text(
               tr('${globalIndex + 1}'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue.shade700,
+                color: SboxColors.brand700,
               ),
             ),
           ),
@@ -5960,7 +5961,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
-                  color: Color(0xFF1D4ED8),
+                  color: SboxColors.brand700,
                 ),
               ),
               if (_showTravelPayrollColumns &&
@@ -5996,8 +5997,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -6020,12 +6021,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                 ),
                 Text(
                   tr('${data.length} NV'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE4E4E7)),
+          const Divider(height: 1, color: SboxColors.slate200),
           if (isMobile)
             listView
           else
@@ -6033,9 +6034,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50.withValues(alpha: 0.35),
+              color: SboxColors.brand50.withValues(alpha: 0.35),
               border: const Border(
-                top: BorderSide(color: Color(0xFFE4E4E7)),
+                top: BorderSide(color: SboxColors.slate200),
               ),
             ),
             child: Row(
@@ -6049,8 +6050,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
                   tr(_fmtCurrency(totalNet)),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: Colors.blue.shade800,
+                    fontSize: 16,
+                    color: SboxColors.brand800,
                   ),
                 ),
               ],
@@ -6068,10 +6069,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.table_chart, size: 56, color: Colors.grey.shade200),
+            Icon(Icons.table_chart, size: 56, color: SboxColors.slate200),
             const SizedBox(height: 12),
             Text(tr('Không có dữ liệu'),
-                style: TextStyle(color: Colors.grey.shade500)),
+                style: TextStyle(color: SboxColors.slate500)),
           ],
         ),
       );
@@ -6100,8 +6101,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -6124,7 +6125,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               ),
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFE4E4E7)),
+          const Divider(height: 1, color: SboxColors.slate200),
           Expanded(
             child: Scrollbar(
               thumbVisibility: true,
@@ -6180,13 +6181,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     if (c != null) return c;
     switch (key) {
       case 'netSalary':
-        return const Color(0xFF1D4ED8);
+        return SboxColors.brand700;
       case 'totalSalary':
-        return const Color(0xFF15803D);
+        return SboxColors.payHover;
       case 'totalDeduction':
         return Colors.red.shade700;
       default:
-        return const Color(0xFF18181B);
+        return SboxColors.slate900;
     }
   }
 
@@ -6198,7 +6199,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           padding: EdgeInsets.all(20),
           child: Text(tr('Chưa có cột dữ liệu hiển thị.\nVui lòng bật thêm cột trong cài đặt bảng lương.'),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate500),
           ),
         ),
       );
@@ -6232,10 +6233,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             cellColors: cols.map((c) {
               final text = _payrollTotalCellText(c, data);
               if (text.isEmpty || text == '—') return null;
-              if (c.key == 'netSalary') return Colors.blue.shade800;
-              if (c.key == 'totalSalary') return const Color(0xFF15803D);
+              if (c.key == 'netSalary') return SboxColors.brand800;
+              if (c.key == 'totalSalary') return SboxColors.payHover;
               if (c.key == 'totalDeduction') return Colors.red.shade700;
-              return const Color(0xFF1E40AF);
+              return SboxColors.brand800;
             }).toList(),
           );
 

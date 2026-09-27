@@ -42,6 +42,7 @@ import '../../widgets/synced_scroll_list_view.dart'
     show SyncedScrollListView, linkHorizontalScrollControllers;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class AttendanceByShiftTab extends StatefulWidget {
   final List<Attendance> attendances;
   final List<Device> devices;
@@ -162,7 +163,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   BoxDecoration get _tableCardDecoration => BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -846,7 +847,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     if (location.isEmpty) {
       return Text(tr('—'),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
+          style: const TextStyle(fontSize: 11, color: SboxColors.slate400));
     }
     final mismatch =
         punchLocationDiffersFromAssigned(location, assignedBranch);
@@ -858,7 +859,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w600,
-        color: mismatch ? const Color(0xFFC2410C) : const Color(0xFF334155),
+        color: mismatch ? const Color(0xFFC2410C) : SboxColors.slate700,
       ),
     );
   }
@@ -1040,7 +1041,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           workHours: 0,
           decimalHours: 0,
           status: 'Vắng',
-          statusColor: const Color(0xFFEF4444),
+          statusColor: SboxColors.danger,
           workCount: 0,
         ));
         existing.add('$empId|$dateKey');
@@ -1068,7 +1069,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       workHours: 0,
       decimalHours: 0,
       status: 'Vắng',
-      statusColor: const Color(0xFFEF4444),
+      statusColor: SboxColors.danger,
       workCount: 0,
     );
   }
@@ -1267,7 +1268,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -1328,9 +1329,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
@@ -1347,7 +1348,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     value: item.value,
                     child: Row(
                       children: [
-                        Icon(icon, size: 14, color: Colors.grey[500]),
+                        Icon(icon, size: 14, color: SboxColors.slate500),
                         const SizedBox(width: 6),
                         Expanded(
                           child: DefaultTextStyle(
@@ -1398,9 +1399,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1432,12 +1433,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         constraints: const BoxConstraints(minWidth: 100),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          borderRadius: BorderRadius.circular(8),
+          color: SboxColors.slate50,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selectedCount > 0
                 ? Theme.of(context).primaryColor
-                : const Color(0xFFE4E4E7),
+                : SboxColors.slate200,
           ),
         ),
         child: Row(
@@ -1447,7 +1448,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 size: 14,
                 color: selectedCount > 0
                     ? Theme.of(context).primaryColor
-                    : Colors.grey[500]),
+                    : SboxColors.slate500),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -1458,7 +1459,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   fontSize: 12,
                   color: selectedCount > 0
                       ? Theme.of(context).primaryColor
-                      : Colors.grey[600],
+                      : SboxColors.slate600,
                   fontWeight:
                       selectedCount > 0 ? FontWeight.w600 : FontWeight.normal,
                 ),
@@ -1472,11 +1473,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   _selectedEmployeeIds = {};
                   _currentPage = 0;
                 }),
-                child: Icon(Icons.close, size: 14, color: Colors.grey[500]),
+                child: Icon(Icons.close, size: 14, color: SboxColors.slate500),
               ),
             ],
             const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey[500]),
+            Icon(Icons.arrow_drop_down, size: 16, color: SboxColors.slate500),
           ],
         ),
       ),
@@ -1505,7 +1506,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             return ScrollableAlertDialog(
               title: Row(
                 children: [
-                  const Icon(Icons.people, color: Colors.blue, size: 22),
+                  const Icon(Icons.people, color: SboxColors.brand500, size: 22),
                   const SizedBox(width: 8),
                   Text(tr('Chọn nhân viên'),
                       style:
@@ -1546,7 +1547,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       style: const TextStyle(fontSize: 13),
                       onChanged: (v) => setDialogState(() => searchText = v),
@@ -1556,7 +1557,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: SboxColors.brand50,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
@@ -1564,7 +1565,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           Text(tr('Đã chọn: ${tempSelected.length}/${employees.length}'),
                               style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.blue.shade700,
+                                  color: SboxColors.brand700,
                                   fontWeight: FontWeight.w500)),
                         ],
                       ),
@@ -1597,7 +1598,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                     : null,
                                 border: Border(
                                     bottom: BorderSide(
-                                        color: Colors.grey.shade200)),
+                                        color: SboxColors.slate200)),
                               ),
                               child: Row(
                                 children: [
@@ -1608,12 +1609,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                     size: 20,
                                     color: isSelected
                                         ? Theme.of(context).primaryColor
-                                        : Colors.grey,
+                                        : SboxColors.slate500,
                                   ),
                                   const SizedBox(width: 10),
                                   CircleAvatar(
                                     radius: 14,
-                                    backgroundColor: Colors.blue.shade100,
+                                    backgroundColor: SboxColors.brand100,
                                     child: Text(
                                         tr(emp.name.isNotEmpty
                                             ? emp.name[0].toUpperCase()
@@ -1621,7 +1622,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                         style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.blue.shade700)),
+                                            color: SboxColors.brand700)),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -1636,7 +1637,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                         Text(tr(emp.code),
                                             style: TextStyle(
                                                 fontSize: 11,
-                                                color: Colors.grey.shade600)),
+                                                color: SboxColors.slate600)),
                                       ],
                                     ),
                                   ),
@@ -1697,7 +1698,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
           title: Row(
             children: [
-              Icon(Icons.add_circle, color: Colors.blue),
+              Icon(Icons.add_circle, color: SboxColors.brand500),
               SizedBox(width: 8),
               Text(tr('Thêm chấm công')),
             ],
@@ -1709,7 +1710,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               children: [
                 // Thông tin nhân viên
                 Card(
-                  color: Colors.grey.withValues(alpha: 0.1),
+                  color: SboxColors.slate500.withValues(alpha: 0.1),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Column(
@@ -1724,7 +1725,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                             shiftContextLabel.isNotEmpty)
                           Text(tr('Ca: $shiftContextLabel'),
                               style: TextStyle(
-                                  color: Colors.blue.shade700,
+                                  color: SboxColors.brand700,
                                   fontWeight: FontWeight.w500)),
                         Text(tr('Lần chấm: $punchIndex (${resolvedIsIn ? "Vào" : "Ra"})')),
                       ],
@@ -1753,12 +1754,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: SboxColors.slate500),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: Colors.blue),
+                        const Icon(Icons.calendar_today, color: SboxColors.brand500),
                         const SizedBox(width: 8),
                         Text(tr(DateFormat('dd/MM/yyyy').format(selectedDate)),
                             style: const TextStyle(
@@ -1802,8 +1803,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: SboxColors.slate500),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
@@ -2115,7 +2116,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         ? (canManageTravel ? '+' : '—')
         : _formatHoursMinutes(hours);
     final color = hours <= 0
-        ? (canManageTravel ? HrmPageChrome.primaryNavy : const Color(0xFFA1A1AA))
+        ? (canManageTravel ? HrmPageChrome.primaryNavy : SboxColors.slate400)
         : HrmPageChrome.chipLight;
 
     final text = Text(
@@ -2182,7 +2183,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             style: const TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 12,
-                color: Color(0xFF71717A))),
+                color: SboxColors.slate500)),
         const SizedBox(height: 2),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -2210,7 +2211,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       _buildModernStatCard('Đi trễ', '$totalLate', Icons.timer_off_outlined,
           HrmPageChrome.chipLight),
       _buildModernStatCard(
-          'Về sớm', '$totalEarly', Icons.exit_to_app, const Color(0xFFEF4444)),
+          'Về sớm', '$totalEarly', Icons.exit_to_app, SboxColors.danger),
       _buildModernStatCard(
           'Tăng ca', '$totalOT', Icons.more_time, HrmPageChrome.primaryNavy),
     ];
@@ -2257,7 +2258,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: color.withValues(alpha: 0.10),
@@ -2272,7 +2273,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, size: 16, color: color),
           ),
@@ -2283,13 +2284,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               children: [
                 Text(tr(value),
                     style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: color),
                     overflow: TextOverflow.ellipsis),
                 Text(tr(label),
                     style:
-                        const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA)),
+                        const TextStyle(fontSize: 10, color: SboxColors.slate400),
                     overflow: TextOverflow.ellipsis),
               ],
             ),
@@ -2326,7 +2327,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: SboxColors.slate300,
                       borderRadius: BorderRadius.circular(2)),
                 ),
               ),
@@ -2336,7 +2337,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   height: 44,
                   decoration: BoxDecoration(
                       color: record.statusColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14)),
                   child: Center(
                       child: Text(tr(dayOfWeek.substring(0, 2)),
                           style: TextStyle(
@@ -2354,7 +2355,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                               fontWeight: FontWeight.bold, fontSize: 16)),
                       Text(tr('${record.employeeCode} · $dayOfWeek $dateStr'),
                           style: const TextStyle(
-                              color: Color(0xFF71717A), fontSize: 13)),
+                              color: SboxColors.slate500, fontSize: 13)),
                     ])),
                 // Badge ngắn (≤ 14 ký tự) thì giữ ở header. Badge dài ("Thiếu
                 // ra Ca chiều", "Đi trễ • Thiếu ra Ca sáng") sẽ xuống dòng
@@ -2423,7 +2424,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               const SizedBox(height: 6),
               if (record.punchTimes.isEmpty && !widget.allowCorrection)
                 Text(tr('Không có dữ liệu'),
-                    style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))
+                    style: TextStyle(color: SboxColors.slate400, fontSize: 13))
               else ...[
                 ...List.generate(
                   record.punchTimes.isEmpty ? 1 : record.punchTimes.length,
@@ -2449,7 +2450,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         Expanded(
                           child: Text(tr('Lần ${i + 1} (${i.isEven ? "Vào" : "Ra"})'),
                             style: TextStyle(
-                                fontSize: 13, color: Colors.grey.shade700),
+                                fontSize: 13, color: SboxColors.slate700),
                           ),
                         ),
                         _buildPunchTimeCell(record, i),
@@ -2466,7 +2467,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.1),
+                            color: SboxColors.brand500.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Icon(
@@ -2474,14 +2475,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                 ? Icons.login
                                 : Icons.logout,
                             size: 15,
-                            color: Colors.blue,
+                            color: SboxColors.brand500,
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(tr('Lần ${record.punchTimes.length + 1} (${record.punchTimes.length.isEven ? "Vào" : "Ra"})'),
                             style: TextStyle(
-                                fontSize: 13, color: Colors.grey.shade700),
+                                fontSize: 13, color: SboxColors.slate700),
                           ),
                         ),
                         _buildPunchTimeCell(record, record.punchTimes.length),
@@ -2524,7 +2525,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         record.workCount == record.workCount.roundToDouble()
                             ? '${record.workCount.toInt()}'
                             : record.workCount.toStringAsFixed(2),
-                        Colors.blue)),
+                        SboxColors.brand500)),
               ]),
             ],
           ),
@@ -2536,7 +2537,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   Widget _detailRow(String label, String value) {
     return Row(children: [
       Text(tr(label),
-          style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+          style: const TextStyle(color: SboxColors.slate500, fontSize: 13)),
       const Spacer(),
       Text(tr(value),
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
@@ -2546,7 +2547,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   Widget _detailLabel(String label) {
     return Text(tr(label),
         style: const TextStyle(
-            color: Color(0xFF71717A),
+            color: SboxColors.slate500,
             fontSize: 13,
             fontWeight: FontWeight.w500));
   }
@@ -2566,7 +2567,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         const SizedBox(height: 2),
         Text(tr(value),
             style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 15, color: color)),
+                fontWeight: FontWeight.bold, fontSize: 16, color: color)),
       ]),
     );
   }
@@ -2594,7 +2595,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             height: 36,
             decoration: BoxDecoration(
                 color: record.statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(10)),
             child: Center(
                 child: Text(tr(dayOfWeek.substring(0, 2)),
                     style: TextStyle(
@@ -2621,7 +2622,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     '${record.workHours.toStringAsFixed(1)}h'
                   ].where((s) => s.isNotEmpty).join(' \u00b7 ')),
                   style:
-                      const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                      const TextStyle(color: SboxColors.slate500, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis),
               if (isLongStatus) ...[
@@ -2634,7 +2635,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             statusBadge,
             const SizedBox(width: 4),
           ],
-          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+          const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
         ]),
       ),
     );
@@ -2654,14 +2655,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final infoWidget = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
-        borderRadius: BorderRadius.circular(12),
+        color: SboxColors.successSoft,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Text(tr('Hiển thị $startRow-$endRow / $totalRows'),
         style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: Color(0xFF16A34A)),
+            color: SboxColors.success),
       ),
     );
 
@@ -2669,15 +2670,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(tr('Số dòng:'),
-            style: TextStyle(fontSize: 12, color: Color(0xFFA1A1AA))),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate400)),
         const SizedBox(width: 6),
         Container(
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFFFAFAFA),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
-            borderRadius: BorderRadius.circular(8),
+            color: SboxColors.slate50,
+            border: Border.all(color: SboxColors.slate200),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
@@ -2718,7 +2719,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: primary,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
             tr('${_currentPage + 1} / ${totalPages == 0 ? 1 : totalPages}'),
@@ -2743,7 +2744,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           bottomLeft: Radius.circular(12),
           bottomRight: Radius.circular(12),
         ),
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: isMobile
           ? Wrap(
@@ -2767,11 +2768,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   Tooltip(
                     message: tr('Xem toàn màn hình'),
                     child: Material(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(8),
+                      color: SboxColors.brand50,
+                      borderRadius: BorderRadius.circular(10),
                       child: InkWell(
                         onTap: onOpenFullscreen,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         child: Padding(
                           padding: EdgeInsets.symmetric(
                               horizontal: 10, vertical: 6),
@@ -2804,17 +2805,17 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   Widget _buildPageNavBtn(IconData icon, bool enabled, VoidCallback onTap) {
     return Material(
-      color: enabled ? const Color(0xFFF1F5F9) : const Color(0xFFFAFAFA),
-      borderRadius: BorderRadius.circular(8),
+      color: enabled ? SboxColors.slate100 : SboxColors.slate50,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: Icon(icon,
               size: 18,
               color:
-                  enabled ? const Color(0xFF52525B) : const Color(0xFFCBD5E1)),
+                  enabled ? SboxColors.slate600 : SboxColors.slate300),
         ),
       ),
     );
@@ -2863,7 +2864,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               children: [
                 // Thông tin nhân viên
                 Card(
-                  color: Colors.grey.withValues(alpha: 0.1),
+                  color: SboxColors.slate500.withValues(alpha: 0.1),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Column(
@@ -2923,12 +2924,12 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: SboxColors.slate500),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: Colors.blue),
+                        const Icon(Icons.calendar_today, color: SboxColors.brand500),
                         const SizedBox(width: 8),
                         Text(tr(DateFormat('dd/MM/yyyy').format(selectedDate)),
                             style: const TextStyle(
@@ -2975,7 +2976,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.orange),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
@@ -4237,10 +4238,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_outlined, size: 56, color: Color(0xFFCBD5E1)),
+            Icon(Icons.inbox_outlined, size: 56, color: SboxColors.slate300),
             SizedBox(height: 12),
             Text(tr('Không có dữ liệu'),
-                style: TextStyle(color: Color(0xFFA1A1AA))),
+                style: TextStyle(color: SboxColors.slate400)),
           ],
         ),
       ),
@@ -4337,7 +4338,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF52525B),
+          color: SboxColors.slate600,
         ),
       );
 
@@ -4481,7 +4482,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         .map((h) => _shiftTableCell(_shiftHeaderText(h)))
         .toList();
     return TableRow(
-      decoration: const BoxDecoration(color: Color(0xFFFAFAFA)),
+      decoration: const BoxDecoration(color: SboxColors.slate50),
       children: cells,
     );
   }
@@ -4505,7 +4506,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: isIn ? HrmPageChrome.chip : const Color(0xFFDC2626),
+            color: isIn ? HrmPageChrome.chip : SboxColors.danger,
           ),
         );
       }
@@ -4524,18 +4525,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             border: Border.all(
-                color: Colors.grey.withValues(alpha: 0.3),
+                color: SboxColors.slate500.withValues(alpha: 0.3),
                 style: BorderStyle.solid),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: const Icon(Icons.add, size: 14, color: Colors.grey),
+          child: const Icon(Icons.add, size: 14, color: SboxColors.slate500),
         ),
       );
     }
 
     return Text(tr('—'),
         textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
+        style: TextStyle(fontSize: 11, color: SboxColors.slate400));
   }
 
   TableRow _buildShiftEmployeeSubtotalRow(
@@ -4548,27 +4549,27 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         Text(tr('Σ ${totals.employeeName}'),
             textAlign: TextAlign.center,
             style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                fontSize: 12, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
       ),
       _shiftTableCell(Text(tr(totals.employeeCode),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)))),
+          style: const TextStyle(fontSize: 11, color: SboxColors.slate500))),
       _shiftTableCell(Text(tr('Tổng'),
           textAlign: TextAlign.center,
           style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w700, color: Colors.blue.shade700))),
+              fontSize: 11, fontWeight: FontWeight.w700, color: SboxColors.brand700))),
       _shiftTableCell(Text(tr('${totals.presentDays} ngày'),
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
       if (_showPunchBranchColumn)
         _shiftTableCell(Text(tr('—'),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate400))),
     ];
     for (var i = 0; i < punchCols; i++) {
       cells.add(_shiftTableCell(Text(tr('—'),
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))));
+          style: TextStyle(fontSize: 11, color: SboxColors.slate400))));
     }
     cells.addAll([
       _shiftTableCell(Text(tr(totals.lateMinutes > 0 ? '${totals.lateMinutes}P' : '—'),
@@ -4586,7 +4587,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: totals.workHours > 0 ? Colors.green : const Color(0xFFA1A1AA)))),
+              color: totals.workHours > 0 ? Colors.green : SboxColors.slate400))),
       if (_showTravelColumns)
         _shiftTableCell(_buildTravelHoursCell(
           _travelHoursTotalForShiftEmployee(
@@ -4602,8 +4603,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: totals.decimalHours > 0
-                  ? Colors.blue.shade700
-                  : const Color(0xFFA1A1AA)))),
+                  ? SboxColors.brand700
+                  : SboxColors.slate400))),
       _shiftTableCell(Text(
           tr(totals.totalWork > 0 ? totals.totalWork.toStringAsFixed(2) : '—'),
           textAlign: TextAlign.center,
@@ -4611,17 +4612,17 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: totals.totalWork > 0
-                  ? Colors.blue.shade700
-                  : const Color(0xFFA1A1AA)))),
+                  ? SboxColors.brand700
+                  : SboxColors.slate400))),
       _shiftTableCell(Text(tr('—'),
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))),
+          style: TextStyle(fontSize: 11, color: SboxColors.slate400))),
       _shiftTableCell(Text(tr('—'),
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)))),
+          style: TextStyle(fontSize: 11, color: SboxColors.slate400))),
     ]);
     return TableRow(
-      decoration: const BoxDecoration(color: Color(0xFFEFF6FF)),
+      decoration: const BoxDecoration(color: SboxColors.brand50),
       children: cells,
     );
   }
@@ -4641,7 +4642,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final cells = <Widget>[
         _shiftTableCell(Text(tr('$stt'),
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)))),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate500))),
         _shiftTableCell(
           InkWell(
             onTap: () => _showRecordDetail(r),
@@ -4678,7 +4679,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: r.workHours > 0 ? Colors.green : Colors.grey))),
+                color: r.workHours > 0 ? Colors.green : SboxColors.slate500))),
         if (_showTravelColumns)
           _shiftTableCell(_buildTravelHoursCell(_travelHoursForShiftRecord(r),
               record: r)),
@@ -4688,15 +4689,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             style: TextStyle(
                 fontSize: 12,
                 color: r.decimalHours > 0
-                    ? Colors.blue.shade700
-                    : Colors.grey))),
+                    ? SboxColors.brand700
+                    : SboxColors.slate500))),
         _shiftTableCell(Text(
             tr(r.workCount > 0 ? r.workCount.toStringAsFixed(2) : '—'),
             textAlign: TextAlign.center,
             style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: r.workCount > 0 ? Colors.blue.shade700 : Colors.grey))),
+                color: r.workCount > 0 ? SboxColors.brand700 : SboxColors.slate500))),
         _shiftTableCell(
           Text(tr(_shiftHoursDetailLabel(r)),
               textAlign: TextAlign.left,
@@ -4729,8 +4730,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       columnWidths: columnWidths,
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       border: TableBorder(
-        horizontalInside: BorderSide(color: Colors.grey.shade200, width: 0.5),
-        verticalInside: BorderSide(color: Colors.grey.shade200, width: 0.5),
+        horizontalInside: BorderSide(color: SboxColors.slate200, width: 0.5),
+        verticalInside: BorderSide(color: SboxColors.slate200, width: 0.5),
       ),
       children: rows,
     );
@@ -4756,7 +4757,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       barrierDismissible: true,
       builder: (dialogCtx) => Dialog.fullscreen(
         child: Scaffold(
-          backgroundColor: const Color(0xFFFAFAFA),
+          backgroundColor: SboxColors.slate50,
           appBar: AppBar(
             title: Text(tr('Bảng chấm công theo ca'),
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
@@ -4785,9 +4786,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   Container(
                     width: viewportWidth,
                     decoration: const BoxDecoration(
-                      color: Color(0xFFFAFAFA),
+                      color: SboxColors.slate50,
                       border: Border(
-                          bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                          bottom: BorderSide(color: SboxColors.slate200)),
                     ),
                     child: _buildShiftDesktopTable(
                       columnWidths: columnWidths,
@@ -4817,11 +4818,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     decoration: const BoxDecoration(
                       color: Colors.white,
                       border:
-                          Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+                          Border(top: BorderSide(color: SboxColors.slate200)),
                     ),
                     child: Text(tr('${allRecords.length} bản ghi · ${daySttMap.length} nhân viên'),
                       style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
+                          fontSize: 12, color: SboxColors.slate600),
                     ),
                   ),
                 ],
@@ -4874,7 +4875,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           pinned: true,
           delegate: PinnedBoxHeaderDelegate(
             extent: headerH,
-            backgroundColor: const Color(0xFFFAFAFA),
+            backgroundColor: SboxColors.slate50,
             child: LayoutBuilder(
               builder: (context, constraints) => Scrollbar(
                 thumbVisibility: true,
@@ -5036,7 +5037,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       AbsenceCellKind.weeklyOff => ('Nghỉ', HrmPageChrome.chipSoft),
       AbsenceCellKind.approvedLeave => ('Phép', HrmPageChrome.chipLight),
       AbsenceCellKind.pendingLeave => ('Chờ phép', HrmPageChrome.chipDark),
-      AbsenceCellKind.unpaidAbsent => ('Vắng', const Color(0xFFEF4444)),
+      AbsenceCellKind.unpaidAbsent => ('Vắng', SboxColors.danger),
     };
     return mobileAttendanceAbsenceLabel(
       label.$1,
@@ -5168,8 +5169,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                 tr(presentDays > 0 ? '$presentDays ngày' : '—'),
                 style: const TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E40AF),
+                  fontWeight: FontWeight.w700,
+                  color: SboxColors.brand800,
                 ),
               ),
             ),
@@ -5296,7 +5297,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: color,
               ),
             ),
@@ -5326,7 +5327,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Text(
@@ -5468,9 +5469,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           .toList();
       final workRatio = expected > 0 ? (work / expected).clamp(0.0, 1.0) : 0.0;
       final workColor = work <= 0
-          ? const Color(0xFFA1A1AA)
+          ? SboxColors.slate400
           : (expected > 0 && work >= expected
-              ? const Color(0xFF16A34A)
+              ? SboxColors.success
               : HrmPageChrome.chipMid);
 
       return Padding(
@@ -5488,7 +5489,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
             ),
             child: Container(
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                border: Border.all(color: SboxColors.slate200),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
@@ -5529,7 +5530,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF18181B),
+                                color: SboxColors.slate900,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -5537,7 +5538,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                               tr(empCode),
                               style: const TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF71717A),
+                                color: SboxColors.slate500,
                               ),
                             ),
                           ],
@@ -5549,8 +5550,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 7, vertical: 3),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(12),
+                            color: SboxColors.warningSoft,
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                                 color: HrmPageChrome.chipLight
                                     .withValues(alpha: 0.35)),
@@ -5564,7 +5565,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           ),
                         ),
                       const Icon(Icons.chevron_right,
-                          color: Color(0xFF94A3B8), size: 22),
+                          color: SboxColors.slate400, size: 22),
                     ],
                   ),
                   if (shiftHourChips.isNotEmpty) ...[
@@ -5579,7 +5580,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                     Row(
                       children: [
                         Icon(Icons.work_history_rounded,
-                            size: 13, color: Colors.grey.shade600),
+                            size: 13, color: SboxColors.slate600),
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
@@ -5589,7 +5590,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700,
+                              color: SboxColors.slate700,
                             ),
                           ),
                         ),
@@ -5630,7 +5631,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         icon: Icons.fingerprint_rounded,
                         label: 'Có chấm',
                         value: present > 0 ? '$present ngày' : '—',
-                        color: const Color(0xFF16A34A),
+                        color: SboxColors.success,
                       ),
                       const SizedBox(width: 6),
                       _mobileShiftMetricChip(
@@ -5644,7 +5645,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         icon: Icons.logout_rounded,
                         label: 'Về sớm',
                         value: earlyMin > 0 ? '${earlyMin}p' : '—',
-                        color: const Color(0xFFEF4444),
+                        color: SboxColors.danger,
                       ),
                     ],
                   ),
@@ -5669,7 +5670,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                             child: LinearProgressIndicator(
                               value: workRatio,
                               minHeight: 5,
-                              backgroundColor: const Color(0xFFE4E4E7),
+                              backgroundColor: SboxColors.slate200,
                               color: workColor,
                             ),
                           ),
@@ -5701,13 +5702,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           gradient: LinearGradient(
             colors: [
               HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
-              const Color(0xFFDBEAFE),
+              SboxColors.brand100,
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF93C5FD)),
+          border: Border.all(color: SboxColors.brand200),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -5721,14 +5722,14 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       Text(tr('Tổng cộng'),
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           color: HrmPageChrome.primaryNavy,
                         ),
                       ),
                       Text(tr('${employees.length} nhân viên'),
                         style: TextStyle(
                           fontSize: 10,
-                          color: Colors.grey.shade700,
+                          color: SboxColors.slate700,
                         ),
                       ),
                     ],
@@ -5741,25 +5742,25 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       tr(grandHours > 0 ? _formatHoursMinutes(grandHours) : '—'),
                       style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: HrmPageChrome.chipMid,
                       ),
                     ),
                     Text(tr('tổng giờ'),
                         style:
-                            TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+                            TextStyle(fontSize: 9, color: SboxColors.slate500)),
                     const SizedBox(height: 4),
                     Text(
                       tr(formatWork(grandWork)),
                       style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: HrmPageChrome.chipMid,
                       ),
                     ),
                     Text(tr('tổng công ca'),
                         style:
-                            TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+                            TextStyle(fontSize: 9, color: SboxColors.slate500)),
                   ],
                 ),
               ],
@@ -5775,7 +5776,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         'Đi trễ ${grandLate}p', HrmPageChrome.chipLight),
                   if (grandEarly > 0)
                     _shiftSummaryBadge(
-                        'Về sớm ${grandEarly}p', const Color(0xFFEF4444)),
+                        'Về sớm ${grandEarly}p', SboxColors.danger),
                   if (grandOt > 0)
                     _shiftSummaryBadge(
                         'Tăng ca ${grandOt}p', HrmPageChrome.chipSoft),
@@ -5806,9 +5807,9 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               Expanded(
                 child: Text(tr('Danh sách nhân viên'),
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
               ),
@@ -5836,7 +5837,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
         sliver: SliverToBoxAdapter(
           child: Text(tr('Chạm thẻ để xem chi tiết: điểm danh, ca, đi trễ, về sớm theo ngày'),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate600),
           ),
         ),
       ),
@@ -5861,7 +5862,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
@@ -5879,7 +5880,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         ? Colors.red
         : weekday == DateTime.saturday
             ? Colors.orange
-            : Colors.grey;
+            : SboxColors.slate500;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -5924,10 +5925,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       return Text(tr('-'), style: TextStyle(fontSize: 12));
     }
     // Assign colors based on common shift name patterns
-    Color color = Colors.blue;
+    Color color = SboxColors.brand500;
     final lower = name.toLowerCase();
     if (lower.contains('sáng') || lower.contains('sang')) {
-      color = Colors.blue;
+      color = SboxColors.brand500;
     } else if (lower.contains('chiều') || lower.contains('chieu')) {
       color = Colors.purple;
     } else if (lower.contains('tối') || lower.contains('toi')) {
@@ -6042,7 +6043,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   Widget _buildWorkCountBadge(double count) {
-    final color = count > 0 ? Colors.blue : Colors.grey;
+    final color = count > 0 ? SboxColors.brand500 : SboxColors.slate500;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(

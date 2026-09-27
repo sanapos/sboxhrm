@@ -10,6 +10,8 @@ import '../hrm_mini_stat_chip.dart';
 import '../hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
+import '../sbox/sbox_table.dart';
 /// Bọc KPI + bộ lọc báo cáo — thu gọn còn 1 hàng như Hồ sơ nhân sự.
 class ReportCollapsibleChrome extends StatelessWidget {
   final bool expanded;
@@ -118,7 +120,7 @@ class ReportScreenShell extends StatelessWidget {
           children: [
             Text(tr(title),
                 style: vietnameseTextStyle(const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.bold))),
+                    fontSize: 18, fontWeight: FontWeight.bold))),
             if (subtitle != null)
               Text(tr(subtitle!),
                   style: vietnameseTextStyle(const TextStyle(
@@ -202,7 +204,7 @@ class ReportViewModeTabs extends StatelessWidget {
             if (states.contains(WidgetState.selected)) {
               return Colors.white;
             }
-            return const Color(0xFF586064);
+            return SboxColors.slate600;
           }),
           side: WidgetStateProperty.all(
             BorderSide(color: brand.withValues(alpha: 0.35)),
@@ -242,8 +244,8 @@ class ReportTimelineCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: SboxColors.slate200),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -275,14 +277,14 @@ class ReportTimelineCard extends StatelessWidget {
                       if (trailing != null)
                         Text(tr(trailing!),
                             style: vietnameseTextStyle(TextStyle(
-                                fontSize: 11, color: Colors.grey.shade600))),
+                                fontSize: 11, color: SboxColors.slate600))),
                     ],
                   ),
                   if (amount != null) ...[
                     const SizedBox(height: 4),
                     Text(tr(amount!),
                         style: vietnameseTextStyle(TextStyle(
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: accentColor))),
                   ],
@@ -290,7 +292,7 @@ class ReportTimelineCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(tr(subtitle!),
                         style: vietnameseTextStyle(TextStyle(
-                            fontSize: 12, color: Colors.grey.shade700)),
+                            fontSize: 12, color: SboxColors.slate700)),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis),
                   ],
@@ -337,12 +339,12 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: SboxColors.slate200),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
@@ -369,7 +371,7 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
                     if (meta != null)
                       Text(tr(meta!),
                           style: vietnameseTextStyle(TextStyle(
-                              fontSize: 11, color: Colors.grey.shade600))),
+                              fontSize: 11, color: SboxColors.slate600))),
                   ],
                 ),
               ),
@@ -384,12 +386,12 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
                   if (secondaryValue != null)
                     Text(tr(secondaryValue!),
                         style: vietnameseTextStyle(TextStyle(
-                            fontSize: 11, color: Colors.grey.shade600))),
+                            fontSize: 11, color: SboxColors.slate600))),
                 ],
               ),
               if (onTap != null) ...[
                 const SizedBox(width: 4),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+                Icon(Icons.chevron_right, color: SboxColors.slate400, size: 20),
               ],
             ],
           ),
@@ -474,13 +476,13 @@ class ReportOrgFilterRow extends StatelessWidget {
       height: dense ? 36 : 40,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: const Color(0xFF6B7280)),
+          Icon(icon, size: 16, color: SboxColors.slate500),
           const SizedBox(width: 8),
           Expanded(
             child: DropdownButtonHideUnderline(
@@ -490,9 +492,9 @@ class ReportOrgFilterRow extends StatelessWidget {
                 isDense: true,
                 hint: Text(tr(allLabel),
                     style: vietnameseTextStyle(const TextStyle(
-                        fontSize: 13, color: Color(0xFF6B7280)))),
+                        fontSize: 13, color: SboxColors.slate500))),
                 style: vietnameseTextStyle(
-                    const TextStyle(fontSize: 13, color: Color(0xFF111827))),
+                    const TextStyle(fontSize: 13, color: SboxColors.slate900)),
                 items: [
                   DropdownMenuItem<String?>(
                       value: null, child: Text(tr(allLabel))),
@@ -679,7 +681,7 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
       return Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+          border: Border(bottom: BorderSide(color: SboxColors.slate200)),
         ),
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         child: Column(
@@ -692,7 +694,7 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -706,13 +708,13 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
           ),
           subtitle: Text(
             tr(_filterSummary()),
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           trailing: Icon(
             _expanded ? Icons.expand_less : Icons.expand_more,
-            color: Colors.grey[600],
+            color: SboxColors.slate600,
             size: 22,
           ),
           children: body,
@@ -735,8 +737,8 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
         return Container(
           height: 40,
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DB)),
-            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: SboxColors.slate300),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: TextField(
             controller: ctrl,
@@ -745,9 +747,9 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
             decoration: InputDecoration(
               hintText: tr('Tìm nhân viên...'),
               hintStyle: vietnameseTextStyle(
-                  const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+                  const TextStyle(fontSize: 12, color: SboxColors.slate400)),
               prefixIcon: const Icon(Icons.person_search_outlined,
-                  size: 18, color: Color(0xFF9CA3AF)),
+                  size: 18, color: SboxColors.slate400),
               suffixIcon: widget.empSearch.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, size: 16),
@@ -790,28 +792,7 @@ class ReportPaginationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (totalCount <= pageSize) return const SizedBox.shrink();
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          Text(tr('Trang $page/$totalPages | $totalCount bản ghi'),
-            style: vietnameseTextStyle(
-                TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: page > 1 ? () => onPageChanged(page - 1) : null,
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed:
-                page < totalPages ? () => onPageChanged(page + 1) : null,
-          ),
-        ],
-      ),
-    );
+    return SboxPager(page: page, pageSize: pageSize, total: totalCount, onPage: onPageChanged);
   }
 }
 

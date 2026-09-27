@@ -17,6 +17,7 @@ import '../utils/salary_profile_load_utils.dart';
 import '../utils/branch_filter_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màn hình Tổng hợp lương
 class PayrollScreen extends StatefulWidget {
   const PayrollScreen({super.key});
@@ -148,14 +149,14 @@ class _PayrollScreenState extends State<PayrollScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: SboxColors.slate50,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              border: Border.all(color: SboxColors.slate200),
             ),
             child: Row(
               children: [
                 const Icon(Icons.account_tree_outlined,
-                    size: 16, color: Color(0xFF6B7280)),
+                    size: 16, color: SboxColors.slate500),
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonHideUnderline(
@@ -164,9 +165,9 @@ class _PayrollScreenState extends State<PayrollScreen> {
                       isExpanded: true,
                       isDense: true,
                       style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF111827)),
+                          fontSize: 13, color: SboxColors.slate900),
                       icon: const Icon(Icons.keyboard_arrow_down,
-                          size: 18, color: Color(0xFF9CA3AF)),
+                          size: 18, color: SboxColors.slate400),
                       items: [
                         DropdownMenuItem<String?>(
                             value: null,
@@ -186,11 +187,11 @@ class _PayrollScreenState extends State<PayrollScreen> {
                 if (_selectedBranchId != null)
                   InkWell(
                     onTap: () => setState(() => _selectedBranchId = null),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     child: const Padding(
                       padding: EdgeInsets.all(4),
                       child: Icon(Icons.close,
-                          size: 14, color: Color(0xFF9CA3AF)),
+                          size: 14, color: SboxColors.slate400),
                     ),
                   ),
               ],

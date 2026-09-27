@@ -379,59 +379,11 @@ class SboxPager extends StatelessWidget {
 
   int get pages => math.max(1, (total / pageSize).ceil());
 
-  List<int?> _pageNumbers() {
-    if (pages <= 7) return [for (var i = 1; i <= pages; i++) i];
-    final set = <int>{1, pages, page - 1, page, page + 1}..removeWhere((p) => p < 1 || p > pages);
-    final sorted = set.toList()..sort();
-    final out = <int?>[];
-    for (var i = 0; i < sorted.length; i++) {
-      if (i > 0 && sorted[i] - sorted[i - 1] > 1) out.add(null);
-      out.add(sorted[i]);
-    }
-    return out;
-  }
-
   @override
   Widget build(BuildContext context) {
     final mobile = SboxBreakpoints.isMobile(context);
     final from = total == 0 ? 0 : (page - 1) * pageSize + 1;
     final to = math.min(total, page * pageSize);
-    Widget navBtn(IconData icon, String tip, int target, bool enabled) => Tooltip(
-          message: tr(tip),
-          child: InkWell(
-            onTap: enabled ? () => onPage(target) : null,
-            borderRadius: SboxRadius.smAll,
-            child: SizedBox(
-              width: 32,
-              height: 32,
-              child: Icon(icon, size: 18, color: enabled ? SboxColors.slate600 : SboxColors.slate300),
-            ),
-          ),
-        );
-    Widget num(int p) {
-      final on = p == page;
-      return InkWell(
-        onTap: on ? null : () => onPage(p),
-        borderRadius: SboxRadius.smAll,
-        child: Container(
-          constraints: const BoxConstraints(minWidth: 32),
-          height: 32,
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: on ? SboxColors.primary : Colors.transparent,
-            borderRadius: SboxRadius.smAll,
-          ),
-          child: Text('$p',
-              style: TextStyle(
-                fontSize: SboxType.small,
-                fontWeight: on ? SboxType.semibold : SboxType.medium,
-                color: on ? Colors.white : SboxColors.slate700,
-              )),
-        ),
-      );
-    }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: SboxSpace.lg, vertical: SboxSpace.sm),
       decoration: const BoxDecoration(
@@ -466,20 +418,7 @@ class SboxPager extends StatelessWidget {
               ),
             ],
           ]),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            navBtn(Icons.chevron_left_rounded, 'Trang trước', page - 1, page > 1),
-            if (mobile)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text(tr('Trang $page / $pages'), style: SboxType.smallStyle(SboxColors.text)),
-              )
-            else
-              for (final p in _pageNumbers())
-                p == null
-                    ? const SizedBox(width: 24, child: Center(child: Text('…', style: TextStyle(color: SboxColors.slate400))))
-                    : num(p),
-            navBtn(Icons.chevron_right_rounded, 'Trang sau', page + 1, page < pages),
-          ]),
+          _SboxPagerButtons(page: page, pages: pages, onPage: onPage),
         ],
       ),
     );
@@ -586,5 +525,95 @@ class SboxFilterChip<V> extends StatelessWidget {
         ]),
       ),
     );
+  }
+}
+
+/// Chỉ phần nút chuyển trang « ‹ 1 2 3 … › » — dùng khi màn đã có dòng tổng riêng.
+class SboxPagerNav extends StatelessWidget {
+  const SboxPagerNav({super.key, required this.page, required this.pages, required this.onPage});
+
+  final int page;
+  final int pages;
+  final ValueChanged<int> onPage;
+
+  @override
+  Widget build(BuildContext context) {
+    // Tái dùng phần nút của SboxPager (pageSize = 1 → mỗi trang 1 đơn vị).
+    return _SboxPagerButtons(page: page, pages: math.max(1, pages), onPage: onPage);
+  }
+}
+
+class _SboxPagerButtons extends StatelessWidget {
+  const _SboxPagerButtons({required this.page, required this.pages, required this.onPage});
+
+  final int page;
+  final int pages;
+  final ValueChanged<int> onPage;
+
+  List<int?> _pageNumbers() {
+    if (pages <= 7) return [for (var i = 1; i <= pages; i++) i];
+    final set = <int>{1, pages, page - 1, page, page + 1}..removeWhere((p) => p < 1 || p > pages);
+    final sorted = set.toList()..sort();
+    final out = <int?>[];
+    for (var i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i] - sorted[i - 1] > 1) out.add(null);
+      out.add(sorted[i]);
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mobile = SboxBreakpoints.isMobile(context);
+    Widget navBtn(IconData icon, String tip, int target, bool enabled) => Tooltip(
+          message: tr(tip),
+          child: InkWell(
+            onTap: enabled ? () => onPage(target) : null,
+            borderRadius: SboxRadius.smAll,
+            child: SizedBox(
+              width: 32,
+              height: 32,
+              child: Icon(icon, size: 18, color: enabled ? SboxColors.slate600 : SboxColors.slate300),
+            ),
+          ),
+        );
+    Widget num(int p) {
+      final on = p == page;
+      return InkWell(
+        onTap: on ? null : () => onPage(p),
+        borderRadius: SboxRadius.smAll,
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 32),
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: on ? SboxColors.primary : Colors.transparent,
+            borderRadius: SboxRadius.smAll,
+          ),
+          child: Text('$p',
+              style: TextStyle(
+                fontSize: SboxType.small,
+                fontWeight: on ? SboxType.semibold : SboxType.medium,
+                color: on ? Colors.white : SboxColors.slate700,
+              )),
+        ),
+      );
+    }
+
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      navBtn(Icons.chevron_left_rounded, 'Trang trước', page - 1, page > 1),
+      if (mobile)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Text(tr('Trang $page / $pages'), style: SboxType.smallStyle(SboxColors.text)),
+        )
+      else
+        for (final p in _pageNumbers())
+          p == null
+              ? const SizedBox(width: 24, child: Center(child: Text('…', style: TextStyle(color: SboxColors.slate400))))
+              : num(p),
+      navBtn(Icons.chevron_right_rounded, 'Trang sau', page + 1, page < pages),
+    ]);
   }
 }

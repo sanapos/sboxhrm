@@ -16,7 +16,8 @@ import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 /// Một dòng gợi ý tìm hàng kiểu KiotViet (có thể là SP gốc hoặc từng ĐVT/biến thể).
 class PosPurchaseSearchSuggestion {
@@ -406,7 +407,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
         offset: const Offset(0, 44),
         child: Material(
           elevation: 8,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           color: Colors.white,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 360),
@@ -437,7 +438,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
                         shrinkWrap: true,
                         itemCount: _suggestions.length,
                         separatorBuilder: (_, __) =>
-                            Divider(height: 1, color: Colors.grey.shade200),
+                            Divider(height: 1, color: SboxColors.slate200),
                         itemBuilder: (_, i) =>
                             _SuggestionTile(
                           suggestion: _suggestions[i],
@@ -480,7 +481,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
             decoration: InputDecoration(
               hintText: tr(widget.hintText),
               hintStyle: TextStyle(
-                color: Colors.grey.shade500,
+                color: SboxColors.slate500,
                 fontSize: widget.denseBar || widget.compactSellMobile ? 13 : 14,
               ),
               prefixIcon: widget.compactSellMobile
@@ -488,7 +489,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
                   : Icon(
                       Icons.search,
                       size: widget.denseBar ? 18 : 20,
-                      color: Colors.grey,
+                      color: SboxColors.slate500,
                     ),
               prefixIconConstraints: widget.denseBar
                   ? const BoxConstraints(minWidth: 36, minHeight: 32)
@@ -496,12 +497,12 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(
                     widget.compactSellMobile || widget.denseBar ? 8 : 24),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+                borderSide: BorderSide(color: SboxColors.slate300),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(
                     widget.compactSellMobile || widget.denseBar ? 8 : 24),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+                borderSide: BorderSide(color: SboxColors.slate300),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(
@@ -551,7 +552,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
           tooltip: tr('Chọn từ danh sách'),
           visualDensity: VisualDensity.compact,
           icon: Icon(Icons.grid_view_rounded,
-              size: 20, color: Colors.grey.shade600),
+              size: 20, color: SboxColors.slate600),
           onPressed: _openBrowseSheet,
         ),
       );
@@ -618,7 +619,7 @@ class _SuggestionTile extends StatelessWidget {
               Icon(
                 selected ? Icons.check_box : Icons.check_box_outline_blank,
                 size: 22,
-                color: selected ? _blue : Colors.grey.shade400,
+                color: selected ? _blue : SboxColors.slate400,
               ),
               const SizedBox(width: 8),
             ],
@@ -702,7 +703,7 @@ class _SuggestionTile extends StatelessWidget {
                       vertical: 8,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     hintText: 'SL',
                   ),
@@ -927,7 +928,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
       return Padding(
         padding: EdgeInsets.only(right: 6, left: depth > 0 ? 2 : 0),
         child: Material(
-          color: selected ? _blue.withOpacity(0.1) : const Color(0xFFF1F5F9),
+          color: selected ? _blue.withOpacity(0.1) : SboxColors.slate100,
           borderRadius: BorderRadius.circular(20),
           child: InkWell(
             borderRadius: BorderRadius.circular(20),
@@ -937,7 +938,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: selected ? _blue : Colors.grey.shade300,
+                  color: selected ? _blue : SboxColors.slate300,
                 ),
               ),
               child: Text(
@@ -969,7 +970,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: selected ? _blue : Colors.grey.shade200,
+                color: selected ? _blue : SboxColors.slate200,
               ),
             ),
             child: Text(
@@ -1013,7 +1014,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
                           ? 'Chọn hàng hóa'
                           : 'Đã chọn ${_draftQty.length}'),
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1051,7 +1052,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
                       isDense: true,
                       filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
+                      fillColor: SboxColors.slate50,
                     ),
                   );
                   final categoryStrip = SizedBox(
@@ -1104,7 +1105,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
                           child: Text(tr('Không có hàng hóa'),
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.grey.shade600,
+                              color: SboxColors.slate600,
                             ),
                           ),
                         )
@@ -1117,7 +1118,7 @@ class _BrowseProductsSheetState extends State<_BrowseProductsSheet> {
                             itemCount: _items.length,
                             separatorBuilder: (_, __) => Divider(
                               height: 1,
-                              color: Colors.grey.shade200,
+                              color: SboxColors.slate200,
                             ),
                             itemBuilder: (_, i) {
                               final s = _items[i];

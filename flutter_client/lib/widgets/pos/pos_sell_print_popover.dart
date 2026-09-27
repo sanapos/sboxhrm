@@ -68,7 +68,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
             top: anchor.dy.clamp(8, MediaQuery.sizeOf(ctx).height - 400),
             child: Material(
               elevation: 8,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               color: Colors.white,
               child: SizedBox(
                 width: 320,

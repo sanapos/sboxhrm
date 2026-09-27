@@ -33,6 +33,7 @@ import '../../widgets/pos_barcode_scanner.dart';
 import 'pos_topping_groups_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class PosProductEditorPage extends StatefulWidget {
   const PosProductEditorPage({
     super.key,
@@ -1504,7 +1505,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
+        color: SboxColors.successSoft,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFBBF7D0)),
       ),
@@ -1512,7 +1513,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(children: [
-            const Icon(Icons.timer_outlined, color: Color(0xFF16A34A), size: 20),
+            const Icon(Icons.timer_outlined, color: SboxColors.success, size: 20),
             const SizedBox(width: 6),
             Text(tr('Gói giờ đếm ngược'), style: const TextStyle(fontWeight: FontWeight.w700)),
           ]),
@@ -1520,7 +1521,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           Text(
             tr('Ví dụ gói 1 giờ: nhập 60. Trên hóa đơn có nút ▶ Bắt đầu, đếm ngược; hết giờ máy báo và tự thêm dòng quá giờ. '
                 'Bán SL 2 = 2 gói (120 phút). Để trống = không phải gói giờ.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate700),
           ),
           const SizedBox(height: 10),
           Row(children: [
@@ -1544,7 +1545,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           const SizedBox(height: 10),
           InkWell(
             onTap: _pickOvertimeProduct,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: InputDecorator(
               decoration: PosTheme.inputDecoration(label: 'Dịch vụ tính quá giờ'),
               child: Row(children: [
@@ -1553,7 +1554,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     _overtimeProductId == null
                         ? tr('Chưa chọn — hết giờ chỉ báo, không tự tính tiền quá giờ')
                         : (_overtimeProductName ?? tr('Đang tải…')),
-                    style: TextStyle(color: _overtimeProductId == null ? Colors.grey.shade600 : null),
+                    style: TextStyle(color: _overtimeProductId == null ? SboxColors.slate600 : null),
                   ),
                 ),
                 if (_overtimeProductId != null)
@@ -1575,7 +1576,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               tr('Chọn một dịch vụ tính giờ (vd «Quá giờ karaoke» theo block 15 phút). Tiền quá giờ tính từ lúc hết gói.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600),
             ),
           ),
         ],
@@ -1650,7 +1651,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         narrow ? 8 : (size.width > 960 ? (size.width - 920) / 2 : 16),
         pad.bottom + (narrow ? 4 : 12),
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 920,
@@ -1721,7 +1722,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     child: Text(tr('Form gọn — bật thêm mục trong ⚙ nếu cần'),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: SboxColors.slate600,
                       ),
                     ),
                   ),
@@ -1843,7 +1844,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     Tooltip(
                       message: tr('Hiển thị trên màn hình bán hàng POS'),
                       child: Icon(Icons.info_outline,
-                          size: 16, color: Colors.grey.shade500),
+                          size: 16, color: SboxColors.slate500),
                     ),
                     const Spacer(),
                     ...actions,
@@ -2069,7 +2070,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
                   const SizedBox(height: 8),
                   Text(tr('Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển'),
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                    style: TextStyle(fontSize: 12, color: SboxColors.textSecondary),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -2198,7 +2199,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           'Dịch vụ không quản lý tồn thành phẩm — bán không trừ kho món. Khai định lượng NVL nếu muốn trừ nguyên liệu khi bán.',
         ),
       PosProductType.combo => (
-          const Color(0xFFB45309),
+          SboxColors.warningText,
           Icons.layers_outlined,
           'Combo không có tồn riêng. Từng thành phần có nút Quản lý kho (trừ tồn như hàng hóa) hoặc Không kho (như dịch vụ).'
         ),
@@ -2233,7 +2234,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           Expanded(
             child: Text(
               tr(text),
-              style: TextStyle(fontSize: 12.5, height: 1.35, color: color),
+              style: TextStyle(fontSize: 13, height: 1.35, color: color),
             ),
           ),
         ],
@@ -2566,7 +2567,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
                       tr('Combo 10 buổi: nhập 10 trên combo, hoặc đặt 1 buổi trên DV thành phần (massage) với SL 10.'),
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                     ),
                   ),
                 ],
@@ -2601,7 +2602,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2613,7 +2614,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           const SizedBox(height: 6),
           Text(
             tr('Công thức: phí mở + số block vượt × đơn giá. VD mở 50k, mỗi 5 phút +10k.'),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate700),
           ),
           const SizedBox(height: 8),
           for (final r in rows)
@@ -2821,7 +2822,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
                   const SizedBox(height: 8),
                   Text(tr('Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển'),
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                    style: TextStyle(fontSize: 12, color: SboxColors.textSecondary),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -2931,7 +2932,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             tr(_comboTrackStock
                 ? 'Bật — nhập số lượng gói, bán hết thì không bán tiếp'
                 : 'Tắt — không giới hạn số gói, bán như dịch vụ'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           value: _comboTrackStock,
           onChanged: (v) => setState(() => _comboTrackStock = v),
@@ -2950,7 +2951,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         const SizedBox(height: 4),
         Text(
           tr(hint),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
       ],
     );
@@ -3022,7 +3023,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   : 'Chỉ áp dụng khi có «Số buổi». Mỗi lần trừ buổi → hoa hồng cho NV làm buổi đó '
                       '(tiền 1 buổi = tiền bán gói ÷ số buổi). Cố định = số tiền mỗi buổi.')
               : 'Hoa hồng ghi ngay khi bán cho NV được chọn trên hóa đơn (combo: chọn NV từng thành phần).'),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
       ],
     );
@@ -3046,7 +3047,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           title: Text(tr('Hiện chi tiết thành phần khi bán')),
           subtitle: Text(
             tr('Bật: hiện danh sách hàng trong combo dưới tên (giống topping). Tắt: chỉ hiện tên combo.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           value: _showComboComponentsOnSell,
           onChanged: (v) => setState(() => _showComboComponentsOnSell = v),
@@ -3075,11 +3076,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           Text(
             tr(sellableHint),
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: sellableWarn
                   ? Colors.red.shade700
-                  : const Color(0xFFB45309),
+                  : SboxColors.warningText,
             ),
           ),
         ],
@@ -3094,7 +3095,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
             child: Text(
               tr('Chưa có thành phần. Thêm hàng hóa hoặc dịch vụ vào combo.'),
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              style: TextStyle(color: SboxColors.slate600, fontSize: 13),
             ),
           )
         else
@@ -3129,7 +3130,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   '${i + 1}.',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    color: Colors.grey.shade700,
+                    color: SboxColors.slate700,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -3146,7 +3147,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                           c.componentProductCode,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: SboxColors.slate600,
                           ),
                         ),
                     ],
@@ -3307,7 +3308,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(tr('Không chịu thuế GTGT — áp dụng khi cửa hàng chọn thuế theo từng mặt hàng'),
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate600),
               ),
             ),
         ],
@@ -3352,10 +3353,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         tilePadding: EdgeInsets.zero,
         initiallyExpanded: initiallyExpanded,
         title: Text(tr(title),
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
         subtitle: subtitle != null
             ? Text(tr(subtitle),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600))
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600))
             : null,
         children: [
           Padding(
@@ -3436,7 +3437,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               alignment: Alignment.centerLeft,
               child: Text(
                 tr('Hàng seri không nhập theo kích thước.'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
               ),
             ),
         ],
@@ -3573,7 +3574,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             decoration: BoxDecoration(
               border: Border.all(color: PosTheme.border),
               borderRadius: BorderRadius.circular(4),
-              color: const Color(0xFFFAFAFA),
+              color: SboxColors.slate50,
             ),
             clipBehavior: Clip.antiAlias,
             alignment: Alignment.center,
@@ -3582,7 +3583,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         ),
         const SizedBox(height: 6),
         Text(tr('Chạm để đổi ảnh. Ảnh mới thay ảnh cũ. Tối đa 2 MB.'),
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 11, color: SboxColors.slate600),
           textAlign: TextAlign.center,
         ),
       ],
@@ -3617,10 +3618,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(Icons.add_photo_alternate_outlined,
-            size: 36, color: Colors.grey.shade500),
+            size: 36, color: SboxColors.slate500),
         const SizedBox(height: 8),
         Text(tr('Chụp hoặc chọn ảnh'),
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+            style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
       ],
     );
   }
@@ -3637,11 +3638,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         const Divider(height: 24),
         Text(tr(title),
             style: const TextStyle(
-                fontWeight: FontWeight.w600, fontSize: 15)),
+                fontWeight: FontWeight.w600, fontSize: 16)),
         if (subtitle != null) ...[
           const SizedBox(height: 6),
           Text(tr(subtitle),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           const SizedBox(height: 12),
         ] else
           const SizedBox(height: 12),
@@ -3912,8 +3913,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: PosTheme.border),
                 ),
                 child: Row(
@@ -3952,7 +3953,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(tr('Chưa có đơn vị quy đổi. Thêm nếu bán theo lốc/thùng/hộp…'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                   ),
                 )
               else
@@ -3962,7 +3963,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: PosTheme.border),
                     ),
                     child: Row(
@@ -3983,7 +3984,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                                 tr('1 ${u.unitName} = ${u.conversionRate} $baseName'),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey.shade700,
+                                  color: SboxColors.slate700,
                                 ),
                               ),
                               Text(tr('Giá: ${_moneyFmt.format(u.basePrice)}'),
@@ -4027,7 +4028,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               children: [
                 if (_variants.isEmpty && extraUnits.isEmpty)
                   Text(tr('Chưa có thuộc tính. Dùng «Thiết lập» để thêm màu, size…'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                   )
                 else
                   SingleChildScrollView(
@@ -4039,12 +4040,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           border: Border.all(color: PosTheme.border),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Column(
                           children: [
                             Container(
-                              color: const Color(0xFFF8FAFC),
+                              color: SboxColors.slate50,
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 8),
                               child: Row(
@@ -4218,7 +4219,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             child: Text(tr(label), style: const TextStyle(fontSize: 13)),
           ),
           Expanded(
-            child: Text(tr(conversion), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+            child: Text(tr(conversion), style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
           ),
           Expanded(
             child: Text(
@@ -4352,7 +4353,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           child: Container(
             decoration: BoxDecoration(
               border: Border.all(color: PosTheme.border),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               color: Colors.white,
             ),
             clipBehavior: Clip.antiAlias,
@@ -4548,7 +4549,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
                   const SizedBox(height: 8),
                   Text(tr('Kích thước đóng gói (cm) — dùng ước tính cước vận chuyển'),
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                    style: TextStyle(fontSize: 12, color: SboxColors.textSecondary),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -4620,7 +4621,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: PosTheme.primaryLight,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: PosTheme.primary.withOpacity(0.3)),
               ),
               child: Text(tr('Tổng giá thành phần: ${_moneyFmt.format(_comboComponentsSum)}'),
@@ -4648,7 +4649,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           const SizedBox(height: 16),
           Text(tr('Đơn vị quy đổi'),
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 8),
           if (_units.isEmpty)
             Text(tr('Chưa có đơn vị quy đổi'),
@@ -4687,7 +4688,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           const Divider(height: 32),
           Text(tr('Thuộc tính'),
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 8),
           ..._attributeValues.asMap().entries.map((e) {
             final i = e.key;
@@ -4764,7 +4765,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(tr('Tạo biến thể từ thuộc tính'),
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 4),
           Text(tr('Nhập tên thuộc tính và các giá trị cách nhau bởi dấu phẩy'),
             style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
@@ -4835,7 +4836,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           const Divider(height: 32),
           Text(tr('Biến thể (${_variants.length})'),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 8),
           if (_variants.isEmpty)
             Text(tr('Chưa có biến thể'),
@@ -4968,15 +4969,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: PosTheme.border),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: PosTheme.border),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 borderSide:
                     const BorderSide(color: PosTheme.kiotBlue, width: 1.5),
               ),
@@ -4998,7 +4999,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           const SizedBox(height: 4),
           Text(tr('Giống ghi chú nhanh: hiện dạng chip khi bán, nhưng có giá phụ thu / trừ tồn SP.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const SizedBox(height: 8),
           if (!_isMaterial && !_isToppingType)
@@ -5078,12 +5079,12 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
             const SizedBox(height: 4),
             Text(tr('Chọn nhóm topping đã tạo sẵn — mọi món gắn cùng nhóm dùng chung danh sách.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600),
             ),
             const SizedBox(height: 8),
             if (_availableToppingGroups.isEmpty)
               Text(tr('Chưa có nhóm — nhấn «Quản lý nhóm» để tạo.'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
               )
             else
               Wrap(
@@ -5270,7 +5271,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       decoration: BoxDecoration(
         border: Border.all(color: PosTheme.border),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-        color: const Color(0xFFFAFAFA),
+        color: SboxColors.slate50,
       ),
       child: Row(
         children: [
@@ -5419,7 +5420,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
           ),
         ),
@@ -5428,7 +5429,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             padding: const EdgeInsets.only(top: 10),
             child: Text(
               tr('Không bắt buộc. Để trống = không trừ NVL khi bán.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600),
             ),
           ),
         if (_recipeLines.isNotEmpty) ...[

@@ -38,6 +38,7 @@ import '../../utils/branch_filter_helper.dart';
 import '../../utils/punch_location_utils.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Model cho yêu cầu chỉnh sửa chấm công
 class AttendanceCorrectionRequest {
   final String id;
@@ -321,7 +322,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
   BoxDecoration get _tableCardDecoration => BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -348,8 +349,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     return Container(
       height: 18,
       decoration: const BoxDecoration(
-        color: Color(0xFFFAFAFA),
-        border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+        color: SboxColors.slate50,
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Scrollbar(
         thumbVisibility: true,
@@ -885,7 +886,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           CircularProgressIndicator(),
           SizedBox(height: 14),
           Text(tr('Đang xử lý tổng hợp...'),
-            style: TextStyle(fontSize: 13, color: Color(0xFF52525B)),
+            style: TextStyle(fontSize: 13, color: SboxColors.slate600),
           ),
         ],
       ),
@@ -1266,7 +1267,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   Color _getDayColor(int weekday) {
     if (weekday == 7) return Colors.red;
     if (weekday == 6) return Colors.orange;
-    return Colors.grey;
+    return SboxColors.slate500;
   }
 
   String _formatDecimalHours(double hours) {
@@ -1309,7 +1310,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     if (hours <= 0) {
       return Text(tr('—'),
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
+          style: TextStyle(fontSize: 11, color: SboxColors.slate400));
     }
     return Text(
       tr(_formatHours(hours)),
@@ -1530,10 +1531,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_outlined, size: 56, color: Colors.grey.shade300),
+            Icon(Icons.inbox_outlined, size: 56, color: SboxColors.slate300),
             const SizedBox(height: 12),
             Text(tr('Không có dữ liệu'),
-                style: TextStyle(color: Colors.grey.shade400, fontSize: 14)),
+                style: TextStyle(color: SboxColors.slate400, fontSize: 14)),
           ],
         ),
       ),
@@ -1543,7 +1544,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   static const TextStyle _summaryHeaderTextStyle = TextStyle(
     fontWeight: FontWeight.w600,
     fontSize: 12,
-    color: Color(0xFF71717A),
+    color: SboxColors.slate500,
   );
 
   static const String _punchBranchHeader = 'Chi nhánh chấm';
@@ -1561,7 +1562,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     if (location.isEmpty) {
       return Text(tr('—'),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)));
+          style: const TextStyle(fontSize: 11, color: SboxColors.slate400));
     }
     final mismatch =
         punchLocationDiffersFromAssigned(location, assignedBranch);
@@ -1573,7 +1574,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w600,
-        color: mismatch ? const Color(0xFFC2410C) : const Color(0xFF334155),
+        color: mismatch ? const Color(0xFFC2410C) : SboxColors.slate700,
       ),
     );
   }
@@ -1711,7 +1712,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF71717A),
+            color: SboxColors.slate500,
           ),
         ),
       ),
@@ -1721,7 +1722,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: Colors.blue.shade700,
+            color: SboxColors.brand700,
           ),
         ),
       ),
@@ -1731,7 +1732,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF52525B),
+            color: SboxColors.slate600,
           ),
         ),
       ),
@@ -1739,14 +1740,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         _summaryTableCell(
           Text(tr('—'),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+              style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
         ),
     ];
     for (var i = 0; i < maxPunches; i++) {
       cells.add(_summaryTableCell(
         Text(tr('—'),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
       ));
     }
     for (var i = 1; i <= maxShifts; i++) {
@@ -1756,7 +1757,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             ? _buildHoursBadge(h, shiftColors[i - 1], isBold: true)
             : Text(tr('—'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
       ));
     }
     cells.addAll([
@@ -1765,7 +1766,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             ? _buildHoursBadge(totals.totalHours, Colors.green, isBold: true)
             : Text(tr('—'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
       ),
       if (_showTravelColumns)
         _summaryTableCell(_buildTravelHoursCell(
@@ -1783,8 +1784,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: totals.totalWork > 0
-                ? Colors.blue.shade700
-                : const Color(0xFFA1A1AA),
+                ? SboxColors.brand700
+                : SboxColors.slate400,
           ),
         ),
       ),
@@ -1798,14 +1799,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: totals.totalHours > 0
-                ? Colors.blue.shade700
-                : const Color(0xFFA1A1AA),
+                ? SboxColors.brand700
+                : SboxColors.slate400,
           ),
         ),
       ),
     ]);
     return TableRow(
-      decoration: const BoxDecoration(color: Color(0xFFEFF6FF)),
+      decoration: const BoxDecoration(color: SboxColors.brand50),
       children: cells,
     );
   }
@@ -1834,7 +1835,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             Icon(
               _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
               size: 14,
-              color: const Color(0xFF71717A),
+              color: SboxColors.slate500,
             ),
           ],
         ],
@@ -1866,7 +1867,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       _summaryTableCell(_summaryHeaderText('Giờ thập phân')),
     ]);
     return TableRow(
-      decoration: const BoxDecoration(color: Color(0xFFFAFAFA)),
+      decoration: const BoxDecoration(color: SboxColors.slate50),
       children: cells,
     );
   }
@@ -1879,8 +1880,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       columnWidths: columnWidths,
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       border: TableBorder(
-        horizontalInside: BorderSide(color: Colors.grey.shade200, width: 0.5),
-        verticalInside: BorderSide(color: Colors.grey.shade200, width: 0.5),
+        horizontalInside: BorderSide(color: SboxColors.slate200, width: 0.5),
+        verticalInside: BorderSide(color: SboxColors.slate200, width: 0.5),
       ),
       children: rows,
     );
@@ -1930,7 +1931,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           pinned: true,
           delegate: PinnedBoxHeaderDelegate(
             extent: headerH,
-            backgroundColor: const Color(0xFFFAFAFA),
+            backgroundColor: SboxColors.slate50,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return Scrollbar(
@@ -2071,7 +2072,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       builder: (dialogCtx) {
         return Dialog.fullscreen(
           child: Scaffold(
-            backgroundColor: const Color(0xFFFAFAFA),
+            backgroundColor: SboxColors.slate50,
             appBar: AppBar(
               title: Text(tr('Bảng chấm công chi tiết'),
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
@@ -2102,9 +2103,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                       constraints: BoxConstraints(minWidth: tableMinWidth),
                       child: Container(
                         decoration: const BoxDecoration(
-                          color: Color(0xFFFAFAFA),
+                          color: SboxColors.slate50,
                           border: Border(
-                            bottom: BorderSide(color: Color(0xFFE4E4E7)),
+                            bottom: BorderSide(color: SboxColors.slate200),
                           ),
                         ),
                         child: _buildSummaryDesktopTable(
@@ -2147,19 +2148,19 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     border: Border(
-                      top: BorderSide(color: Color(0xFFE4E4E7)),
+                      top: BorderSide(color: SboxColors.slate200),
                     ),
                   ),
                   child: Text(tr('${allSummaries.length} bản ghi · ${daySttMap.length} nhân viên'),
                     style:
-                        TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        TextStyle(fontSize: 12, color: SboxColors.slate600),
                   ),
                 ),
                 Container(
                   height: 18,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFFAFAFA),
-                    border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+                    color: SboxColors.slate50,
+                    border: Border(top: BorderSide(color: SboxColors.slate200)),
                   ),
                   child: Scrollbar(
                     thumbVisibility: true,
@@ -2194,8 +2195,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     final recordsInfo = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0FDF4),
-        borderRadius: BorderRadius.circular(12),
+        color: SboxColors.successSoft,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2217,15 +2218,15 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(tr('Số dòng:'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
         const SizedBox(width: 6),
         Container(
           height: 32,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFFFAFAFA),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
-            borderRadius: BorderRadius.circular(8),
+            color: SboxColors.slate50,
+            border: Border.all(color: SboxColors.slate200),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<int>(
@@ -2264,7 +2265,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
           decoration: BoxDecoration(
             color: Theme.of(context).primaryColor,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
             tr('${_currentPage + 1} / ${totalPages == 0 ? 1 : totalPages}'),
@@ -2290,7 +2291,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
-        border: Border(top: BorderSide(color: Colors.grey.shade100)),
+        border: Border(top: BorderSide(color: SboxColors.slate100)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -2327,11 +2328,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 Tooltip(
                   message: tr('Xem toàn màn hình'),
                   child: Material(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.brand50,
+                    borderRadius: BorderRadius.circular(10),
                     child: InkWell(
                       onTap: onOpenFullscreen,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       child: Padding(
                         padding: EdgeInsets.symmetric(
                             horizontal: 10, vertical: 6),
@@ -2368,7 +2369,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Material(
-        color: onPressed != null ? const Color(0xFFFAFAFA) : Colors.transparent,
+        color: onPressed != null ? SboxColors.slate50 : Colors.transparent,
         borderRadius: BorderRadius.circular(6),
         child: InkWell(
           onTap: onPressed,
@@ -2380,8 +2381,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             child: Icon(icon,
                 size: 18,
                 color: onPressed != null
-                    ? Colors.grey.shade700
-                    : Colors.grey.shade300),
+                    ? SboxColors.slate700
+                    : SboxColors.slate300),
           ),
         ),
       ),
@@ -3424,12 +3425,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         constraints: const BoxConstraints(minWidth: 160, maxWidth: 280),
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          borderRadius: BorderRadius.circular(8),
+          color: SboxColors.slate50,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selectedCount > 0
                 ? Theme.of(context).primaryColor
-                : const Color(0xFFE4E4E7),
+                : SboxColors.slate200,
           ),
         ),
         child: Row(
@@ -3439,7 +3440,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 size: 14,
                 color: selectedCount > 0
                     ? Theme.of(context).primaryColor
-                    : Colors.grey[500]),
+                    : SboxColors.slate500),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -3450,7 +3451,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   fontSize: 12,
                   color: selectedCount > 0
                       ? Theme.of(context).primaryColor
-                      : Colors.grey[600],
+                      : SboxColors.slate600,
                   fontWeight:
                       selectedCount > 0 ? FontWeight.w600 : FontWeight.normal,
                 ),
@@ -3464,11 +3465,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   _selectedEmployeeIds = {};
                   _currentPage = 0;
                 }),
-                child: Icon(Icons.close, size: 14, color: Colors.grey[500]),
+                child: Icon(Icons.close, size: 14, color: SboxColors.slate500),
               ),
             ],
             const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 16, color: Colors.grey[500]),
+            Icon(Icons.arrow_drop_down, size: 16, color: SboxColors.slate500),
           ],
         ),
       ),
@@ -3498,7 +3499,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             return ScrollableAlertDialog(
               title: Row(
                 children: [
-                  const Icon(Icons.people, color: Colors.blue, size: 22),
+                  const Icon(Icons.people, color: SboxColors.brand500, size: 22),
                   const SizedBox(width: 8),
                   Text(tr('Chọn nhân viên'),
                       style:
@@ -3540,7 +3541,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       style: const TextStyle(fontSize: 13),
                       onChanged: (v) => setDialogState(() => searchText = v),
@@ -3551,7 +3552,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: SboxColors.brand50,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
@@ -3559,7 +3560,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           Text(tr('Đã chọn: ${tempSelected.length}/${employees.length}'),
                               style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.blue.shade700,
+                                  color: SboxColors.brand700,
                                   fontWeight: FontWeight.w500)),
                         ],
                       ),
@@ -3593,7 +3594,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                     : null,
                                 border: Border(
                                     bottom: BorderSide(
-                                        color: Colors.grey.shade200)),
+                                        color: SboxColors.slate200)),
                               ),
                               child: Row(
                                 children: [
@@ -3604,12 +3605,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                     size: 20,
                                     color: isSelected
                                         ? Theme.of(context).primaryColor
-                                        : Colors.grey,
+                                        : SboxColors.slate500,
                                   ),
                                   const SizedBox(width: 10),
                                   CircleAvatar(
                                     radius: 14,
-                                    backgroundColor: Colors.blue.shade100,
+                                    backgroundColor: SboxColors.brand100,
                                     child: Text(
                                         tr(emp.name.isNotEmpty
                                             ? emp.name[0].toUpperCase()
@@ -3617,7 +3618,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                         style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.bold,
-                                            color: Colors.blue.shade700)),
+                                            color: SboxColors.brand700)),
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -3632,7 +3633,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                         Text(tr(emp.code),
                                             style: TextStyle(
                                                 fontSize: 11,
-                                                color: Colors.grey.shade600)),
+                                                color: SboxColors.slate600)),
                                       ],
                                     ),
                                   ),
@@ -3748,7 +3749,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       AbsenceCellKind.weeklyOff => ('Nghỉ', HrmPageChrome.chipSoft),
       AbsenceCellKind.approvedLeave => ('Phép', HrmPageChrome.chipLight),
       AbsenceCellKind.pendingLeave => ('Chờ phép', HrmPageChrome.chipDark),
-      AbsenceCellKind.unpaidAbsent => ('Vắng', const Color(0xFFEF4444)),
+      AbsenceCellKind.unpaidAbsent => ('Vắng', SboxColors.danger),
     };
     return mobileAttendanceAbsenceLabel(
       label.$1,
@@ -3874,8 +3875,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 tr(presentDays > 0 ? '$presentDays ngày' : '—'),
                 style: const TextStyle(
                   fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1E40AF),
+                  fontWeight: FontWeight.w700,
+                  color: SboxColors.brand800,
                 ),
               ),
             ),
@@ -3989,7 +3990,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Text(
@@ -4028,7 +4029,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: color,
               ),
             ),
@@ -4130,9 +4131,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       final expected = expectedDaysFor(empId);
       final workRatio = expected > 0 ? (work / expected).clamp(0.0, 1.0) : 0.0;
       final workColor = work <= 0
-          ? const Color(0xFFA1A1AA)
+          ? SboxColors.slate400
           : (expected > 0 && work >= expected
-              ? const Color(0xFF16A34A)
+              ? SboxColors.success
               : HrmPageChrome.chipMid);
       final shiftHourChips = <Widget>[];
       for (var i = 1; i <= maxShifts; i++) {
@@ -4165,7 +4166,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             ),
             child: Container(
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                border: Border.all(color: SboxColors.slate200),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
@@ -4206,7 +4207,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF18181B),
+                                color: SboxColors.slate900,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -4214,14 +4215,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               tr(empCode),
                               style: const TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF71717A),
+                                color: SboxColors.slate500,
                               ),
                             ),
                           ],
                         ),
                       ),
                       const Icon(Icons.chevron_right,
-                          color: Color(0xFF94A3B8), size: 22),
+                          color: SboxColors.slate400, size: 22),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -4266,7 +4267,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         icon: Icons.fingerprint_rounded,
                         label: 'Có chấm',
                         value: present > 0 ? '$present ngày' : '—',
-                        color: const Color(0xFF16A34A),
+                        color: SboxColors.success,
                       ),
                     ],
                   ),
@@ -4280,7 +4281,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                             child: LinearProgressIndicator(
                               value: workRatio,
                               minHeight: 5,
-                              backgroundColor: const Color(0xFFE4E4E7),
+                              backgroundColor: SboxColors.slate200,
                               color: workColor,
                             ),
                           ),
@@ -4312,13 +4313,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           gradient: LinearGradient(
             colors: [
               HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
-              const Color(0xFFDBEAFE),
+              SboxColors.brand100,
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF93C5FD)),
+          border: Border.all(color: SboxColors.brand200),
         ),
         child: Row(
           children: [
@@ -4329,14 +4330,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   Text(tr('Tổng cộng'),
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: HrmPageChrome.primaryNavy,
                     ),
                   ),
                   Text(tr('${employees.length} nhân viên'),
                     style: TextStyle(
                       fontSize: 10,
-                      color: Colors.grey.shade700,
+                      color: SboxColors.slate700,
                     ),
                   ),
                 ],
@@ -4349,23 +4350,23 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   tr(grandHours > 0 ? _formatHours(grandHours) : '—'),
                   style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: HrmPageChrome.chipMid,
                   ),
                 ),
                 Text(tr('tổng giờ'),
-                    style: TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+                    style: TextStyle(fontSize: 9, color: SboxColors.slate500)),
                 const SizedBox(height: 4),
                 Text(
                   tr(formatWork(grandWork)),
                   style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: HrmPageChrome.chipMid,
                   ),
                 ),
                 Text(tr('tổng công'),
-                    style: TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+                    style: TextStyle(fontSize: 9, color: SboxColors.slate500)),
               ],
             ),
           ],
@@ -4392,9 +4393,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               Expanded(
                 child: Text(tr('Danh sách nhân viên'),
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
               ),
@@ -4422,7 +4423,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
         sliver: SliverToBoxAdapter(
           child: Text(tr('Chạm thẻ nhân viên để xem bảng chi tiết điểm danh theo ngày'),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate600),
           ),
         ),
       ),
@@ -4487,7 +4488,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(tr('Lần $i (${isIn ? "Vào" : "Ra"})'),
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 13, color: SboxColors.slate700),
                 ),
               ),
               _buildPunchTime(
@@ -4517,7 +4518,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             const SizedBox(width: 10),
             Expanded(
                 child: Text(tr('Lần 1 (Vào)'),
-                    style: TextStyle(fontSize: 13, color: Colors.grey))),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate500))),
             _buildPunchTime(null,
                 isIn: true, summary: s, punchIndex: 1, hostContext: hostContext),
           ]),
@@ -4532,7 +4533,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade500,
+                    color: SboxColors.slate500,
                     letterSpacing: 0.5)),
           ),
           ...rows,
@@ -4580,7 +4581,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             'Giờ thập phân',
             _formatDecimalHours(s.totalHours),
             icon: Icons.onetwothree,
-            iconColor: Colors.blue.shade700,
+            iconColor: SboxColors.brand700,
             isBold: true,
           ),
           _buildDetailRow(
@@ -4633,7 +4634,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           children: [
                             CircleAvatar(
                               radius: 20,
-                              backgroundColor: Colors.blue.shade100,
+                              backgroundColor: SboxColors.brand100,
                               child: Text(
                                 tr(live.employeeName.isNotEmpty
                                     ? live.employeeName[0].toUpperCase()
@@ -4641,7 +4642,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blue.shade700),
+                                    color: SboxColors.brand700),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -4651,12 +4652,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                                 children: [
                                   Text(tr(live.employeeName),
                                       style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 16,
                                           fontWeight: FontWeight.bold)),
                                   Text(tr('Mã: ${live.employeeCode}'),
                                       style: TextStyle(
                                           fontSize: 12,
-                                          color: Colors.grey.shade600)),
+                                          color: SboxColors.slate600)),
                                 ],
                               ),
                             ),
@@ -4667,13 +4668,13 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 10),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(8),
+                            color: SboxColors.slate50,
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             children: [
                               Icon(Icons.calendar_today,
-                                  size: 16, color: Colors.grey.shade600),
+                                  size: 16, color: SboxColors.slate600),
                               const SizedBox(width: 8),
                               Text(
                                 tr('${_getDayOfWeekVN(live.date.weekday)}, ${DateFormat('dd/MM/yyyy').format(live.date)}'),
@@ -4704,7 +4705,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             final live = liveSummary();
             return Dialog(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(14)),
               child: ConstrainedBox(
                 constraints:
                     const BoxConstraints(maxWidth: 420, maxHeight: 600),
@@ -4724,7 +4725,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         children: [
                           CircleAvatar(
                             radius: 20,
-                            backgroundColor: Colors.blue.shade100,
+                            backgroundColor: SboxColors.brand100,
                             child: Text(
                               tr(live.employeeName.isNotEmpty
                                   ? live.employeeName[0].toUpperCase()
@@ -4732,7 +4733,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.blue.shade700),
+                                  color: SboxColors.brand700),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -4742,12 +4743,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                               children: [
                                 Text(tr(live.employeeName),
                                     style: const TextStyle(
-                                        fontSize: 15,
+                                        fontSize: 16,
                                         fontWeight: FontWeight.bold)),
                                 Text(tr('Mã: ${live.employeeCode}'),
                                     style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.grey.shade600)),
+                                        color: SboxColors.slate600)),
                               ],
                             ),
                           ),
@@ -4766,12 +4767,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                           horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
                         border: Border(
-                            bottom: BorderSide(color: Colors.grey.shade200)),
+                            bottom: BorderSide(color: SboxColors.slate200)),
                       ),
                       child: Row(
                         children: [
                           Icon(Icons.calendar_today,
-                              size: 16, color: Colors.grey.shade600),
+                              size: 16, color: SboxColors.slate600),
                           const SizedBox(width: 8),
                           Text(
                             tr('${_getDayOfWeekVN(live.date.weekday)}, ${DateFormat('dd/MM/yyyy').format(live.date)}'),
@@ -4819,7 +4820,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: (iconColor ?? Colors.grey).withValues(alpha: 0.1),
+                color: (iconColor ?? SboxColors.slate500).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(icon, size: 15, color: iconColor),
@@ -4828,14 +4829,14 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           ],
           Expanded(
             child: Text(tr(label),
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                style: TextStyle(fontSize: 13, color: SboxColors.slate700)),
           ),
           Text(
             tr(value),
             style: TextStyle(
               fontSize: 13,
               fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-              color: isBold ? Colors.black : Colors.grey.shade800,
+              color: isBold ? Colors.black : SboxColors.slate800,
             ),
           ),
         ],
@@ -4956,7 +4957,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         _summaryTableCell(Text(
           tr('$stt'),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
         )),
         _summaryTableCell(
           InkWell(
@@ -5047,7 +5048,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 : (summary.isRestDay && summary.effectiveMultiplier > 1
                     ? Colors.purple.withValues(alpha: 0.12)
                     : (summary.workCount > 0
-                        ? Colors.blue.withValues(alpha: 0.10)
+                        ? SboxColors.brand500.withValues(alpha: 0.10)
                         : Colors.transparent)),
             borderRadius: BorderRadius.circular(6),
           ),
@@ -5066,8 +5067,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                   : (summary.isRestDay && summary.effectiveMultiplier > 1
                       ? Colors.purple
                       : (summary.workCount > 0
-                          ? Colors.blue.shade700
-                          : Colors.grey)),
+                          ? SboxColors.brand700
+                          : SboxColors.slate500)),
             ),
           ),
         ),
@@ -5081,7 +5082,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color:
-                summary.totalHours > 0 ? Colors.blue.shade700 : Colors.grey,
+                summary.totalHours > 0 ? SboxColors.brand700 : SboxColors.slate500,
           ),
         ),
       ));
@@ -5223,7 +5224,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -5248,9 +5249,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
@@ -5267,7 +5268,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     value: item.value,
                     child: Row(
                       children: [
-                        Icon(icon, size: 14, color: Colors.grey[500]),
+                        Icon(icon, size: 14, color: SboxColors.slate500),
                         const SizedBox(width: 6),
                         Expanded(
                             child: DefaultTextStyle(
@@ -5314,9 +5315,9 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -5348,7 +5349,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       if (!widget.allowCorrection) {
         return Center(
           child: Text(tr('—'),
-              style: TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+              style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
         );
       }
       return Center(
@@ -5360,11 +5361,11 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               border: Border.all(
-                  color: Colors.grey.withValues(alpha: 0.3),
+                  color: SboxColors.slate500.withValues(alpha: 0.3),
                   style: BorderStyle.solid),
               borderRadius: BorderRadius.circular(4),
             ),
-            child: const Icon(Icons.add, size: 14, color: Colors.grey),
+            child: const Icon(Icons.add, size: 14, color: SboxColors.slate500),
           ),
         ),
       );
@@ -5378,7 +5379,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: isIn ? HrmPageChrome.chip : const Color(0xFFDC2626),
+            color: isIn ? HrmPageChrome.chip : SboxColors.danger,
           ),
         ),
       );
@@ -5460,7 +5461,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         builder: (dialogCtx, setDialogState) => ScrollableAlertDialog(
           title: Row(
             children: [
-              Icon(Icons.add_circle, color: Colors.blue),
+              Icon(Icons.add_circle, color: SboxColors.brand500),
               SizedBox(width: 8),
               Text(tr('Thêm chấm công')),
             ],
@@ -5472,7 +5473,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               children: [
                 // Thông tin nhân viên
                 Card(
-                  color: Colors.grey.withValues(alpha: 0.1),
+                  color: SboxColors.slate500.withValues(alpha: 0.1),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Column(
@@ -5510,12 +5511,12 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: SboxColors.slate500),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.calendar_today, color: Colors.blue),
+                        const Icon(Icons.calendar_today, color: SboxColors.brand500),
                         const SizedBox(width: 8),
                         Text(
                           tr(DateFormat('dd/MM/yyyy').format(selectedDate)),
@@ -5563,8 +5564,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: SboxColors.slate500),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
@@ -5792,7 +5793,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               children: [
                 // Thông tin nhân viên
                 Card(
-                  color: Colors.grey.withValues(alpha: 0.1),
+                  color: SboxColors.slate500.withValues(alpha: 0.1),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Column(
@@ -5851,7 +5852,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                         horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.orange),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
@@ -6018,7 +6019,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       return Text(
         tr('-'),
         textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 12, color: Colors.grey),
+        style: TextStyle(fontSize: 12, color: SboxColors.slate500),
       );
     }
     return Container(
@@ -6053,7 +6054,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 18),
               ),
@@ -6063,7 +6064,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(tr(label),
-                      style: TextStyle(color: Colors.grey[600], fontSize: 10)),
+                      style: TextStyle(color: SboxColors.slate600, fontSize: 10)),
                   const SizedBox(height: 2),
                   Text(tr(value),
                       style: TextStyle(

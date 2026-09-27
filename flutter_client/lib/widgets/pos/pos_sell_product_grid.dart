@@ -27,6 +27,7 @@ import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 const _blue = PosTheme.kiotBlue;
 
 /// Lưới hàng hóa bán trực tiếp — chế độ Bán thường (nhóm trái + lưới phải).
@@ -381,7 +382,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           hintText: tr('Tìm tên, mã hàng, mã vạch…'),
           isDense: true,
           filled: true,
-          fillColor: const Color(0xFFF8FAFC),
+          fillColor: SboxColors.slate50,
           prefixIcon: const Icon(Icons.search, size: 20, color: PosTheme.textSecondary),
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1081,7 +1082,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         ? _qtyFmt.format(qty)
         : null;
     return Material(
-      color: selected ? const Color(0xFFE8F0FE) : const Color(0xFFF8FAFC),
+      color: selected ? const Color(0xFFE8F0FE) : SboxColors.slate50,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -1092,7 +1093,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? _blue : const Color(0xFFE2E8F0),
+              color: selected ? _blue : SboxColors.slate200,
               width: selected ? 1.4 : 1,
             ),
           ),
@@ -1104,9 +1105,9 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: selected ? _blue : const Color(0xFF0F172A),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? _blue : SboxColors.slate900,
                 ),
               ),
               const SizedBox(height: 2),
@@ -1128,7 +1129,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontSize: 10,
-                    color: Color(0xFF64748B),
+                    color: SboxColors.slate500,
                   ),
                 ),
               ],
@@ -1175,7 +1176,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: selected ? _blue : Colors.grey.shade200,
+                color: selected ? _blue : SboxColors.slate200,
               ),
             ),
             child: Text(
@@ -1218,7 +1219,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
             Container(
               width: 1,
               height: 22,
-              color: const Color(0xFFE2E8F0),
+              color: SboxColors.slate200,
             ),
           Expanded(
             child: _unitButton(
@@ -1235,8 +1236,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   Widget _unitBarShell({required List<Widget> children}) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+        color: SboxColors.slate50,
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(7)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
@@ -1262,7 +1263,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: isDefault ? FontWeight.w700 : FontWeight.w600,
-            color: isDefault ? _blue : const Color(0xFF475569),
+            color: isDefault ? _blue : SboxColors.slate600,
             height: 1.15,
           ),
         ),
@@ -1293,10 +1294,10 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: p.isDailySoldOut
-                  ? const Color(0xFFF59E0B)
+                  ? SboxColors.warning
                   : outOfStock
                       ? const Color(0xFFFECACA)
                       : const Color(0xFFE8E8E8),
@@ -1382,7 +1383,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                             fontWeight: FontWeight.w600,
                             height: 1.3,
                             color: p.isDailySoldOut
-                                ? const Color(0xFF94A3B8)
+                                ? SboxColors.slate400
                                 : PosTheme.textPrimary,
                           ),
                         ),
@@ -1406,13 +1407,13 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
         color: qty <= 0
-            ? const Color(0xFFFEE2E2)
-            : const Color(0xFFEFF6FF),
+            ? SboxColors.dangerSoft
+            : SboxColors.brand50,
         borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: qty <= 0
               ? const Color(0xFFFCA5A5)
-              : const Color(0xFF93C5FD),
+              : SboxColors.brand200,
         ),
       ),
       child: Text(
@@ -1421,8 +1422,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           fontSize: 11,
           fontWeight: FontWeight.w700,
           color: qty <= 0
-              ? const Color(0xFFB91C1C)
-              : const Color(0xFF1D4ED8),
+              ? SboxColors.dangerText
+              : SboxColors.brand700,
           height: 1.1,
         ),
       ),
@@ -1436,7 +1437,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     if (_products.isEmpty) {
       return Center(
         child: Text(tr('Không có hàng bán trực tiếp'),
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          style: TextStyle(color: SboxColors.slate600, fontSize: 13),
         ),
       );
     }
@@ -1576,7 +1577,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                     ? 'Không tải được hàng hóa'
                     : 'Không có hàng bán trực tiếp'),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                style: TextStyle(color: SboxColors.slate700, fontSize: 13),
               ),
               if (_loadError != null) ...[
                 const SizedBox(height: 6),
@@ -1585,7 +1586,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                   textAlign: TextAlign.center,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 11),
                 ),
               ],
               const SizedBox(height: 12),
@@ -1672,7 +1673,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                     _lockMode ? Icons.lock : Icons.lock_open_outlined,
                     size: 22,
                     color: _lockMode
-                        ? const Color(0xFFD97706)
+                        ? SboxColors.warning
                         : PosTheme.textSecondary,
                   ),
                   onPressed: () => unawaited(_setLockMode(!_lockMode)),
@@ -1778,8 +1779,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                 width: 108,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    border: Border(right: BorderSide(color: Colors.grey.shade200)),
+                    color: SboxColors.slate50,
+                    border: Border(right: BorderSide(color: SboxColors.slate200)),
                   ),
                   child: _loadingCategories
                       ? const Center(
@@ -1812,7 +1813,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
                                     ? Icons.lock
                                     : Icons.lock_open_outlined,
                                 color: _lockMode
-                                    ? const Color(0xFFD97706)
+                                    ? SboxColors.warning
                                     : null,
                               ),
                               onPressed: () =>
@@ -1846,7 +1847,7 @@ class _DailySoldOutBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFD97706),
+        color: SboxColors.warning,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -1854,7 +1855,7 @@ class _DailySoldOutBadge extends StatelessWidget {
         style: const TextStyle(
           color: Colors.white,
           fontSize: 12,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0.3,
         ),
       ),
@@ -1869,13 +1870,13 @@ class _LockModeBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      color: const Color(0xFFFEF3C7),
+      color: SboxColors.warningSoft,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       child: Text(
         tr('Chế độ khóa món — chạm để báo hết / bán lại. Ngày mai tự mở bán.'),
         textAlign: TextAlign.center,
         style: const TextStyle(
-          color: Color(0xFF92400E),
+          color: SboxColors.warningText,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),

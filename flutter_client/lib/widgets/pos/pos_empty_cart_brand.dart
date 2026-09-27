@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Empty-state cột giỏ: logo SBox POS hơi mờ khi chưa chọn bàn / chưa có món.
 class PosEmptyCartBrand extends StatelessWidget {
   const PosEmptyCartBrand({
@@ -44,8 +45,8 @@ class PosEmptyCartBrand extends StatelessWidget {
                     hint!,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 15,
+                      color: SboxColors.slate600,
+                      fontSize: 16,
                       height: 1.35,
                     ),
                   ),

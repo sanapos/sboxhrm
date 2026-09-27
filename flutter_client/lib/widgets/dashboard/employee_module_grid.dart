@@ -295,7 +295,7 @@ class EmployeeModuleGrid extends StatelessWidget {
       children: [
         Text(tr('Chức năng'),
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
             color: HrmPageChrome.primaryNavy,
             letterSpacing: -0.2,
@@ -347,11 +347,11 @@ class _ModuleTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Ink(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: tile.color.withValues(alpha: 0.14)),
             boxShadow: [
               BoxShadow(

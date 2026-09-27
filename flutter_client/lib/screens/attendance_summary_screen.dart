@@ -31,6 +31,7 @@ import '../utils/paid_leave_schedule_utils.dart';
 import '../utils/shift_records_calculator.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màn hình tổng hợp chấm công - standalone wrapper cho AttendanceSummaryTab
 /// Tự load dữ liệu (attendances + devices) và nhúng AttendanceSummaryTab
 class AttendanceSummaryScreen extends StatefulWidget {
@@ -389,21 +390,21 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
               child: Material(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.brand50,
+                borderRadius: BorderRadius.circular(10),
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Row(
                     children: [
                       Icon(Icons.info_outline,
-                          size: 18, color: Colors.blue.shade800),
+                          size: 18, color: SboxColors.brand800),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           tr('Chưa có bảng lương cấu hình — hệ số ngày lễ/nghỉ trong tổng hợp có thể không chính xác. '
                           'Vào Thiết lập lương để cấu hình.'),
                           style: TextStyle(
-                              fontSize: 12, color: Colors.blue.shade900),
+                              fontSize: 12, color: SboxColors.brand900),
                         ),
                       ),
                     ],
@@ -438,7 +439,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
               (_attendanceExpectedCount != null &&
                   _attendances.length < _attendanceExpectedCount!))
             Material(
-              color: const Color(0xFFFFF7ED),
+              color: SboxColors.warningSoft,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                 child: Row(
@@ -520,7 +521,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
                             textAlign: TextAlign.center,
                             style: vietnameseTextStyle(const TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF52525B),
+                              color: SboxColors.slate600,
                             )),
                           ),
                         ],
