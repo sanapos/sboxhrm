@@ -1,5 +1,7 @@
 import 'dart:async';
-
+
+import '../../utils/notification_sound.dart';
+import '../../widgets/pos/pos_package_timer.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -203,13 +205,49 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         _reload(silent: true, heal: true);
       }
     });
-    // Đồng hồ bàn: 15s đủ (hiển thị phút), tránh rebuild toàn sơ đồ mỗi giây.
-    _clock = Timer.periodic(const Duration(seconds: 15), (_) {
+    // Đồng hồ bàn: 15s đủ (hiển thị phút); bàn có gói giờ đếm ngược → cập nhật mỗi giây + báo hết giờ.
+    var tick = 0;
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _layoutEdit || !widget.paneActive) return;
-      if (_resources.any((r) => r.liveElapsedMinutes > 0)) {
+      tick++;
+      final hasCountdown = _resources.any((r) => r.timerEndsAt != null && r.isActivelyOpen);
+      if (hasCountdown) _checkFloorTimers();
+      if (hasCountdown || (tick % 15 == 0 && _resources.any((r) => r.liveElapsedMinutes > 0))) {
         setState(() {});
       }
     });
+  }
+
+  /// Đã báo (bàn|mốc hết giờ|giai đoạn) — mỗi mốc chỉ báo 1 lần trên máy này.
+  final Set<String> _floorTimerAlerted = {};
+
+  void _checkFloorTimers() {
+    final now = DateTime.now().toUtc();
+    for (final r in _resources) {
+      final ends = r.timerEndsAt;
+      if (ends == null || !r.isActivelyOpen) continue;
+      final left = ends.difference(now);
+      final key = '${r.id}|${ends.toIso8601String()}';
+      final name = r.name.isNotEmpty ? r.name : r.code;
+      if (left <= Duration.zero) {
+        // Mở sơ đồ khi đã quá giờ lâu → chỉ tô đỏ, không kêu lại.
+        if (_floorTimerAlerted.add('$key|over') && left > const Duration(minutes: -2)) {
+          NotificationSound().play();
+          NotificationOverlayManager().showError(
+            title: 'HẾT GIỜ',
+            message: tr('$name · ${r.timerName ?? 'Gói giờ'} đã hết — đang tính quá giờ'),
+          );
+        }
+      } else if (r.timerAlertBeforeMinutes > 0 && left <= Duration(minutes: r.timerAlertBeforeMinutes)) {
+        if (_floorTimerAlerted.add('$key|soon')) {
+          NotificationSound().play();
+          NotificationOverlayManager().showWarning(
+            title: 'Sắp hết giờ',
+            message: tr('$name · ${r.timerName ?? 'Gói giờ'}: còn ${PosPackageTimerCalc.fmt(left)}'),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _loadSellProfile() async {
@@ -4326,6 +4364,28 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       );
     }
 
+    // Gói giờ: đếm ngược / quá giờ (màu vàng khi sắp hết, đỏ khi hết).
+    if (r.timerEndsAt != null && r.isActivelyOpen) {
+      final left = r.timerEndsAt!.difference(DateTime.now().toUtc());
+      final over = left <= Duration.zero;
+      final soon = !over && left <= Duration(minutes: r.timerAlertBeforeMinutes);
+      final c = over ? const Color(0xFFDC2626) : soon ? const Color(0xFFD97706) : const Color(0xFF16A34A);
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(over ? Icons.alarm_on : Icons.timer_outlined, size: 22, color: c),
+            const SizedBox(height: 2),
+            Text(
+              over ? '+${PosPackageTimerCalc.fmt(left)}' : PosPackageTimerCalc.fmt(left),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: c, height: 1),
+            ),
+            if (over)
+              Text(tr('Hết giờ'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c)),
+          ],
+        ),
+      );
+    }
     final time = r.elapsedLabel.isNotEmpty ? r.elapsedLabel : '--';
     return Center(
       child: Column(

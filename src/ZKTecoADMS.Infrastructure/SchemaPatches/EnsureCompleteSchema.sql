@@ -988,3 +988,8 @@ CREATE INDEX IF NOT EXISTS "IX_PosGymVisits_Customer_CheckIn" ON "PosGymVisits" 
 
 -- Lịch sử thao tác cửa hàng: lọc theo cửa hàng + thời gian
 CREATE INDEX IF NOT EXISTS "IX_AuditLogs_Store_Timestamp" ON "AuditLogs" ("StoreId", "Timestamp" DESC);
+
+-- Gói giờ đếm ngược (mua 1h: hết giờ báo + tính quá giờ)
+ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "TimePackageMinutes" integer NOT NULL DEFAULT 0;
+ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "OvertimeProductId" uuid NULL;
+ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "TimeAlertBeforeMinutes" integer NOT NULL DEFAULT 5;

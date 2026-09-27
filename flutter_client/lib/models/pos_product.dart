@@ -472,6 +472,12 @@ class PosProduct {
   final double openingFee;
   final int? openingMinutes;
   final int sessionPackValidDays;
+  /// Gói giờ bán trước (phút) — > 0: đếm ngược, hết giờ báo + tính quá giờ.
+  final int timePackageMinutes;
+  /// Dịch vụ tính giờ dùng cho phần quá giờ.
+  final String? overtimeProductId;
+  /// Báo trước khi hết gói (phút).
+  final int timeAlertBeforeMinutes;
   final bool isTopping;
   final bool allowToppings;
   /// Tự mở popup topping (nhóm) khi thêm món vào giỏ.
@@ -556,6 +562,9 @@ class PosProduct {
     this.openingFee = 0,
     this.openingMinutes,
     this.sessionPackValidDays = 0,
+    this.timePackageMinutes = 0,
+    this.overtimeProductId,
+    this.timeAlertBeforeMinutes = 5,
     this.isTopping = false,
     this.allowToppings = false,
     this.autoOpenToppingPopup = true,
@@ -756,6 +765,11 @@ class PosProduct {
           (json['sessionPackValidDays'] ?? json['SessionPackValidDays'] as num?)
                   ?.toInt() ??
               0,
+      timePackageMinutes:
+          (json['timePackageMinutes'] ?? json['TimePackageMinutes'] as num?)?.toInt() ?? 0,
+      overtimeProductId: (json['overtimeProductId'] ?? json['OvertimeProductId'])?.toString(),
+      timeAlertBeforeMinutes:
+          (json['timeAlertBeforeMinutes'] ?? json['TimeAlertBeforeMinutes'] as num?)?.toInt() ?? 5,
       isTopping: json['isTopping'] == true || json['IsTopping'] == true,
       allowToppings:
           json['allowToppings'] == true || json['AllowToppings'] == true,
@@ -858,6 +872,9 @@ class PosProduct {
       'openingFee': openingFee,
       if (openingMinutes != null) 'openingMinutes': openingMinutes,
       'sessionPackValidDays': sessionPackValidDays,
+      'timePackageMinutes': timePackageMinutes,
+      if (overtimeProductId != null) 'overtimeProductId': overtimeProductId,
+      'timeAlertBeforeMinutes': timeAlertBeforeMinutes,
       'isTopping': isTopping,
       'allowToppings': allowToppings && !isTopping,
       'autoOpenToppingPopup': autoOpenToppingPopup,
@@ -981,6 +998,9 @@ class PosProduct {
       openingFee: this.openingFee,
       openingMinutes: this.openingMinutes,
       sessionPackValidDays: this.sessionPackValidDays,
+      timePackageMinutes: this.timePackageMinutes,
+      overtimeProductId: this.overtimeProductId,
+      timeAlertBeforeMinutes: this.timeAlertBeforeMinutes,
       isTopping: this.isTopping,
       allowToppings: this.allowToppings,
       autoOpenToppingPopup: this.autoOpenToppingPopup,

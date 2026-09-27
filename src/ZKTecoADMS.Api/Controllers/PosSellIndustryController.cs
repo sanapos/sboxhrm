@@ -401,7 +401,11 @@ public partial class PosSellIndustryController(
         decimal ReservationDepositAmount = 0,
         string? ReservationDepositStatus = null,
         int DraftBillCount = 1,
-        List<ResourceDraftBillDto>? DraftBills = null);
+        List<ResourceDraftBillDto>? DraftBills = null,
+        /// <summary>Gói giờ đang chạy hết sớm nhất (UTC, đã cộng phút tạm dừng) — ô bàn đếm ngược.</summary>
+        DateTime? TimerEndsAt = null,
+        string? TimerName = null,
+        int TimerAlertBeforeMinutes = 5);
 
     public record ResourceDraftBillDto(
         Guid Id, string OrderNo, decimal Subtotal, int LineCount, bool IsSplit);
@@ -739,6 +743,26 @@ public partial class PosSellIndustryController(
                         x.LockedByDeviceId, x.LockedByDeviceName, x.LockedByDisplayName,
                         x.LockExpiresAt, x.LockedAt));
 
+        // Gói giờ (đếm ngược) đang chạy trên đơn của bàn: thời điểm hết gói sớm nhất.
+        var packageTimers = orderIds.Count == 0
+            ? []
+            : await (from l in db.PosSaleOrderLines.AsNoTracking()
+                     join p in db.PosProducts.AsNoTracking() on l.ProductId equals p.Id
+                     where orderIds.Contains(l.SaleOrderId) && l.StoreId == storeId && l.Deleted == null
+                         && p.TimePackageMinutes > 0 && l.ServiceStartedAt != null && l.ServiceEndedAt == null
+                     select new { l.SaleOrderId, l.ServiceStartedAt, l.Qty, p.TimePackageMinutes, p.Name, p.TimeAlertBeforeMinutes })
+                .ToListAsync();
+        var timerByOrder = packageTimers
+            .Select(t => new
+            {
+                t.SaleOrderId,
+                Ends = t.ServiceStartedAt!.Value.AddMinutes((double)(t.TimePackageMinutes * Math.Max(1m, t.Qty))),
+                t.Name,
+                t.TimeAlertBeforeMinutes,
+            })
+            .GroupBy(t => t.SaleOrderId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(x => x.Ends).First());
+
         // Draft mồ côi trên bàn (không phải đơn phiên hiện tại) — tránh hiện Holding giả.
         // Không lọc theo còn món: bàn vừa claim (chưa chọn món) vẫn phải lộ khóa ngay,
         // nếu không máy khác chỉ thấy «đang sửa» sau khi có món đầu tiên.
@@ -972,7 +996,12 @@ public partial class PosSellIndustryController(
                 booking?.DepositAmount ?? 0,
                 booking?.DepositStatus.ToString(),
                 bills.Count == 0 ? 1 : bills.Count,
-                bills);
+                bills,
+                TimerEndsAt: sess?.SaleOrderId is Guid tso && timerByOrder.TryGetValue(tso, out var tm)
+                    ? tm.Ends.AddMinutes(sess.AccumulatedPauseMinutes) : null,
+                TimerName: sess?.SaleOrderId is Guid tso2 && timerByOrder.TryGetValue(tso2, out var tm2) ? tm2.Name : null,
+                TimerAlertBeforeMinutes: sess?.SaleOrderId is Guid tso3 && timerByOrder.TryGetValue(tso3, out var tm3)
+                    ? tm3.TimeAlertBeforeMinutes : 5);
         }).ToList();
 
         return Ok(AppResponse<List<ResourceDto>>.Success(list));

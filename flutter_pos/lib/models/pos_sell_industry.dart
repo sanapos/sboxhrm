@@ -765,6 +765,9 @@ class PosServiceResourceDto {
     this.reservationDepositStatus,
     this.draftBillCount = 1,
     this.draftBills = const [],
+    this.timerEndsAt,
+    this.timerName,
+    this.timerAlertBeforeMinutes = 5,
   });
 
   final String id;
@@ -818,6 +821,10 @@ class PosServiceResourceDto {
   final String? reservationDepositStatus;
   final int draftBillCount;
   final List<PosResourceDraftBillDto> draftBills;
+  /// Gói giờ đang chạy hết lúc (UTC) — ô bàn đếm ngược / báo hết giờ.
+  final DateTime? timerEndsAt;
+  final String? timerName;
+  final int timerAlertBeforeMinutes;
 
   bool get hasActiveLock => tableSessionOpen;
 
@@ -926,6 +933,9 @@ class PosServiceResourceDto {
         reservationDepositPaid: reservationDepositPaid,
         reservationDepositAmount: reservationDepositAmount,
         reservationDepositStatus: reservationDepositStatus,
+        timerEndsAt: timerEndsAt,
+        timerName: timerName,
+        timerAlertBeforeMinutes: timerAlertBeforeMinutes,
       );
 
   PosServiceResourceDto copyWithLayout({
@@ -980,6 +990,9 @@ class PosServiceResourceDto {
         reservationDepositPaid: reservationDepositPaid,
         reservationDepositAmount: reservationDepositAmount,
         reservationDepositStatus: reservationDepositStatus,
+        timerEndsAt: timerEndsAt,
+        timerName: timerName,
+        timerAlertBeforeMinutes: timerAlertBeforeMinutes,
       );
 
   String get elapsedLabel {
@@ -1109,6 +1122,9 @@ class PosServiceResourceDto {
           ?.toString(),
       draftBillCount: i(json['draftBillCount'] ?? json['DraftBillCount'], 1),
       draftBills: _parseDraftBills(json['draftBills'] ?? json['DraftBills']),
+      timerEndsAt: dt(json['timerEndsAt'] ?? json['TimerEndsAt']),
+      timerName: (json['timerName'] ?? json['TimerName'])?.toString(),
+      timerAlertBeforeMinutes: i(json['timerAlertBeforeMinutes'] ?? json['TimerAlertBeforeMinutes'], 5),
     );
   }
 }

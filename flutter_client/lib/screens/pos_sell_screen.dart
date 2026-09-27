@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../widgets/pos/pos_package_timer.dart';
 import '../utils/pos_scale_barcode.dart';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -318,6 +319,10 @@ class _SellCartLine {
   String? assignedEmployeeId;
   String? assignedEmployeeName;
   List<_CartStaffAssign> staffAssignments = [];
+  /// Giờ bắt đầu riêng của dòng (gói giờ đếm ngược / dòng quá giờ). null = theo giờ mở bàn.
+  DateTime? timerStartedAt;
+  bool timerAlertedSoon = false;
+  bool timerAlertedEnd = false;
   final Set<String> selectedQuickNotes = {};
   final TextEditingController noteCtrl;
   final TextEditingController priceCtrl;
@@ -4358,12 +4363,15 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   void _refreshTimedLineQtys() {
-    if (_industrySettings?.enableHourlyBilling != true) return;
-    final started = _tab.serviceStartedAt;
-    if (started == null) return;
+    _checkPackageTimers();
+    final hourly = _industrySettings?.enableHourlyBilling == true;
+    final tabStarted = _tab.serviceStartedAt;
     var changed = false;
     for (final line in _tab.cart) {
       if (!line.product.isTimedService) continue;
+      // Dòng có giờ riêng (quá giờ gói) luôn tính; dòng theo giờ mở bàn cần bật tính giờ.
+      final started = line.timerStartedAt ?? (hourly ? tabStarted : null);
+      if (started == null) continue;
       final mode = PosServiceBillingMode.parse(line.product.serviceBillingMode);
       final elapsed = PosServiceBillingCalc.elapsedMinutes(
         started,
@@ -4401,19 +4409,134 @@ class _PosSellScreenState extends State<PosSellScreen>
     _ensureTimedBillingTimer();
   }
 
+  // ─── Gói giờ đếm ngược ─────────────────────────────────────────────
+
+  PosPackageTimerCalc _packageCalc(_SellCartLine line) => PosPackageTimerCalc(
+        startedAt: line.timerStartedAt,
+        totalMinutes: line.product.timePackageMinutes * (line.qty < 1 ? 1 : line.qty.round()),
+        pauseMinutes: _tab.isTableBound ? _tab.accumulatedPauseMinutes : 0,
+        alertBeforeMinutes: line.product.timeAlertBeforeMinutes,
+      );
+
+  void _startPackageTimer(_SellCartLine line) {
+    setState(() {
+      line.timerStartedAt = DateTime.now().toUtc();
+      line.timerAlertedSoon = false;
+      line.timerAlertedEnd = false;
+    });
+    _scheduleDraftAutosave();
+    _ensureTimedBillingTimer();
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã bắt đầu tính giờ',
+      message: tr('${line.product.name} · ${_packageCalc(line).totalMinutes} phút'),
+    );
+  }
+
+  /// Dòng quá giờ của gói [pkg]: dịch vụ quá giờ, bắt đầu đúng lúc hết gói.
+  _SellCartLine? _overtimeLineOf(_SellCartLine pkg) {
+    final otId = pkg.product.overtimeProductId;
+    final ends = _packageCalc(pkg).endsAt;
+    if (otId == null || ends == null) return null;
+    for (final l in _tab.cart) {
+      if (l.product.id == otId && l.timerStartedAt != null &&
+          l.timerStartedAt!.difference(ends).inSeconds.abs() <= 90) {
+        return l;
+      }
+    }
+    return null;
+  }
+
+  String get _timerPlace => (_tab.serviceResourceName ?? '').isNotEmpty
+      ? '${_tab.serviceResourceName}'
+      : tr('HĐ ${_tab.id}');
+
+  /// Chạy mỗi 5 giây: báo sắp hết / hết giờ (1 lần) và tự thêm dòng quá giờ.
+  void _checkPackageTimers() {
+    if (_tab.sessionIsPaused) return;
+    for (final line in List<_SellCartLine>.from(_tab.cart)) {
+      if (line.product.timePackageMinutes <= 0 || line.timerStartedAt == null) continue;
+      final calc = _packageCalc(line);
+      final stage = calc.stage();
+      if (stage == PosPackageTimerStage.soon && !line.timerAlertedSoon) {
+        line.timerAlertedSoon = true;
+        NotificationSound().play();
+        NotificationOverlayManager().showWarning(
+          title: 'Sắp hết giờ',
+          message: tr('$_timerPlace · ${line.product.name}: còn ${PosPackageTimerCalc.fmt(calc.remaining()!)}'),
+        );
+      }
+      if (stage == PosPackageTimerStage.over && !line.timerAlertedEnd) {
+        line.timerAlertedEnd = true;
+        line.timerAlertedSoon = true;
+        final existing = _overtimeLineOf(line);
+        // Mở lại đơn đã có dòng quá giờ → không báo / thêm lại.
+        if (existing != null) continue;
+        NotificationSound().play();
+        NotificationOverlayManager().showError(
+          title: 'HẾT GIỜ',
+          message: tr('$_timerPlace · ${line.product.name} đã hết '
+              '${calc.totalMinutes} phút${line.product.overtimeProductId != null ? ' — bắt đầu tính quá giờ' : ''}'),
+        );
+        if (line.product.overtimeProductId != null) {
+          unawaited(_addOvertimeLine(line, calc.endsAt!));
+        }
+      }
+    }
+  }
+
+  Future<void> _addOvertimeLine(_SellCartLine pkg, DateTime endsAt) async {
+    final id = pkg.product.overtimeProductId!;
+    final res = await _api.getPosProduct(id);
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+    final ot = PosProduct.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+    if (_overtimeLineOf(pkg) != null) return;
+    await _addPick(PosPurchaseLookupPick(product: ot), mergeIfSame: false, autosave: false);
+    if (!mounted) return;
+    final added = _tab.cart.lastWhere((l) => l.product.id == ot.id, orElse: () => _tab.cart.last);
+    setState(() {
+      added.timerStartedAt = endsAt.toUtc();
+      added.timerAlertedEnd = true;
+      added.lineNote = tr('Quá giờ ${pkg.product.name}');
+      added.noteCtrl.text = added.lineNote!;
+    });
+    _refreshTimedLineQtys();
+    _scheduleDraftAutosave();
+  }
+
+  /// Đồng hồ trên dòng giỏ: gói giờ (đếm ngược) hoặc dòng quá giờ (đang tính từ …).
+  Widget? _lineTimerWidget(_SellCartLine line, {bool compact = false}) {
+    if (line.product.timePackageMinutes > 0) {
+      return PosPackageTimerChip(
+        calc: _packageCalc(line),
+        paused: _tab.sessionIsPaused,
+        compact: compact,
+        onStart: _tab.draftReadOnly ? null : () => _startPackageTimer(line),
+      );
+    }
+    if (line.product.isTimedService && line.timerStartedAt != null) {
+      final t = line.timerStartedAt!.toLocal();
+      return Text(
+        tr('⏱ Quá giờ tính từ ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFDC2626)),
+      );
+    }
+    return null;
+  }
+
   Timer? _timedBillingTimer;
 
   void _ensureTimedBillingTimer() {
-    final need = _industrySettings?.enableHourlyBilling == true &&
-        _tab.serviceStartedAt != null &&
-        _tab.cart.any((l) => l.product.isTimedService) &&
-        !_tab.sessionIsPaused;
+    final need = !_tab.sessionIsPaused &&
+        (_tab.cart.any((l) => l.timerStartedAt != null) ||
+            (_industrySettings?.enableHourlyBilling == true &&
+                _tab.serviceStartedAt != null &&
+                _tab.cart.any((l) => l.product.isTimedService)));
     if (!need) {
       _timedBillingTimer?.cancel();
       _timedBillingTimer = null;
       return;
     }
-    _timedBillingTimer ??= Timer.periodic(const Duration(seconds: 15), (_) {
+    _timedBillingTimer ??= Timer.periodic(const Duration(seconds: 5), (_) {
       if (!mounted) return;
       _refreshTimedLineQtys();
     });
@@ -6919,6 +7042,15 @@ class _PosSellScreenState extends State<PosSellScreen>
       );
       cartLine.kitchenSentQty =
           line.kitchenSentQty.clamp(0.0, line.qty).toDouble();
+      // Gói giờ / dòng quá giờ: giờ bắt đầu riêng (khác giờ mở bàn).
+      final ls = line.serviceStartedAt;
+      if (ls != null &&
+          (p.timePackageMinutes > 0 ||
+              (p.isTimedService &&
+                  (order.serviceStartedAt == null ||
+                      ls.difference(order.serviceStartedAt!).inSeconds.abs() > 60)))) {
+        cartLine.timerStartedAt = ls.toUtc();
+      }
       final prevWh = tab.cart
           .where((c) =>
               c.product.id == p.id &&
@@ -9008,10 +9140,14 @@ class _PosSellScreenState extends State<PosSellScreen>
                     })
                 .toList(),
         };
-        if (c.product.isTimedService && started != null) {
+        final lineStart = c.timerStartedAt ?? started;
+        if (c.product.timePackageMinutes > 0 && c.timerStartedAt != null) {
+          line['serviceStartedAt'] = c.timerStartedAt!.toUtc().toIso8601String();
+        }
+        if (c.product.isTimedService && lineStart != null) {
           final mode = PosServiceBillingMode.parse(c.product.serviceBillingMode);
           final elapsed = PosServiceBillingCalc.elapsedMinutes(
-            started,
+            lineStart,
             complete ? DateTime.now().toUtc() : null,
             accumulatedPauseMinutes: tab.accumulatedPauseMinutes,
             pausedAt: tab.sessionIsPaused ? tab.sessionPausedAt : null,
@@ -9026,7 +9162,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           );
           line['durationMinutes'] = elapsed;
           line['billableMinutes'] = billable;
-          line['serviceStartedAt'] = started.toUtc().toIso8601String();
+          line['serviceStartedAt'] = lineStart.toUtc().toIso8601String();
           if (complete) {
             line['serviceEndedAt'] = DateTime.now().toUtc().toIso8601String();
           }
@@ -12848,6 +12984,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         style: const TextStyle(fontSize: 12, height: 1.25, color: Color(0xFF0F766E)),
       ));
     }
+    final timerWidget = _lineTimerWidget(line);
+    if (timerWidget != null) meta.add(timerWidget);
     if (!priceExpanded && line.discountAmount > 0) {
       meta.add(Text(
         tr('CK: -${_moneyFmt.format(line.discountAmount)}'),
@@ -17242,6 +17380,10 @@ class _PosSellScreenState extends State<PosSellScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                        if (_lineTimerWidget(line, compact: true) case final w?) ...[
+                          const SizedBox(height: 4),
+                          w,
+                        ],
                       ],
                     ),
                   ),

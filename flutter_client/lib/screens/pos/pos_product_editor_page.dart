@@ -283,6 +283,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _openingFeeCtrl;
   late final TextEditingController _openingMinutesCtrl;
   late final TextEditingController _sessionPackValidDaysCtrl;
+  late final TextEditingController _timePackageCtrl;
+  late final TextEditingController _timeAlertCtrl;
+  String? _overtimeProductId;
+  String? _overtimeProductName;
 
   List<PosCatalogItem> _categories = [];
   List<PosCatalogItem> _brands = [];
@@ -402,7 +406,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             _defaultDurationMinutesCtrl.text.trim().isNotEmpty ||
             _openingFeeCtrl.text.trim().isNotEmpty ||
             _openingMinutesCtrl.text.trim().isNotEmpty ||
-            _sessionPackValidDaysCtrl.text.trim().isNotEmpty;
+            _sessionPackValidDaysCtrl.text.trim().isNotEmpty ||
+            _timePackageCtrl.text.trim().isNotEmpty;
       case PosProductEditorSection.staffCommission:
         return _commissionMode != 'None';
       case PosProductEditorSection.description:
@@ -549,6 +554,16 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _openingMinutesCtrl = TextEditingController(
       text: tr((p?.openingMinutes ?? 0) > 0 ? '${p!.openingMinutes}' : ''),
     );
+    _timePackageCtrl = TextEditingController(
+        text: (p?.timePackageMinutes ?? 0) > 0 ? '${p!.timePackageMinutes}' : '');
+    _timeAlertCtrl = TextEditingController(text: '${p?.timeAlertBeforeMinutes ?? 5}');
+    _overtimeProductId = p?.overtimeProductId;
+    if (_overtimeProductId != null) {
+      unawaited(ApiService().getPosProduct(_overtimeProductId!).then((r) {
+        if (!mounted || r['data'] is! Map) return;
+        setState(() => _overtimeProductName = '${(r['data'] as Map)['name'] ?? ''}');
+      }));
+    }
     _sessionPackValidDaysCtrl = TextEditingController(
       text: tr((p?.sessionPackValidDays ?? 0) > 0
           ? '${p!.sessionPackValidDays}'
@@ -911,6 +926,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _openingFeeCtrl.dispose();
     _openingMinutesCtrl.dispose();
     _sessionPackValidDaysCtrl.dispose();
+    _timePackageCtrl.dispose();
+    _timeAlertCtrl.dispose();
     super.dispose();
   }
 
@@ -1081,6 +1098,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'openingMinutes': int.tryParse(_openingMinutesCtrl.text.trim()),
         'sessionPackValidDays':
             int.tryParse(_sessionPackValidDaysCtrl.text.trim()) ?? 0,
+        'timePackageMinutes': int.tryParse(_timePackageCtrl.text.trim()) ?? 0,
+        'overtimeProductId': _overtimeProductId,
+        'timeAlertBeforeMinutes': int.tryParse(_timeAlertCtrl.text.trim()) ?? 5,
       },
     };
 
@@ -1474,6 +1494,139 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _tabs.animateTo(0);
   }
 
+
+  /// Gói giờ bán trước (karaoke / bi-a / phòng game): bấm Bắt đầu → đếm ngược → hết giờ báo + tính quá giờ.
+  Widget _buildTimePackageSection() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFBBF7D0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            const Icon(Icons.timer_outlined, color: Color(0xFF16A34A), size: 20),
+            const SizedBox(width: 6),
+            Text(tr('Gói giờ đếm ngược'), style: const TextStyle(fontWeight: FontWeight.w700)),
+          ]),
+          const SizedBox(height: 4),
+          Text(
+            tr('Ví dụ gói 1 giờ: nhập 60. Trên hóa đơn có nút ▶ Bắt đầu, đếm ngược; hết giờ máy báo và tự thêm dòng quá giờ. '
+                'Bán SL 2 = 2 gói (120 phút). Để trống = không phải gói giờ.'),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _timePackageCtrl,
+                keyboardType: TextInputType.number,
+                decoration: PosTheme.inputDecoration(label: 'Thời lượng gói (phút)', hint: 'vd 60'),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _timeAlertCtrl,
+                keyboardType: TextInputType.number,
+                decoration: PosTheme.inputDecoration(label: 'Báo trước khi hết (phút)', hint: '5'),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          InkWell(
+            onTap: _pickOvertimeProduct,
+            borderRadius: BorderRadius.circular(8),
+            child: InputDecorator(
+              decoration: PosTheme.inputDecoration(label: 'Dịch vụ tính quá giờ'),
+              child: Row(children: [
+                Expanded(
+                  child: Text(
+                    _overtimeProductId == null
+                        ? tr('Chưa chọn — hết giờ chỉ báo, không tự tính tiền quá giờ')
+                        : (_overtimeProductName ?? tr('Đang tải…')),
+                    style: TextStyle(color: _overtimeProductId == null ? Colors.grey.shade600 : null),
+                  ),
+                ),
+                if (_overtimeProductId != null)
+                  IconButton(
+                    tooltip: tr('Bỏ chọn'),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => setState(() {
+                      _overtimeProductId = null;
+                      _overtimeProductName = null;
+                    }),
+                    icon: const Icon(Icons.close, size: 18),
+                  )
+                else
+                  const Icon(Icons.arrow_drop_down),
+              ]),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              tr('Chọn một dịch vụ tính giờ (vd «Quá giờ karaoke» theo block 15 phút). Tiền quá giờ tính từ lúc hết gói.'),
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickOvertimeProduct() async {
+    final res = await ApiService().getPosProducts(
+      productType: PosProductType.service,
+      pageSize: 300,
+      sortBy: PosProductSortBy.name,
+      sortDesc: false,
+    );
+    if (!mounted) return;
+    final data = res['data'];
+    final raw = data is Map ? (data['items'] ?? data['Items']) : data is List ? data : null;
+    final items = <PosProduct>[
+      for (final e in (raw as List? ?? const []).whereType<Map>())
+        PosProduct.fromJson(Map<String, dynamic>.from(e)),
+    ].where((x) => x.isTimedService && x.id != widget.product?.id).toList();
+    final picked = await showDialog<PosProduct>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Dịch vụ tính quá giờ')),
+        content: SizedBox(
+          width: 420,
+          height: 380,
+          child: items.isEmpty
+              ? Center(
+                  child: Text(
+                    tr('Chưa có dịch vụ tính giờ. Tạo một dịch vụ (vd «Quá giờ») với cách tính Theo giờ / Theo block rồi chọn lại.'),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : ListView(children: [
+                  for (final x in items)
+                    ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.more_time),
+                      title: Text(x.name),
+                      subtitle: Text('${x.basePrice.toStringAsFixed(0)} đ · ${x.serviceBillingMode}'),
+                      onTap: () => Navigator.pop(ctx, x),
+                    ),
+                ]),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng')))],
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _overtimeProductId = picked.id;
+      _overtimeProductName = picked.name;
+    });
+  }
   @override
   Widget build(BuildContext context) {
     return _buildKiotVietDialog();
@@ -2403,6 +2556,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                       hint: '0 = không hạn — liệu trình / thẻ tập',
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  _buildTimePackageSection(),
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(

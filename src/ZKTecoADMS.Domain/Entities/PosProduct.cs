@@ -165,6 +165,18 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Hạn sử dụng gói buổi (ngày) kể từ ngày bán. 0 = không hạn.</summary>
     public int SessionPackValidDays { get; set; }
 
+    /// <summary>
+    /// Gói thời gian (phút) bán trước — vd 60 = gói 1 giờ. &gt; 0: dòng có nút Bắt đầu, đếm ngược;
+    /// hết giờ báo và tự thêm dòng quá giờ (<see cref="OvertimeProductId"/>). SL 2 = 2 gói.
+    /// </summary>
+    public int TimePackageMinutes { get; set; }
+
+    /// <summary>Dịch vụ tính giờ dùng cho phần quá giờ (giá / làm tròn theo dịch vụ đó).</summary>
+    public Guid? OvertimeProductId { get; set; }
+
+    /// <summary>Báo trước khi hết gói (phút). 0 = chỉ báo lúc hết.</summary>
+    public int TimeAlertBeforeMinutes { get; set; } = 5;
+
     /// <summary>SP này là topping (trân châu, thạch…).</summary>
     public bool IsTopping { get; set; }
 
