@@ -122,6 +122,7 @@ import 'settings_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/pos_request_id.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 
 /// Tỷ lệ / khoảng cách màn bán hàng theo KiotViet.
@@ -503,6 +504,12 @@ class _SellInvoiceTab {
   double pointsToRedeem = 0;
   double pointsDiscount = 0;
   String? draftOrderId;
+  /// Mã chống trùng khi tạo đơn: bấm lại (mất mạng) với cùng giỏ → server trả đơn đã tạo.
+  String? clientRequestId;
+  String? clientRequestFp;
+  /// Mã chống mất phiếu báo bếp: báo lại cùng các món chờ → server trả lại lần trước để in.
+  String? kitchenRequestId;
+  String? kitchenRequestFp;
   String? draftOrderNo;
   /// Mã đơn gửi Tingee webhook (nội dung CK / ExternalOrderId).
   String? tingeeTransferExternalId;
@@ -3473,12 +3480,28 @@ class _PosSellScreenState extends State<PosSellScreen>
       return;
     }
 
+    // Cùng các món chờ như lần báo trước bị lỗi mạng → dùng lại mã, server trả lại
+    // đúng lần đó để in (tránh mất phiếu khi server đã đánh dấu «đã gửi»).
+    final kitchenFp = [
+      sid,
+      for (final l in pendingLines) '${l.rowId}:${l.qty}:${l.kitchenSentQty}',
+    ].join(';');
+    if (_tab.kitchenRequestId == null || _tab.kitchenRequestFp != kitchenFp) {
+      _tab.kitchenRequestId = PosRequestId.newId();
+      _tab.kitchenRequestFp = kitchenFp;
+    }
+    final kitchenRequestId = _tab.kitchenRequestId!;
     final res = await _api.kitchenSendPosResourceSession(
       sid,
       deviceId: _posDeviceId,
       deviceName: _posDeviceName,
+      requestId: kitchenRequestId,
     );
     if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      _tab.kitchenRequestId = null;
+      _tab.kitchenRequestFp = null;
+    }
     if (res['isSuccess'] != true) {
       NotificationOverlayManager().showError(
         title: 'Lỗi',
@@ -3526,6 +3549,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           sid,
           deviceId: _posDeviceId,
           deviceName: _posDeviceName,
+          requestId: PosRequestId.newId(),
         );
         if (!mounted) return;
         if (res2['isSuccess'] == true) {
@@ -6879,7 +6903,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       final body = _buildSaleBodyFor(tab, complete: false);
       var res = tab.draftOrderId != null
           ? await _api.updatePosSale(tab.draftOrderId!, body)
-          : await _api.createPosSale(body);
+          : await _createSaleFor(tab, body);
       if (!mounted) return false;
 
       if (res['isSuccess'] != true &&
@@ -9232,6 +9256,32 @@ class _PosSellScreenState extends State<PosSellScreen>
     return true;
   }
 
+  /// Mã chống trùng tạo đơn. Giữ nguyên khi bấm lại với cùng giỏ hàng (mất mạng lúc
+  /// server trả kết quả); đổi giỏ / đơn trước đã tạo xong → mã mới.
+  String _saleRequestIdFor(_SellInvoiceTab tab) {
+    final fp = [
+      for (final c in tab.cart)
+        '${c.product.id}|${c.variantId}|${c.unitId}|${c.product.isTimedService ? '' : c.qty}|${c.unitPrice}',
+      'cus:${tab.customer?.id}',
+    ].join(';');
+    if (tab.clientRequestId == null || tab.clientRequestFp != fp) {
+      tab.clientRequestId = PosRequestId.newId();
+      tab.clientRequestFp = fp;
+    }
+    return tab.clientRequestId!;
+  }
+
+  /// Tạo đơn mới; thành công (kể cả server trả đơn cũ vì trùng mã) → bỏ mã đã dùng.
+  Future<Map<String, dynamic>> _createSaleFor(
+      _SellInvoiceTab tab, Map<String, dynamic> body) async {
+    final res = await _api.createPosSale(body);
+    if (res['isSuccess'] == true) {
+      tab.clientRequestId = null;
+      tab.clientRequestFp = null;
+    }
+    return res;
+  }
+
   Map<String, dynamic> _buildSaleBody({required bool complete}) =>
       _buildSaleBodyFor(_tab, complete: complete);
 
@@ -9244,7 +9294,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         ? tab.paymentLines.where((p) => p.amount > 0).toList()
         : <_SellPaymentLine>[];
     final started = tab.serviceStartedAt;
+    final clientRequestId = tab.draftOrderId == null ? _saleRequestIdFor(tab) : null;
     return <String, dynamic>{
+      if (clientRequestId != null) 'clientRequestId': clientRequestId,
       'lines': tab.cart.map((c) {
         final line = <String, dynamic>{
           'productId': c.product.id,
@@ -9429,7 +9481,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       final body = _buildSaleBody(complete: false);
       final res = _tab.draftOrderId != null
           ? await _api.updatePosSale(_tab.draftOrderId!, body)
-          : await _api.createPosSale(body);
+          : await _createSaleFor(_tab, body);
       if (!mounted) return false;
 
       if (res['isSuccess'] != true) {
@@ -10225,7 +10277,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
       Future<Map<String, dynamic>> payOnce() => _tab.draftOrderId != null
           ? _api.updatePosSale(_tab.draftOrderId!, body)
-          : _api.createPosSale(body);
+          : _createSaleFor(_tab, body);
 
       var res = await payOnce();
       // 409 xung đột serialization/mã phiếu — thử lại 1 lần (server cũng đã retry).
@@ -10235,7 +10287,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         final retryBody = _buildSaleBody(complete: true);
         res = _tab.draftOrderId != null
             ? await _api.updatePosSale(_tab.draftOrderId!, retryBody)
-            : await _api.createPosSale(retryBody);
+            : await _createSaleFor(_tab, retryBody);
       }
       if (!mounted) return;
 

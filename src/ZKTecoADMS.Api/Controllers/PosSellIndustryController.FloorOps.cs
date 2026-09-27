@@ -30,7 +30,9 @@ public partial class PosSellIndustryController
     public record KitchenSendDto(
         List<Guid>? LineIds = null,
         string? DeviceId = null,
-        string? DeviceName = null);
+        string? DeviceName = null,
+        /// <summary>Mã chống mất phiếu: báo lại cùng mã → trả lại đúng các món lần trước để in.</summary>
+        string? RequestId = null);
 
     /// <summary>DTO class (kh�ng d�ng positional record) � tr�nh JSON bind sai layoutX/Y.</summary>
     public class LayoutItemDto
@@ -1034,6 +1036,29 @@ public partial class PosSellIndustryController
         if (lockErr != null)
             return Conflict(AppResponse<object>.Fail(lockErr));
 
+        // Báo lại cùng mã (mất mạng lúc trả kết quả lần trước): server đã đánh dấu
+        // «đã gửi» nhưng máy chưa nhận được danh sách để in → trả lại đúng lần đó.
+        // Không trả lại thì máy nhận «đã gửi hết» và phiếu bếp mất hẳn.
+        var kitchenRequestId = PosIdempotency.Normalize(dto?.RequestId);
+        if (kitchenRequestId != null
+            && kitchenRequestId == order.KitchenSendRequestId
+            && PosKitchenSendReplay.TryRead(order.KitchenSendReplayJson) is { } replay)
+        {
+            return Ok(AppResponse<object>.Success(new
+            {
+                sentLines = replay.SentLines,
+                sentQty = replay.SentQty,
+                sentItems = replay.SentItems,
+                orderNo = order.OrderNo,
+                alreadyAllSent = false,
+                replayed = true,
+                saleOrderId = session.SaleOrderId,
+                kitchenSentAt = replay.KitchenSentAt,
+                lockVersion = order.LockVersion,
+                message = "Đã báo bếp (gửi lại lần trước)",
+            }));
+        }
+
         // Ghim m�y n?u kh�a cu thi?u device (client m?i).
         PosDraftLockHelper.StampDeviceIfMissing(order, actor);
 
@@ -1088,7 +1113,14 @@ public partial class PosSellIndustryController
         }
 
         if (sent > 0)
+        {
             PosDraftLockHelper.BumpVersionOnly(order, now);
+            if (kitchenRequestId != null)
+            {
+                order.KitchenSendRequestId = kitchenRequestId;
+                order.KitchenSendReplayJson = PosKitchenSendReplay.Serialize(sent, sentQty, sentItems, now);
+            }
+        }
 
         await db.SaveChangesAsync();
         NotifyFloorChanged(storeId, "kitchenSend",

@@ -53,5 +53,9 @@ public class PosPrintJob : AuditableEntity<Guid>
 
     public int AttemptCount { get; set; }
 
+    /// <summary>Mã chống trùng của máy gửi — gửi lại do lỗi mạng trả về đúng job này.</summary>
+    [MaxLength(64)]
+    public string? ClientRequestId { get; set; }
+
     public DateTime ExpiresAt { get; set; }
 }

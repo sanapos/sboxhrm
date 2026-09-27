@@ -491,7 +491,27 @@ class PosPrintAgentService {
         }
       }
 
-      await _api.markPosPrintJobPrinting(jobId, _agentId!);
+      // Chỉ in khi server xác nhận «đang in». Không xác nhận được mà vẫn in thì
+      // server còn coi job là Claimed → có thể nhả cho Agent khác → in 2 phiếu.
+      var marked = await _api.markPosPrintJobPrinting(jobId, _agentId!);
+      if (marked['isSuccess'] != true) {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        marked = await _api.markPosPrintJobPrinting(jobId, _agentId!);
+      }
+      if (marked['isSuccess'] != true) {
+        debugPrint('Print Agent: không xác nhận được bắt đầu in $jobId — nhả, không in');
+        _activeJobIds.remove(jobId);
+        claimedJobId = null;
+        try {
+          await _api.releasePosPrintJob(
+            jobId,
+            _agentId!,
+            errorCode: 'MARK_PRINTING_FAILED',
+            errorMessage: 'Agent không xác nhận được bắt đầu in — xếp lại hàng đợi',
+          );
+        } catch (_) {}
+        return;
+      }
       // Timeout ? tr?nh 1 job USB/tem treo Agent ng?ng claim.
       // USB native block isolate: timeout ch? k?ch khi future yield; v?n fail
       // n?u send c? timeout ri?ng.
@@ -517,7 +537,7 @@ class PosPrintAgentService {
             _agentId!,
             errorCode: 'PRINT_TIMEOUT',
             errorMessage:
-                'In quá 75 giây — kiểm tra USB tem (rút ADB) / giấy / máy',
+                'Quá 75 giây chưa xác nhận in xong — CÓ THỂ ĐÃ IN, kiểm tra giấy trước khi in lại',
           );
           _markJobSettled(jobId);
         } catch (_) {}

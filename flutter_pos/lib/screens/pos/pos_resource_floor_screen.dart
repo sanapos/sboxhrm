@@ -37,6 +37,7 @@ import 'package:sbox_pos/l10n/app_ui_locale.dart';
 import '../../widgets/hrm_page_chrome.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/pos_request_id.dart';
 /// Kết quả chọn bàn/phòng từ sơ đồ.
 typedef PosFloorSelectCallback = void Function(Map<String, dynamic> result);
 
@@ -157,6 +158,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       widget.sellProfile ?? _loadedSellProfile ?? PosSellProfile.restaurant;
 
   bool get _isFnB => _sellProfile == PosSellProfile.restaurant;
+
+  /// Mã báo bếp đang chờ theo phiên bàn (giữ lại khi lần gửi trước lỗi mạng).
+  final Map<String, String> _kitchenSendKeys = {};
   /// Cửa hàng bật tính tiền giờ (salon tính giờ theo ghế cũng cần tạm dừng / chốt giờ).
   bool _hourlyBillingOn = false;
   bool get _isHourly =>
@@ -2262,12 +2266,16 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       });
     }
     final device = await PosDeviceIdentity.get();
+    // Lần trước lỗi (mất mạng) → dùng lại mã: server trả lại đúng món đã báo để in.
+    final kitchenKey = _kitchenSendKeys[sid] ??= PosRequestId.newId();
     final res = await _api.kitchenSendPosResourceSession(
       sid,
       deviceId: device.id,
       deviceName: device.name,
+      requestId: kitchenKey,
     );
     if (!mounted) return;
+    if (res['isSuccess'] == true) _kitchenSendKeys.remove(sid);
     if (res['isSuccess'] == true) {
       final data = res['data'] is Map ? res['data'] as Map : const {};
       final n = (data['sentLines'] as num?)?.toInt() ?? 0;

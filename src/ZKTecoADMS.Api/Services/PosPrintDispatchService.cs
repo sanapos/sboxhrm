@@ -36,7 +36,9 @@ public record EnqueuePrintJobRequest(
     Guid? ReferenceId,
     string? RequestedByUserId,
     string? RequestedByName,
-    Guid? PrinterIdOverride = null);
+    Guid? PrinterIdOverride = null,
+    /// <summary>Mã chống trùng của máy gửi (gửi lại do lỗi mạng → trả đúng job cũ, kể cả đã in xong).</summary>
+    string? ClientRequestId = null);
 
 public class PosPrintDispatchService(
     ZKTecoDbContext db,
@@ -328,6 +330,16 @@ public class PosPrintDispatchService(
     {
         request = request with { ReferenceNo = FitReferenceNo(request.ReferenceNo) };
 
+        // Gửi lại cùng mã (mạng lỗi lúc trả kết quả) → đúng job cũ, dù đã in xong.
+        // «In lại» chủ động luôn dùng mã mới nên vẫn ra bản mới.
+        var clientRequestId = PosIdempotency.Normalize(request.ClientRequestId);
+        if (clientRequestId != null
+            && await FindJobByClientRequestAsync(request.StoreId, clientRequestId, ct) is { } sameRequest)
+        {
+            logger.LogInformation("Print job idempotent hit — reuse {JobId} key={Key}", sameRequest.Id, clientRequestId);
+            return sameRequest;
+        }
+
         var printer = request.PrinterIdOverride.HasValue
             ? await db.PosStorePrinters.FirstOrDefaultAsync(p =>
                 p.Id == request.PrinterIdOverride && p.StoreId == request.StoreId && p.Deleted == null, ct)
@@ -433,16 +445,75 @@ public class PosPrintDispatchService(
             IsActive = true,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = request.RequestedByUserId,
+            ClientRequestId = clientRequestId,
         };
 
         db.PosPrintJobs.Add(job);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (clientRequestId != null
+            && PosIdempotency.IsUniqueViolation(ex, PosIdempotency.PrintJobIndex))
+        {
+            // Hai yêu cầu cùng mã đến cùng lúc — dùng job của yêu cầu kia.
+            db.Entry(job).State = EntityState.Detached;
+            var winner = await FindJobByClientRequestAsync(request.StoreId, clientRequestId, ct);
+            if (winner != null) return winner;
+            throw;
+        }
 
         await BroadcastJobAsync("PrintJobNew", job, tracked, ct);
         logger.LogInformation("Print job {JobId} queued for printer {PrinterId} store {StoreId}",
             job.Id, tracked.Id, request.StoreId);
 
         return job;
+    }
+
+    async Task<PosPrintJob?> FindJobByClientRequestAsync(Guid storeId, string clientRequestId, CancellationToken ct)
+    {
+        var existing = await db.PosPrintJobs
+            .FirstOrDefaultAsync(j => j.StoreId == storeId
+                && j.ClientRequestId == clientRequestId
+                && j.Deleted == null, ct);
+        if (existing == null) return null;
+        // Còn chờ: phát lại tín hiệu cho Agent (lần trước có thể không ai nhận được).
+        if (existing.Status == PosPrintJobStatus.Queued)
+        {
+            var printer = await db.PosStorePrinters.AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == existing.PrinterId, ct);
+            if (printer != null)
+                await BroadcastJobAsync("PrintJobNew", existing, printer, ct);
+        }
+        return existing;
+    }
+
+    /// <summary>
+    /// Server tự hủy job (kẹt / quá lượt / chờ quá lâu) — báo cho máy gửi để thu ngân
+    /// thấy phiếu chưa in và in lại, thay vì mất phiếu im lặng.
+    /// </summary>
+    async Task BroadcastCancelledAsync(List<Guid> jobIds, CancellationToken ct)
+    {
+        if (jobIds.Count == 0) return;
+        try
+        {
+            var jobs = await db.PosPrintJobs.AsNoTracking()
+                .Where(j => jobIds.Contains(j.Id))
+                .ToListAsync(ct);
+            var printerIds = jobs.Select(j => j.PrinterId).Distinct().ToList();
+            var printers = await db.PosStorePrinters.AsNoTracking()
+                .Where(p => printerIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, ct);
+            foreach (var j in jobs)
+            {
+                if (printers.TryGetValue(j.PrinterId, out var pr))
+                    await BroadcastJobAsync("PrintJobStatusChanged", j, pr, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Broadcast cancelled print jobs failed");
+        }
     }
 
     public async Task<PosPrintJob?> ClaimNextJobAsync(Guid storeId, Guid agentId, CancellationToken ct = default)
@@ -1131,10 +1202,16 @@ public class PosPrintDispatchService(
         _lastReclaimAt[storeId] = now;
 
         // Đã thử quá nhiều lần → hủy thay vì Queued lại (chống in trùng liên tục).
-        var overAttempt = await db.PosPrintJobs
+        var cancelledIds = new List<Guid>();
+        var overAttemptIds = await db.PosPrintJobs.AsNoTracking()
             .Where(j => j.StoreId == storeId && j.Deleted == null
                 && (j.Status == PosPrintJobStatus.Claimed || j.Status == PosPrintJobStatus.Printing)
                 && j.AttemptCount >= MaxPrintAttemptsBeforeCancel)
+            .Select(j => j.Id)
+            .ToListAsync(ct);
+        var overAttempt = overAttemptIds.Count == 0 ? 0 : await db.PosPrintJobs
+            .Where(j => overAttemptIds.Contains(j.Id)
+                && (j.Status == PosPrintJobStatus.Claimed || j.Status == PosPrintJobStatus.Printing))
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
                 .SetProperty(j => j.ErrorCode, "MAX_ATTEMPTS")
@@ -1142,6 +1219,7 @@ public class PosPrintDispatchService(
                     $"Đã claim {MaxPrintAttemptsBeforeCancel}+ lần — hủy để tránh in trùng")
                 .SetProperty(j => j.CompletedAt, now)
                 .SetProperty(j => j.UpdatedAt, now), ct);
+        if (overAttempt > 0) cancelledIds.AddRange(overAttemptIds);
         if (overAttempt > 0)
             logger.LogWarning(
                 "Cancelled {Count} over-attempt print job(s) in store {StoreId}",
@@ -1192,7 +1270,7 @@ public class PosPrintDispatchService(
         // Tem/bếp Claimed đã soft-requeue ở trên. Hủy các loại còn lại + Printing.
         var claimedBefore = now.Subtract(StuckClaimReclaimAfter);
         var printingBefore = now.Subtract(StuckPrintingReclaimAfter);
-        var stuckCancelled = await db.PosPrintJobs
+        var stuckIds = await db.PosPrintJobs.AsNoTracking()
             .Where(j => j.StoreId == storeId && j.Deleted == null
                 && (j.Status == PosPrintJobStatus.Claimed
                     || j.Status == PosPrintJobStatus.Printing)
@@ -1205,6 +1283,11 @@ public class PosPrintDispatchService(
                 && j.ClaimedAt != null
                 && ((j.Status == PosPrintJobStatus.Claimed && j.ClaimedAt < claimedBefore)
                     || (j.Status == PosPrintJobStatus.Printing && j.ClaimedAt < printingBefore)))
+            .Select(j => j.Id)
+            .ToListAsync(ct);
+        var stuckCancelled = stuckIds.Count == 0 ? 0 : await db.PosPrintJobs
+            .Where(j => stuckIds.Contains(j.Id)
+                && (j.Status == PosPrintJobStatus.Claimed || j.Status == PosPrintJobStatus.Printing))
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
                 .SetProperty(j => j.ErrorCode, "STUCK_NO_REQUEUE")
@@ -1212,6 +1295,7 @@ public class PosPrintDispatchService(
                     "Agent nhận job nhưng không complete — hủy để tránh in trùng")
                 .SetProperty(j => j.CompletedAt, now)
                 .SetProperty(j => j.UpdatedAt, now), ct);
+        if (stuckCancelled > 0) cancelledIds.AddRange(stuckIds);
         if (stuckCancelled > 0)
             logger.LogWarning(
                 "Cancelled {Count} stuck print job(s) (no requeue) in store {StoreId}",
@@ -1219,10 +1303,14 @@ public class PosPrintDispatchService(
 
         // Hủy job Queued quá lâu — tránh Agent xả cả loạt hàng đợi cũ khi vừa mở máy lại.
         var staleQueuedBefore = now.Subtract(StaleQueuedCancelAfter);
-        var cancelled = await db.PosPrintJobs
+        var staleIds = await db.PosPrintJobs.AsNoTracking()
             .Where(j => j.StoreId == storeId && j.Deleted == null
                 && j.Status == PosPrintJobStatus.Queued
                 && j.CreatedAt < staleQueuedBefore)
+            .Select(j => j.Id)
+            .ToListAsync(ct);
+        var cancelled = staleIds.Count == 0 ? 0 : await db.PosPrintJobs
+            .Where(j => staleIds.Contains(j.Id) && j.Status == PosPrintJobStatus.Queued)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
                 .SetProperty(j => j.ErrorCode, "STALE_QUEUED")
@@ -1230,8 +1318,11 @@ public class PosPrintDispatchService(
                     $"Job quá hạn hàng đợi (>{StaleQueuedCancelAfter.TotalMinutes:0} phút) — không có Agent online")
                 .SetProperty(j => j.CompletedAt, now)
                 .SetProperty(j => j.UpdatedAt, now), ct);
+        if (cancelled > 0) cancelledIds.AddRange(staleIds);
         if (cancelled > 0)
             logger.LogWarning("Cancelled {Count} stale queued print job(s) in store {StoreId}", cancelled, storeId);
+
+        await BroadcastCancelledAsync(cancelledIds, ct);
 
         // Claim set Busy nhưng STUCK/MAX_ATTEMPTS không clear → máy in «treo» trên UI
         // và hàng đợi trông như chết dù Agent vẫn poll.

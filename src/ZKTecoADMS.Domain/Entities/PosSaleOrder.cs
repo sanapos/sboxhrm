@@ -133,6 +133,15 @@ public class PosSaleOrder : AuditableEntity<Guid>
     public DateTime? ServiceStartedAt { get; set; }
     public DateTime? ServiceEndedAt { get; set; }
 
+    /// <summary>Mã chống trùng do máy bán sinh khi tạo đơn — gửi lại do lỗi mạng trả về đúng đơn này.</summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(64)]
+    public string? ClientRequestId { get; set; }
+
+    /// <summary>Mã lần báo bếp gần nhất + nội dung đã báo — báo lại cùng mã (mất mạng lúc trả kết quả) được trả lại để in phiếu.</summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(64)]
+    public string? KitchenSendRequestId { get; set; }
+    public string? KitchenSendReplayJson { get; set; }
+
     /// <summary>Optimistic concurrency cho Draft — tăng mỗi claim/save/complete.</summary>
     public int LockVersion { get; set; }
 

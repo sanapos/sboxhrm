@@ -1004,3 +1004,11 @@ ALTER TABLE "PosSaleCommissionLines" ADD COLUMN IF NOT EXISTS "SessionTransactio
 -- Đếm giờ riêng từng dòng dịch vụ (tạm dừng / kết thúc từng dòng)
 ALTER TABLE "PosSaleOrderLines" ADD COLUMN IF NOT EXISTS "ServicePausedAt" timestamp without time zone NULL;
 ALTER TABLE "PosSaleOrderLines" ADD COLUMN IF NOT EXISTS "ServicePauseMinutes" integer NOT NULL DEFAULT 0;
+
+-- Chống trùng khi máy gửi lại do lỗi mạng (idempotency key)
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "ClientRequestId" character varying(64) NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "KitchenSendRequestId" character varying(64) NULL;
+ALTER TABLE "PosSaleOrders" ADD COLUMN IF NOT EXISTS "KitchenSendReplayJson" text NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_PosSaleOrders_Store_ClientRequestId" ON "PosSaleOrders" ("StoreId", "ClientRequestId") WHERE "ClientRequestId" IS NOT NULL AND "Deleted" IS NULL;
+ALTER TABLE "PosPrintJobs" ADD COLUMN IF NOT EXISTS "ClientRequestId" character varying(64) NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_PosPrintJobs_Store_ClientRequestId" ON "PosPrintJobs" ("StoreId", "ClientRequestId") WHERE "ClientRequestId" IS NOT NULL AND "Deleted" IS NULL;

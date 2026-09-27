@@ -149,7 +149,9 @@ public partial class PosSalesController(
         EInvoiceBuyerDto? EInvoiceBuyer = null,
         decimal SurchargeAmount = 0,
         decimal DeliveryFee = 0,
-        DateTime? SaleDate = null);
+        DateTime? SaleDate = null,
+        /// <summary>Mã chống trùng do máy bán sinh; gửi lại cùng mã → trả đơn đã tạo.</summary>
+        string? ClientRequestId = null);
 
     public record EInvoiceBuyerDto(
         string? Name = null,
@@ -1029,6 +1031,25 @@ public partial class PosSalesController(
         return false;
     }
 
+    /// <summary>Đơn đã tạo với mã chống trùng này (null nếu chưa có).</summary>
+    private async Task<SaleOrderDto?> FindOrderByClientRequestAsync(Guid storeId, string clientRequestId)
+    {
+        var existing = await dbContext.PosSaleOrders.AsNoTracking()
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.StoreId == storeId
+                && o.ClientRequestId == clientRequestId
+                && o.Deleted == null);
+        if (existing == null) return null;
+        try
+        {
+            return await MapOrderAsync(storeId, existing);
+        }
+        catch
+        {
+            return MapOrder(existing, existing.Lines?.ToList() ?? [], viewerUserId: CurrentUserId);
+        }
+    }
+
     /// <summary>SaveChanges với regenerate OrderNo / mã phiếu thu khi trùng unique index.</summary>
     private async Task SaveSaleChangesWithUniqueRetriesAsync(
         PosSaleOrder order, Guid storeId, int maxAttempts = 6, CancellationToken ct = default)
@@ -1065,6 +1086,15 @@ public partial class PosSalesController(
         }
 
         var storeId = RequiredStoreId;
+
+        // Chống trùng: máy bán gửi lại (mất mạng lúc trả kết quả, bấm Thanh toán lần 2)
+        // cùng mã → trả đơn đã tạo, không tạo đơn / trừ kho / thu tiền lần hai.
+        var clientRequestId = PosIdempotency.Normalize(dto.ClientRequestId);
+        if (clientRequestId != null
+            && await FindOrderByClientRequestAsync(storeId, clientRequestId) is { } existingOrder)
+        {
+            return Ok(AppResponse<SaleOrderDto>.Success(existingOrder));
+        }
 
         // Bán nhanh (không qua draft) không có transaction cách ly trước đây → 2 đơn bán cùng
         // SP gần như đồng thời (2 quầy/2 thiết bị) đọc "OnHandQty" cùng lúc rồi cùng ghi đè,
@@ -1113,6 +1143,7 @@ public partial class PosSalesController(
             if (dto.Complete)
                 PosKitchenKdsHelper.CloseOpenOnPaid(lines);
 
+            order.ClientRequestId = clientRequestId;
             dbContext.PosSaleOrders.Add(order);
             dbContext.PosSaleOrderLines.AddRange(lines);
 
@@ -1121,6 +1152,16 @@ public partial class PosSalesController(
                 await SaveSaleChangesWithUniqueRetriesAsync(order!, storeId);
                 await tx.CommitAsync();
                 saved = true;
+            }
+            catch (Exception ex) when (clientRequestId != null
+                && PosIdempotency.IsUniqueViolation(ex, PosIdempotency.SaleOrderIndex))
+            {
+                // Hai yêu cầu cùng mã đến cùng lúc: yêu cầu kia đã lưu xong → trả đơn đó.
+                await tx.RollbackAsync();
+                dbContext.ChangeTracker.Clear();
+                var winner = await FindOrderByClientRequestAsync(storeId, clientRequestId);
+                if (winner != null) return Ok(AppResponse<SaleOrderDto>.Success(winner));
+                throw;
             }
             catch (Exception ex) when (outerAttempt < 4 && IsSerializationFailure(ex))
             {

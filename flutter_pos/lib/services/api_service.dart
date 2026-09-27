@@ -12,6 +12,7 @@ import '../utils/attendance_correction_dates.dart';
 import '../utils/excel_bytes_utils.dart';
 import '../models/pos_product.dart';
 
+import '../utils/pos_request_id.dart';
 /// Query phân trang cho API dùng [PaginationRequest] (pageNumber + alias page).
 Map<String, String> paginationQueryParams(int page, int pageSize) => {
       'pageNumber': page.toString(),
@@ -19470,12 +19471,18 @@ class ApiService {
     String? referenceId,
     String? printerId,
   }) async {
+    // Mã chống trùng cho lần bấm này: mạng lỗi thì tự gửi lại cùng mã — server trả
+    // đúng lệnh cũ (kể cả đã in xong) nên không ra bản thứ hai.
+    final clientRequestId = PosRequestId.newId();
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
     try {
       final body = <String, dynamic>{
         'documentType': documentType,
         'payloadFormat': payloadFormat,
         'payload': payload,
         'copies': copies,
+        'clientRequestId': clientRequestId,
       };
       if (referenceNo != null && referenceNo.isNotEmpty) {
         body['referenceNo'] = referenceNo;
@@ -19492,11 +19499,15 @@ class ApiService {
             headers: _headers,
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 45));
+          .timeout(Duration(seconds: attempt == 0 ? 30 : 15));
       return _handleResponse(response);
     } catch (e) {
-      return _connectionFailure(e);
+      lastError = e;
+      if (!PosRequestId.isNetworkError(e)) break;
+      await Future<void>.delayed(Duration(milliseconds: 500 * (attempt + 1)));
     }
+    }
+    return _connectionFailure(lastError ?? 'network');
   }
 
   Future<Map<String, dynamic>> getPosPrintJob(String id) async {
@@ -21196,29 +21207,40 @@ class ApiService {
     }
   }
 
+  /// Báo bếp. [requestId]: mã chống mất phiếu — lỗi mạng thì tự gửi lại cùng mã,
+  /// server trả lại đúng các món vừa báo để in (không báo «đã gửi hết»).
   Future<Map<String, dynamic>> kitchenSendPosResourceSession(
     String id, {
     List<String>? lineIds,
     String? deviceId,
     String? deviceName,
+    String? requestId,
   }) async {
-    try {
-      final response = await http
-          .post(
-            Uri.parse('$baseUrl/api/pos/resource-sessions/$id/kitchen-send'),
-            headers: _headers,
-            body: jsonEncode({
-              if (lineIds != null) 'lineIds': lineIds,
-              if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
-              if (deviceName != null && deviceName.isNotEmpty)
-                'deviceName': deviceName,
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
+    final key = requestId ?? PosRequestId.newId();
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        final response = await http
+            .post(
+              Uri.parse('$baseUrl/api/pos/resource-sessions/$id/kitchen-send'),
+              headers: _headers,
+              body: jsonEncode({
+                if (lineIds != null) 'lineIds': lineIds,
+                if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
+                if (deviceName != null && deviceName.isNotEmpty)
+                  'deviceName': deviceName,
+                'requestId': key,
+              }),
+            )
+            .timeout(Duration(seconds: attempt == 0 ? 30 : 15));
+        return _handleResponse(response);
+      } catch (e) {
+        lastError = e;
+        if (!PosRequestId.isNetworkError(e)) break;
+        await Future<void>.delayed(Duration(milliseconds: 600 * (attempt + 1)));
+      }
     }
+    return _connectionFailure(lastError ?? 'network');
   }
 
   Future<Map<String, dynamic>> savePosResourceLayout(
