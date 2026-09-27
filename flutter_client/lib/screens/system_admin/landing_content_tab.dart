@@ -955,11 +955,12 @@ class _GuideSubTabState extends State<_GuideSubTab>
   List<_GuideStepEditor> _basicSteps = [];
   List<_GuideStepEditor> _advancedSteps = [];
   List<_GuideStepEditor> _posSteps = [];
+  List<_GuideStepEditor> _industrySteps = [];
 
   @override
   void initState() {
     super.initState();
-    _guideTab = TabController(length: 3, vsync: this);
+    _guideTab = TabController(length: 4, vsync: this);
     _guideTab.addListener(() {
       if (!_guideTab.indexIsChanging && mounted) setState(() {});
     });
@@ -969,19 +970,20 @@ class _GuideSubTabState extends State<_GuideSubTab>
   @override
   void dispose() {
     _guideTab.dispose();
-    for (final s in [..._basicSteps, ..._advancedSteps, ..._posSteps]) {
+    for (final s in [..._basicSteps, ..._advancedSteps, ..._posSteps, ..._industrySteps]) {
       s.dispose();
     }
     super.dispose();
   }
 
   void _setFromDocument(LandingGuideData doc) {
-    for (final s in [..._basicSteps, ..._advancedSteps, ..._posSteps]) {
+    for (final s in [..._basicSteps, ..._advancedSteps, ..._posSteps, ..._industrySteps]) {
       s.dispose();
     }
     _basicSteps = doc.basic.map(_GuideStepEditor.fromStep).toList();
     _advancedSteps = doc.advanced.map(_GuideStepEditor.fromStep).toList();
     _posSteps = doc.pos.map(_GuideStepEditor.fromStep).toList();
+    _industrySteps = doc.industry.map(_GuideStepEditor.fromStep).toList();
   }
 
   Future<void> _load() async {
@@ -1008,6 +1010,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
         basic: _basicSteps.map((e) => e.toStep()).toList(),
         advanced: _advancedSteps.map((e) => e.toStep()).toList(),
         pos: _posSteps.map((e) => e.toStep()).toList(),
+        industry: _industrySteps.map((e) => e.toStep()).toList(),
       );
       final res = await widget.api.updateAppSettingsBatch([
         {'key': 'landing_guide_json', 'value': doc.toJsonString()}
@@ -1049,11 +1052,18 @@ class _GuideSubTabState extends State<_GuideSubTab>
         _advancedSteps = LandingGuideData.defaults.advanced
             .map(_GuideStepEditor.fromStep)
             .toList();
-      } else {
+      } else if (idx == 2) {
         for (final s in _posSteps) {
           s.dispose();
         }
         _posSteps = LandingGuideData.defaults.pos
+            .map(_GuideStepEditor.fromStep)
+            .toList();
+      } else {
+        for (final s in _industrySteps) {
+          s.dispose();
+        }
+        _industrySteps = LandingGuideData.defaults.industry
             .map(_GuideStepEditor.fromStep)
             .toList();
       }
@@ -1078,6 +1088,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
               Tab(text: tr('Triển khai (${_basicSteps.length})')),
               Tab(text: tr('Nâng cao (${_advancedSteps.length})')),
               Tab(text: tr('POS (${_posSteps.length})')),
+              Tab(text: tr('Ngành hàng (${_industrySteps.length})')),
             ],
           ),
         ),
@@ -1111,6 +1122,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
               _buildStepList(_basicSteps, 'basic'),
               _buildStepList(_advancedSteps, 'advanced'),
               _buildStepList(_posSteps, 'pos'),
+              _buildStepList(_industrySteps, 'industry'),
             ],
           ),
         ),

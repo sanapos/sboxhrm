@@ -156,7 +156,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       widget.sellProfile ?? _loadedSellProfile ?? PosSellProfile.restaurant;
 
   bool get _isFnB => _sellProfile == PosSellProfile.restaurant;
-  bool get _isHourly => _sellProfile == PosSellProfile.roomHourly;
+  /// Cửa hàng bật tính tiền giờ (salon tính giờ theo ghế cũng cần tạm dừng / chốt giờ).
+  bool _hourlyBillingOn = false;
+  bool get _isHourly =>
+      _sellProfile == PosSellProfile.roomHourly ||
+      (_sellProfile == PosSellProfile.salon && _hourlyBillingOn);
   bool get _isSalon => _sellProfile == PosSellProfile.salon;
   bool get _isHotel => _sellProfile == PosSellProfile.hotel;
   bool get _usesAppointmentCalendar => _sellProfile.usesTimedBooking;
@@ -177,9 +181,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.sellProfile == null) {
-      unawaited(_loadSellProfile());
-    }
+    // Luôn đọc cài đặt ngành: cần cờ tính tiền giờ kể cả khi đã truyền sẵn ngành.
+    unawaited(_loadSellProfile());
     unawaited(_loadDeviceId());
     _reload();
     // Bán hàng: poll 15–25s làm heartbeat; SignalR PosFloorChanged reload tức thì.
@@ -255,10 +258,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       final res = await _api.getPosSellSettings();
       if (!mounted) return;
       if (res['isSuccess'] == true && res['data'] is Map) {
+        final dto = PosStoreSellSettingsDto.fromJson(
+          Map<String, dynamic>.from(res['data'] as Map),
+        );
         setState(() {
-          _loadedSellProfile = PosStoreSellSettingsDto.fromJson(
-            Map<String, dynamic>.from(res['data'] as Map),
-          ).sellProfile;
+          _loadedSellProfile = dto.sellProfile;
+          _hourlyBillingOn = dto.enableHourlyBilling;
         });
       }
     } catch (_) {}

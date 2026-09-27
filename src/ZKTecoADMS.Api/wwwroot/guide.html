@@ -68,6 +68,7 @@
     <a href="#pos-sell">6. Bán hàng, in, bếp, kho</a>
     <a href="#pos-reports">7. Báo cáo POS &amp; tổng kết cuối ngày</a>
     <a href="#pos-cases">8. Tình huống POS thường gặp</a>
+    <a href="#industry">9. Hướng dẫn theo ngành hàng</a>
   </nav>
 
   <article id="hrm-start">
@@ -178,7 +179,53 @@
       <li><strong>Không thanh toán được</strong> — thiếu quyền duyệt PosSell.</li>
       <li><strong>Bàn không hiện</strong> — ngành hàng chưa phải F&amp;B hoặc chưa tạo khu/bàn.</li>
     </ul>
-    <p class="tip">Giao diện hướng dẫn đầy đủ (tìm kiếm, từng bước, ảnh): <a href="/guide">sboxhrm.com/guide</a> — tab Triển khai, Nâng cao và POS.</p>
+    <p class="tip">Giao diện hướng dẫn đầy đủ (tìm kiếm, từng bước, ảnh): <a href="/guide">sboxhrm.com/guide</a> — tab Triển khai, Nâng cao, POS và Ngành hàng.</p>
+  </article>
+
+  <article id="industry">
+    <h2>9. Hướng dẫn theo ngành hàng</h2>
+    <p>Chọn ngành: <strong>Cài đặt → Ngành hàng &amp; chế độ bán → Chọn ngành hàng → Đổi ngành</strong>. Ngành quyết định màn bán có sơ đồ bàn, tính giờ, gửi bếp, gói buổi hay hoa hồng.</p>
+    <h3>Bán lẻ / Siêu thị</h3>
+    <ul>
+      <li>Bán nhanh: quét mã → Thanh toán (F9) → in. Nhiều khách cùng lúc: mở HĐ1, HĐ2…</li>
+      <li>Cân điện tử: bật «Đọc mã vạch cân điện tử», nhập đầu mã cân và số chữ số PLU.</li>
+      <li>Bán khi hết hàng: bật «Cho phép bán khi hết hàng / tồn âm».</li>
+    </ul>
+    <h3>Nhà hàng / Cafe</h3>
+    <ul>
+      <li>Mở bàn → nhập số khách → gọi món → Gửi bếp → Tạm tính → Thanh toán.</li>
+      <li>Chạm giữ bàn: Chuyển bàn, Gộp bàn, Tách bàn / Tách hóa đơn, Trả về bàn trống.</li>
+      <li>QR order tại bàn, Màn hình bếp (KDS), topping và định lượng nguyên liệu.</li>
+    </ul>
+    <h3>Karaoke / Bi-a / Phòng giờ</h3>
+    <ul>
+      <li>Dịch vụ tính giờ: Theo giờ / phút / block, phí mở phòng, làm tròn block, ân hạn.</li>
+      <li>Chạm giữ phòng: <strong>Tạm dừng tính giờ</strong>, <strong>Chốt tiền giờ</strong> (đồng hồ dừng, tiền không tăng), Mở chốt giờ.</li>
+      <li>Gói giờ đếm ngược (vd 1 giờ): bấm ▶ Bắt đầu, sắp hết và hết giờ máy báo, tự thêm dòng quá giờ.</li>
+      <li>Đồng hồ riêng từng dòng: Bắt đầu / Dừng / Kết thúc / Tính tiếp.</li>
+    </ul>
+    <h3>Salon / Spa / Nail</h3>
+    <ul>
+      <li>Sơ đồ ghế, lịch hẹn, dịch vụ lẻ hoặc gói liệu trình nhiều buổi (combo nhiều dịch vụ).</li>
+      <li>Bán gói phải chọn khách; mỗi lần làm bấm «Trừ buổi» và chọn nhân viên làm.</li>
+      <li>Hoa hồng: tính <strong>1 lần khi bán</strong> hoặc <strong>mỗi buổi làm</strong> (tiền 1 buổi = tiền gói ÷ số buổi). Combo chọn NV cho từng dịch vụ.</li>
+      <li>Báo cáo POS → Hoa hồng nhân viên (lọc theo ngày làm buổi, xuất Excel).</li>
+    </ul>
+    <h3>Gym / Yoga</h3>
+    <ul>
+      <li>Thẻ tập theo thời gian (không giới hạn buổi) hoặc gói buổi; mua thêm tự gia hạn nối tiếp.</li>
+      <li>Check-in hội viên bằng vân tay / khuôn mặt trên máy chấm công (PIN riêng từ 90000001, tách chấm công nhân viên) hoặc check-in tại quầy.</li>
+    </ul>
+    <h3>Khách sạn / Lưu trú</h3>
+    <ul>
+      <li>Tiền phòng theo ngày (qua đêm) hoặc theo giờ; bật «Tính tiền phòng theo đêm», giờ nhận / trả phòng, ân hạn.</li>
+      <li>Nhận phòng → khai báo khách lưu trú → thêm minibar, giặt ủi → tạm tính → trả phòng.</li>
+    </ul>
+    <h3>Dùng chung mọi ngành</h3>
+    <ul>
+      <li>Mẫu Word / hợp đồng: Cài đặt → Mẫu in → «Tải file Word của bạn» — giữ mẫu gốc, gắn trường dữ liệu trên bản xem.</li>
+      <li>Lịch sử thao tác: ai bán, thêm, sửa, xóa gì — lưu 30 ngày, lọc theo nhân viên / chức năng, xuất Excel.</li>
+    </ul>
   </article>
 </div>
 <footer>

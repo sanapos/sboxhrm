@@ -505,6 +505,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
     final basicCount = widget.guideData.basicCount;
     final advancedCount = widget.guideData.advancedCount;
     final posCount = widget.guideData.posCount;
+    final industryCount = widget.guideData.industryCount;
     Widget tab(String label, int index) {
       final selected = _section == index;
       return Expanded(
@@ -549,6 +550,8 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
         tab('Nâng cao ($advancedCount)', 1),
         const SizedBox(width: 8),
         tab('POS ($posCount)', 2),
+        const SizedBox(width: 8),
+        tab('Ngành hàng ($industryCount)', 3),
       ],
     );
   }

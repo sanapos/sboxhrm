@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import 'landing_industry_guide.dart';
+
 import 'device_setup_guide.dart';
 
 /// Kết quả tìm kiếm một mục hướng dẫn.
@@ -13,7 +15,7 @@ class LandingGuideSearchHit {
     required this.matchedIn,
   });
 
-  /// 0 = Triển khai (basic), 1 = Nâng cao (advanced), 2 = POS.
+  /// 0 = Triển khai (basic), 1 = Nâng cao (advanced), 2 = POS, 3 = Ngành hàng.
   final int sectionIndex;
   final int stepIndex;
   final LandingUsageGuideStep step;
@@ -155,49 +157,58 @@ class LandingGuideData {
     required this.basic,
     required this.advanced,
     this.pos = const [],
+    this.industry = const [],
   });
 
   final List<LandingUsageGuideStep> basic;
   final List<LandingUsageGuideStep> advanced;
   final List<LandingUsageGuideStep> pos;
+  /// Hướng dẫn theo ngành hàng (bán lẻ, F&B, karaoke, salon, gym, khách sạn).
+  final List<LandingUsageGuideStep> industry;
 
   int get basicCount => basic.length;
   int get advancedCount => advanced.length;
   int get posCount => pos.length;
+  int get industryCount => industry.length;
 
   List<LandingUsageGuideStep> stepsAt(int sectionIndex) => switch (sectionIndex) {
         1 => advanced,
         2 => pos,
+        3 => industry,
         _ => basic,
       };
 
   static String keyForIndex(int sectionIndex) => switch (sectionIndex) {
         1 => 'advanced',
         2 => 'pos',
+        3 => 'industry',
         _ => 'basic',
       };
 
   static int indexForKey(String section) => switch (section.trim().toLowerCase()) {
         'advanced' => 1,
         'pos' => 2,
+        'industry' => 3,
         _ => 0,
       };
 
   static String labelForIndex(int sectionIndex) => switch (sectionIndex) {
         1 => 'Nâng cao',
         2 => 'POS',
+        3 => 'Ngành hàng',
         _ => 'Triển khai',
       };
 
   static bool isKnownSection(String section) {
     final k = section.trim().toLowerCase();
-    return k == 'basic' || k == 'advanced' || k == 'pos';
+    return k == 'basic' || k == 'advanced' || k == 'pos' || k == 'industry';
   }
 
   Map<String, dynamic> toJson() => {
         'basic': basic.map((e) => e.toJson()).toList(),
         'advanced': advanced.map((e) => e.toJson()).toList(),
         'pos': pos.map((e) => e.toJson()).toList(),
+        'industry': industry.map((e) => e.toJson()).toList(),
       };
 
   String toJsonString() => jsonEncode(toJson());
@@ -207,6 +218,7 @@ class LandingGuideData {
         advanced:
             _withKeywords(LandingUsageGuide.advancedSteps, _advancedKeywords),
         pos: _withKeywords(LandingUsageGuide.posSteps, _posKeywords),
+        industry: _withKeywords(landingIndustrySteps, landingIndustryKeywords),
       );
 
   static List<LandingUsageGuideStep> _withKeywords(
@@ -278,6 +290,7 @@ class LandingGuideData {
     scan(0, basic);
     scan(1, advanced);
     scan(2, pos);
+    scan(3, industry);
     hits.sort((a, b) {
       final ra = _rank(a.matchedIn);
       final rb = _rank(b.matchedIn);
@@ -588,6 +601,7 @@ class LandingGuideData {
       basic: merged,
       advanced: base.advanced,
       pos: base.pos,
+      industry: base.industry,
     );
   }
 
@@ -599,6 +613,7 @@ class LandingGuideData {
       basic: _mergeStepList(base.basic, map['basic']),
       advanced: _mergeStepList(base.advanced, map['advanced']),
       pos: _mergeStepList(base.pos, map['pos']),
+      industry: _mergeStepList(base.industry, map['industry']),
     );
   }
 
@@ -1322,6 +1337,8 @@ class LandingUsageGuide {
         'Combo / món có topping: khai báo thành phần nếu cần trừ kho nguyên liệu',
         'Ngừng kinh doanh: tắt bán thay vì xóa — giữ lịch sử hóa đơn',
         'Giá thay đổi: sửa trên Hàng hóa; đơn đang mở giữ giá lúc thêm món',
+        'Dịch vụ: mục «Tính giờ / gói buổi» — giá cố định, theo giờ / phút / block / ngày, gói nhiều buổi, gói giờ đếm ngược (xem tab Ngành hàng)',
+        'Mục «Hoa hồng nhân viên»: % hoặc tiền cố định; gói liệu trình chọn tính 1 lần khi bán hay mỗi buổi làm',
       ],
       tip: 'Mã hàng nên ngắn, không dấu — dễ gõ và in tem.',
       accent: Color(0xFF00897B),
@@ -1336,6 +1353,7 @@ class LandingUsageGuide {
         'Cài đặt → Quản lý bàn / phòng: tạo khu (tầng 1, sân vườn…) rồi thêm bàn',
         'Bán hàng: chọn bàn trống → thêm món → gửi bếp (nếu bật) → khách ngồi → thanh toán',
         'Ghép / tách / chuyển bàn theo nút trên sơ đồ (đúng quyền)',
+        'Phòng tính giờ: chạm giữ ô phòng → Tạm dừng tính giờ / Chốt tiền giờ / Mở chốt giờ',
         'Menu Đặt lịch: tạo lịch theo ngày–giờ–dịch vụ–khách (salon, phòng)',
         'Đặt bàn F&B: chọn giờ, số khách, bàn — đổi trạng thái khi khách đến',
       ],
@@ -1354,6 +1372,7 @@ class LandingUsageGuide {
         'Cài đặt → Mẫu in: hóa đơn, phiếu bếp, tem — bấm mặc định cho đúng loại',
         'Gán mẫu theo cửa hàng (không dùng chung mặc định nhầm store khác)',
         'In thử từ màn Mẫu in hoặc từ 1 đơn test trên Bán hàng',
+        'Hóa đơn A4 / hợp đồng: «Tải file Word của bạn» (.docx) — giữ nguyên mẫu gốc, gắn trường dữ liệu ngay trên bản xem',
         'Một máy có thể vừa hóa đơn vừa bếp nếu gắn 2 mẫu / 2 máy vật lý khác nhau',
       ],
       tip:
@@ -1497,6 +1516,9 @@ class LandingUsageGuide {
         'Hủy đơn / trả hàng: Đơn hàng hoặc Trả hàng bán; xem Báo cáo hủy/trả cuối ngày',
         'Bàn không hiện: ngành hàng chưa phải F&B, hoặc chưa tạo khu/bàn',
         'Tồn âm: bán trước khi nhập kho hoặc combo chưa khai nguyên liệu',
+        'Tiền giờ vẫn tăng khi khách đã xin tính tiền: dùng Chốt tiền giờ trên sơ đồ phòng',
+        'Không trừ được buổi: gói hết hạn / hết buổi, hoặc chưa chọn NV khi bật «Bắt buộc chọn NV trên dịch vụ»',
+        'Cần biết ai đã sửa / xóa đơn: menu Lịch sử thao tác (lưu 30 ngày, lọc theo NV / chức năng)',
       ],
       tip: 'Hotline 0973 024 042 (Zalo hỗ trợ từ xa) khi máy in Agent USB không nhận job.',
       accent: Color(0xFF6D4C41),
