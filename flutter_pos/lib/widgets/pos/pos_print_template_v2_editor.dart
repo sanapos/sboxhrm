@@ -14,6 +14,7 @@ import '../../widgets/pos/pos_print_template_preview.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Trình soạn mẫu in V2 — block-based, chỉnh cỡ chữ / đậm / căn + mã nguồn.
 class PosPrintTemplateV2Editor extends StatefulWidget {
   const PosPrintTemplateV2Editor({
@@ -300,13 +301,13 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     final selected = i == _selectedIndex;
     return Material(
       color: selected ? PosTheme.edgeBlueLight : Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => _selectBlock(i, openProperties: true),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: selected ? PosTheme.edgeBlue : PosTheme.border,
               width: selected ? 1.5 : 1,
@@ -317,7 +318,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
             children: [
               CircleAvatar(
                 radius: 14,
-                backgroundColor: selected ? PosTheme.edgeBlue : const Color(0xFFE5E7EB),
+                backgroundColor: selected ? PosTheme.edgeBlue : SboxColors.slate200,
                 foregroundColor: selected ? Colors.white : PosTheme.textSecondary,
                 child: Text(tr('${i + 1}'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               ),
@@ -380,7 +381,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.view_list_outlined, size: 48, color: Colors.grey.shade400),
+              Icon(Icons.view_list_outlined, size: 48, color: SboxColors.slate400),
               const SizedBox(height: 12),
               Text(tr('Chưa có khối để chỉnh'),
                 style: TextStyle(fontWeight: FontWeight.w600),
@@ -422,7 +423,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                           tr(_blockLabel(sel)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         Text(tr('Khối ${i + 1}/${blocks.length}'),
                           style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
@@ -864,7 +865,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
               ),
               Text(
                 tr('${value.toStringAsFixed(1)} mm · $px px'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
               ),
             ],
           ),
@@ -986,7 +987,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                     child: Text(
                       tr('${PosPrintDocumentTypes.all[_tpl.documentType] ?? _tpl.documentType} · ${PosPrintPaperSizes.displayLabel(_tpl.paperSize)}'),
                       textAlign: TextAlign.end,
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -998,7 +999,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
               padding: EdgeInsets.fromLTRB(compact ? 8 : 0, 0, compact ? 8 : 0, compact ? 8 : 0),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
+                  color: SboxColors.slate50,
                   borderRadius: BorderRadius.circular(compact ? 8 : 0),
                   border: compact ? Border.all(color: PosTheme.border) : null,
                 ),
@@ -1047,7 +1048,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       onPressed: can ? () => _removeBlock(i) : null,
       icon: Icon(
         Icons.delete_outline,
-        color: can ? Colors.red.shade700 : Colors.grey,
+        color: can ? Colors.red.shade700 : SboxColors.slate500,
       ),
     );
   }
@@ -1183,8 +1184,8 @@ class _ExpandedBlockEditorSheetState extends State<_ExpandedBlockEditorSheet> {
 
     final preview = DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        border: Border(left: wide ? BorderSide(color: Colors.grey.shade300) : BorderSide.none),
+        color: SboxColors.slate50,
+        border: Border(left: wide ? BorderSide(color: SboxColors.slate300) : BorderSide.none),
       ),
       child: buildPosPrintTemplatePreview(
         _tpl,
@@ -1505,13 +1506,13 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
         24 + MediaQuery.viewInsetsOf(context).bottom,
       ),
       children: [
-        Text(tr(_typeLabel(block.type)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+        Text(tr(_typeLabel(block.type)), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         if (widget.documentType == PosPrintDocumentTypes.kitchenLabel &&
             PosPrintTemplateCompiler.kitchenLabelHidesBlock(block)) ...[
           const SizedBox(height: 8),
           Material(
             color: const Color(0xFFFFF3BF),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: Text(
@@ -1555,7 +1556,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
             const SizedBox(height: 8),
             Text(
               tr('Tem: tên chiếm ~3/4 khổ, SL góc phải. Ghi chú in trong ().'),
-              style: const TextStyle(fontSize: 11, color: Colors.black54),
+              style: const TextStyle(fontSize: 11, color: SboxColors.textSecondary),
             ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -1945,7 +1946,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           const SizedBox(height: 8),
           Text(
             tr('Đường kẻ ngang đặc, bằng chiều rộng khổ giấy (không dùng =====).'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate700),
           ),
         ],
         const SizedBox(height: 24),
@@ -2244,18 +2245,18 @@ class _SourceCodePanelState extends State<_SourceCodePanel>
         ),
         if (_error != null)
           Material(
-            color: const Color(0xFFFEE2E2),
+            color: SboxColors.dangerSoft,
             child: Padding(
               padding: const EdgeInsets.all(10),
-              child: Text(tr(_error!), style: const TextStyle(color: Color(0xFF991B1B), fontSize: 13)),
+              child: Text(tr(_error!), style: const TextStyle(color: SboxColors.dangerText, fontSize: 13)),
             ),
           ),
         if (_info != null)
           Material(
-            color: const Color(0xFFDCFCE7),
+            color: SboxColors.successSoft,
             child: Padding(
               padding: const EdgeInsets.all(10),
-              child: Text(tr(_info!), style: const TextStyle(color: Color(0xFF166534), fontSize: 13)),
+              child: Text(tr(_info!), style: const TextStyle(color: SboxColors.successText, fontSize: 13)),
             ),
           ),
         Expanded(
@@ -2288,7 +2289,7 @@ class _SourceCodePanelState extends State<_SourceCodePanel>
               controller: _jsonCtrl,
               maxLines: null,
               expands: true,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5, height: 1.35),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.35),
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 contentPadding: EdgeInsets.all(12),
@@ -2352,7 +2353,7 @@ class _SourceCodePanelState extends State<_SourceCodePanel>
               controller: _htmlCtrl,
               maxLines: null,
               expands: true,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12.5, height: 1.35),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.35),
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 contentPadding: EdgeInsets.all(12),
@@ -2371,7 +2372,7 @@ class _SourceCodePanelState extends State<_SourceCodePanel>
               ),
               if (!widget.readOnly && widget.onApplyLegacyHtml != null)
                 FilledButton.icon(
-                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFB45309)),
+                  style: FilledButton.styleFrom(backgroundColor: SboxColors.warningText),
                   onPressed: _applyLegacyHtml,
                   icon: const Icon(Icons.html, size: 18),
                   label: Text(tr('Lưu HTML thuần')),

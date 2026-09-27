@@ -7,6 +7,7 @@ import 'pos_mobile_widgets.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Bảng thẻ kho kiểu KiotViet: chứng từ, thời gian, loại GD, số lượng, tồn cuối.
 class PosStockCardTable extends StatelessWidget {
   const PosStockCardTable({
@@ -112,7 +113,7 @@ class PosStockCardTable extends StatelessWidget {
                 ),
               ),
             Container(
-              color: Colors.grey.shade50,
+              color: SboxColors.slate50,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
@@ -135,8 +136,8 @@ class PosStockCardTable extends StatelessWidget {
   Widget _mobileCard(PosStockTransaction t) {
     final sign = t.qtyChange > 0 ? '+' : '';
     final qtyColor = t.qtyChange < 0
-        ? const Color(0xFFE53935)
-        : (t.qtyChange > 0 ? const Color(0xFF2E7D32) : PosTheme.textPrimary);
+        ? SboxColors.danger
+        : (t.qtyChange > 0 ? SboxColors.successText : PosTheme.textPrimary);
     final doc = t.referenceNo?.trim();
     final when = t.createdAt != null ? dateFmt.format(t.createdAt!) : '—';
   final typeLabel = txTypeLabel(t.transactionType,
@@ -165,7 +166,7 @@ class PosStockCardTable extends StatelessWidget {
                       )
                     : Text(tr('—'),
                         style: TextStyle(
-                            fontSize: 13, color: Colors.grey.shade500)),
+                            fontSize: 13, color: SboxColors.slate500)),
               ),
               Text(tr(when),
                   style: const TextStyle(
@@ -191,7 +192,7 @@ class PosStockCardTable extends StatelessWidget {
           if (t.partnerName?.trim().isNotEmpty == true) ...[
             const SizedBox(height: 4),
             Text(tr(t.partnerName!),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
           ],
         ],
       ),
@@ -201,8 +202,8 @@ class PosStockCardTable extends StatelessWidget {
   Widget _row(PosStockTransaction t) {
     final sign = t.qtyChange > 0 ? '+' : '';
     final qtyColor = t.qtyChange < 0
-        ? const Color(0xFFE53935)
-        : (t.qtyChange > 0 ? const Color(0xFF2E7D32) : PosTheme.textPrimary);
+        ? SboxColors.danger
+        : (t.qtyChange > 0 ? SboxColors.successText : PosTheme.textPrimary);
     final doc = t.referenceNo?.trim();
     final when = t.createdAt != null
         ? dateFmt.format(t.createdAt!)
@@ -211,7 +212,7 @@ class PosStockCardTable extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        border: Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -232,7 +233,7 @@ class PosStockCardTable extends StatelessWidget {
                   )
                 : Text(
                     tr('—'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                   ),
           ),
           SizedBox(
@@ -267,7 +268,7 @@ class PosStockCardTable extends StatelessWidget {
             width: 100,
             child: Text(
               tr(t.partnerName?.trim().isNotEmpty == true ? t.partnerName! : '—'),
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 11, color: SboxColors.slate700),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),

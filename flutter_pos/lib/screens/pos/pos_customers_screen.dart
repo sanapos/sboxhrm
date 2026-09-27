@@ -369,7 +369,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(tr('Gói buổi'),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 8),
                 if (_sessionBalances.isEmpty)
                   Text(tr('Chưa có gói buổi'),
@@ -433,7 +433,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                 ],
                 const SizedBox(height: 12),
                 Text(tr('Lịch sử thu nợ'),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 8),
                 if (_payments.isEmpty)
                   Text(tr('Chưa có phiếu thu'), style: TextStyle(color: PosTheme.textSecondary))
@@ -446,7 +446,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                       )),
                 const SizedBox(height: 16),
                 Text(tr('Đơn bán gần đây'),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 8),
                 if (_orders.isEmpty)
                   Text(tr('Chưa có đơn'), style: TextStyle(color: PosTheme.textSecondary))

@@ -16,13 +16,14 @@ import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 import 'package:sbox_pos/l10n/app_ui_locale.dart';
 
+import '../../theme/sbox_tokens.dart';
 Color reservationAccent(PosResourceReservationDto b) {
-  if (b.isCancelled) return const Color(0xFF64748B);
+  if (b.isCancelled) return SboxColors.slate500;
   if (b.isNoShow) return const Color(0xFFC2410C);
-  if (b.isOrderCompleted) return const Color(0xFF15803D);
+  if (b.isOrderCompleted) return SboxColors.payHover;
   if (b.isUsingTable) return const Color(0xFF0F766E);
-  if (b.isSeated) return const Color(0xFF15803D);
-  return b.isTimedSlot ? const Color(0xFF7C3AED) : PosTheme.kiotBlue;
+  if (b.isSeated) return SboxColors.payHover;
+  return b.isTimedSlot ? SboxColors.violet : PosTheme.kiotBlue;
 }
 
 String reservationStatusLabel(PosResourceReservationDto b) {
@@ -469,7 +470,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                 ListTile(
                   title: Text(
                     tr(DateFormat('EEEE, dd/MM/yyyy', 'vi_VN').format(_day)),
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   subtitle: Text(tr(list.isEmpty
                       ? 'Chưa có lịch'
@@ -619,19 +620,19 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                   : PosTheme.kiotBlue.withOpacity(op);
               return Material(
                 color: fill,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   onTap: () => unawaited(_openMonthDaySheet(day)),
                   child: Container(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: selected
                             ? PosTheme.kiotBlue
                             : isToday
                                 ? PosTheme.kiotBlue.withOpacity(0.45)
-                                : const Color(0xFFE2E8F0),
+                                : SboxColors.slate200,
                         width: selected ? 1.6 : 1,
                       ),
                     ),
@@ -643,7 +644,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                           '$dayNum',
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             color: isToday
                                 ? PosTheme.kiotBlue
                                 : PosTheme.textPrimary,
@@ -887,11 +888,11 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     Color cellColor(String status) {
       switch (status.toLowerCase()) {
         case 'booked':
-          return const Color(0xFFF59E0B);
+          return SboxColors.warning;
         case 'occupied':
-          return const Color(0xFFDC2626);
+          return SboxColors.danger;
         default:
-          return const Color(0xFF16A34A);
+          return SboxColors.success;
       }
     }
 
@@ -922,7 +923,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight:
-                              selected ? FontWeight.w800 : FontWeight.w500,
+                              selected ? FontWeight.w700 : FontWeight.w500,
                           color: selected ? PosTheme.kiotBlue : null,
                         ),
                       ),
@@ -1036,7 +1037,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr(_calendarTitle)),
         actions: [
@@ -1095,7 +1096,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       Expanded(
                         child: InkWell(
                           onTap: () => unawaited(_pickDay()),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Text(
@@ -1107,7 +1108,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
-                                fontSize: 15,
+                                fontSize: 16,
                               ),
                             ),
                           ),
@@ -1138,14 +1139,14 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                   _day = DateTime(d.year, d.month, d.day));
                               unawaited(_reload());
                             },
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                             child: Container(
                               width: 44,
                               decoration: BoxDecoration(
                                 color: selected
                                     ? PosTheme.kiotBlue
-                                    : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(8),
+                                    : SboxColors.slate100,
+                                borderRadius: BorderRadius.circular(10),
                                 border: today && !selected
                                     ? Border.all(color: PosTheme.kiotBlue)
                                     : null,
@@ -1165,11 +1166,11 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                   Text(
                                     '${d.day}',
                                     style: TextStyle(
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w700,
                                       fontSize: 14,
                                       color: selected
                                           ? Colors.white
-                                          : Colors.black87,
+                                          : SboxColors.text,
                                     ),
                                   ),
                                 ],
@@ -1185,7 +1186,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: SboxColors.brand50,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -1280,7 +1281,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.event_available_outlined,
-                                size: 48, color: Colors.grey.shade400),
+                                size: 48, color: SboxColors.slate400),
                             const SizedBox(height: 12),
                             Text(
                                 tr(_items.isEmpty
@@ -1322,9 +1323,9 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                             final accent = statusColor(b);
                             return Material(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                                 onTap: () => unawaited(_openBooking(b)),
                                 child: Padding(
                                   padding: const EdgeInsets.all(12),
@@ -1339,7 +1340,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                         decoration: BoxDecoration(
                                           color: accent.withOpacity(0.1),
                                           borderRadius:
-                                              BorderRadius.circular(8),
+                                              BorderRadius.circular(10),
                                         ),
                                         child: Text(
                                           time,
@@ -1365,7 +1366,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                                     style: const TextStyle(
                                                       fontWeight:
                                                           FontWeight.w700,
-                                                      fontSize: 15,
+                                                      fontSize: 16,
                                                     ),
                                                   ),
                                                 ),
@@ -1447,7 +1448,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                                     fontSize: 12,
                                                     fontWeight:
                                                         FontWeight.w700,
-                                                    color: Color(0xFF7C3AED),
+                                                    color: SboxColors.violet,
                                                   ),
                                                 ),
                                               ),
@@ -1527,7 +1528,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                         ),
                                       ),
                                       const Icon(Icons.chevron_right,
-                                          color: Colors.grey),
+                                          color: SboxColors.slate500),
                                     ],
                                   ),
                                 ),
@@ -1591,7 +1592,7 @@ class _BookingDetailDialog extends StatelessWidget {
               child: Text(
                 tr(value),
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
                 ),
               ),
@@ -1603,7 +1604,7 @@ class _BookingDetailDialog extends StatelessWidget {
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: 560,
@@ -1621,7 +1622,7 @@ class _BookingDetailDialog extends StatelessWidget {
                       tr('Chi tiết lịch đặt'),
                       style: const TextStyle(
                         fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
@@ -1645,7 +1646,7 @@ class _BookingDetailDialog extends StatelessWidget {
                             tr(b.customerName),
                             style: const TextStyle(
                               fontSize: 22,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -1660,7 +1661,7 @@ class _BookingDetailDialog extends StatelessWidget {
                             tr(reservationStatusLabel(b)),
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               color: accent,
                             ),
                           ),
@@ -1712,7 +1713,7 @@ class _BookingDetailDialog extends StatelessWidget {
                         tr('Đơn hàng'),
                         style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 8),

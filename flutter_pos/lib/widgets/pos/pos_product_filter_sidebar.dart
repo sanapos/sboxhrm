@@ -7,6 +7,7 @@ import 'pos_kiot_time_filter.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Sidebar lọc bên trái — layout giống KiotViet (có Tùy chỉnh ngày).
 class PosProductFilterSidebar extends StatelessWidget {
   const PosProductFilterSidebar({
@@ -305,7 +306,7 @@ class PosProductFilterSidebar extends StatelessWidget {
           tr(value != null ? _dateFmt.format(value) : 'Chọn ngày'),
           style: TextStyle(
             fontSize: 13,
-            color: value != null ? PosTheme.textPrimary : Colors.grey,
+            color: value != null ? PosTheme.textPrimary : SboxColors.slate500,
           ),
         ),
       ),
@@ -322,7 +323,7 @@ class PosProductFilterSidebar extends StatelessWidget {
             Icon(
               selected ? Icons.radio_button_checked : Icons.radio_button_off,
               size: 18,
-              color: selected ? PosTheme.kiotBlue : Colors.grey,
+              color: selected ? PosTheme.kiotBlue : SboxColors.slate500,
             ),
             const SizedBox(width: 8),
             Text(tr(label), style: const TextStyle(fontSize: 13)),

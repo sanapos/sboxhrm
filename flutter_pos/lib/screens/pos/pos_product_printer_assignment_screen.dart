@@ -13,6 +13,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Mục đích gán SP → máy in (phân biệt báo bếp / tem / kho).
 enum PosAssignPrinterPurpose {
   kitchenSlip,
@@ -43,9 +44,9 @@ extension on PosAssignPrinterPurpose {
       };
 
   Color get accent => switch (this) {
-        PosAssignPrinterPurpose.kitchenSlip => const Color(0xFF1565C0),
+        PosAssignPrinterPurpose.kitchenSlip => SboxColors.brand600,
         PosAssignPrinterPurpose.kitchenLabel => const Color(0xFF6A1B9A),
-        PosAssignPrinterPurpose.stockIssue => const Color(0xFF2E7D32),
+        PosAssignPrinterPurpose.stockIssue => SboxColors.successText,
         PosAssignPrinterPurpose.mixed => PosTheme.kiotBlue,
       };
 
@@ -153,7 +154,7 @@ Future<bool> copyProductAssignmentsFromLocal({
               dense: true,
               leading: Icon(
                 p.isDeviceLocal ? Icons.phone_android : Icons.print_outlined,
-                color: p.isDeviceLocal ? PosTheme.kiotBlue : Colors.grey,
+                color: p.isDeviceLocal ? PosTheme.kiotBlue : SboxColors.slate500,
               ),
               title: Text(tr(p.name)),
               subtitle: Text(
@@ -556,8 +557,8 @@ class _PosProductPrinterAssignmentScreenState
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
                   child: Material(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.brand50,
+                    borderRadius: BorderRadius.circular(10),
                     child: Padding(
                       padding: const EdgeInsets.all(10),
                       child: Text(
@@ -568,7 +569,7 @@ class _PosProductPrinterAssignmentScreenState
                         ),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.blue.shade900,
+                          color: SboxColors.brand900,
                           height: 1.35,
                         ),
                       ),
@@ -1050,7 +1051,7 @@ class _PosPrinterManageProductsScreenState
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: purpose.accent.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: purpose.accent.withOpacity(0.25)),
             ),
             child: Row(
@@ -1083,7 +1084,7 @@ class _PosPrinterManageProductsScreenState
                       hintText: tr('Tìm trong danh sách đã gán…'),
                       prefixIcon: const Icon(Icons.search, size: 20),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     onSubmitted: (_) async {
                       _page = 1;
@@ -1119,7 +1120,7 @@ class _PosPrinterManageProductsScreenState
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Material(
                 color: Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: ListTile(
                   dense: true,
                   leading: Icon(Icons.warning_amber_rounded,
@@ -1782,7 +1783,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: purpose.accent.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       tr(
@@ -1805,7 +1806,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                       color: _actionBannerError
                           ? Colors.red.shade50
                           : Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       child: ListTile(
                         dense: true,
                         leading: Icon(
@@ -1941,7 +1942,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                       hintText: tr('Tìm mã, tên hàng…'),
                       prefixIcon: const Icon(Icons.search, size: 20),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     onSubmitted: (_) async {
                       _page = 1;
@@ -1956,8 +1957,8 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                     child: Material(
                       color: _selectedOtherCount > 0
                           ? Colors.orange.shade50
-                          : Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
+                          : SboxColors.brand50,
+                      borderRadius: BorderRadius.circular(10),
                       child: ListTile(
                         dense: true,
                         leading: Icon(
@@ -1966,7 +1967,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                               : Icons.check_circle_outline,
                           color: _selectedOtherCount > 0
                               ? Colors.orange.shade800
-                              : Colors.blue.shade800,
+                              : SboxColors.brand800,
                         ),
                         title: Text(
                           tr(
@@ -1980,7 +1981,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
                             fontSize: 12,
                             color: _selectedOtherCount > 0
                                 ? Colors.orange.shade900
-                                : Colors.blue.shade900,
+                                : SboxColors.brand900,
                           ),
                         ),
                       ),
@@ -2170,7 +2171,7 @@ class _AddProductsSheetState extends State<_AddProductsSheet> {
             if (_conflictPrompt != null)
               Positioned.fill(
                 child: Material(
-                  color: Colors.black54,
+                  color: SboxColors.textSecondary,
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 420),

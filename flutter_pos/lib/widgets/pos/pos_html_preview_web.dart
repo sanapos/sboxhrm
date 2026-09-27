@@ -2,6 +2,7 @@ import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
+import '../../theme/sbox_tokens.dart';
 import 'package:web/web.dart' as web;
 
 Widget buildPosHtmlPreview(String htmlDocument, {bool? a4Paper}) {
@@ -14,7 +15,7 @@ Widget buildPosHtmlPreview(String htmlDocument, {bool? a4Paper}) {
           t.contains('hợp đồng'));
   if (!a4) return _PosHtmlIframe(html: htmlDocument);
   return ColoredBox(
-    color: const Color(0xFFE5E7EB),
+    color: SboxColors.slate200,
     child: Scrollbar(
       thumbVisibility: true,
       child: SingleChildScrollView(

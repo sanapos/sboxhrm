@@ -14,6 +14,7 @@ import 'pos_stock_document_sheet.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Chi tiết hàng hóa mở rộng inline — giao diện kiểu KiotViet.
 class PosProductExpansionPanel extends StatefulWidget {
   const PosProductExpansionPanel({
@@ -496,7 +497,7 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
           ),
           IconButton(
             onPressed: () {},
-            icon: Icon(Icons.more_horiz, color: Colors.grey.shade600),
+            icon: Icon(Icons.more_horiz, color: SboxColors.slate600),
           ),
         ],
       ),

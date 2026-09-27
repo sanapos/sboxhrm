@@ -5,6 +5,7 @@ import '../utils/settings_hub_catalog.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Dialog tùy chỉnh thứ tự và hiển thị module trong Thiết lập HRM.
 class SettingsHubSidebarConfigDialog extends StatefulWidget {
   const SettingsHubSidebarConfigDialog({
@@ -81,7 +82,7 @@ class _SettingsHubSidebarConfigDialogState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tr('Không thể lưu cấu hình menu. Vui lòng thử lại.')),
-          backgroundColor: Color(0xFFDC2626),
+          backgroundColor: SboxColors.danger,
         ),
       );
     }
@@ -102,14 +103,14 @@ class _SettingsHubSidebarConfigDialogState
         : 640.0;
 
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       title: Row(
         children: [
           Icon(Icons.tune_rounded, color: HrmPageChrome.primaryNavy, size: 22),
           SizedBox(width: 10),
           Expanded(
             child: Text(tr('Tùy chỉnh module Thiết lập HRM'),
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -121,7 +122,7 @@ class _SettingsHubSidebarConfigDialogState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(tr('Bật/tắt module và kéo thả để sắp xếp thứ tự hiển thị trên trang Thiết lập HRM.'),
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.45),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate500, height: 1.45),
             ),
             const SizedBox(height: 14),
             Expanded(
@@ -151,15 +152,15 @@ class _SettingsHubSidebarConfigDialogState
                       leading: ReorderableDragStartListener(
                         index: index,
                         child: const Icon(Icons.drag_indicator_rounded,
-                            color: Color(0xFF94A3B8)),
+                            color: SboxColors.slate400),
                       ),
                       title: Text(
                         tr(item.label),
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: visible
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFF94A3B8),
+                              ? SboxColors.slate900
+                              : SboxColors.slate400,
                           decoration:
                               visible ? null : TextDecoration.lineThrough,
                         ),

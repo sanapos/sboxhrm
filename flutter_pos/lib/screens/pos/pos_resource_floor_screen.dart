@@ -36,6 +36,7 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 import 'package:sbox_pos/l10n/app_ui_locale.dart';
 import '../../widgets/hrm_page_chrome.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Kết quả chọn bàn/phòng từ sơ đồ.
 typedef PosFloorSelectCallback = void Function(Map<String, dynamic> result);
 
@@ -714,7 +715,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             ListTile(
               title: Text(
                 tr('Hóa đơn trên ${r.name}'),
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: Text(tr('${bills.length} hóa đơn — chọn để mở')),
             ),
@@ -2091,14 +2092,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     if (_isHourly && (r.openSessionId ?? '').isNotEmpty) ...[
                       if (r.isBillingLocked)
                         ListTile(
-                          leading: const Icon(Icons.lock_open, color: Color(0xFF7C3AED)),
+                          leading: const Icon(Icons.lock_open, color: SboxColors.violet),
                           title: Text(tr('Mở chốt giờ')),
                           subtitle: Text(tr('Đồng hồ chạy tiếp, không tính khoảng đã chốt')),
                           onTap: () => Navigator.pop(ctx, 'unlock_billing'),
                         )
                       else
                         ListTile(
-                          leading: const Icon(Icons.lock_clock, color: Color(0xFF7C3AED)),
+                          leading: const Icon(Icons.lock_clock, color: SboxColors.violet),
                           title: Text(tr('Chốt tiền giờ')),
                           subtitle: Text(tr('Dừng đồng hồ tại giờ này để tính tiền — tiền giờ không tăng thêm')),
                           onTap: () => Navigator.pop(ctx, 'lock_billing'),
@@ -3656,8 +3657,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF5F7FA),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: SboxColors.slate200),
                         ),
                         child: SingleChildScrollView(
                           child: Text(
@@ -4211,10 +4212,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     // Tạm tính: cam đậm dễ nhận (ưu tiên trước Occupied).
     if (r.billRequested || r.isBillRequested) return const Color(0xFFFFCC80);
     if (r.showReservedOnFloor) return const Color(0xFFE0F2FE);
-    if (r.isPaused) return const Color(0xFFFEF3C7);
+    if (r.isPaused) return SboxColors.warningSoft;
     // Máy khác đang sửa — đỏ nhạt.
     if (r.isActivelyOpen && r.isLockedByOtherDevice(_deviceId)) {
-      return const Color(0xFFFEE2E2);
+      return SboxColors.dangerSoft;
     }
     // Bàn chờ khách — xám nhạt.
     if (_isWaitingTable(r)) return _waitingTileBg;
@@ -4226,13 +4227,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Color _tileBorder(PosServiceResourceDto r) {
     if (r.billRequested || r.isBillRequested) return const Color(0xFFEA580C);
     if (r.showReservedOnFloor) return const Color(0xFF0284C7);
-    if (r.isPaused) return const Color(0xFFD97706);
+    if (r.isPaused) return SboxColors.warning;
     if (r.isActivelyOpen && r.isLockedByOtherDevice(_deviceId)) {
-      return const Color(0xFFDC2626);
+      return SboxColors.danger;
     }
     if (_isWaitingTable(r)) return _waitingTileBorder;
     if (_tableInUse(r)) return PosTheme.edgeBlue;
-    return const Color(0xFFD1D5DB);
+    return SboxColors.slate300;
   }
 
   // Trạng thái "Tạm tính"/"Máy khác" thể hiện bằng màu nền + icon giữa ô,
@@ -4242,10 +4243,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       r.isHolding && r.lineCount <= 0 && !r.hasReservation;
 
   Color _tileAccent(PosServiceResourceDto r) {
-    if (r.isLockedByOtherDevice(_deviceId)) return const Color(0xFFB91C1C);
+    if (r.isLockedByOtherDevice(_deviceId)) return SboxColors.dangerText;
     if (r.billRequested || r.isBillRequested) return const Color(0xFFEA580C);
     if (r.showReservedOnFloor) return const Color(0xFF0284C7);
-    if (r.isPaused) return const Color(0xFFD97706);
+    if (r.isPaused) return SboxColors.warning;
     if (_isWaitingTable(r)) return _waitingTileAccent;
     if (_tableInUse(r)) return PosTheme.edgeBlue;
     return PosTheme.textSecondary;
@@ -4364,7 +4365,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: accent,
                   ),
                 ),
@@ -4387,7 +4388,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
     if (r.isBillingLocked) {
       final t = r.billingLockedAt!.toLocal();
-      const c = Color(0xFF7C3AED);
+      const c = SboxColors.violet;
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -4396,7 +4397,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             const SizedBox(height: 2),
             Text(
               tr('Chốt ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'),
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: c),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c),
             ),
             if (r.elapsedLabel.isNotEmpty)
               Text(r.elapsedLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c)),
@@ -4436,7 +4437,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       final left = r.timerEndsAt!.difference(DateTime.now().toUtc());
       final over = left <= Duration.zero;
       final soon = !over && left <= Duration(minutes: r.timerAlertBeforeMinutes);
-      final c = over ? const Color(0xFFDC2626) : soon ? const Color(0xFFD97706) : const Color(0xFF16A34A);
+      final c = over ? SboxColors.danger : soon ? SboxColors.warning : SboxColors.success;
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -4445,7 +4446,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             const SizedBox(height: 2),
             Text(
               over ? '+${PosPackageTimerCalc.fmt(left)}' : PosPackageTimerCalc.fmt(left),
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: c, height: 1),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: c, height: 1),
             ),
             if (over)
               Text(tr('Hết giờ'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c)),
@@ -4463,8 +4464,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           Text(
             tr(time),
             style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
               color: accent,
               height: 1,
             ),
@@ -4557,7 +4558,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         style: const TextStyle(
           color: Colors.white,
           fontSize: 9,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           height: 1.1,
         ),
       ),
@@ -4569,12 +4570,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   Color _tileNameColor(PosServiceResourceDto r) {
     if (r.isActivelyOpen && r.isLockedByOtherDevice(_deviceId)) {
-      return const Color(0xFFB91C1C);
+      return SboxColors.dangerText;
     }
     if (r.billRequested || r.isBillRequested) return const Color(0xFF9A3412);
     if (_isWaitingTable(r)) return _waitingTileAccent;
     if (_tableInUse(r)) return PosTheme.edgeBlue;
-    if (r.isParked) return const Color(0xFF475569);
+    if (r.isParked) return SboxColors.slate600;
     return PosTheme.textPrimary;
   }
 
@@ -4909,13 +4910,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   ),
                   if (!widget.manageMode && _tablesHeldByMe.isNotEmpty)
                     Material(
-                      color: const Color(0xFFECFDF5),
+                      color: SboxColors.successSoft,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
                         child: Row(
                           children: [
                             const Icon(Icons.lock_outline,
-                                size: 16, color: Color(0xFF166534)),
+                                size: 16, color: SboxColors.successText),
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(tr('${tr('Máy này đang giữ')}: ${_tablesHeldByMe.map((e) => e.name).join(', ')}'),
@@ -4924,7 +4925,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF166534),
+                                  color: SboxColors.successText,
                                 ),
                               ),
                             ),
@@ -4940,13 +4941,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                         spacing: 8,
                         runSpacing: 4,
                         children: [
-                          _LegendDot(color: Color(0xFFD1D5DB), label: 'Trống'),
+                          _LegendDot(color: SboxColors.slate300, label: 'Trống'),
                           _LegendDot(
                               color: PosTheme.kiotBlue, label: 'Đang dùng'),
                           _LegendDot(
                               color: Color(0xFFEA580C), label: 'Tạm tính'),
                           _LegendDot(
-                              color: Color(0xFF9CA3AF), label: 'Chưa gọi'),
+                              color: SboxColors.slate400, label: 'Chưa gọi'),
                           _LegendDot(
                               color: Color(0xFF0284C7), label: 'Đã đặt'),
                         ],
@@ -5056,7 +5057,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                         )
                       : const SizedBox.shrink(),
               backgroundColor: Colors.white,
-              foregroundColor: Colors.black87,
+              foregroundColor: SboxColors.text,
               elevation: 0.5,
               leading: widget.onHome != null
                   ? IconButton(
@@ -5237,7 +5238,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     },
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: PosTheme.kiotBlue, width: 2),
                         boxShadow: const [
                           BoxShadow(
@@ -5405,7 +5406,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               color: accent,
               iconSize: 13,
               fontSize: 11,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
             ),
           ],
           if (r.pendingKitchenCount > 0 && !_isWaitingTable(r)) ...[
@@ -5413,7 +5414,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             _tileMiniRow(
               icon: Icons.soup_kitchen_outlined,
               text: tr('${r.pendingKitchenCount} bếp'),
-              color: const Color(0xFFB45309),
+              color: SboxColors.warningText,
               iconSize: 12,
               fontSize: 10,
             ),
@@ -5601,8 +5602,8 @@ class _AreaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? PosTheme.kiotBlue : const Color(0xFFF3F4F6);
-    final fg = selected ? Colors.white : const Color(0xFF374151);
+    final bg = selected ? PosTheme.kiotBlue : SboxColors.slate100;
+    final fg = selected ? Colors.white : SboxColors.slate700;
     return Material(
       color: bg,
       borderRadius: BorderRadius.circular(22),
@@ -5619,7 +5620,7 @@ class _AreaChip extends StatelessWidget {
             style: TextStyle(
               color: fg,
               fontWeight: FontWeight.w700,
-              fontSize: 15,
+              fontSize: 16,
               height: 1.1,
             ),
           ),

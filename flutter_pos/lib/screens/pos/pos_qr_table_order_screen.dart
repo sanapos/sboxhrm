@@ -13,6 +13,7 @@ import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 import 'pos_qr_online_orders_screen.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// In / quản lý QR order tại bàn. Tắt mặc định trong thiết lập ngành hàng.
 class PosQrTableOrderScreen extends StatefulWidget {
   const PosQrTableOrderScreen({super.key});
@@ -465,7 +466,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                   Text(
                     tr('In tất cả QR (${_tables.length} bàn)'),
                     style: const TextStyle(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: 16,
                     ),
                   ),
@@ -473,7 +474,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                   if (_storeName.trim().isNotEmpty)
                     Text(
                       _storeName,
-                      style: TextStyle(color: Colors.grey.shade700),
+                      style: TextStyle(color: SboxColors.slate700),
                     ),
                   const SizedBox(height: 12),
                   Text(
@@ -485,7 +486,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                     tr('Mặc định 6×6 cm — dùng khi xuất PDF để khách in.'),
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade700,
+                      color: SboxColors.slate700,
                     ),
                   ),
                   Row(
@@ -566,7 +567,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
               child: Text(
                 tr('In QR · ${table.label}'),
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
             ),
             if (_storeName.trim().isNotEmpty)
@@ -574,7 +575,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Text(
                   _storeName,
-                  style: TextStyle(color: Colors.grey.shade700),
+                  style: TextStyle(color: SboxColors.slate700),
                 ),
               ),
             ListTile(
@@ -631,7 +632,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
   Widget build(BuildContext context) {
     final pushed = PosHubScope.pushedSubPageOf(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: SboxColors.slate100,
       appBar: AppBar(
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
@@ -672,13 +673,13 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
   Widget _buildOnlineOrdersShortcut() {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: ListTile(
         leading: const Icon(Icons.delivery_dining_outlined,
             color: PosTheme.kiotBlue),
         title: Text(
           tr('Đơn online'),
-          style: const TextStyle(fontWeight: FontWeight.w800),
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         subtitle: Text(tr(
             'Theo dõi & đổi trạng thái: chờ xác nhận → chuẩn bị → giao hàng')),
@@ -704,7 +705,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
       return Container(
         width: size,
         height: size,
-        color: const Color(0xFFF3F4F6),
+        color: SboxColors.slate100,
         child: const Icon(Icons.image_outlined),
       );
     }
@@ -716,7 +717,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
       errorBuilder: (_, __, ___) => Container(
         width: size,
         height: size,
-        color: const Color(0xFFF3F4F6),
+        color: SboxColors.slate100,
         child: const Icon(Icons.broken_image_outlined),
       ),
     );
@@ -726,7 +727,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     final logo = _logoUrl;
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         child: Column(
@@ -734,7 +735,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
           children: [
             Text(
               tr('Thương hiệu trang đặt hàng'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
             const SizedBox(height: 4),
             Text(
@@ -743,12 +744,12 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                 'Ảnh quảng cáo: ảnh đầu làm nền trang, tất cả ảnh hiện popup (đóng là mất trong phiên). '
                 'Cuối trang có dòng «Phần mềm SBOX POS».',
               ),
-              style: TextStyle(color: Colors.grey.shade700, height: 1.35, fontSize: 13),
+              style: TextStyle(color: SboxColors.slate700, height: 1.35, fontSize: 13),
             ),
             const SizedBox(height: 12),
             if (_storeName.trim().isNotEmpty)
               Text(_storeName,
-                  style: const TextStyle(fontWeight: FontWeight.w800)),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
             if (_storePhone.trim().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -771,12 +772,12 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
             Row(
               children: [
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: logo == null
                       ? Container(
                           width: 64,
                           height: 64,
-                          color: const Color(0xFFF3F4F6),
+                          color: SboxColors.slate100,
                           child: const Icon(Icons.storefront_outlined),
                         )
                       : _brandThumb(logo, size: 64),
@@ -856,7 +857,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     final url = _onlineUrl;
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
         child: Column(
@@ -980,7 +981,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: SelectableText(
                   url,
-                  style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
+                  style: TextStyle(color: SboxColors.slate800, fontSize: 13),
                 ),
               ),
               Padding(
@@ -1031,7 +1032,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
   Widget _buildDisabled() {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1039,7 +1040,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
           children: [
             Text(
               tr('Chưa bật QR order tại bàn'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
             const SizedBox(height: 8),
             Text(
@@ -1047,7 +1048,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                 'Tắt mặc định. Bật để in QR dán bàn: khách chọn món (kể cả topping / biến thể) trên điện thoại. '
                 'Máy POS đọc loa khi có đơn. Thanh toán vẫn tại quầy.',
               ),
-              style: TextStyle(color: Colors.grey.shade700, height: 1.4),
+              style: TextStyle(color: SboxColors.slate700, height: 1.4),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
@@ -1068,12 +1069,12 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
         if (_storeName.trim().isNotEmpty) ...[
           Material(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: ListTile(
               leading: const Icon(Icons.storefront_outlined),
               title: Text(
                 _storeName,
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: Text(tr(kPosTableQrSboxIntro)),
             ),
@@ -1082,7 +1083,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
         ],
         Material(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: SwitchListTile(
             title: Text(tr('Tự in phiếu bếp')),
             subtitle: Text(tr(_autoPrint
@@ -1095,7 +1096,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
         const SizedBox(height: 12),
         Material(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: Column(
             children: [
               SwitchListTile(
@@ -1134,8 +1135,8 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
         const SizedBox(height: 12),
         if (_hasLanUrl)
           Material(
-            color: const Color(0xFFFFF7ED),
-            borderRadius: BorderRadius.circular(12),
+            color: SboxColors.warningSoft,
+            borderRadius: BorderRadius.circular(14),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Text(
@@ -1155,7 +1156,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
         const SizedBox(height: 12),
         if (_tables.isEmpty)
           Text(tr('Chưa có bàn — thêm bàn trong sơ đồ rồi quay lại.'),
-              style: TextStyle(color: Colors.grey.shade700)),
+              style: TextStyle(color: SboxColors.slate700)),
         for (final t in _tables)
           Card(
             margin: const EdgeInsets.only(bottom: 8),

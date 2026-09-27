@@ -18,6 +18,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Thiết lập màn hình phụ: ảnh trình chiếu · video · tùy chọn.
 class PosCustomerDisplaySettingsScreen extends StatefulWidget {
   const PosCustomerDisplaySettingsScreen({
@@ -245,7 +246,7 @@ class _PosCustomerDisplaySettingsScreenState
               Text(
                 tr('Dán link Google Drive hoặc URL .mp4 trực tiếp. '
                     'Không upload video lên server SBOX. Không dùng YouTube.'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -340,15 +341,15 @@ class _PosCustomerDisplaySettingsScreenState
         Text(
           tr('Cột trái (~60%): ảnh/video full khung · Cột phải: hóa đơn. '
               'Không media → branding SBOX HRM.'),
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+          style: TextStyle(fontSize: 13, color: SboxColors.slate700),
         ),
         const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
+            color: SboxColors.brand50,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFBFDBFE)),
+            border: Border.all(color: SboxColors.brand100),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,7 +362,7 @@ class _PosCustomerDisplaySettingsScreenState
                 tr('• Ảnh: ${CustomerDisplayMediaSpec.recommendedImage}\n'
                     '• Video: ${CustomerDisplayMediaSpec.recommendedVideo}\n'
                     '• ${CustomerDisplayMediaSpec.layoutNote}'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade800, height: 1.35),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate800, height: 1.35),
               ),
             ],
           ),
@@ -375,7 +376,7 @@ class _PosCustomerDisplaySettingsScreenState
             tr(_viewerLink.isEmpty
                 ? 'Bật màn phụ để tạo mã'
                 : _viewerLink),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate600),
           ),
           trailing: IconButton(
             tooltip: tr('Copy link'),
@@ -386,7 +387,7 @@ class _PosCustomerDisplaySettingsScreenState
         Text(
           tr('Máy thu ngân phải đang mở bán hàng (để đẩy hóa đơn). '
               'Máy phụ chỉ cần mở link — không đăng nhập.'),
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 11, color: SboxColors.slate600),
         ),
         const SizedBox(height: 8),
         SwitchListTile(
@@ -403,7 +404,7 @@ class _PosCustomerDisplaySettingsScreenState
         const SizedBox(height: 4),
         Text(
           tr(cd.target.hintVi),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<CustomerDisplayTarget>(
@@ -435,7 +436,7 @@ class _PosCustomerDisplaySettingsScreenState
               tr('T1: dùng ảnh trình chiếu bên dưới khi chờ khách. '
                   'Video không chạy trên DSKernel — chọn «Android Flutter» '
                   'hoặc «Window» nếu cần video.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
           ),
         SwitchListTile(
@@ -481,13 +482,13 @@ class _PosCustomerDisplaySettingsScreenState
         ),
         const Divider(height: 28),
         Text(tr('Ảnh trình chiếu'),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         const SizedBox(height: 4),
         Text(
           tr(cd.target == CustomerDisplayTarget.t1Native
               ? 'Bắt buộc cho T1 khi chờ khách — upload ảnh hoặc dán URL.'
               : 'Đây là chỗ nhập ảnh chiếu trên màn phụ. Upload từ máy hoặc dán URL.'),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
         const SizedBox(height: 10),
         Wrap(
@@ -518,13 +519,13 @@ class _PosCustomerDisplaySettingsScreenState
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: SboxColors.slate100,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: SboxColors.slate300),
             ),
             child: Text(
               tr('Chưa có ảnh trình chiếu — nhấn «Upload ảnh» hoặc dán URL.'),
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              style: TextStyle(color: SboxColors.slate700, fontSize: 13),
             ),
           )
         else
@@ -540,20 +541,20 @@ class _PosCustomerDisplaySettingsScreenState
                 return Stack(
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       child: SizedBox(
                         width: 140,
                         height: 108,
                         child: url.isEmpty
                             ? Container(
-                                color: Colors.grey.shade200,
+                                color: SboxColors.slate200,
                                 child: const Icon(Icons.broken_image),
                               )
                             : CachedNetworkImage(
                                 imageUrl: url,
                                 fit: BoxFit.cover,
                                 errorWidget: (_, __, ___) => Container(
-                                  color: Colors.grey.shade200,
+                                  color: SboxColors.slate200,
                                   alignment: Alignment.center,
                                   child: Text(tr('Lỗi ảnh'),
                                       style: const TextStyle(fontSize: 11)),
@@ -565,7 +566,7 @@ class _PosCustomerDisplaySettingsScreenState
                       top: 4,
                       right: 4,
                       child: Material(
-                        color: Colors.black54,
+                        color: SboxColors.textSecondary,
                         shape: const CircleBorder(),
                         child: InkWell(
                           customBorder: const CircleBorder(),
@@ -585,7 +586,7 @@ class _PosCustomerDisplaySettingsScreenState
           ),
         const Divider(height: 28),
         Text(tr('Video trình chiếu (Google Drive)'),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         const SizedBox(height: 4),
         Text(
           tr(cd.target == CustomerDisplayTarget.t1Native
@@ -593,15 +594,15 @@ class _PosCustomerDisplaySettingsScreenState
                   'Android Flutter / Window. Không upload video lên server SBOX.'
               : 'Không upload video lên server SBOX (nặng máy chủ). '
                   'Upload lên Google Drive rồi dán link vào đây.'),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.grey.shade50,
+            color: SboxColors.slate50,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: SboxColors.slate300),
           ),
           child: Text(
             tr('Hướng dẫn Drive:\n'
@@ -611,7 +612,7 @@ class _PosCustomerDisplaySettingsScreenState
                 '4. Phần mềm tự đổi sang link phát trực tiếp\n'
                 'Lưu ý: Web có thể bị CORS Drive — ưu tiên TV/Android hoặc CDN .mp4'),
             style: TextStyle(
-                fontSize: 12, color: Colors.grey.shade800, height: 1.4),
+                fontSize: 12, color: SboxColors.slate800, height: 1.4),
           ),
         ),
         const SizedBox(height: 10),
@@ -625,13 +626,13 @@ class _PosCustomerDisplaySettingsScreenState
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: SboxColors.slate100,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: SboxColors.slate300),
             ),
             child: Text(
               tr('Chưa có video — dùng hướng dẫn Drive phía trên.'),
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              style: TextStyle(color: SboxColors.slate700, fontSize: 13),
             ),
           )
         else
@@ -653,7 +654,7 @@ class _PosCustomerDisplaySettingsScreenState
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style:
-                        TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        TextStyle(fontSize: 11, color: SboxColors.slate600),
                   ),
                   trailing: IconButton(
                     tooltip: tr('Xóa'),

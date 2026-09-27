@@ -13,6 +13,7 @@ import '../../utils/web_route_parser.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Màn hình phụ phía khách: luôn 2 cột — media | bill (trắng/đen).
 /// Không có ảnh/video → panel branding SBOX POS.
 class PosCustomerDisplayScreen extends StatefulWidget {
@@ -39,9 +40,9 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
   String? _remoteStatus;
 
   static const _billBg = Color(0xFFFFFFFF);
-  static const _billFg = Color(0xFF111827);
-  static const _billMuted = Color(0xFF6B7280);
-  static const _billLine = Color(0xFFE5E7EB);
+  static const _billFg = SboxColors.slate900;
+  static const _billMuted = SboxColors.slate500;
+  static const _billLine = SboxColors.slate200;
   static const _mediaBg = Color(0xFF0B1220);
 
   @override
@@ -372,7 +373,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 28,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: 0.6,
               ),
               textAlign: TextAlign.center,
@@ -526,7 +527,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             _billRow(
               'Giảm giá',
               '-${_money.format(s.discount)}đ',
-              valueColor: const Color(0xFFDC2626),
+              valueColor: SboxColors.danger,
             ),
           ],
           const SizedBox(height: 10),
@@ -540,21 +541,21 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFDCFCE7),
+                color: SboxColors.successSoft,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF22C55E)),
+                border: Border.all(color: SboxColors.success),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 28),
+                  const Icon(Icons.check_circle, color: SboxColors.success, size: 28),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       tr((s.paymentConfirmedMessage ?? 'Đã nhận chuyển khoản')
                           .trim()),
                       style: const TextStyle(
-                        color: Color(0xFF166534),
-                        fontSize: 15,
+                        color: SboxColors.successText,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -596,7 +597,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: HrmPageChrome.primaryNavy.withOpacity(0.85),
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -627,7 +628,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
           style: TextStyle(
             color: valueColor ?? _billFg,
             fontSize: emphasize ? 28 : 17,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],

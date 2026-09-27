@@ -291,7 +291,7 @@ class _PosDiscountEditorBodyState extends State<_PosDiscountEditorBody> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(tr(widget.title),
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           Row(
             children: [

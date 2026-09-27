@@ -20,6 +20,7 @@ import '../widgets/pos/pos_theme.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 
 /// Trả hàng bán — chọn hóa đơn hoàn thành, nhập SL trả từng dòng.
@@ -467,7 +468,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: orange ? Colors.orange.shade50 : Colors.blue.shade50,
+        color: orange ? Colors.orange.shade50 : SboxColors.brand50,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -582,7 +583,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 1),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
+                          color: SboxColors.slate200,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(tr('Đã hủy'),
@@ -684,7 +685,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                   controller: rl.qtyCtrl,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
                   ],
@@ -724,15 +725,15 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
 
   Widget _qtyBtn(IconData icon, VoidCallback? onTap, {bool primary = false}) {
     return Material(
-      color: primary ? _kiotBlue : Colors.grey.shade200,
-      borderRadius: BorderRadius.circular(8),
+      color: primary ? _kiotBlue : SboxColors.slate200,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: SizedBox(
           width: 32,
           height: 32,
-          child: Icon(icon, size: 18, color: primary ? Colors.white : Colors.black87),
+          child: Icon(icon, size: 18, color: primary ? Colors.white : SboxColors.text),
         ),
       ),
     );
@@ -924,7 +925,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(tr(o.soldBy ?? o.createdBy ?? '—'),
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
           if (o.createdAt != null)
             Text(tr(_dateFmt.format(o.createdAt!.toLocal())),
                 style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
@@ -1005,7 +1006,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
                         height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : Text(tr('TRẢ HÀNG'),
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
             ],
           ),

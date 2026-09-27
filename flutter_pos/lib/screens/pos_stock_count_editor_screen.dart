@@ -21,7 +21,8 @@ import '../widgets/pos_barcode_scanner.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 enum _LineFilter { all, matched, diff, unchecked }
 
@@ -578,7 +579,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
           ),
         ),
         Container(
-          color: const Color(0xFFF8FAFC),
+          color: SboxColors.slate50,
           child: IntrinsicHeight(
             child: Row(
               children: [
@@ -601,13 +602,13 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
               ? Center(
                   child: Text(
                     tr(_lines.isEmpty ? 'Chưa có hàng trong phiếu' : 'Không có dòng phù hợp bộ lọc'),
-                    style: TextStyle(color: Colors.grey.shade600),
+                    style: TextStyle(color: SboxColors.slate600),
                   ),
                 )
               : ListView.separated(
                   itemCount: visible.length,
                   separatorBuilder: (_, __) =>
-                      Divider(height: 1, color: Colors.grey.shade200),
+                      Divider(height: 1, color: SboxColors.slate200),
                   itemBuilder: (_, i) {
                     final l = visible[i];
                     final idx = _lines.indexOf(l) + 1;
@@ -732,7 +733,7 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
                                   Expanded(
                                     child: Text(tr('Chi tiết phiếu kiểm kê'),
                                         style: TextStyle(
-                                            fontSize: 15, fontWeight: FontWeight.w600)),
+                                            fontSize: 16, fontWeight: FontWeight.w600)),
                                   ),
                                 IconButton(
                                   tooltip: tr('Quét mã vạch'),
@@ -749,10 +750,10 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Icon(Icons.inventory_outlined,
-                                            size: 48, color: Colors.grey.shade400),
+                                            size: 48, color: SboxColors.slate400),
                                         const SizedBox(height: 12),
                                         Text(tr('Phiếu không có dòng hàng'),
-                                            style: TextStyle(color: Colors.grey.shade600)),
+                                            style: TextStyle(color: SboxColors.slate600)),
                                       ],
                                     ),
                                   )

@@ -8,6 +8,7 @@ import '../../utils/permission_role_options.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Tài khoản cửa hàng trên POS — tạo / xem / sửa, đổi mật khẩu, gán khu vực bàn.
 class PosAccountsScreen extends StatefulWidget {
   const PosAccountsScreen({super.key});
@@ -295,7 +296,7 @@ class _PosAccountsScreenState extends State<PosAccountsScreen> {
                                 ? 'Chưa chọn = xem tất cả khu vực'
                                 : 'Chỉ hiện bàn thuộc ${selectedAreaIds.length} khu đã chọn')),
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: SboxColors.slate600,
                           fontSize: 12,
                         ),
                       ),
@@ -548,13 +549,13 @@ class _PosAccountsScreenState extends State<PosAccountsScreen> {
                           final active = _isActive(a);
                           return Material(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                             child: ListTile(
                               onTap: () => _openEditor(account: a),
                               leading: CircleAvatar(
                                 backgroundColor: active
                                     ? PosTheme.kiotBlueLight
-                                    : const Color(0xFFE4E4E7),
+                                    : SboxColors.slate200,
                                 child: Text(
                                   _displayName(a).isEmpty
                                       ? '?'
@@ -562,7 +563,7 @@ class _PosAccountsScreenState extends State<PosAccountsScreen> {
                                   style: TextStyle(
                                     color: active
                                         ? PosTheme.kiotBlue
-                                        : const Color(0xFF71717A),
+                                        : SboxColors.slate500,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),

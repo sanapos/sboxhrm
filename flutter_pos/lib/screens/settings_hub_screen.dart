@@ -33,6 +33,7 @@ import 'pos/pos_role_permissions_screen.dart';
 import 'store_access_devices_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
 
@@ -205,7 +206,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       };
 
   Color _groupAccent(String title) => switch (title) {
-        'POS / Bán hàng' => const Color(0xFF2563EB),
+        'POS / Bán hàng' => SboxColors.brand600,
         'Chính sách lương' => HrmPageChrome.primaryNavy,
         _ => HrmPageChrome.primaryNavy,
       };
@@ -428,7 +429,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       child: Row(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: Image.asset(
               'assets/logo.png',
               width: 52,
@@ -451,14 +452,14 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                   tr('SBOX HRM - SBOX POS'),
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: PosTheme.kiotBlue,
                   ),
                 ),
                 Text(
                   tr(user?.fullName ?? 'Thiết lập POS'),
                   style: const TextStyle(
-                    fontSize: 17,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -526,11 +527,11 @@ class _SettingsAccessDeniedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr('Thiết lập')),
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF18181B),
+        foregroundColor: SboxColors.slate900,
         elevation: 0,
       ),
       body: Center(
@@ -540,18 +541,18 @@ class _SettingsAccessDeniedScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.lock_outline_rounded,
-                  size: 56, color: Color(0xFF94A3B8)),
+                  size: 56, color: SboxColors.slate400),
               const SizedBox(height: 12),
               Text(tr(title),
                   style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A))),
+                      color: SboxColors.slate900)),
               const SizedBox(height: 8),
               Text(tr(message),
                   textAlign: TextAlign.center,
                   style:
-                      const TextStyle(fontSize: 14, color: Color(0xFF64748B))),
+                      const TextStyle(fontSize: 14, color: SboxColors.slate500)),
             ],
           ),
         ),

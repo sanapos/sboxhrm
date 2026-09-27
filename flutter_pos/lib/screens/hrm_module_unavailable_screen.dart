@@ -49,7 +49,7 @@ class HrmModuleUnavailableScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: PosTheme.textPrimary,
                   ),
                 ),

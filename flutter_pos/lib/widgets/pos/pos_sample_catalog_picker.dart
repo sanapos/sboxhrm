@@ -9,6 +9,7 @@ import '../../models/pos_product.dart';
 import 'pos_quick_add_barcode_sheet.dart';
 import 'pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Duyệt catalog mẫu (món / đồ uống / hàng đóng gói) → thêm nhanh về cửa hàng.
 Future<PosProduct?> showPosSampleCatalogPicker(
   BuildContext context,
@@ -184,7 +185,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                   onPressed: _load,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               onSubmitted: (_) => _load(),
@@ -305,7 +306,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                                         : (s['kind']?.toString() == 'Food')
                                             ? Icons.restaurant_outlined
                                             : Icons.inventory_2_outlined,
-                                    color: Colors.grey,
+                                    color: SboxColors.slate500,
                                   ),
                                 );
                               }
@@ -319,7 +320,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                                     headers: widget.api.imageAuthHeaders,
                                     errorBuilder: (_, __, ___) => Icon(
                                       Icons.image_not_supported_outlined,
-                                      color: Colors.grey.shade500,
+                                      color: SboxColors.slate500,
                                     ),
                                   );
                                 }
@@ -330,7 +331,7 @@ class _SampleCatalogPickerState extends State<_SampleCatalogPicker>
                                     : (s['kind']?.toString() == 'Food')
                                         ? Icons.restaurant_outlined
                                         : Icons.inventory_2_outlined,
-                                color: Colors.grey,
+                                color: SboxColors.slate500,
                               );
                             },
                           ),

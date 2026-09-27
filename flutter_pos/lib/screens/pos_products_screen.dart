@@ -43,6 +43,7 @@ import '../widgets/pos_barcode_scanner.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Danh sách hàng hóa — giao diện kiểu KiotViet.
 class PosProductsScreen extends StatefulWidget {
   const PosProductsScreen({super.key});
@@ -1428,7 +1429,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                       filled: true,
                       fillColor: const Color(0xFFF5F7FA),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -2333,7 +2334,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   Text(tr(p.productType == PosProductType.combo
                       ? 'Combo không quản lý tồn kho'
                       : 'Không trừ kho'),
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                   )
                 else if (p.productType == PosProductType.combo)
                   Text(
@@ -2342,7 +2343,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                       fontSize: 11,
                       color: (p.sellableQty ?? activeView.onHandQty) <= 0
                           ? Colors.red
-                          : Colors.grey,
+                          : SboxColors.slate500,
                     ),
                   )
                 else
@@ -2361,7 +2362,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                         fontSize: 11,
                         color: activeView.onHandQty <= 0
                             ? Colors.red
-                            : Colors.grey,
+                            : SboxColors.slate500,
                       ),
                     ),
                   ),

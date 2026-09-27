@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/app_error_utils.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class EmptyState extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -22,7 +23,7 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveIconColor = iconColor ?? Colors.grey[600];
+    final effectiveIconColor = iconColor ?? SboxColors.slate600;
 
     return Center(
       child: Padding(
@@ -57,7 +58,7 @@ class EmptyState extends StatelessWidget {
               Text(
                 tr(description!),
                 style: TextStyle(
-                  color: Colors.grey[400],
+                  color: SboxColors.slate400,
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -107,7 +108,7 @@ class ErrorState extends StatelessWidget {
           ? Icons.wifi_off_rounded
           : Icons.error_outline,
       iconColor: info.kind == AppErrorKind.network
-          ? const Color(0xFFF59E0B)
+          ? SboxColors.warning
           : Colors.red,
     );
   }
@@ -150,7 +151,7 @@ class ErrorState extends StatelessWidget {
               Text(
                 tr(description!),
                 style: TextStyle(
-                  color: Colors.grey[400],
+                  color: SboxColors.slate400,
                   fontSize: 14,
                 ),
                 textAlign: TextAlign.center,
@@ -236,7 +237,7 @@ class NoSearchResultState extends StatelessWidget {
                   ? 'Không tìm thấy kết quả cho "$searchTerm"'
                   : 'Không có kết quả phù hợp với tiêu chí tìm kiếm'),
               style: TextStyle(
-                color: Colors.grey[400],
+                color: SboxColors.slate400,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,

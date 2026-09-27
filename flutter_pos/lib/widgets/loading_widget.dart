@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class LoadingWidget extends StatelessWidget {
   final String? message;
   final double size;
@@ -33,7 +34,7 @@ class LoadingWidget extends StatelessWidget {
             Text(
               tr(message!),
               style: TextStyle(
-                color: Colors.grey[400],
+                color: SboxColors.slate400,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
@@ -126,9 +127,9 @@ class _ShimmerLoadingState extends State<ShimmerLoading>
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                Colors.grey[800]!,
-                Colors.grey[700]!,
-                Colors.grey[800]!,
+                SboxColors.slate800,
+                SboxColors.slate700,
+                SboxColors.slate800,
               ],
               stops: [
                 0.0,

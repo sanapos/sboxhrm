@@ -7,6 +7,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Công nợ NCC + nhập/trả theo kỳ.
 class PosSupplierReportScreen extends StatefulWidget {
   const PosSupplierReportScreen({super.key});
@@ -139,7 +140,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
               spacing: 8,
               runSpacing: 6,
               children: [
-                _chip('0–30', _n(_debt?['sumDebt0To30']), const Color(0xFF166534)),
+                _chip('0–30', _n(_debt?['sumDebt0To30']), SboxColors.successText),
                 _chip('31–60', _n(_debt?['sumDebt31To60']), const Color(0xFFCA8A04)),
                 _chip('61–90', _n(_debt?['sumDebt61To90']), Colors.orange.shade800),
                 _chip('>90', _n(_debt?['sumDebtOver90']), Colors.red.shade700),
@@ -178,7 +179,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
         Wrap(
           spacing: 6,
           children: [
-            if (_n(r['debt0To30']) > 0) _chip('0–30', _n(r['debt0To30']), const Color(0xFF166534)),
+            if (_n(r['debt0To30']) > 0) _chip('0–30', _n(r['debt0To30']), SboxColors.successText),
             if (_n(r['debt31To60']) > 0) _chip('31–60', _n(r['debt31To60']), const Color(0xFFCA8A04)),
             if (_n(r['debt61To90']) > 0) _chip('61–90', _n(r['debt61To90']), Colors.orange.shade800),
             if (_n(r['debtOver90']) > 0) _chip('>90', _n(r['debtOver90']), Colors.red.shade700),
@@ -204,8 +205,8 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
           moneyFmt: _moneyFmt,
           tiles: [
             (label: 'Tiền nhập', value: _n(_purchases?['receiptAmount']), color: PosTheme.kiotBlue),
-            (label: 'VAT', value: _n(_purchases?['receiptVat']), color: const Color(0xFF7C3AED)),
-            (label: 'Đã trả NCC', value: _n(_purchases?['paidInPeriod']), color: const Color(0xFF166534)),
+            (label: 'VAT', value: _n(_purchases?['receiptVat']), color: SboxColors.violet),
+            (label: 'Đã trả NCC', value: _n(_purchases?['paidInPeriod']), color: SboxColors.successText),
           ],
         ),
       ),

@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../services/pos_product_image_cache.dart';
 import 'pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Ảnh sản phẩm POS — memory + disk cache (Android) + HTTP Bearer.
 class PosProductImage extends StatelessWidget {
   const PosProductImage({
@@ -69,7 +70,7 @@ class PosProductImage extends StatelessWidget {
         border: Border.all(color: PosTheme.border),
       ),
       child: Icon(Icons.image_outlined,
-          size: size * 0.45, color: Colors.grey.shade500),
+          size: size * 0.45, color: SboxColors.slate500),
     );
   }
 }

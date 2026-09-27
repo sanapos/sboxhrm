@@ -25,6 +25,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../settings_hub_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// KDS bếp: món mới = chờ làm. Đang làm → Ra món (in + rời bảng). Hủy: Đồng ý từng món.
 class PosKdsScreen extends StatefulWidget {
   const PosKdsScreen({super.key});
@@ -45,27 +46,27 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   static const _bg = Color(0xFFF4F6FB);
   static const _bar = Color(0xFFFFFFFF);
   static const _card = Color(0xFFFFFFFF);
-  static const _line = Color(0xFFE5E7EB);
-  static const _ink = Color(0xFF111827);
-  static const _muted = Color(0xFF6B7280);
-  static const _chipIdle = Color(0xFFF3F4F6);
-  static const _blue = Color(0xFF2563EB);
-  static const _blueSoft = Color(0xFFEFF6FF);
-  static const _orange = Color(0xFFF59E0B);
-  static const _orangeSoft = Color(0xFFFFF7ED);
-  static const _green = Color(0xFF22C55E);
-  static const _greenSoft = Color(0xFFECFDF5);
+  static const _line = SboxColors.slate200;
+  static const _ink = SboxColors.slate900;
+  static const _muted = SboxColors.slate500;
+  static const _chipIdle = SboxColors.slate100;
+  static const _blue = SboxColors.brand600;
+  static const _blueSoft = SboxColors.brand50;
+  static const _orange = SboxColors.warning;
+  static const _orangeSoft = SboxColors.warningSoft;
+  static const _green = SboxColors.success;
+  static const _greenSoft = SboxColors.successSoft;
   static const _chipOn = _blue;
   static const _sheet = Color(0xFFFFFFFF);
-  static const _ticketHead = Color(0xFFF8FAFC);
+  static const _ticketHead = SboxColors.slate50;
   static const _accent = _blue;
-  static const _note = Color(0xFF6B7280);
+  static const _note = SboxColors.slate500;
   static const _queued = _orange;
   static const _cooking = _blue;
   static const _ready = _green;
-  static const _late = Color(0xFFDC2626);
-  static const _voided = Color(0xFF9CA3AF);
-  static const _inkOnLight = Color(0xFF111827);
+  static const _late = SboxColors.danger;
+  static const _voided = SboxColors.slate400;
+  static const _inkOnLight = SboxColors.slate900;
   static const _namePanel = Color(0xFFFFFFFF);
   static const _freshGlow = _blue;
 
@@ -871,7 +872,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
         decoration: BoxDecoration(
           color: _chipIdle,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: _line),
         ),
         child: Text(
@@ -1313,7 +1314,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                 tr('BẾP'),
                 style: const TextStyle(
                   color: _blue,
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w700,
                   fontSize: 26,
                   letterSpacing: 0.4,
                   height: 1,
@@ -1361,7 +1362,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     tick: _nowTick,
                     style: const TextStyle(
                       color: _ink,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: 22,
                       height: 1.1,
                       fontFeatures: [FontFeature.tabularFigures()],
@@ -1384,7 +1385,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   onPressed: _recall,
                   child: Text(tr('Gọi lại'),
                       style: const TextStyle(
-                          color: _chipOn, fontWeight: FontWeight.w800)),
+                          color: _chipOn, fontWeight: FontWeight.w700)),
                 ),
               IconButton(
                 tooltip: tr(_isKdsFullscreen
@@ -1535,7 +1536,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             label,
             style: TextStyle(
               color: on ? Colors.white : _ink,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               fontSize: 14,
             ),
           ),
@@ -1547,7 +1548,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: _chipIdle,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1769,7 +1770,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   Text(tr('Máy in KDS'),
                       style: const TextStyle(
                           color: _ink,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           fontSize: 18)),
                   const SizedBox(height: 8),
                   SwitchListTile(
@@ -1844,7 +1845,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                         '$_lateMinutes ${tr('phút')}',
                         style: const TextStyle(
                           color: _ink,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 16,
                         ),
                       ),
@@ -2117,7 +2118,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               tr('MỚI'),
               style: const TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 fontSize: 7,
                 height: 1,
               ),
@@ -2126,7 +2127,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             qty,
             style: const TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               fontSize: 20,
               height: 1.05,
               fontFeatures: [FontFeature.tabularFigures()],
@@ -2155,14 +2156,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                 disabledBackgroundColor: cooking ? _blue : _orange,
                 disabledForegroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(horizontal: 8),
               ),
               child: Text(
                 tr('Đang làm'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
               ),
             ),
           ),
@@ -2194,14 +2195,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         icon: Icon(icon, size: 16),
         label: Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
         ),
         style: FilledButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.white,
           disabledBackgroundColor: color,
           disabledForegroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           elevation: 0,
         ),
       ),
@@ -2260,8 +2261,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: voided ? _voided : _ink,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
                                   height: 1.2,
                                   decoration: voided
                                       ? TextDecoration.lineThrough
@@ -2392,7 +2393,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: fg,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               fontSize: 13,
             ),
           ),
@@ -2451,7 +2452,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       _qtyFmt.format(a.qty),
                       style: const TextStyle(
                         color: _ink,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         fontSize: 36,
                       ),
                     ),
@@ -2464,7 +2465,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             a.name,
                             style: const TextStyle(
                               color: _ink,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               fontSize: 20,
                             ),
                           ),
@@ -2501,7 +2502,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           child: Text(tr('Đang làm'),
-                              style: const TextStyle(fontWeight: FontWeight.w900)),
+                              style: const TextStyle(fontWeight: FontWeight.w700)),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -2517,7 +2518,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           child: Text(tr('Ra món'),
-                              style: const TextStyle(fontWeight: FontWeight.w900)),
+                              style: const TextStyle(fontWeight: FontWeight.w700)),
                         ),
                       ),
                     ],
@@ -2608,10 +2609,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Text(label,
-            style: TextStyle(color: fg, fontWeight: FontWeight.w800)),
+            style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
       ),
     );
   }
@@ -2677,8 +2678,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: _ink,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
                     ),
                   ),
                 ),
@@ -2786,7 +2787,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       tr('MỚI'),
                       style: TextStyle(
                         color: tone.fg,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         fontSize: 8,
                         letterSpacing: 0.4,
                       ),
@@ -2796,7 +2797,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: tone.fg,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       fontSize: 20,
                       height: 1.05,
                       decoration: voided ? TextDecoration.lineThrough : null,
@@ -2825,7 +2826,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                               softWrap: true,
                               style: TextStyle(
                                 color: voided ? _voided : _ink,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                                 fontSize: 14,
                                 height: 1.2,
                                 decoration: voided
@@ -2868,7 +2869,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                           style: TextStyle(
                             color: _muted,
                             fontSize: 12,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                           builder: (now) => _waitShortAt(sent, now),

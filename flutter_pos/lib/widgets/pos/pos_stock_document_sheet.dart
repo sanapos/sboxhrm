@@ -8,6 +8,7 @@ import 'pos_stock_card_table.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Chi tiết chứng từ thẻ kho (phiếu nhập / điều chỉnh / bán).
 Future<void> showPosStockDocumentSheet(
   BuildContext context, {
@@ -143,7 +144,7 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: SboxColors.slate300,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -159,7 +160,7 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
           ),
           const SizedBox(height: 4),
           Text(tr(typeLabel), style: const TextStyle(fontSize: 14)),
-          Text(tr(when), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          Text(tr(when), style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           const Divider(height: 24),
           _row('Mã hàng', t.productCode),
           _row('Tên hàng', t.productName),
@@ -317,7 +318,7 @@ class _PosStockDocumentSheetState extends State<_PosStockDocumentSheet> {
           SizedBox(
             width: 100,
             child: Text(tr(label),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           ),
           Expanded(child: Text(tr(value), style: const TextStyle(fontSize: 13))),
         ],

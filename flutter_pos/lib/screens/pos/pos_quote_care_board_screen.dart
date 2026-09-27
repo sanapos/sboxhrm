@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Theo dõi chăm sóc khách tiềm năng theo báo giá: điểm thang 10 (nóng 8–10, ấm 5–7, lạnh 0–4),
 /// xu hướng so với lần chấm trước, lịch hẹn quá hạn / hôm nay, khách lâu chưa liên hệ.
 class PosQuoteCareBoardScreen extends StatefulWidget {
@@ -64,10 +65,10 @@ class _CareItem {
 }
 
 Color careBandColor(String band) => switch (band) {
-      'hot' => const Color(0xFFD32F2F),
+      'hot' => SboxColors.danger,
       'warm' => const Color(0xFFEF6C00),
-      'cold' => const Color(0xFF1976D2),
-      _ => Colors.grey.shade500,
+      'cold' => SboxColors.brand600,
+      _ => SboxColors.slate500,
     };
 
 String careBandLabel(String band) => switch (band) {
@@ -185,7 +186,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
             SwitchListTile(
@@ -279,7 +280,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
             if (total > 0) ...[
               const SizedBox(height: 12),
               ClipRRect(
-                borderRadius: BorderRadius.circular(5),
+                borderRadius: BorderRadius.circular(6),
                 child: Row(children: [
                   seg('hot', _n('hot')),
                   seg('warm', _n('warm')),
@@ -304,12 +305,12 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
               children: [
                 Text(label,
                     style:
-                        TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                        TextStyle(fontSize: 12, color: SboxColors.slate700)),
                 Text(value,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w700)),
+                        fontSize: 16, fontWeight: FontWeight.w700)),
               ],
             ),
           ),
@@ -335,7 +336,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
 
     return Wrap(
       children: [
-        chip('all', 'Tất cả', _n('total'), Colors.grey),
+        chip('all', 'Tất cả', _n('total'), SboxColors.slate500),
         chip('overdue', 'Quá hạn hẹn', _n('overdue'), Colors.red.shade900),
         chip('today', 'Hẹn hôm nay', _n('dueToday'), Colors.amber.shade800),
         chip('stale', 'Lâu chưa liên hệ', _n('stale'), Colors.brown),
@@ -353,8 +354,8 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
     final (fuText, fuColor) = switch (i.followUp) {
       'overdue' => ('Quá hạn hẹn', Colors.red.shade800),
       'today' => ('Hẹn hôm nay', Colors.amber.shade900),
-      'upcoming' => ('Hẹn', Colors.blue.shade700),
-      _ => ('', Colors.grey),
+      'upcoming' => ('Hẹn', SboxColors.brand700),
+      _ => ('', SboxColors.slate500),
     };
     final lastText = i.lastContactAt == null
         ? tr('Chưa liên hệ lần nào')
@@ -393,7 +394,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15),
+                          fontWeight: FontWeight.w700, fontSize: 16),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -404,7 +405,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
                         if ((i.ownerName ?? '').isNotEmpty) i.ownerName!,
                       ].join('  ·  '),
                       style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                          TextStyle(fontSize: 12, color: SboxColors.slate700),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -415,7 +416,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
                         fontSize: 13,
                         color: i.stale
                             ? Colors.brown.shade700
-                            : Colors.grey.shade900,
+                            : SboxColors.slate900,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -470,7 +471,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
                 Text(
                   i.score?.toString() ?? '—',
                   style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800, color: color),
+                      fontSize: 18, fontWeight: FontWeight.w700, color: color),
                 ),
               ],
             ),

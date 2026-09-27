@@ -9,6 +9,7 @@ import '../../widgets/pos/pos_theme.dart';
 import 'pos_cancel_return_history_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Thiết lập kiểm soát lý do hủy / trả + lối vào lịch sử.
 class PosCancelReturnSettingsScreen extends StatefulWidget {
   const PosCancelReturnSettingsScreen({super.key});
@@ -114,7 +115,7 @@ class _PosCancelReturnSettingsScreenState
         Text(
           tr('Hủy món đã báo bếp luôn hỏi lý do (Thao tác sai / Khách yêu cầu / nhập tùy ý). '
               'Bật thêm thì hủy đơn hoàn thành và trả hàng cũng phải chọn lý do.'),
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+          style: TextStyle(fontSize: 13, color: SboxColors.slate700),
         ),
         const SizedBox(height: 12),
         SwitchListTile(

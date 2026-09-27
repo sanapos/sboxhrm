@@ -13,6 +13,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/vn_admin_address_fields.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Cấu hình API GHN / GHTK / Viettel Post / AhaMove theo cửa hàng.
 class PosShippingSettingsScreen extends StatefulWidget {
   const PosShippingSettingsScreen({super.key});
@@ -325,7 +326,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.35,
-                    color: Colors.grey.shade700,
+                    color: SboxColors.slate700,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -353,7 +354,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: SboxColors.slate300),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -371,7 +372,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                 children: [
                   Icon(
                     Icons.local_shipping_outlined,
-                    color: f.enabled ? PosTheme.kiotBlue : Colors.grey,
+                    color: f.enabled ? PosTheme.kiotBlue : SboxColors.slate500,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -382,7 +383,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                           f.displayName,
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
-                            fontSize: 15,
+                            fontSize: 16,
                           ),
                         ),
                         Text(
@@ -391,7 +392,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                             fontSize: 12,
                             color: f.enabled && hasCreds
                                 ? Colors.green.shade700
-                                : Colors.grey.shade600,
+                                : SboxColors.slate600,
                           ),
                         ),
                       ],
@@ -405,7 +406,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                   ),
                   Icon(
                     expanded ? Icons.expand_less : Icons.expand_more,
-                    color: Colors.grey.shade700,
+                    color: SboxColors.slate700,
                   ),
                 ],
               ),
@@ -554,7 +555,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
                     '(hệ thống tự đổi sang JWT qua LoginVTP). Hoặc Username + Mật khẩu, hoặc JWT (eyJ...). '
                     'Tắt Sandbox nếu dùng production.',
                   ),
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate700),
                 ),
               ),
               _ViettelPostWebhookGuide(
@@ -590,7 +591,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
             if (f.code == 'Ghn' || f.code == 'Ahamove' || f.code == 'Spx') ...[
               const SizedBox(height: 2),
               Text(tr('Nâng cao (tuỳ chọn)'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
               const SizedBox(height: 6),
               if (f.code == 'Ghn') ...[
                 _field(f.fromDistrictIdCtrl,
@@ -848,9 +849,9 @@ class _ViettelPostWebhookGuide extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
+        color: SboxColors.brand50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.brand200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -859,7 +860,7 @@ class _ViettelPostWebhookGuide extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 13,
-              color: Colors.blue.shade900,
+              color: SboxColors.brand900,
             ),
           ),
           const SizedBox(height: 6),
@@ -904,7 +905,7 @@ class _ViettelPostWebhookGuide extends StatelessWidget {
             '5. Gọi 19008095 hoặc email b2b@viettelpost.com.vn để Viettel duyệt webhook '
             '(bắt buộc mới nhận hành trình thật).\n\n'
             'Lưu ý: viettelpost.vn/cau-hinh-tai-khoan chỉ lấy token 32 ký tự — không phải trang webhook.',
-            style: TextStyle(fontSize: 11, height: 1.35, color: Colors.grey.shade800),
+            style: TextStyle(fontSize: 11, height: 1.35, color: SboxColors.slate800),
           ),
         ],
       ),
@@ -923,14 +924,14 @@ class _ViettelPostWebhookGuide extends StatelessWidget {
       children: [
         Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
         const SizedBox(height: 2),
-        Text(hint, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+        Text(hint, style: TextStyle(fontSize: 11, color: SboxColors.slate700)),
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: SboxColors.slate300),
           ),
           child: Row(
             children: [
@@ -1001,7 +1002,7 @@ class _GhtkWebhookGuide extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.teal.shade50,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.teal.shade200),
       ),
       child: Column(
@@ -1045,7 +1046,7 @@ class _GhtkWebhookGuide extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(tr('URL dán vào GHTK (callback):'),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate700),
           ),
           const SizedBox(height: 4),
           Container(
@@ -1053,7 +1054,7 @@ class _GhtkWebhookGuide extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: SboxColors.slate300),
             ),
             child: Row(
               children: [
@@ -1077,7 +1078,7 @@ class _GhtkWebhookGuide extends StatelessWidget {
             '2. Dán Token vào ô API Token phía trên → điền điểm lấy hàng → Lưu.\n'
             '3. Đặt Hash (vd SboxGhtk2026) → copy URL webhook → gửi GHTK / cấu hình callback.\n'
             '4. GHTK gửi form-urlencoded (label_id, status_id, …) → SBOX cập nhật trạng thái đơn.',
-            style: TextStyle(fontSize: 11, height: 1.35, color: Colors.grey.shade800),
+            style: TextStyle(fontSize: 11, height: 1.35, color: SboxColors.slate800),
           ),
         ],
       ),
@@ -1130,7 +1131,7 @@ class _SpxWebhookGuide extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.orange.shade200),
       ),
       child: Column(
@@ -1163,7 +1164,7 @@ class _SpxWebhookGuide extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(tr('URL webhook SBOX:'),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate700),
           ),
           const SizedBox(height: 4),
           Container(
@@ -1171,7 +1172,7 @@ class _SpxWebhookGuide extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: SboxColors.slate300),
             ),
             child: Row(
               children: [
@@ -1195,7 +1196,7 @@ class _SpxWebhookGuide extends StatelessWidget {
             '2. Dán Secret Key + User ID, điểm lấy hàng → Lưu → Thử kết nối.\n'
             '3. Lên đơn / check giá / tra hành trình từ màn thu ngân hoặc đơn online.\n'
             '4. (Tuỳ chọn) Đăng URL webhook với SPX để nhận trạng thái realtime.',
-            style: TextStyle(fontSize: 11, height: 1.35, color: Colors.grey.shade800),
+            style: TextStyle(fontSize: 11, height: 1.35, color: SboxColors.slate800),
           ),
         ],
       ),

@@ -6,6 +6,7 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 
 import 'pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Ã” sá»‘ khÃ´ng má»Ÿ soft keyboard â€” tap má»Ÿ [showPosNumericKeypad].
 /// Váº«n nháº­n bÃ n phÃ­m cá»©ng khi Ä‘Ã£ focus (`showSoftInputOnFocus: false`).
 class PosNoSoftKeyboardField extends StatelessWidget {
@@ -217,7 +218,7 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
       child: Padding(
         padding: const EdgeInsets.all(4),
         child: Material(
-          color: bg ?? const Color(0xFFF1F5F9),
+          color: bg ?? SboxColors.slate100,
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
@@ -272,7 +273,7 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
             margin: const EdgeInsets.only(bottom: 10, top: 4),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: SboxColors.slate50,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: PosTheme.border),
             ),

@@ -42,6 +42,8 @@ import 'widgets/pos/pos_form_keyboard.dart';
 import 'widgets/pos_app_update_dialog.dart';
 import 'widgets/pos/pos_theme.dart';
 
+import 'theme/sbox_theme.dart';
+import 'theme/sbox_tokens.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   applyLowRamImageCache();
@@ -51,13 +53,13 @@ Future<void> main() async {
   };
   ErrorWidget.builder = (details) {
     return Material(
-      color: const Color(0xFFF3F4F6),
+      color: SboxColors.slate100,
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: SingleChildScrollView(
             child: Text(tr('Lỗi giao diện:\n${details.exceptionAsString()}'),
-              style: const TextStyle(color: Color(0xFFB91C1C), fontSize: 13),
+              style: const TextStyle(color: SboxColors.dangerText, fontSize: 13),
             ),
           ),
         ),
@@ -143,18 +145,9 @@ class SboxPosApp extends StatelessWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: applyVietnameseFonts(ThemeData(
-          useMaterial3: true,
-          fontFamily: kVietnameseFontFamily,
-          fontFamilyFallback: kVietnameseFontFallback,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: PosTheme.kiotBlue,
-            primary: PosTheme.kiotBlue,
-          ),
-          scaffoldBackgroundColor: PosTheme.background,
-          appBarTheme: const AppBarTheme(
-            backgroundColor: PosTheme.kiotBlue,
-            foregroundColor: Colors.white,
+        // Theme SBOX (cùng quy chuẩn app HRM): màu #158DC0, 7 cỡ chữ, bo góc chuẩn.
+        theme: applyVietnameseFonts(SboxTheme.light().copyWith(
+          appBarTheme: SboxTheme.light().appBarTheme.copyWith(
             systemOverlayStyle: kPlayOverlayOnDarkBg,
           ),
         )),

@@ -11,6 +11,7 @@ import '../../widgets/pos/pos_theme.dart';
 import 'pos_price_list_detail_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Danh sách bảng giá POS.
 class PosPriceListsScreen extends StatefulWidget {
   const PosPriceListsScreen({super.key});
@@ -134,7 +135,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(tr('Áp dụng từ ngày → đến ngày (để trống = mọi ngày)'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
                 const SizedBox(height: 8),
                 Row(

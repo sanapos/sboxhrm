@@ -438,7 +438,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
             const SizedBox(height: 12),
             Center(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: SizedBox(
                   height: 88,
                   width: 88,

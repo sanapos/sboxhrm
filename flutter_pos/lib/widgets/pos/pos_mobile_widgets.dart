@@ -12,6 +12,7 @@ import 'pos_theme.dart';
 import '../safe_layout_widgets.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Xác nhận và đăng xuất khỏi POS / cửa hàng.
 Future<void> showPosLogoutDialog(BuildContext context) async {
   final l = AppLocalizations.of(context);
@@ -76,7 +77,7 @@ class PosMobileProfileCard extends StatelessWidget {
                 Text(
                   tr(name),
                   style: const TextStyle(
-                    fontSize: 17,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -149,7 +150,7 @@ class PosMobileHubSection extends StatelessWidget {
                 child: Text(
                   tr(title),
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -280,7 +281,7 @@ class PosMobileMetricTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: SboxColors.slate50,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: PosTheme.border),
       ),
@@ -313,7 +314,7 @@ class PosMobileMetricTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 17,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: valueColor ?? PosTheme.textPrimary,
             ),
@@ -384,10 +385,10 @@ class PosFilterCollapse extends StatelessWidget {
       children: [
         Material(
           color: accent.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: InkWell(
             onTap: onToggle,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
@@ -469,7 +470,7 @@ Future<void> showPosMobileFilterSheet(
               children: [
                 Text(tr(title),
                     style: const TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.w600)),
+                        fontSize: 18, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.pop(ctx),
@@ -643,7 +644,7 @@ class PosMobileListHeader extends StatelessWidget {
                             child: Text(
                               tr(title),
                               style: const TextStyle(
-                                fontSize: 17,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -769,7 +770,7 @@ class PosMobileExpandableDocCard extends StatelessWidget {
                           style: TextStyle(
                             color: accentColor,
                             fontWeight: FontWeight.w600,
-                            fontSize: 15,
+                            fontSize: 16,
                           ),
                         ),
                       ),
@@ -787,7 +788,7 @@ class PosMobileExpandableDocCard extends StatelessWidget {
           if (expanded && detail != null)
             Container(
               width: double.infinity,
-              color: const Color(0xFFF8FAFC),
+              color: SboxColors.slate50,
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: detail,
             ),
@@ -1332,7 +1333,7 @@ class PosMobileProductRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: SizedBox(
                   width: 44,
                   height: 44,
@@ -1421,7 +1422,7 @@ class PosMobileProductRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: PosTheme.kiotBlue,
                       ),
@@ -1466,8 +1467,8 @@ class PosMobileProductRow extends StatelessWidget {
     final child = Container(
       padding: const EdgeInsets.fromLTRB(6, 1, 2, 1),
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFFDBEAFE) : const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(5),
+        color: selected ? SboxColors.brand100 : SboxColors.brand50,
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: PosTheme.kiotBlue.withOpacity(0.35),
         ),
@@ -1479,7 +1480,7 @@ class PosMobileProductRow extends StatelessWidget {
             tr(label),
             style: const TextStyle(
               fontSize: 11,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               height: 1.15,
               color: PosTheme.kiotBlue,
             ),
@@ -1516,10 +1517,10 @@ class PosMobileProductRow extends StatelessWidget {
             : qty.toStringAsFixed(1));
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: PosTheme.kiotBlue.withOpacity(0.35)),
         ),
         child: Row(
@@ -1569,7 +1570,7 @@ class PosMobileProductRow extends StatelessWidget {
   }) {
     return InkWell(
       onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: SizedBox(
         width: 32,
         height: 32,
@@ -1586,7 +1587,7 @@ class PosMobileProductRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: SboxColors.slate100,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

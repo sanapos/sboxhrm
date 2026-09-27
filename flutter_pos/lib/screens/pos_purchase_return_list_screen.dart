@@ -21,7 +21,8 @@ import 'pos_purchase_return_editor_screen.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 class PosPurchaseReturnListScreen extends StatefulWidget {
   const PosPurchaseReturnListScreen({super.key});
@@ -576,9 +577,9 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: SboxColors.slate50,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         children: [
@@ -644,14 +645,14 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
             onTap: () => _toggleExpand(r),
             hoverColor: r.status == 'Cancelled'
                 ? Colors.red.shade50
-                : const Color(0xFFF1F5F9),
+                : SboxColors.slate100,
             child: Container(
               color: posDocRowBackground(r.status),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                      color: expanded ? Colors.grey.shade200 : Colors.transparent),
+                      color: expanded ? SboxColors.slate200 : Colors.transparent),
                 ),
               ),
               child: Row(
@@ -728,7 +729,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
     final r = _expandedDetail ?? summary;
 
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: SboxColors.slate50,
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -858,7 +859,7 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
 
   Widget _meta(String label, String value) => RichText(
         text: TextSpan(
-          style: const TextStyle(fontSize: 12, color: Colors.black87),
+          style: const TextStyle(fontSize: 12, color: SboxColors.text),
           children: [
             TextSpan(
                 text: tr('$label: '),

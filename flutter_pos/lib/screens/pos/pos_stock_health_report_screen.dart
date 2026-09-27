@@ -7,6 +7,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Cháy hàng / chậm / chết tồn.
 class PosStockHealthReportScreen extends StatefulWidget {
   const PosStockHealthReportScreen({super.key});
@@ -60,7 +61,7 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
   Color _statusColor(String? s) => switch (s) {
         'hot' => Colors.red.shade700,
         'slow' => const Color(0xFFCA8A04),
-        'dead' => const Color(0xFF64748B),
+        'dead' => SboxColors.slate500,
         _ => PosTheme.textSecondary,
       };
 

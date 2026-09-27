@@ -10,6 +10,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Menu riêng QR bàn / đặt online — chọn món từ catalog, giá tuỳ chỉnh.
 class PosQrMenuScreen extends StatefulWidget {
   const PosQrMenuScreen({super.key});
@@ -378,13 +379,13 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
             children: [
               Text(tr('Giá bán QR / online'),
                   style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 16)),
+                      fontWeight: FontWeight.w700, fontSize: 16)),
               const SizedBox(height: 6),
               Text(item.name,
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               Text(
                 tr('Giá cửa hàng: ${_money.format(item.storePrice)} đ'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -393,7 +394,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.w800),
+                    fontSize: 22, fontWeight: FontWeight.w700),
                 decoration: InputDecoration(
                   labelText: tr('Giá bán QR'),
                   hintText: tr('Trống = dùng giá cửa hàng'),
@@ -500,7 +501,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade600),
+                          fontSize: 11, color: SboxColors.slate600),
                     ),
                   ],
                 ),
@@ -512,7 +513,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                   child: Text(tr('${_money.format(sell)}đ'),
                     style: TextStyle(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: 13,
                       color:
                           diff ? Colors.orange.shade800 : PosTheme.kiotBlue,
@@ -653,7 +654,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                         child: Center(
                           child: Text(
                             tr('Chưa có món — bấm «Thêm món»'),
-                            style: TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(color: SboxColors.slate600),
                           ),
                         ),
                       )
@@ -663,7 +664,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                         child: Center(
                           child: Text(
                             tr('Không có món trong nhóm này'),
-                            style: TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(color: SboxColors.slate600),
                           ),
                         ),
                       )
@@ -680,7 +681,7 @@ class _PosQrMenuScreenState extends State<PosQrMenuScreen> {
                             for (var i = 0; i < visible.length; i++) ...[
                               if (i > 0)
                                 Divider(
-                                    height: 1, color: Colors.grey.shade200),
+                                    height: 1, color: SboxColors.slate200),
                               _compactItemRow(visible[i]),
                             ],
                           ],

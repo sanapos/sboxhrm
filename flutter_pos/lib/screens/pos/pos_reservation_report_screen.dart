@@ -7,6 +7,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Đặt chỗ / cọc theo kỳ.
 class PosReservationReportScreen extends StatefulWidget {
   const PosReservationReportScreen({super.key});
@@ -133,7 +134,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                     tiles: [
                       (label: 'Đang giữ', value: _n(_data?['depositHeld']), color: const Color(0xFF0F766E)),
                       (label: 'Đã trừ HĐ', value: _n(_data?['depositApplied']), color: PosTheme.kiotBlue),
-                      (label: 'Hoàn cọc', value: _n(_data?['depositRefunded']), color: const Color(0xFF7C3AED)),
+                      (label: 'Hoàn cọc', value: _n(_data?['depositRefunded']), color: SboxColors.violet),
                       (label: 'Phạt / mất', value: _n(_data?['depositForfeited']), color: Colors.red.shade700),
                     ],
                   ),
@@ -201,7 +202,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                 if (req.isNotEmpty) req,
                 if (note.isNotEmpty) note,
               ].join(' · ')),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF7C3AED)),
+              style: const TextStyle(fontSize: 12, color: SboxColors.violet),
             ),
           ),
       ],

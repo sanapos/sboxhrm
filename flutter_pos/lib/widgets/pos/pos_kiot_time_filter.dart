@@ -6,7 +6,8 @@ import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 import 'package:sbox_pos/l10n/app_ui_locale.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 /// Bộ lọc thời gian sidebar kiểu KiotViet: preset popover + tùy chỉnh.
 class PosKiotTimeFilter extends StatelessWidget {
@@ -90,7 +91,7 @@ class PosKiotTimeFilter extends StatelessWidget {
                   ),
                 ),
                 Icon(Icons.keyboard_arrow_down,
-                    size: 18, color: Colors.grey.shade600),
+                    size: 18, color: SboxColors.slate600),
               ],
             ),
           ),
@@ -114,7 +115,7 @@ class PosKiotTimeFilter extends StatelessWidget {
                   child: Text(tr('Tùy chỉnh'), style: TextStyle(fontSize: 13)),
                 ),
                 Icon(Icons.calendar_today_outlined,
-                    size: 16, color: Colors.grey.shade600),
+                    size: 16, color: SboxColors.slate600),
               ],
             ),
           ),
@@ -224,7 +225,7 @@ class _PosKiotTimePresetDialog extends StatelessWidget {
             return Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Material(
-                color: active ? _blue : const Color(0xFFF1F5F9),
+                color: active ? _blue : SboxColors.slate100,
                 borderRadius: BorderRadius.circular(20),
                 child: InkWell(
                   onTap: () => Navigator.pop(context, p),

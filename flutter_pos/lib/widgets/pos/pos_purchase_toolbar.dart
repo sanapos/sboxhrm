@@ -8,6 +8,7 @@ import '../../l10n/app_tr.dart';
 
 
 
+import '../../theme/sbox_tokens.dart';
 /// Sidebar lọc kiểu KiotViet cho màn nhập/trả hàng NCC.
 
 class PosPurchaseFilterPanel extends StatelessWidget {
@@ -42,7 +43,7 @@ class PosPurchaseFilterPanel extends StatelessWidget {
 
         color: Colors.white,
 
-        border: Border(right: BorderSide(color: Colors.grey.shade200)),
+        border: Border(right: BorderSide(color: SboxColors.slate200)),
 
       ),
 

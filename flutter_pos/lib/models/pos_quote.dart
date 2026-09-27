@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../utils/pos_area_dims.dart';
 
+import '../theme/sbox_tokens.dart';
 class PosQuoteLine {
   PosQuoteLine({
     this.id = '',
@@ -247,14 +248,14 @@ class PosQuote {
       status == 'Accepted' && commercialStage == 'Inspected';
 
   static Color statusColor(String s) => switch (s) {
-        'Draft' => const Color(0xFF64748B),
-        'Sent' => const Color(0xFF2563EB),
-        'Revised' => const Color(0xFFD97706),
-        'Accepted' => const Color(0xFF15803D),
-        'Rejected' => const Color(0xFFDC2626),
+        'Draft' => SboxColors.slate500,
+        'Sent' => SboxColors.brand600,
+        'Revised' => SboxColors.warning,
+        'Accepted' => SboxColors.payHover,
+        'Rejected' => SboxColors.danger,
         'Expired' => const Color(0xFF9A3412),
-        'Cancelled' => const Color(0xFF71717A),
-        _ => const Color(0xFF334155),
+        'Cancelled' => SboxColors.slate500,
+        _ => SboxColors.slate700,
       };
 
   static String statusLabel(String s) => switch (s) {
@@ -420,9 +421,9 @@ class PosQuoteActivity {
       '[[TN:$score]] ${text.trim()}';
 
   static Color scoreColor(int score) {
-    if (score <= 3) return const Color(0xFFDC2626);
-    if (score <= 6) return const Color(0xFFD97706);
-    return const Color(0xFF15803D);
+    if (score <= 3) return SboxColors.danger;
+    if (score <= 6) return SboxColors.warning;
+    return SboxColors.payHover;
   }
 
   static String kindLabel(String k) => switch (k) {

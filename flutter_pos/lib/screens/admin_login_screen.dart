@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
 
@@ -219,7 +220,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF7C3AED).withOpacity(0.12),
+                    SboxColors.violet.withOpacity(0.12),
                     Colors.transparent
                   ],
                 ),
@@ -309,11 +310,11 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 14, vertical: 12),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF7C3AED)
+                                        color: SboxColors.violet
                                             .withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(14),
                                         border: Border.all(
-                                            color: const Color(0xFF7C3AED)
+                                            color: SboxColors.violet
                                                 .withOpacity(0.2)),
                                       ),
                                       child: Row(
@@ -345,12 +346,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                       Container(
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFF16A34A)
+                                          color: SboxColors.success
                                               .withOpacity(0.12),
                                           borderRadius:
-                                              BorderRadius.circular(12),
+                                              BorderRadius.circular(14),
                                           border: Border.all(
-                                              color: const Color(0xFF16A34A)
+                                              color: SboxColors.success
                                                   .withOpacity(0.35)),
                                         ),
                                         child: Row(
@@ -377,12 +378,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                       Container(
                                         padding: const EdgeInsets.all(14),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFDC2626)
+                                          color: SboxColors.danger
                                               .withOpacity(0.12),
                                           borderRadius:
-                                              BorderRadius.circular(12),
+                                              BorderRadius.circular(14),
                                           border: Border.all(
-                                              color: const Color(0xFFDC2626)
+                                              color: SboxColors.danger
                                                   .withOpacity(0.35)),
                                         ),
                                         child: Row(
@@ -516,7 +517,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                                     .resolveWith(
                                                   (s) => s.contains(
                                                           WidgetState.selected)
-                                                      ? const Color(0xFF7C3AED)
+                                                      ? SboxColors.violet
                                                       : Colors.transparent,
                                                 ),
                                                 shape: RoundedRectangleBorder(
@@ -544,12 +545,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                           gradient: LinearGradient(
                                             colors: _isSetupMode
                                                 ? [
-                                                    const Color(0xFF16A34A),
-                                                    const Color(0xFF15803D)
+                                                    SboxColors.success,
+                                                    SboxColors.payHover
                                                   ]
                                                 : [
-                                                    const Color(0xFF7C3AED),
-                                                    const Color(0xFF6D28D9)
+                                                    SboxColors.violet,
+                                                    SboxColors.violetText
                                                   ],
                                           ),
                                           borderRadius:
@@ -557,8 +558,8 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
                                           boxShadow: [
                                             BoxShadow(
                                               color: (_isSetupMode
-                                                      ? const Color(0xFF16A34A)
-                                                      : const Color(0xFF7C3AED))
+                                                      ? SboxColors.success
+                                                      : SboxColors.violet)
                                                   .withOpacity(0.35),
                                               blurRadius: 18,
                                               offset: const Offset(0, 6),
@@ -694,12 +695,12 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF7C3AED), Color(0xFF5B21B6)],
+              colors: [SboxColors.violet, SboxColors.violetText],
             ),
             borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF7C3AED).withOpacity(0.35),
+                color: SboxColors.violet.withOpacity(0.35),
                 blurRadius: 28,
                 offset: const Offset(0, 8),
               ),
@@ -713,7 +714,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
           tr('SBOX POS'),
           style: TextStyle(
             fontSize: 34,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: Colors.white,
             letterSpacing: 2.5,
           ),
@@ -722,7 +723,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
         Text(tr('Quản trị hệ thống'),
           style: TextStyle(
             color: Colors.white54,
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w500,
             letterSpacing: 0.5,
           ),
@@ -745,7 +746,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen>
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscure,
-      style: const TextStyle(color: Colors.white, fontSize: 15),
+      style: const TextStyle(color: Colors.white, fontSize: 16),
       validator: validator,
       decoration: InputDecoration(
         labelText: tr(label),

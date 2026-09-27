@@ -27,7 +27,11 @@ class ThemeProvider extends ChangeNotifier {
     _loadPreferences();
   }
 
-  bool get isDarkMode => _isDarkMode;
+  /// Chế độ tối chưa sẵn sàng: nhiều màn còn màu sáng cố định (SboxColors const).
+  /// Bật lại khi các màn đã chuyển sang màu theo Theme.
+  static const bool darkModeAvailable = false;
+
+  bool get isDarkMode => darkModeAvailable && _isDarkMode;
   Locale get locale => _locale;
   String get languageLabel =>
       _locale.languageCode == 'vi' ? 'Tiếng Việt' : 'English';

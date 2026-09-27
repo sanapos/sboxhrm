@@ -7,6 +7,7 @@ import '../../utils/pos_vietqr_helper.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 
 /// Hiển thị mã VietQR động theo số tiền.
@@ -79,7 +80,7 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.orange.shade50,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.orange.shade200),
         ),
         child: Text(tr('Chưa có tài khoản ngân hàng. Vào Thiết lập cửa hàng để thêm.'),
@@ -111,7 +112,7 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
               ),
               Text(tr('${_money.format(widget.amount)} đ'),
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: _kiotBlue,
                 ),
@@ -153,11 +154,11 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
             const SizedBox(height: 6),
             Text(
               tr('${acc.bankShortName ?? acc.bankName} · ${acc.accountNumber}'),
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 11, color: SboxColors.slate700),
             ),
             Text(
               tr(acc.accountName),
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 11, color: SboxColors.slate600),
             ),
           ],
           const SizedBox(height: 10),
@@ -172,8 +173,8 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: SboxColors.slate300),
                     ),
                     child: CachedNetworkImage(
                       imageUrl: _qrUrl!,
@@ -204,7 +205,7 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
             const SizedBox(height: 8),
             Text(tr('Nội dung: ${widget.description!.trim()}'),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 11, color: SboxColors.slate700),
             ),
           ],
         ],

@@ -17,6 +17,7 @@ import '../../widgets/pos/pos_sell_fee_defaults_fields.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Thiết lập cửa hàng / VAT / phụ phí — dùng trong Settings hub.
 class PosStoreSettingsHubScreen extends StatefulWidget {
   const PosStoreSettingsHubScreen({super.key});
@@ -319,7 +320,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           const SizedBox(height: 8),
           Text(
             tr('QR thanh toán tại quầy nằm ở Cổng thanh toán. TK in trên báo giá / hợp đồng điền ở khối công ty bên dưới.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const Divider(height: 28),
           PosCommercialCompanyFields(
@@ -344,7 +345,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           const SizedBox(height: 4),
           Text(
             tr('Ảnh này in ở góc đầu báo giá. JPG hoặc PNG, dưới 700 KB.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const SizedBox(height: 8),
           Row(
@@ -355,12 +356,12 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade400),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: SboxColors.slate400),
                 ),
                 child: _logoBytes == null
                     ? Icon(Icons.image_outlined,
-                        color: Colors.grey.shade400, size: 36)
+                        color: SboxColors.slate400, size: 36)
                     : Padding(
                         padding: const EdgeInsets.all(6),
                         child: Image.memory(_logoBytes!, fit: BoxFit.contain),
@@ -405,7 +406,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           const SizedBox(height: 4),
           Text(
             tr('Ảnh PNG nền trong suốt. Khi in báo giá, dấu tự treo lên chữ ký đại diện công ty.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const SizedBox(height: 8),
           Row(
@@ -417,12 +418,12 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade400),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: SboxColors.slate400),
                 ),
                 child: _stampBytes == null
                     ? Icon(Icons.verified_outlined,
-                        color: Colors.grey.shade400, size: 36)
+                        color: SboxColors.slate400, size: 36)
                     : Padding(
                         padding: const EdgeInsets.all(6),
                         child: Image.memory(_stampBytes!, fit: BoxFit.contain),
@@ -466,7 +467,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           const SizedBox(height: 4),
           Text(
             tr('In khi báo giá không có điều khoản riêng. Ghi chú trên phiếu vẫn là ghi chú của báo giá đó.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -497,7 +498,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
           const SizedBox(height: 4),
           Text(
             tr('Bật để thu ngân nhập trên màn thanh toán. Tắt thì không hiện.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

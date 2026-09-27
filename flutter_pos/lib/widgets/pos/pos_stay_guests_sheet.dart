@@ -4,6 +4,7 @@ import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../notification_overlay.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Khách lưu trú của một lượt nhận phòng (khách sạn) — thông tin khai báo tạm trú.
 Future<void> showPosStayGuestsSheet(
   BuildContext context, {
@@ -98,7 +99,7 @@ class _StayGuestsSheetState extends State<_StayGuestsSheet> {
             children: [
               Expanded(
                 child: Text('${tr('Khách lưu trú')} · ${widget.roomLabel}',
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
               ),
               FilledButton.icon(
                 onPressed: () => _edit(),
@@ -109,7 +110,7 @@ class _StayGuestsSheetState extends State<_StayGuestsSheet> {
           ),
           const SizedBox(height: 4),
           Text(tr('Dùng khai báo tạm trú — xem / xuất Excel ở «Sổ khách lưu trú».'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
           const SizedBox(height: 8),
           if (_loading)
             const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
@@ -141,7 +142,7 @@ class _StayGuestsSheetState extends State<_StayGuestsSheet> {
                         onTap: () => _edit(g),
                         trailing: IconButton(
                           tooltip: tr('Xóa'),
-                          icon: const Icon(Icons.delete_outline, color: Color(0xFFB91C1C)),
+                          icon: const Icon(Icons.delete_outline, color: SboxColors.dangerText),
                           onPressed: () => _delete(g),
                         ),
                       ),

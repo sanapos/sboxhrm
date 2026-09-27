@@ -12,6 +12,7 @@ import '../services/signalr_service.dart';
 import '../utils/notification_display_utils.dart';
 import '../widgets/pos/pos_theme.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Danh sách thông báo hệ thống cho app POS (độc lập, không phụ thuộc MainLayout HRM).
 class PosNotificationsScreen extends StatefulWidget {
   const PosNotificationsScreen({super.key});
@@ -329,7 +330,7 @@ class _PosNotificationsScreenState extends State<PosNotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: SboxColors.slate100,
       appBar: AppBar(
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
@@ -442,7 +443,7 @@ class _PosNotificationsScreenState extends State<PosNotificationsScreen> {
             'type': n.type.index,
           });
           final card = Material(
-            color: n.isRead ? Colors.white : const Color(0xFFEFF6FF),
+            color: n.isRead ? Colors.white : SboxColors.brand50,
             borderRadius: BorderRadius.circular(10),
             child: InkWell(
               borderRadius: BorderRadius.circular(10),

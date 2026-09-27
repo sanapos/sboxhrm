@@ -4,6 +4,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Hàng chip ngang: kéo được + mũi tên «xem thêm» khi tràn.
 class PosHScrollChipRow extends StatefulWidget {
   const PosHScrollChipRow({
@@ -84,7 +85,7 @@ class _PosHScrollChipRowState extends State<PosHScrollChipRow> {
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = widget.iconColor ?? const Color(0xFF64748B);
+    final iconColor = widget.iconColor ?? SboxColors.slate500;
     return SizedBox(
       height: widget.height,
       child: Row(

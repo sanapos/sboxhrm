@@ -10,6 +10,7 @@ import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class PosVouchersScreen extends StatefulWidget {
   const PosVouchersScreen({super.key});
 
@@ -223,7 +224,7 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
                             ),
                             trailing: Icon(
                               v.isActive ? Icons.check_circle : Icons.cancel,
-                              color: v.isActive ? Colors.green : Colors.grey,
+                              color: v.isActive ? Colors.green : SboxColors.slate500,
                             ),
                           ),
                         );

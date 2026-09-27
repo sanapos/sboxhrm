@@ -271,7 +271,7 @@ class PosKitchenDirectConnect {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Text(tr('Chọn máy in bếp USB'),
                     style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 16)),
+                        fontWeight: FontWeight.w700, fontSize: 16)),
               ),
               Expanded(
                 child: ListView(

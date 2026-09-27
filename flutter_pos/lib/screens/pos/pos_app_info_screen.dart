@@ -85,7 +85,7 @@ class _PosAppInfoScreenState extends State<PosAppInfoScreen> {
                   child: Text(
                     tr(_content),
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       height: 1.6,
                       color: PosTheme.textPrimary,
                     ),

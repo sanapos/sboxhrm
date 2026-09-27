@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'pos/pos_theme.dart';
 import '../l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Nhận diện thương hiệu dùng chung HRM + POS.
 abstract final class SboxBrand {
   static const productLine = 'SBOX POS';
@@ -43,7 +44,7 @@ class SboxHrmBrandMark extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF0070F4), Color(0xFF0056C7)],
+              colors: [Color(0xFF0070F4), SboxColors.brand700],
             ),
             borderRadius: BorderRadius.circular(radius),
             boxShadow: [
@@ -65,7 +66,7 @@ class SboxHrmBrandMark extends StatelessWidget {
                   height: logoSize * 0.16,
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.22),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
@@ -83,7 +84,7 @@ class SboxHrmBrandMark extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: logoSize * 0.15,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: 1.4,
                       height: 1,
                     ),
@@ -102,7 +103,7 @@ class SboxHrmBrandMark extends StatelessWidget {
             style: TextStyle(
               color: titleColor,
               fontSize: (logoSize * 0.20).clamp(16.0, 22.0),
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               letterSpacing: 0.2,
               height: 1.25,
             ),
@@ -137,7 +138,7 @@ class SboxBrandLockup extends StatelessWidget {
     this.showSlogan = true,
     this.titleSize = 18,
     this.sloganSize = 11,
-    this.titleColor = const Color(0xFF0C56D0),
+    this.titleColor = SboxColors.brand600,
     this.sloganColor,
     this.alignment = MainAxisAlignment.start,
     this.expandText = true,
@@ -168,7 +169,7 @@ class SboxBrandLockup extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: titleSize,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: titleColor,
             letterSpacing: -0.2,
             height: 1.15,
@@ -195,7 +196,7 @@ class SboxBrandLockup extends StatelessWidget {
       mainAxisSize: expandText ? MainAxisSize.max : MainAxisSize.min,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: Image.asset(
             'assets/sbox_pos_logo.png',
             height: logoSize * 1.15,

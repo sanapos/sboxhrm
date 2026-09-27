@@ -157,7 +157,13 @@ def process(path, dry):
 
 
 def main(argv):
+    global LIB, TOKENS
     dry = '--dry' in argv
+    for a in argv:
+        # --lib=<thư mục lib> để chạy cho app khác (vd flutter_pos/lib)
+        if a.startswith('--lib='):
+            LIB = os.path.abspath(a[len('--lib='):])
+            TOKENS = os.path.join(LIB, 'theme', 'sbox_tokens.dart')
     files = [a for a in argv if not a.startswith('--')]
     total = {'color': 0, 'material': 0, 'font': 0, 'weight': 0, 'radius': 0}
     for f in files:

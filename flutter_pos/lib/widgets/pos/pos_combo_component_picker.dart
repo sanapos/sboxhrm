@@ -7,6 +7,7 @@ import '../../utils/pos_qty_rules.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Chọn hàng thành phần combo — tìm kiếm + phân trang API.
 class PosComboComponentPicker extends StatefulWidget {
   const PosComboComponentPicker({
@@ -119,7 +120,7 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
                 prefixIcon: const Icon(Icons.search, size: 20),
                 isDense: true,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               onSubmitted: _load,
@@ -157,7 +158,7 @@ class _PosComboComponentPickerState extends State<PosComboComponentPicker> {
                                     ? 'Chưa có NVL — tạo loại Nguyên vật liệu'
                                     : 'Không có hàng hóa')
                                 : 'Không tìm thấy "$_query"'),
-                            style: TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(color: SboxColors.slate600),
                           ),
                         )
                       : ListView.separated(
@@ -211,7 +212,7 @@ Future<double?> showComboComponentQtyDialog(
         children: [
           Text(
             tr('Số lượng trừ kho khi bán 1 combo. Có thể lẻ (0.5, 0.05 kg…).'),
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 13, color: SboxColors.slate700),
           ),
           const SizedBox(height: 12),
           TextField(

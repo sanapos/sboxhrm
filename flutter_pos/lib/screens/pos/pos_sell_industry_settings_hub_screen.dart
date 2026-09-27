@@ -20,6 +20,7 @@ import 'pos_resource_floor_screen.dart';
 import 'pos_sell_industry_settings_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Hub tách «Ngành hàng & bán hàng» thành các nhóm chức năng.
 class PosSellIndustrySettingsHubScreen extends StatefulWidget {
   const PosSellIndustrySettingsHubScreen({
@@ -85,7 +86,7 @@ class _PosSellIndustrySettingsHubScreenState
             padding: const EdgeInsets.only(bottom: 12),
             child: Material(
               color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               child: Padding(
                 padding: const EdgeInsets.all(10),
                 child: Text(
@@ -97,7 +98,7 @@ class _PosSellIndustrySettingsHubScreenState
           ),
         Text(
           tr('Chọn nhóm thiết lập'),
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 13, color: SboxColors.slate600),
         ),
         const SizedBox(height: 12),
         _tile(
@@ -274,8 +275,8 @@ class _PosSellIndustrySettingsHubScreenState
       elevation: 0,
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: SboxColors.slate200),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -284,9 +285,9 @@ class _PosSellIndustrySettingsHubScreenState
           child: Icon(icon, color: PosTheme.kiotBlue, size: 22),
         ),
         title: Text(tr(title),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         subtitle: Text(tr(subtitle),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
       ),

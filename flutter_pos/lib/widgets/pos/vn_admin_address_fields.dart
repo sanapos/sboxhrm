@@ -135,7 +135,7 @@ class _VnAdminAddressFieldsState extends State<VnAdminAddressFields> {
       children: [
         InkWell(
           onTap: widget.enabled ? _pickProvince : null,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: InputDecorator(
             decoration: _dec('Tỉnh/TP'),
             child: Text(
@@ -152,7 +152,7 @@ class _VnAdminAddressFieldsState extends State<VnAdminAddressFields> {
         SizedBox(height: widget.dense ? 6 : 12),
         InkWell(
           onTap: widget.enabled ? _pickWard : null,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: InputDecorator(
             decoration: _dec('Phường/Xã'),
             child: Text(

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Bảng xem sổ HKD trên màn hình (JSON preview) — không cần tải Excel.
 class HkdBookPreviewPanel extends StatefulWidget {
   const HkdBookPreviewPanel({
@@ -126,7 +127,7 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Text(
           tr('Chọn sổ và kỳ dữ liệu để xem chi tiết trên màn hình.'),
-          style: const TextStyle(color: Color(0xFF71717A)),
+          style: const TextStyle(color: SboxColors.slate500),
         ),
       );
     }
@@ -165,7 +166,7 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
                   if (period.isNotEmpty)
                     Text(period,
                         style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF71717A))),
+                            fontSize: 12, color: SboxColors.slate500)),
                 ],
               ),
             ),
@@ -195,21 +196,21 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
                 decoration: BoxDecoration(
                   color: widget.accent.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  border: Border.all(color: SboxColors.slate200),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(tr(label),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF71717A))),
+                            fontSize: 11, color: SboxColors.slate500)),
                     const SizedBox(height: 2),
                     Text(
                       isCount
                           ? _money.format(value.round())
                           : _money.format(value),
                       style: TextStyle(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         fontSize: 16,
                         color: widget.accent,
                       ),
@@ -225,8 +226,8 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.circular(8),
+              color: SboxColors.warningSoft,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               tr(note ?? 'Đang xem một phần dữ liệu. Xuất Excel để xem đủ.'),
@@ -250,7 +251,7 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
           tr(allRows.length == totalCount
               ? '${allRows.length} dòng'
               : '${allRows.length} / $totalCount dòng'),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
         ),
         const SizedBox(height: 8),
         if (rows.isEmpty)
@@ -260,7 +261,7 @@ class _HkdBookPreviewPanelState extends State<HkdBookPreviewPanel> {
               tr(_searchCtrl.text.trim().isEmpty
                   ? 'Không có phát sinh trong kỳ đã chọn.'
                   : 'Không khớp từ khóa tìm kiếm.'),
-              style: const TextStyle(color: Color(0xFF71717A)),
+              style: const TextStyle(color: SboxColors.slate500),
             ),
           )
         else ...[

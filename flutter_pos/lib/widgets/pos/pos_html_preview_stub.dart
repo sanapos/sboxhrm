@@ -10,6 +10,7 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../utils/pos_print_template_defaults.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Render HTML mẫu in (kèm bảng — flutter_html 3 tách table ra extension).
 Widget buildPosRenderedHtml(
   String html, {
@@ -41,7 +42,7 @@ Widget buildPosRenderedHtml(
       ),
       'h2': Style(
         fontSize: FontSize(18),
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         textAlign: TextAlign.center,
         alignment: Alignment.center,
         width: Width(100, Unit.percent),
@@ -49,12 +50,12 @@ Widget buildPosRenderedHtml(
       ),
       'h3': Style(
         fontSize: FontSize(14),
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         textAlign: TextAlign.left,
         margin: Margins.only(bottom: 2),
       ),
-      'b': Style(fontWeight: FontWeight.w800),
-      'strong': Style(fontWeight: FontWeight.w800),
+      'b': Style(fontWeight: FontWeight.w700),
+      'strong': Style(fontWeight: FontWeight.w700),
       'table': Style(
         width: Width(100, Unit.percent),
         fontSize: FontSize(tableFontSize),
@@ -67,7 +68,7 @@ Widget buildPosRenderedHtml(
       'th': Style(
         padding: HtmlPaddings.symmetric(horizontal: 6, vertical: 5),
         fontSize: FontSize(tableFontSize),
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         textAlign: TextAlign.center,
       ),
       'td': Style(
@@ -208,7 +209,7 @@ class PosA4PaginatedSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFFE5E7EB),
+      color: SboxColors.slate200,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final availW =
@@ -267,7 +268,7 @@ class _A4PageMarksPainter extends CustomPainter {
     if (pageHeight <= 0 || size.height <= 0) return;
     final pages = math.max(1, (size.height / pageHeight).ceil());
     final line = Paint()
-      ..color = const Color(0xFF9CA3AF)
+      ..color = SboxColors.slate400
       ..strokeWidth = 1;
     for (var i = 1; i < pages; i++) {
       final y = i * pageHeight;
@@ -278,7 +279,7 @@ class _A4PageMarksPainter extends CustomPainter {
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF6B7280),
+            color: SboxColors.slate500,
             backgroundColor: Color(0xE6FFFFFF),
           ),
         ),
@@ -293,7 +294,7 @@ class _A4PageMarksPainter extends CustomPainter {
           style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: Color(0xFF6B7280),
+            color: SboxColors.slate500,
             backgroundColor: Color(0xE6FFFFFF),
           ),
         ),
@@ -414,7 +415,7 @@ class _PosA4ZoomablePreviewState extends State<PosA4ZoomablePreview> {
               ),
               Text(label,
                   style: const TextStyle(
-                      fontWeight: FontWeight.w800, fontSize: 13)),
+                      fontWeight: FontWeight.w700, fontSize: 13)),
               IconButton(
                 tooltip: tr('Phóng to'),
                 visualDensity: VisualDensity.compact,
@@ -465,7 +466,7 @@ Widget buildPosHtmlPreview(String htmlDocument, {bool? a4Paper}) {
             width: paperW,
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: SboxColors.slate300),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x14000000),
@@ -661,7 +662,7 @@ class _PosHtmlTableView extends StatelessWidget {
 
     final bordered = table.outerHtml.contains('border:1px') ||
         table.outerHtml.contains('border: 1px');
-    final headerBg = const Color(0xFFF3F4F6);
+    final headerBg = SboxColors.slate100;
     final bodyRows = <dynamic>[];
     final footRows = <dynamic>[];
     for (final row in allRows) {
@@ -746,7 +747,7 @@ class _PosHtmlTableView extends StatelessWidget {
     final right = cells.length > 1 ? cells.last : null;
     final box = BoxDecoration(
       color: (row.attributes['style'] ?? '').contains('background')
-          ? const Color(0xFFF8FAFC)
+          ? SboxColors.slate50
           : null,
       border: bordered
           ? const Border(
@@ -843,13 +844,13 @@ class _PosHtmlTableView extends StatelessWidget {
             ),
             'h2': Style(
               fontSize: FontSize(18),
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               textAlign: TextAlign.center,
               margin: Margins.symmetric(vertical: 4),
             ),
             'h3': Style(
               fontSize: FontSize(14),
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               textAlign: TextAlign.left,
               margin: Margins.only(bottom: 2),
             ),
@@ -858,8 +859,8 @@ class _PosHtmlTableView extends StatelessWidget {
               padding: HtmlPaddings.zero,
               fontSize: FontSize(13),
             ),
-            'b': Style(fontWeight: FontWeight.w800),
-            'strong': Style(fontWeight: FontWeight.w800),
+            'b': Style(fontWeight: FontWeight.w700),
+            'strong': Style(fontWeight: FontWeight.w700),
             'i': Style(fontStyle: FontStyle.italic),
             'p': Style(margin: Margins.zero),
           },
@@ -882,7 +883,7 @@ class _PosHtmlTableView extends StatelessWidget {
       overflow: nowrap ? TextOverflow.clip : TextOverflow.visible,
       style: TextStyle(
         fontSize: fs,
-        fontWeight: bold ? FontWeight.w800 : FontWeight.w400,
+        fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
         height: 1.3,
         color: Colors.black,
       ),

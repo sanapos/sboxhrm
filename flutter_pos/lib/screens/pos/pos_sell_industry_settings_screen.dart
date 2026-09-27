@@ -12,6 +12,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Thiết lập hồ sơ ngành / tài nguyên (tách khỏi màn phụ & hủy-trả).
 ///
 /// [section]: `profile` | `resources` | `all` (legacy).
@@ -347,7 +348,7 @@ class _PosSellIndustrySettingsScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: SboxColors.slate300),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
@@ -386,7 +387,7 @@ class _PosSellIndustrySettingsScreenState
                 tr('Đến trước ${PosHotelStayPolicy.fmt(h.earlyHalfFromMinute)} tính đêm hôm trước; '
                     'đến sớm trước giờ nhận +½ đêm; trả sau giờ trả đến '
                     '${PosHotelStayPolicy.fmt(h.lateHalfUntilMinute)} +½ đêm, sau đó +1 đêm.'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
               ),
             ],
           ],
@@ -405,7 +406,7 @@ class _PosSellIndustrySettingsScreenState
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: SboxColors.slate300),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
@@ -480,14 +481,14 @@ class _PosSellIndustrySettingsScreenState
           Text(
             tr('Tên ngành quyết định giao diện bán: hàng hóa hay sơ đồ, '
                 'bàn/ghế/phòng, báo bếp, tính giờ, gói buổi.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const SizedBox(height: 10),
           ...PosSellProfile.values.map((p) => _profileCard(p, s.sellProfile)),
           const SizedBox(height: 8),
           Text(
             tr('Đổi ngành sẽ lưu ngay và bật sẵn cấu hình mặc định của ngành đó.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const Divider(height: 28),
           Text(tr('Chế độ bán mặc định'),
@@ -577,7 +578,7 @@ class _PosSellIndustrySettingsScreenState
             tr(s.sellProfile.usesFloorPlan
                 ? 'Công tắc tự lưu khi đổi. Thuật ngữ theo ngành: ${s.sellProfile.resourceNoun}.'
                 : 'Bán lẻ / gym không dùng sơ đồ. Bật tạm tính để in hóa đơn chưa thu tiền.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const SizedBox(height: 8),
           SwitchListTile(
@@ -826,7 +827,7 @@ class _PosSellIndustrySettingsScreenState
           ),
           const Divider(height: 24),
           Text(tr('Báo cáo & cuối ngày'),
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 4),
           Text(
             tr(
@@ -835,7 +836,7 @@ class _PosSellIndustrySettingsScreenState
               'đơn 01:00 sáng vẫn thuộc ngày KD hôm trước. '
               'Báo cáo doanh thu, cuối ngày và danh sách ca thu ngân dùng cùng giờ này.',
             ),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.4),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate700, height: 1.4),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -914,7 +915,7 @@ class _PosSellIndustrySettingsScreenState
               children: [
                 Icon(
                   _profileIcon(p),
-                  color: on ? PosTheme.kiotBlue : Colors.grey.shade600,
+                  color: on ? PosTheme.kiotBlue : SboxColors.slate600,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -924,7 +925,7 @@ class _PosSellIndustrySettingsScreenState
                       Text(
                         tr(p.label),
                         style: TextStyle(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 14,
                           color: on ? PosTheme.kiotBlue : PosTheme.textPrimary,
                         ),
@@ -934,7 +935,7 @@ class _PosSellIndustrySettingsScreenState
                         tr(p.description),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade700,
+                          color: SboxColors.slate700,
                           height: 1.3,
                         ),
                       ),
@@ -950,7 +951,7 @@ class _PosSellIndustrySettingsScreenState
                               decoration: BoxDecoration(
                                 color: on
                                     ? Colors.white
-                                    : const Color(0xFFF1F5F9),
+                                    : SboxColors.slate100,
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Text(
@@ -960,7 +961,7 @@ class _PosSellIndustrySettingsScreenState
                                   fontWeight: FontWeight.w600,
                                   color: on
                                       ? PosTheme.kiotBlue
-                                      : Colors.grey.shade700,
+                                      : SboxColors.slate700,
                                 ),
                               ),
                             ),

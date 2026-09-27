@@ -28,6 +28,7 @@ import 'pos_hub_scope.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 const _blue = PosTheme.kiotBlue;
 
 /// Thiết lập in + máy in nhiệt — giao diện mobile full-screen.
@@ -194,12 +195,12 @@ class _PosSellMobilePrintSettingsScreenState
               child: Text(
                 tr('Máy in hóa đơn cloud'),
                 style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.w600),
+                    fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
             Text(
               tr('Máy khác (A7/web) gửi hóa đơn và tạm tính về máy này.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
             const SizedBox(height: 8),
             ...printers.map((p) {
@@ -331,7 +332,7 @@ class _PosSellMobilePrintSettingsScreenState
               padding: const EdgeInsets.all(16),
               child: Text(tr(title),
                   style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.w600)),
+                      fontSize: 18, fontWeight: FontWeight.w600)),
             ),
             ...templates.map(
               (t) => ListTile(
@@ -513,7 +514,7 @@ class _PosSellMobilePrintSettingsScreenState
     final hubBody = !HrmPageChrome.showInPageAppBar(context);
     final canStore = _canStorePrinters(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: SboxColors.slate100,
       appBar: hubBody
           ? null
           : AppBar(
@@ -686,7 +687,7 @@ class _PosSellMobilePrintSettingsScreenState
                                       padding: EdgeInsets.all(16),
                                       child: Text(tr('Chọn mẫu in'),
                                           style: TextStyle(
-                                              fontSize: 17,
+                                              fontSize: 18,
                                               fontWeight: FontWeight.w600)),
                                     ),
                                     ..._templates.map(
@@ -734,7 +735,7 @@ class _PosSellMobilePrintSettingsScreenState
                     child: Text(
                       tr('Chọn một chế độ. «Tự in khi thanh toán» = in tem sau TT.\n'
                           'Khổ máy tem mặc định 50×30. Loại mẫu thiết kế: Tem báo bếp.'),
-                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                      style: TextStyle(fontSize: 12, color: SboxColors.textSecondary),
                     ),
                   ),
                   ...PosCupLabelPrintMode.values.map(
@@ -782,7 +783,7 @@ class _PosSellMobilePrintSettingsScreenState
                     padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
                     child: Text(
                       tr('Tem mã hàng / mã vạch / giá. In từ danh mục hàng hóa. Loại mẫu: Tem sản phẩm.'),
-                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                      style: TextStyle(fontSize: 12, color: SboxColors.textSecondary),
                     ),
                   ),
                   ListTile(
@@ -804,7 +805,7 @@ class _PosSellMobilePrintSettingsScreenState
                       tr('• Thủ công: chỉ in khi bấm Báo bếp.\n'
                           '• Tự động sau TT: Báo bếp vẫn in trước được; lúc thanh toán chỉ in phần chưa báo (đã in hết thì không in lại).\n'
                           'Tem ly: tùy chọn «In tem khi Báo bếp» — phần đã in tem không in lại lúc TT.'),
-                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      style: const TextStyle(fontSize: 12, color: SboxColors.textSecondary),
                     ),
                   ),
                   ...PosKitchenSlipPrintMode.values.map(
@@ -846,7 +847,7 @@ class _PosSellMobilePrintSettingsScreenState
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                     child: Text(
                       tr('Độc lập với báo bếp. «Tự động sau thanh toán» vẫn in dù đã báo bếp trước đó. Gán vai trò Báo kho trên máy in nội bộ.'),
-                      style: const TextStyle(fontSize: 12, color: Colors.black54),
+                      style: const TextStyle(fontSize: 12, color: SboxColors.textSecondary),
                     ),
                   ),
                   ...PosWarehousePrintMode.values.map(
@@ -949,7 +950,7 @@ class _PosSellMobilePrintSettingsScreenState
 
   Widget _card(List<Widget> children) => Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Column(children: children),
       );
 }

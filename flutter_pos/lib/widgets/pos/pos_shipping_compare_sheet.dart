@@ -7,6 +7,7 @@ import '../notification_overlay.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Kết quả chọn hãng sau bảng so sánh cước.
 class ShippingCarrierPick {
   const ShippingCarrierPick({
@@ -297,12 +298,12 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
                     Text(
                       tr('So sánh cước vận chuyển'),
                       style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.w900),
+                          fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                     Text(
                       tr('Đơn ${widget.orderNo} — chọn hãng rồi tạo mã'),
                       style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                          TextStyle(fontSize: 12, color: SboxColors.slate700),
                     ),
                   ],
                 ),
@@ -318,12 +319,12 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
                     children: [
                       Text(tr('Đơn vị vận chuyển'),
                           style: const TextStyle(
-                              fontWeight: FontWeight.w800, fontSize: 13)),
+                              fontWeight: FontWeight.w700, fontSize: 13)),
                       const Spacer(),
                       Text(
                         tr('${_quotes.where((q) => q.success).length}/${_quotes.length} khả dụng'),
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade600),
+                            fontSize: 11, color: SboxColors.slate600),
                       ),
                     ],
                   ),
@@ -513,7 +514,7 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
             style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Colors.grey.shade800)),
+                color: SboxColors.slate800)),
         chip('shop', 'Shop trả'),
         chip('customer', 'Khách trả'),
         chip('fixed', 'Cố định'),
@@ -571,7 +572,7 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
                 border: Border.all(
                   color: selected
                       ? PosTheme.kiotBlue
-                      : Colors.grey.shade300,
+                      : SboxColors.slate300,
                   width: selected ? 1.6 : 1,
                 ),
               ),
@@ -582,8 +583,8 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
                         ? Icons.radio_button_checked
                         : Icons.radio_button_off,
                     color: q.success
-                        ? (selected ? PosTheme.kiotBlue : Colors.grey)
-                        : Colors.grey.shade400,
+                        ? (selected ? PosTheme.kiotBlue : SboxColors.slate500)
+                        : SboxColors.slate400,
                     size: 22,
                   ),
                   const SizedBox(width: 10),
@@ -624,7 +625,7 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
                           Text(q.serviceName!,
                               style: TextStyle(
                                   fontSize: 11,
-                                  color: Colors.grey.shade700)),
+                                  color: SboxColors.slate700)),
                         if (!q.success)
                           Text(
                             q.message ?? tr('Không báo được giá'),
@@ -642,11 +643,11 @@ class _ShippingCompareSheetState extends State<_ShippingCompareSheet> {
                             : '${_money.format(q.fee)}đ')
                         : '—',
                     style: TextStyle(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: 14,
                       color: q.success
                           ? PosTheme.kiotBlue
-                          : Colors.grey.shade500,
+                          : SboxColors.slate500,
                     ),
                   ),
                 ],

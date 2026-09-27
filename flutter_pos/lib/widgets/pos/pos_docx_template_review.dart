@@ -13,6 +13,7 @@ import 'pos_pdf_iframe_stub.dart'
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 const _docxMime =
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -239,7 +240,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                 dense: true,
                 selected: e.key == current,
                 leading: Icon(isLine ? Icons.table_rows_outlined : Icons.label_outline,
-                    size: 18, color: isLine ? const Color(0xFF0284C7) : const Color(0xFFD97706)),
+                    size: 18, color: isLine ? const Color(0xFF0284C7) : SboxColors.warning),
                 title: Text(e.value),
                 subtitle: Text('{${e.key}}', style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
                 onTap: () => Navigator.pop(ctx, e.key),
@@ -363,18 +364,18 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                 subtitle: Text(tr('Chọn cách xử lý chữ đã bôi đen')),
               ),
               ListTile(
-                leading: const Icon(Icons.label_outline, color: Color(0xFFD97706)),
+                leading: const Icon(Icons.label_outline, color: SboxColors.warning),
                 title: Text(tr('Gắn trường dữ liệu động')),
                 subtitle: Text(tr('Khi in sẽ thay bằng dữ liệu thật (tên khách, tổng tiền…)')),
                 onTap: () => Navigator.pop(ctx, 'field'),
               ),
               ListTile(
-                leading: const Icon(Icons.edit_outlined, color: Color(0xFF16A34A)),
+                leading: const Icon(Icons.edit_outlined, color: SboxColors.success),
                 title: Text(tr('Sửa câu chữ')),
                 onTap: () => Navigator.pop(ctx, 'text'),
               ),
               ListTile(
-                leading: const Icon(Icons.backspace_outlined, color: Color(0xFFDC2626)),
+                leading: const Icon(Icons.backspace_outlined, color: SboxColors.danger),
                 title: Text(tr('Xóa chữ này khi in')),
                 onTap: () => Navigator.pop(ctx, 'clear'),
               ),
@@ -444,7 +445,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                   onTap: () => Navigator.pop(ctx, 'retext'),
                 ),
               ListTile(
-                leading: const Icon(Icons.undo, color: Color(0xFFDC2626)),
+                leading: const Icon(Icons.undo, color: SboxColors.danger),
                 title: Text(tr('Bỏ — trả lại chữ gốc')),
                 onTap: () => Navigator.pop(ctx, 'remove'),
               ),
@@ -493,7 +494,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                     : '«${text.length > 60 ? '${text.substring(0, 60)}…' : text}»'),
               ),
               ListTile(
-                leading: const Icon(Icons.add_box_outlined, color: Color(0xFFD97706)),
+                leading: const Icon(Icons.add_box_outlined, color: SboxColors.warning),
                 title: Text(text.isEmpty ? tr('Chèn trường vào ô / đoạn này') : tr('Chèn trường vào cuối đoạn này')),
                 subtitle: Text(tr('Dùng cho ô bảng trống (dòng hàng, tổng tiền…), logo / con dấu (ảnh).')),
                 onTap: () => Navigator.pop(ctx, 'insert'),
@@ -537,7 +538,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
       children: [
         Container(
           width: double.infinity,
-          color: const Color(0xFFEFF6FF),
+          color: SboxColors.brand50,
           padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
           child: Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -547,12 +548,12 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
               Text(
                 tr('Bôi đen chữ → gắn trường / sửa / xóa · Bấm ô màu để đổi hoặc bỏ · '
                     'Chuột phải vào ô trống / đoạn → chèn trường, bỏ dòng mẫu'),
-                style: const TextStyle(fontSize: 12.5, color: Color(0xFF1E3A8A)),
+                style: const TextStyle(fontSize: 13, color: SboxColors.brand900),
               ),
               _legend(const Color(0xFFFDE68A), tr('Trường chứng từ')),
               _legend(const Color(0xFFBAE6FD), tr('Dòng hàng (lặp)')),
-              _legend(const Color(0xFFDCFCE7), tr('Chữ đã sửa')),
-              _legend(const Color(0xFFFEE2E2), tr('Chữ đã xóa')),
+              _legend(SboxColors.successSoft, tr('Chữ đã sửa')),
+              _legend(SboxColors.dangerSoft, tr('Chữ đã xóa')),
               TextButton.icon(
                 onPressed: _history.isEmpty || _editorBusy ? null : _undo,
                 icon: const Icon(Icons.undo, size: 18),
@@ -898,12 +899,12 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                   ),
                   if (_removeRows.isNotEmpty)
                     Text(tr('Đã bỏ ${_removeRows.length} dòng hàng mẫu thừa trong bảng.'),
-                        style: TextStyle(color: Colors.grey.shade700)),
+                        style: TextStyle(color: SboxColors.slate700)),
                   const SizedBox(height: 4),
                   Text(
                     tr('Bố cục, bảng, logo của file giữ nguyên. Dòng hàng đầu tiên trong bảng sẽ được lặp lại theo số mặt hàng. '
                         'Sửa xong bấm Lưu rồi xem lại tab «Mẫu gắn trường» / «Bản in thử».'),
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                    style: TextStyle(color: SboxColors.slate700, fontSize: 13),
                   ),
                   for (final w in _warnings)
                     Padding(
@@ -1044,14 +1045,14 @@ class _DocxPdfTabState extends State<_DocxPdfTab> with AutomaticKeepAliveClientM
       children: [
         Container(
           width: double.infinity,
-          color: const Color(0xFFFFFBEB),
+          color: SboxColors.warningSoft,
           padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
           child: Row(
             children: [
-              const Icon(Icons.info_outline, size: 16, color: Color(0xFF92400E)),
+              const Icon(Icons.info_outline, size: 16, color: SboxColors.warningText),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(widget.hint, style: const TextStyle(fontSize: 12.5, color: Color(0xFF92400E))),
+                child: Text(widget.hint, style: const TextStyle(fontSize: 13, color: SboxColors.warningText)),
               ),
               IconButton(
                 tooltip: tr('Tải lại'),

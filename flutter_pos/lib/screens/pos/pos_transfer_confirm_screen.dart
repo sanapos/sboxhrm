@@ -7,6 +7,7 @@ import '../../utils/pos_payment_gateway_listener.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Danh sách đơn chờ / đã xác nhận chuyển khoản (Tingee webhook).
 class PosTransferConfirmScreen extends StatefulWidget {
   const PosTransferConfirmScreen({super.key});
@@ -110,7 +111,7 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
       return Center(
         child: Text(
           tr(waiting ? 'Không có đơn chờ xác nhận' : 'Chưa có đơn đã xác nhận'),
-          style: const TextStyle(color: Colors.grey),
+          style: const TextStyle(color: SboxColors.slate500),
         ),
       );
     }

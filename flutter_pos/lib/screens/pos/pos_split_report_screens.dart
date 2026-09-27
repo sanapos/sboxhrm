@@ -26,13 +26,14 @@ import 'pos_hkd_books_screen.dart';
 import 'pos_staff_commission_report_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Hub 14 báo cáo — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
 class PosReportsHubScreen extends StatelessWidget {
   const PosReportsHubScreen({super.key});
 
   static const _pageBg = Color(0xFFF1F4F6);
   static const _ink = Color(0xFF2B3437);
-  static const _muted = Color(0xFF586064);
+  static const _muted = SboxColors.slate600;
   static const _hint = Color(0xFF8A9199);
 
   @override
@@ -171,7 +172,7 @@ class _PosReportsHubSection extends StatelessWidget {
                   Text(
                     tr('Báo cáo'),
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: PosReportsHubScreen._ink,
                       letterSpacing: -0.3,
@@ -192,7 +193,7 @@ class _PosReportsHubSection extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
                 '${items.length}',
@@ -302,7 +303,7 @@ class _PosReportHubCard extends StatelessWidget {
                       color.withOpacity(0.05),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(item.icon, color: color, size: 22),
               ),
@@ -355,10 +356,10 @@ class _PosReportHubCard extends StatelessWidget {
 const _payColors = <Color>[
   PosTheme.kiotBlue,
   Color(0xFF0F766E),
-  Color(0xFF7C3AED),
-  Color(0xFFB45309),
+  SboxColors.violet,
+  SboxColors.warningText,
   Color(0xFFBE123C),
-  Color(0xFF475569),
+  SboxColors.slate600,
 ];
 
 double _n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
@@ -603,7 +604,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                         onTileTap: (_) => _openAllSales(),
                         tiles: [
                           (label: 'DT chưa VAT', value: revenue, color: PosTheme.kiotBlue),
-                          (label: 'VAT', value: vat, color: const Color(0xFF7C3AED)),
+                          (label: 'VAT', value: vat, color: SboxColors.violet),
                           (
                             label: 'DT gồm VAT',
                             value: revenueInclVat > 0 ? revenueInclVat : revenue + vat,
@@ -624,12 +625,12 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                           (
                             label: 'Đã thu',
                             value: _n(_data?['totalPaid']),
-                            color: const Color(0xFF166534),
+                            color: SboxColors.successText,
                           ),
                           (
                             label: 'Giảm giá',
                             value: _n(_data?['totalDiscount']),
-                            color: Colors.grey.shade700,
+                            color: SboxColors.slate700,
                           ),
                         ],
                       ),
@@ -949,7 +950,7 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
                           (
                             label: 'Đã trả tiền',
                             value: _n(_data?['paidInPeriod']),
-                            color: const Color(0xFF166534),
+                            color: SboxColors.successText,
                           ),
                         ],
                       ),
@@ -1591,7 +1592,7 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
                           to: _time.to,
                         ),
                         tiles: [
-                          (label: 'Lợi nhuận', value: profit, color: const Color(0xFF166534)),
+                          (label: 'Lợi nhuận', value: profit, color: SboxColors.successText),
                           (label: 'Doanh thu', value: revenue, color: PosTheme.kiotBlue),
                           (label: 'Giá vốn', value: cogs, color: Colors.amber.shade700),
                         ],
@@ -2039,7 +2040,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
                       (
                         label: 'Thu',
                         value: _n(_data?['income']),
-                        color: const Color(0xFF166534),
+                        color: SboxColors.successText,
                       ),
                       (
                         label: 'Chi',
@@ -2109,7 +2110,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
           PosReportMoneyLabel(
             amount,
             prefix: income ? '+' : '-',
-            color: income ? const Color(0xFF166534) : const Color(0xFFB42318),
+            color: income ? SboxColors.successText : const Color(0xFFB42318),
           ),
         ],
       ),
@@ -2238,12 +2239,12 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                           (
                             label: 'VAT',
                             value: _n(_data?['vat']),
-                            color: const Color(0xFF7C3AED),
+                            color: SboxColors.violet,
                           ),
                           (
                             label: 'Giảm giá',
                             value: _n(_data?['discount']),
-                            color: Colors.grey.shade700,
+                            color: SboxColors.slate700,
                           ),
                         ],
                       ),
@@ -2278,7 +2279,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                           fontWeight: FontWeight.w700,
                           color: net < 0
                               ? const Color(0xFFB42318)
-                              : const Color(0xFF166534),
+                              : SboxColors.successText,
                         ),
                       ),
                     ],
@@ -2301,7 +2302,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                                     style: TextStyle(
                                       fontWeight: const {'10', '20', '50'}
                                               .contains('${l['code']}')
-                                          ? FontWeight.w800
+                                          ? FontWeight.w700
                                           : FontWeight.w400,
                                     ),
                                   ),
@@ -2312,7 +2313,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                                     fontWeight: FontWeight.w700,
                                     color: _n(l['amount']) < 0
                                         ? const Color(0xFFB42318)
-                                        : const Color(0xFF166534),
+                                        : SboxColors.successText,
                                   ),
                                 ),
                               ],
@@ -2531,7 +2532,7 @@ class _PosVoucherUsageReportScreenState
                           (
                             label: 'Lượt dùng',
                             value: _n(_data?['uses']),
-                            color: const Color(0xFF166534),
+                            color: SboxColors.successText,
                           ),
                         ],
                       ),

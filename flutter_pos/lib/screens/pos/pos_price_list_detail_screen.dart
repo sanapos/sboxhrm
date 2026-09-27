@@ -17,6 +17,7 @@ import '../../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../main_layout.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class _PriceRow {
   _PriceRow({
     required this.productId,
@@ -402,14 +403,14 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
             Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text(tr('Nhiều hơn'),
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Text(
                 tr(_targetHint),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
               ),
             ),
             ListTile(
@@ -503,7 +504,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
             const SizedBox(height: 8),
             Text(
               tr(_targetHint),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600),
             ),
           ],
         ),
@@ -567,7 +568,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
       appBar: AppBar(
         title: Text(tr(widget.priceList.name)),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        foregroundColor: SboxColors.text,
         elevation: 0.5,
         actions: [
           if (canEdit && selectedCount > 0)
@@ -591,7 +592,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
                   child: Text(tr('SP không có trong bảng giá vẫn bán theo giá quản lý hàng hóa.'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                   ),
                 ),
                 Padding(
@@ -711,7 +712,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: SboxColors.slate700,
             ),
           ),
         ),
@@ -735,7 +736,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
                 Padding(
                   padding: const EdgeInsets.only(left: 8),
                   child: Text(tr('Chưa chọn → áp dụng dòng đang hiện'),
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                   ),
                 ),
             ],
@@ -807,7 +808,7 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
               textAlign: TextAlign.right,
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
-                fontSize: 15,
+                fontSize: 16,
               ),
               decoration: InputDecoration(
                 labelText: tr('Giá bán'),
@@ -893,7 +894,7 @@ class _BulkProductPickerSheetState extends State<_BulkProductPickerSheet> {
             width: 36,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: SboxColors.slate300,
               borderRadius: BorderRadius.circular(2),
             ),
           ),

@@ -35,7 +35,8 @@ import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 class PosPrintTemplatesScreen extends StatefulWidget {
   const PosPrintTemplatesScreen({
@@ -1123,7 +1124,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                       p.isLabelPrinter
                           ? Icons.label_outline
                           : Icons.print_outlined,
-                      color: p.isOnline ? _blue : Colors.grey,
+                      color: p.isOnline ? _blue : SboxColors.slate500,
                     ),
                     title: Text(tr(title)),
                     subtitle: Text(tr('$source · $kind · $online')),
@@ -1328,22 +1329,22 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                     },
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       Text(tr(posPrintDocLabel(_docType)),
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                       const Icon(Icons.arrow_drop_down, size: 28),
                     ]),
                   )
                 else
                   Row(children: [
-                    Icon(posPrintDocIcon(_docType), color: const Color(0xFF2563EB), size: 22),
+                    Icon(posPrintDocIcon(_docType), color: SboxColors.brand600, size: 22),
                     const SizedBox(width: 8),
                     Text(tr(posPrintDocLabel(_docType)),
-                        style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
                     const SizedBox(width: 10),
                     Text('${_templates.length} ${tr('mẫu')}',
-                        style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600)),
+                        style: const TextStyle(fontSize: 13, color: SboxColors.slate400, fontWeight: FontWeight.w600)),
                   ]),
                 const SizedBox(height: 2),
-                Text(tr(hint), style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+                Text(tr(hint), style: const TextStyle(fontSize: 13, color: SboxColors.slate500)),
               ],
             ),
           ),
@@ -1392,11 +1393,11 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         header,
         if (_templates.isNotEmpty && !_templates.any((t) => t.isDefault))
           Material(
-            color: const Color(0xFFFFF7ED),
+            color: SboxColors.warningSoft,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Text(tr('Chưa chọn mẫu đang dùng — bấm «Dùng mẫu này» trên một mẫu để máy bán hàng in theo mẫu đó.'),
-                  style: const TextStyle(fontSize: 12.5, color: Color(0xFF9A3412))),
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF9A3412))),
             ),
           ),
         Expanded(child: grid),
@@ -1411,7 +1412,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           width: 220,
           decoration: const BoxDecoration(
             color: Colors.white,
-            border: Border(right: BorderSide(color: Color(0xFFE2E8F0))),
+            border: Border(right: BorderSide(color: SboxColors.slate200)),
           ),
           child: PosPrintDocTypeNav(current: _docType, onSelect: _changeDocType),
         ),
@@ -1438,7 +1439,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(tr(posPrintDocLabel(_docType)),
-                      style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600)),
+                      style: TextStyle(color: SboxColors.slate600, fontWeight: FontWeight.w600)),
                   const SizedBox(width: 12),
                   SizedBox(
                     width: 320,
@@ -1455,7 +1456,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                   const SizedBox(width: 8),
                   if (isDefault)
                     Chip(
-                      avatar: const Icon(Icons.check_circle, size: 16, color: Color(0xFF16A34A)),
+                      avatar: const Icon(Icons.check_circle, size: 16, color: SboxColors.success),
                       label: Text(tr('Đang dùng')),
                       visualDensity: VisualDensity.compact,
                     ),
@@ -1526,10 +1527,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         topBar!,
         if (_legacyHtml != null && !_isCommercialDoc)
           Material(
-            color: const Color(0xFFFFF7ED),
+            color: SboxColors.warningSoft,
             child: ListTile(
               dense: true,
-              leading: const Icon(Icons.html, color: Color(0xFFB45309)),
+              leading: const Icon(Icons.html, color: SboxColors.warningText),
               title: Text(tr('Mẫu này đang ở dạng HTML thuần')),
               subtitle: Text(tr('Bấm «Chuyển sang soạn theo khối» để chỉnh dễ hơn (ghi đè HTML khi lưu).')),
               trailing: TextButton(
@@ -1585,11 +1586,11 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: Material(
-                color: const Color(0xFFFFF7ED),
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.warningSoft,
+                borderRadius: BorderRadius.circular(10),
                 child: ListTile(
                   dense: true,
-                  leading: const Icon(Icons.html, color: Color(0xFFB45309), size: 22),
+                  leading: const Icon(Icons.html, color: SboxColors.warningText, size: 22),
                   title: Text(tr('HTML thuần'), style: TextStyle(fontSize: 13)),
                   trailing: TextButton(
                     onPressed: () => setState(() {

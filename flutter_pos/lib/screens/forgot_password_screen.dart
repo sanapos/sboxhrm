@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class ForgotPasswordScreen extends StatefulWidget {
   final String? initialStoreCode;
   final String? initialEmail;
@@ -214,7 +215,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           ? 'Nhập mã cửa hàng và email đã đăng ký để nhận mã OTP (hiệu lực 5 phút)'
                           : 'Nhập mã OTP đã gửi đến ${_emailController.text.trim()} và mật khẩu mới (tối thiểu 6 ký tự)'),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey,
+                            color: SboxColors.slate500,
                           ),
                       textAlign: TextAlign.center,
                     ),
@@ -228,7 +229,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           height: 2,
                           color: _step >= 2
                               ? Theme.of(context).primaryColor
-                              : Colors.grey.shade300,
+                              : SboxColors.slate300,
                         ),
                         _buildStepDot(2),
                       ],
@@ -240,7 +241,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
                           color: Colors.red.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                               color: Colors.red.withOpacity(0.3)),
                         ),
@@ -266,7 +267,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
                           color: Colors.green.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                               color: Colors.green.withOpacity(0.3)),
                         ),
@@ -295,7 +296,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           hintText: tr('VD: sanapos'),
                           prefixIcon: const Icon(Icons.store),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         validator: (value) {
@@ -318,7 +319,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               'Tài khoản chỉ có SĐT: liên hệ quản trị viên đặt lại mật khẩu'),
                           prefixIcon: const Icon(Icons.email),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         validator: (value) {
@@ -371,7 +372,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           prefixIcon: const Icon(Icons.pin),
                           counterText: '',
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         validator: (value) {
@@ -400,7 +401,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 () => _obscurePassword = !_obscurePassword),
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         validator: (value) {
@@ -430,7 +431,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                     !_obscureConfirmPassword),
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         validator: (value) {
@@ -521,13 +522,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         shape: BoxShape.circle,
         color: isActive
             ? Theme.of(context).primaryColor
-            : Colors.grey.shade300,
+            : SboxColors.slate300,
       ),
       child: Center(
         child: Text(
           tr('$step'),
           style: TextStyle(
-            color: isActive ? Colors.white : Colors.grey.shade600,
+            color: isActive ? Colors.white : SboxColors.slate600,
             fontWeight: FontWeight.bold,
             fontSize: 13,
           ),

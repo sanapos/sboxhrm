@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Header cột giỏ hàng Kiot — tách khỏi PosSellScreen để tránh rebuild cả màn.
 class PosSellKiotCartHeader extends StatelessWidget {
   const PosSellKiotCartHeader({
@@ -38,7 +39,7 @@ class PosSellKiotCartHeader extends StatelessWidget {
       height: height,
       padding: EdgeInsets.symmetric(horizontal: sidePadding),
       decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
+        color: SboxColors.slate50,
         border: Border(bottom: BorderSide(color: PosTheme.border)),
       ),
       child: Row(
@@ -80,12 +81,12 @@ class PosSellDraftSyncBar extends StatelessWidget {
       child: Container(
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        color: const Color(0xFFEFF6FF),
+        color: SboxColors.brand50,
         child: Text(
           tr('Đồng bộ server · ${no != null && no.isNotEmpty ? no : '—'} · tự lưu khi sửa hàng'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 12, height: 1.25, color: Color(0xFF1D4ED8)),
+          style: const TextStyle(fontSize: 12, height: 1.25, color: SboxColors.brand700),
         ),
       ),
     );
@@ -98,7 +99,7 @@ class PosSellMissingTimedServiceBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFFFF7ED),
+      color: SboxColors.warningSoft,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(

@@ -8,6 +8,7 @@ import '../../utils/tingee_supported_banks.dart';
 import '../notification_overlay.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Cửa hàng tự gắn STK / mở SDK sau khi SuperAdmin đã tạo merchant.
 class TingeeBankAttachPanel extends StatefulWidget {
   const TingeeBankAttachPanel({
@@ -173,7 +174,7 @@ class _TingeeBankAttachPanelState extends State<TingeeBankAttachPanel> {
         const SizedBox(height: 4),
         Text(
           tr('Chọn đúng ngân hàng và STK cửa hàng đang dùng. QR thanh toán báo về đúng tài khoản này.'),
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
@@ -346,7 +347,7 @@ class _TingeeBankAttachPanelState extends State<TingeeBankAttachPanel> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   tr('Nhập STK bên dưới rồi bấm "Gắn STK" → duyệt trong app ngân hàng để active.'),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                 ),
               )
             else
@@ -374,7 +375,7 @@ class _TingeeBankAttachPanelState extends State<TingeeBankAttachPanel> {
     final link = _pendingLink!;
     return Card(
       margin: const EdgeInsets.only(top: 12),
-      color: Colors.blue.shade50,
+      color: SboxColors.brand50,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Column(
@@ -383,7 +384,7 @@ class _TingeeBankAttachPanelState extends State<TingeeBankAttachPanel> {
             Row(
               children: [
                 Icon(_isDeepLink ? Icons.smartphone : Icons.open_in_new,
-                    size: 18, color: Colors.blue.shade800),
+                    size: 18, color: SboxColors.brand800),
                 const SizedBox(width: 6),
                 Text(
                   tr(_isDeepLink

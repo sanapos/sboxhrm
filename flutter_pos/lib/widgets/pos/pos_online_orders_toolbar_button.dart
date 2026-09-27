@@ -61,7 +61,7 @@ class PosOnlineOrdersToolbarButton extends StatelessWidget {
                 child: Text(
                   tr('Đơn online chờ xử lý'),
                   style: const TextStyle(
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     fontSize: 16,
                   ),
                 ),
@@ -83,14 +83,14 @@ class PosOnlineOrdersToolbarButton extends StatelessWidget {
                           '${i + 1}',
                           style: const TextStyle(
                             color: PosTheme.kiotBlue,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             fontSize: 12,
                           ),
                         ),
                       ),
                       title: Text(
                         o.orderNo,
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       subtitle: Text(
                         '${o.customerName} · ${o.phone}\n${o.statusLabel}',
@@ -100,7 +100,7 @@ class PosOnlineOrdersToolbarButton extends StatelessWidget {
                       trailing: Text(
                         '${_money.format(o.total)}₫',
                         style: const TextStyle(
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           color: Color(0xFFC2410C),
                         ),
                       ),

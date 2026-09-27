@@ -13,6 +13,7 @@ import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 import '../../widgets/pos/pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Tổng quan POS — một bố cục gắn kết (số liệu + tồn + bán chạy), không trùng bottom nav.
 class PosOverviewScreen extends StatefulWidget {
   const PosOverviewScreen({super.key});
@@ -135,7 +136,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                                 tr('Tổng quan'),
                                 style: const TextStyle(
                                   fontSize: 22,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                   color: PosTheme.textPrimary,
                                 ),
                               ),
@@ -312,7 +313,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                     ? 'Biên ${margin.toStringAsFixed(1)}%'
                     : 'Chưa có dữ liệu',
                 valueColor: cur != null && profit >= 0
-                    ? const Color(0xFF059669)
+                    ? SboxColors.success
                     : PosTheme.textPrimary,
               ),
               PosMobileMetricTile(
@@ -370,7 +371,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     return PosMobileHubSection(
       title: 'Cảnh báo tồn kho',
       trailing: const Icon(Icons.warning_amber_rounded,
-          color: Color(0xFFF57C00), size: 18),
+          color: SboxColors.warning, size: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -495,11 +496,11 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
 
   Widget _chipToggle(String label, bool active, VoidCallback onTap) {
     return Material(
-      color: active ? PosTheme.kiotBlueLight : Colors.grey.shade100,
-      borderRadius: BorderRadius.circular(16),
+      color: active ? PosTheme.kiotBlueLight : SboxColors.slate100,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Text(

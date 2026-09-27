@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Panel trái đăng nhập POS — ảnh phủ kín 2/3, decode theo DPR để khỏi vỡ nét.
 class SboxPosHeroPanel extends StatelessWidget {
   const SboxPosHeroPanel({super.key});
 
-  static const green = Color(0xFF2E7D32);
+  static const green = SboxColors.successText;
   static const wallGreen = Color(0xFF1B4D3E);
 
   @override

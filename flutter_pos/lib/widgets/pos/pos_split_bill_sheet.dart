@@ -5,6 +5,7 @@ import '../../models/pos_sale_order.dart';
 import '../pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class PosSplitBillPick {
   const PosSplitBillPick({required this.lineId, required this.qty});
   final String lineId;
@@ -86,12 +87,12 @@ class _SplitBillSheetState extends State<_SplitBillSheet> {
           children: [
             Text(
               tr('Tách hóa đơn'),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
               tr('Chọn món khách trả trước. Phần còn lại giữ nguyên bàn.'),
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate700),
             ),
             const SizedBox(height: 12),
             ConstrainedBox(
@@ -135,7 +136,7 @@ class _SplitBillSheetState extends State<_SplitBillSheet> {
                                     ? 'Chưa lưu dòng — đóng sheet, đợi 1 giây rồi tách lại'
                                     : 'SL ${_qtyFmt.format(l.qty)} · ${_money.format(l.lineTotal)}'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600),
+                                    fontSize: 12, color: SboxColors.slate600),
                               ),
                             ],
                           ),
@@ -153,7 +154,7 @@ class _SplitBillSheetState extends State<_SplitBillSheet> {
                               Text(
                                 _qtyFmt.format(take),
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w800),
+                                    fontWeight: FontWeight.w700),
                               ),
                               IconButton(
                                 visualDensity: VisualDensity.compact,

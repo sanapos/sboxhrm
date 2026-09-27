@@ -107,6 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: l.application,
               icon: Icons.settings,
               children: [
+                if (ThemeProvider.darkModeAvailable)
                 _buildSettingTile(
                   context,
                   icon: Icons.dark_mode,

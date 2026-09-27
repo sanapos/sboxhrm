@@ -12,6 +12,7 @@ import '../widgets/pos/pos_supplier_form_dialog.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Danh sách / quản lý nhà cung cấp (nợ, lịch sử, ngưng HD).
 class PosSupplierListScreen extends StatefulWidget {
   const PosSupplierListScreen({super.key});
@@ -217,7 +218,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
       appBar: AppBar(
         title: Text(tr('Nhà cung cấp')),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        foregroundColor: SboxColors.text,
         elevation: 0.5,
         actions: [
           IconButton(
@@ -248,7 +249,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                       prefixIcon: const Icon(Icons.search, size: 20),
                       isDense: true,
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.search),
                         onPressed: _load,
@@ -321,7 +322,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                             leading: CircleAvatar(
                               backgroundColor: s.isActive
                                   ? PosTheme.kiotBlueLight
-                                  : Colors.grey.shade200,
+                                  : SboxColors.slate200,
                               child: Text(
                                 s.name.isNotEmpty
                                     ? s.name[0].toUpperCase()
@@ -330,7 +331,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                                   fontWeight: FontWeight.w700,
                                   color: s.isActive
                                       ? PosTheme.kiotBlue
-                                      : Colors.grey,
+                                      : SboxColors.slate500,
                                 ),
                               ),
                             ),

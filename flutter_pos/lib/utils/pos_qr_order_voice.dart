@@ -146,7 +146,7 @@ class PosQrOrderVoiceAlert {
               children: [
                 Text(
                   tr('Giọng đọc'),
-                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
                 ),
                 const SizedBox(height: 12),
                 Text(tr('Tốc độ: ${(_rate * 100).round()}%')),

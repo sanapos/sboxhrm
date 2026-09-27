@@ -8,8 +8,9 @@ import '../../utils/pos_print_template_v2_codec.dart';
 import 'pos_html_preview_stub.dart';
 import 'pos_print_template_preview.dart';
 
-const _blue = Color(0xFF2563EB);
-const _green = Color(0xFF16A34A);
+import '../../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
+const _green = SboxColors.success;
 
 /// Nhóm loại phiếu cho thanh chọn bên trái (thay dải 21 nút ngang khó tìm).
 class PosPrintDocGroup {
@@ -110,7 +111,7 @@ class PosPrintDocTypeNav extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                    fontSize: 10.5, fontWeight: FontWeight.w700, color: Color(0xFF94A3B8), letterSpacing: .6)),
+                    fontSize: 11, fontWeight: FontWeight.w700, color: SboxColors.slate400, letterSpacing: .6)),
           ),
           for (final t in g.types) _DocItem(type: t, active: t == current, onTap: () => onSelect(t)),
         ],
@@ -145,12 +146,12 @@ class _DocItemState extends State<_DocItem> {
           margin: const EdgeInsets.symmetric(vertical: 1),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
-            color: a ? const Color(0xFFEFF6FF) : (_hover ? const Color(0xFFF8FAFC) : Colors.transparent),
-            borderRadius: BorderRadius.circular(8),
+            color: a ? SboxColors.brand50 : (_hover ? SboxColors.slate50 : Colors.transparent),
+            borderRadius: BorderRadius.circular(10),
             border: Border(left: BorderSide(color: a ? _blue : Colors.transparent, width: 3)),
           ),
           child: Row(children: [
-            Icon(posPrintDocIcon(widget.type), size: 17, color: a ? _blue : const Color(0xFF64748B)),
+            Icon(posPrintDocIcon(widget.type), size: 17, color: a ? _blue : SboxColors.slate500),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -160,7 +161,7 @@ class _DocItemState extends State<_DocItem> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: a ? FontWeight.w700 : FontWeight.w500,
-                  color: a ? _blue : const Color(0xFF334155),
+                  color: a ? _blue : SboxColors.slate700,
                 ),
               ),
             ),
@@ -249,7 +250,7 @@ class PosPrintTemplateThumb extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFF1F5F9), Color(0xFFE2E8F0)],
+          colors: [SboxColors.slate100, SboxColors.slate200],
         ),
         borderRadius: BorderRadius.circular(10),
       ),
@@ -331,7 +332,7 @@ class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: t.isDefault ? _green : const Color(0xFFE2E8F0), width: t.isDefault ? 1.6 : 1),
+          border: Border.all(color: t.isDefault ? _green : SboxColors.slate200, width: t.isDefault ? 1.6 : 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(_hover ? .10 : .04),
@@ -368,7 +369,7 @@ class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
                             _Badge(text: 'Word', color: const Color(0xFF2B579A), solid: true),
                             const SizedBox(width: 4),
                           ],
-                          _Badge(text: PosPrintPaperSizes.shortLabel(t.paperSize), color: const Color(0xFF334155), solid: true),
+                          _Badge(text: PosPrintPaperSizes.shortLabel(t.paperSize), color: SboxColors.slate700, solid: true),
                         ]),
                       ),
                       if (t.isDefault)
@@ -388,7 +389,7 @@ class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
                         Text(tr(posPrintCleanName(t.name)),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF0F172A))),
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: SboxColors.slate900)),
                         const SizedBox(height: 2),
                         Text(
                           updated == null
@@ -397,13 +398,13 @@ class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
                                   '${updated.toLocal().month.toString().padLeft(2, '0')}/${updated.toLocal().year}'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                          style: const TextStyle(fontSize: 12, color: SboxColors.slate400),
                         ),
                       ]),
                     ),
                     PopupMenuButton<String>(
                       tooltip: tr('Thao tác khác'),
-                      icon: const Icon(Icons.more_vert, color: Color(0xFF64748B)),
+                      icon: const Icon(Icons.more_vert, color: SboxColors.slate500),
                       onSelected: (v) => switch (v) {
                         'edit' => widget.onEdit(),
                         'test' => widget.onTestPrint(),
@@ -423,7 +424,7 @@ class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
                     ),
                   ]),
                 ),
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                const Divider(height: 1, color: SboxColors.slate100),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
                   child: Row(children: [
@@ -447,7 +448,7 @@ class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
                               style: FilledButton.styleFrom(
                                 backgroundColor: _green,
                                 visualDensity: VisualDensity.compact,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               child: Text(tr('Dùng mẫu này'), maxLines: 1, overflow: TextOverflow.ellipsis),
                             ),
@@ -480,7 +481,7 @@ class _Badge extends StatelessWidget {
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) ...[Icon(icon, size: 12, color: solid ? Colors.white : color), const SizedBox(width: 3)],
-          Text(text, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: solid ? Colors.white : color)),
+          Text(text, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: solid ? Colors.white : color)),
         ]),
       );
 }
@@ -495,7 +496,7 @@ class PosPrintAddTemplateCard extends StatelessWidget {
         color: const Color(0xFFF8FAFF),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: Color(0xFFBFDBFE), width: 1.5),
+          side: const BorderSide(color: SboxColors.brand100, width: 1.5),
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -507,14 +508,14 @@ class PosPrintAddTemplateCard extends StatelessWidget {
                 Container(
                   width: 56,
                   height: 56,
-                  decoration: const BoxDecoration(color: Color(0xFFDBEAFE), shape: BoxShape.circle),
+                  decoration: const BoxDecoration(color: SboxColors.brand100, shape: BoxShape.circle),
                   child: const Icon(Icons.add, size: 30, color: _blue),
                 ),
                 const SizedBox(height: 12),
-                Text(tr('Thêm mẫu'), style: const TextStyle(fontWeight: FontWeight.w800, color: _blue, fontSize: 15)),
+                Text(tr('Thêm mẫu'), style: const TextStyle(fontWeight: FontWeight.w700, color: _blue, fontSize: 16)),
                 const SizedBox(height: 4),
                 Text(tr('Mẫu có sẵn · File Word · Mẫu trống'),
-                    textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                    textAlign: TextAlign.center, style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
               ]),
             ),
           ),
@@ -541,7 +542,7 @@ Future<String?> showPosPrintAddTemplateSheet(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(tr('Thêm mẫu · ${posPrintDocLabel(documentType)}'),
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 12),
             Row(children: [
               if (allowWord)
@@ -583,7 +584,7 @@ Future<String?> showPosPrintAddTemplateSheet(
                         margin: EdgeInsets.zero,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: c.isRecommended ? _green : const Color(0xFFE5E7EB)),
+                          side: BorderSide(color: c.isRecommended ? _green : SboxColors.slate200),
                         ),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(10),
@@ -603,7 +604,7 @@ Future<String?> showPosPrintAddTemplateSheet(
                                   style: const TextStyle(fontWeight: FontWeight.w600)),
                               Text(
                                 '${PosPrintPaperSizes.shortLabel(c.paperSize)}${c.isRecommended ? ' · ${tr('Khuyên dùng')}' : ''}',
-                                style: TextStyle(fontSize: 12, color: c.isRecommended ? _green : Colors.grey.shade600),
+                                style: TextStyle(fontSize: 12, color: c.isRecommended ? _green : SboxColors.slate600),
                               ),
                             ]),
                           ),
@@ -633,9 +634,9 @@ class _AddOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
         color: color.withOpacity(.06),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -646,7 +647,7 @@ class _AddOption extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(title, style: TextStyle(fontWeight: FontWeight.w700, color: color)),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                  Text(subtitle, style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
                 ]),
               ),
             ]),

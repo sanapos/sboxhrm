@@ -5,6 +5,7 @@ import '../../utils/pos_category_tree.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class PosCategoryTreePanel extends StatelessWidget {
   const PosCategoryTreePanel({
     super.key,
@@ -119,7 +120,7 @@ class PosCategoryTreePanel extends StatelessWidget {
               ),
               Text(
                 tr('$count'),
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate600),
               ),
             ],
           ),

@@ -20,6 +20,7 @@ import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 
 /// Báo cáo POS: doanh thu + tồn kho + lô/HSD (API `/api/pos/reports/*`).
@@ -263,7 +264,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
         HrmPageChrome.isPushedOverShell(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: SboxColors.slate100,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -742,9 +743,9 @@ class _PosReportsScreenState extends State<PosReportsScreen>
     final dateFmt = DateFormat('dd/MM/yyyy', 'vi_VN');
 
     Color statusColor(String? status) => switch (status) {
-          'expired' => const Color(0xFFEF4444),
-          'expiring' => const Color(0xFFF59E0B),
-          _ => const Color(0xFF64748B),
+          'expired' => SboxColors.danger,
+          'expiring' => SboxColors.warning,
+          _ => SboxColors.slate500,
         };
 
     String statusLabel(String? status) => switch (status) {
@@ -941,7 +942,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+            Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
             const SizedBox(height: 8),
             ...children,
           ],

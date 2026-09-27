@@ -11,6 +11,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// LN theo hàng / nhóm / kênh / nhân viên — bấm dòng mở hóa đơn gốc.
 class PosProfitReportScreen extends StatefulWidget {
   const PosProfitReportScreen({super.key, this.initialDim = 'product'});
@@ -188,7 +189,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
                       (
                         label: 'LN',
                         value: _n(_data?['totalProfit']),
-                        color: const Color(0xFF166534)
+                        color: SboxColors.successText
                       ),
                     ],
                   ),
@@ -244,7 +245,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
           profit,
           color: profit < 0
               ? const Color(0xFFB42318)
-              : const Color(0xFF166534),
+              : SboxColors.successText,
         ),
         const Icon(Icons.chevron_right, size: 18, color: Color(0xFF8A9199)),
       ],

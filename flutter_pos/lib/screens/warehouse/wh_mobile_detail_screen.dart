@@ -292,7 +292,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                       ),
                       if (_subtitle != null) ...[
                         const SizedBox(height: 10),
-                        Text(tr(_subtitle!), style: WhMobileTheme.titleMedium.copyWith(fontSize: 15)),
+                        Text(tr(_subtitle!), style: WhMobileTheme.titleMedium.copyWith(fontSize: 16)),
                       ],
                       if (_meta != null) ...[
                         const SizedBox(height: 6),
@@ -325,7 +325,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                           Text(tr(_lines[i]['extra'].toString()), style: WhMobileTheme.caption),
                         Text(
                           tr(_svc.formatMoney((_lines[i]['total'] as num?)?.toDouble() ?? 0)),
-                          style: WhMobileTheme.money.copyWith(fontSize: 15),
+                          style: WhMobileTheme.money.copyWith(fontSize: 16),
                         ),
                       ],
                     ),

@@ -16,6 +16,7 @@ import 'pos_product_editor_page.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class PosProductDetailScreen extends StatefulWidget {
   const PosProductDetailScreen({super.key, required this.product});
 
@@ -256,7 +257,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: PosTheme.border),
       ),
       child: Padding(
@@ -352,9 +353,9 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
 
   Widget _imagePlaceholder() {
     return Container(
-      color: Colors.grey.shade100,
+      color: SboxColors.slate100,
       child: Icon(Icons.inventory_2_outlined,
-          color: Colors.grey.shade400, size: 36),
+          color: SboxColors.slate400, size: 36),
     );
   }
 
@@ -363,7 +364,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: PosTheme.border),
       ),
       child: Column(
@@ -392,7 +393,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: PosTheme.border),
       ),
       child: Padding(
@@ -403,7 +404,7 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
             Text(
               tr(title),
               style: const TextStyle(
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: PosTheme.textPrimary,
               ),

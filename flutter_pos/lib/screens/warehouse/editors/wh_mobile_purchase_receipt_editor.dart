@@ -397,7 +397,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                       ),
                       trailing: Text(
                         tr(_moneyFmt.format(l.qty * l.cost)),
-                        style: WhMobileTheme.money.copyWith(fontSize: 15),
+                        style: WhMobileTheme.money.copyWith(fontSize: 16),
                       ),
                     );
                   }),

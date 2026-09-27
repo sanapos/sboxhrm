@@ -11,6 +11,7 @@ import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_return_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Danh sách phiếu trả hàng bán.
 class PosSaleReturnListScreen extends StatefulWidget {
   const PosSaleReturnListScreen({super.key});
@@ -174,7 +175,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                       hintText: tr('Tìm mã trả, HĐ, khách…'),
                       prefixIcon: const Icon(Icons.search, size: 20),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     onSubmitted: (_) {
@@ -249,7 +250,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: Colors.grey.shade200,
+                                              color: SboxColors.slate200,
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                             ),
@@ -274,7 +275,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                                           tr(_moneyFmt.format(r.refundAmount)),
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 15,
+                                            fontSize: 16,
                                             color: r.isVoided
                                                 ? PosTheme.textSecondary
                                                 : null,

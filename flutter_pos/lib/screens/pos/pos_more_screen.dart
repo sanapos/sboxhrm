@@ -54,6 +54,7 @@ import '../../services/pos_app_update_service.dart';
 import '../../widgets/pos_app_update_dialog.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Hub «Nhiều hơn» — module POS phụ kiểu KiotViet.
 class PosMoreScreen extends StatefulWidget {
   const PosMoreScreen({super.key});
@@ -122,9 +123,9 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   const SizedBox(height: 12),
                   Material(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       onTap: NavigationNotifier.leavePosHubToAppHome,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -150,21 +151,21 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                                     tr('Về SBOX HRM'),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 15,
+                                      fontSize: 16,
                                     ),
                                   ),
                                   Text(
                                     tr('Thoát bán hàng · mở toàn bộ phần mềm'),
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey.shade600,
+                                      color: SboxColors.slate600,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                             Icon(Icons.chevron_right,
-                                color: Colors.grey.shade400),
+                                color: SboxColors.slate400),
                           ],
                         ),
                       ),
@@ -280,7 +281,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                 const SizedBox(height: 12),
                 Material(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: ListTile(
                     leading: const Icon(Icons.settings_outlined,
                         color: PosTheme.kiotBlue),
@@ -402,7 +403,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   const SizedBox(height: 12),
                   Material(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     child: ListTile(
                       leading: const Icon(Icons.bar_chart_outlined,
                           color: PosTheme.kiotBlue),
@@ -429,7 +430,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                 const SizedBox(height: 16),
                 Material(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: Column(
                     children: [
                       FutureBuilder(
@@ -513,7 +514,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                         'SBOX POS $label',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: SboxColors.slate600,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
