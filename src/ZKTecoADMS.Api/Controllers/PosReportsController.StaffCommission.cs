@@ -28,8 +28,8 @@ public partial class PosReportsController
                         && x.SaleOrder != null
                         && x.SaleOrder.Deleted == null
                         && x.SaleOrder.Status == PosSaleOrderStatus.Completed
-                        && (x.SaleOrder.SaleDate ?? x.SaleOrder.CreatedAt) >= fromUtc
-                        && (x.SaleOrder.SaleDate ?? x.SaleOrder.CreatedAt) < toUtc);
+                        && (x.PerformedAt ?? x.SaleOrder.SaleDate ?? x.SaleOrder.CreatedAt) >= fromUtc
+                        && (x.PerformedAt ?? x.SaleOrder.SaleDate ?? x.SaleOrder.CreatedAt) < toUtc);
         if (employeeId.HasValue) q = q.Where(x => x.EmployeeId == employeeId);
         if (productId.HasValue) q = q.Where(x => x.ProductId == productId);
 
@@ -39,7 +39,7 @@ public partial class PosReportsController
                 x.Id,
                 x.SaleOrderId,
                 OrderNo = x.SaleOrder != null ? x.SaleOrder.OrderNo : "",
-                SaleAt = x.SaleOrder != null ? x.SaleOrder.CreatedAt : x.CreatedAt,
+                SaleAt = x.PerformedAt ?? (x.SaleOrder != null ? x.SaleOrder.CreatedAt : x.CreatedAt),
                 x.EmployeeId,
                 x.EmployeeName,
                 x.ProductId,
@@ -117,15 +117,15 @@ public partial class PosReportsController
                         && x.SaleOrder != null
                         && x.SaleOrder.Deleted == null
                         && x.SaleOrder.Status == PosSaleOrderStatus.Completed
-                        && (x.SaleOrder.SaleDate ?? x.SaleOrder.CreatedAt) >= fromUtc
-                        && (x.SaleOrder.SaleDate ?? x.SaleOrder.CreatedAt) < toUtc);
+                        && (x.PerformedAt ?? x.SaleOrder.SaleDate ?? x.SaleOrder.CreatedAt) >= fromUtc
+                        && (x.PerformedAt ?? x.SaleOrder.SaleDate ?? x.SaleOrder.CreatedAt) < toUtc);
         if (employeeId.HasValue) q = q.Where(x => x.EmployeeId == employeeId);
         if (productId.HasValue) q = q.Where(x => x.ProductId == productId);
         var rows = await q
             .Select(x => new
             {
                 OrderNo = x.SaleOrder != null ? x.SaleOrder.OrderNo : "",
-                SaleAt = x.SaleOrder != null ? x.SaleOrder.CreatedAt : x.CreatedAt,
+                SaleAt = x.PerformedAt ?? (x.SaleOrder != null ? x.SaleOrder.CreatedAt : x.CreatedAt),
                 x.EmployeeName,
                 x.ProductName,
                 ComboName = x.ParentComboProductId != null && x.SaleOrderLine != null

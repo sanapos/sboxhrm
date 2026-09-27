@@ -405,7 +405,9 @@ public partial class PosSellIndustryController(
         /// <summary>Gói giờ đang chạy hết sớm nhất (UTC, đã cộng phút tạm dừng) — ô bàn đếm ngược.</summary>
         DateTime? TimerEndsAt = null,
         string? TimerName = null,
-        int TimerAlertBeforeMinutes = 5);
+        int TimerAlertBeforeMinutes = 5,
+        /// <summary>Đã chốt tiền giờ lúc (UTC).</summary>
+        DateTime? BillingLockedAt = null);
 
     public record ResourceDraftBillDto(
         Guid Id, string OrderNo, decimal Subtotal, int LineCount, bool IsSplit);
@@ -1001,7 +1003,8 @@ public partial class PosSellIndustryController(
                     ? tm.Ends.AddMinutes(sess.AccumulatedPauseMinutes) : null,
                 TimerName: sess?.SaleOrderId is Guid tso2 && timerByOrder.TryGetValue(tso2, out var tm2) ? tm2.Name : null,
                 TimerAlertBeforeMinutes: sess?.SaleOrderId is Guid tso3 && timerByOrder.TryGetValue(tso3, out var tm3)
-                    ? tm3.TimeAlertBeforeMinutes : 5);
+                    ? tm3.TimeAlertBeforeMinutes : 5,
+                BillingLockedAt: sess?.BillingLockedAt);
         }).ToList();
 
         return Ok(AppResponse<List<ResourceDto>>.Success(list));
@@ -2034,9 +2037,10 @@ public partial class PosSellIndustryController(
         balance.UpdatedAt = DateTime.UtcNow;
         balance.UpdatedBy = CurrentUserEmail;
 
+        var redeemTxnId = Guid.NewGuid();
         db.PosCustomerSessionTransactions.Add(new PosCustomerSessionTransaction
         {
-            Id = Guid.NewGuid(),
+            Id = redeemTxnId,
             StoreId = storeId,
             BalanceId = balance.Id,
             CustomerId = balance.CustomerId,
@@ -2051,6 +2055,13 @@ public partial class PosSellIndustryController(
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         });
+        // Gói liệu trình tính hoa hồng mỗi buổi → hoa hồng cho NV làm buổi này.
+        PosSaleCommissionLine? commission = null;
+        if (dto.EmployeeId is Guid perfEmpId)
+        {
+            commission = await PosStaffCommissionHelper.AddSessionCommissionAsync(
+                db, storeId, balance, redeemTxnId, sessions, perfEmpId, employeeName, usedAt, CurrentUserEmail);
+        }
         await db.SaveChangesAsync();
         return Ok(AppResponse<object>.Success(new
         {
@@ -2058,6 +2069,7 @@ public partial class PosSellIndustryController(
             remaining = balance.RemainingSessions,
             usedAt,
             employeeName,
+            commissionAmount = commission?.CommissionAmount,
         }));
     }
 

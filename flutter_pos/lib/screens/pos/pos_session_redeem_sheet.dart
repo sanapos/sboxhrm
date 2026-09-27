@@ -214,9 +214,12 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
     }
     _changed = true;
     _noteCtrl.clear();
+    final data = res['data'];
+    final comm = data is Map ? num.tryParse('${data['commissionAmount'] ?? ''}') : null;
     NotificationOverlayManager().showSuccess(
       title: 'Đã trừ 1 buổi',
-      message: tr('${b.packageName} · ${_day.format(_usedAt)}'),
+      message: tr('${b.packageName} · ${_day.format(_usedAt)}'
+          '${comm != null && comm > 0 ? ' · hoa hồng NV ${comm.round()} đ' : ''}'),
     );
     await _load();
   }

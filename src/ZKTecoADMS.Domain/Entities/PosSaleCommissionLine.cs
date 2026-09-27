@@ -39,4 +39,10 @@ public class PosSaleCommissionLine : AuditableEntity<Guid>
     public decimal CommissionPercent { get; set; }
     public decimal CommissionFixed { get; set; }
     public decimal CommissionAmount { get; set; }
+
+    /// <summary>Hoa hồng theo buổi: thời điểm làm buổi (báo cáo theo ngày này, không theo ngày bán gói).</summary>
+    public DateTime? PerformedAt { get; set; }
+
+    /// <summary>Giao dịch trừ buổi sinh ra dòng hoa hồng này (không bị xóa khi lưu lại đơn bán gói).</summary>
+    public Guid? SessionTransactionId { get; set; }
 }

@@ -177,6 +177,12 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Báo trước khi hết gói (phút). 0 = chỉ báo lúc hết.</summary>
     public int TimeAlertBeforeMinutes { get; set; } = 5;
 
+    /// <summary>
+    /// Gói nhiều buổi (liệu trình spa / salon): hoa hồng tính cho NV làm TỪNG BUỔI lúc trừ buổi,
+    /// không tính 1 lần lúc bán gói. false = tính 1 lần khi bán.
+    /// </summary>
+    public bool CommissionPerSession { get; set; }
+
     /// <summary>SP này là topping (trân châu, thạch…).</summary>
     public bool IsTopping { get; set; }
 

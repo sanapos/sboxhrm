@@ -5542,6 +5542,10 @@ class _PosSellScreenState extends State<PosSellScreen>
   bool _lineNeedsStaffPick(_SellCartLine line) {
     if (_industrySettings?.enableStaffCommission != true) return false;
     final p = line.product;
+    // Gói liệu trình tính hoa hồng mỗi buổi: chọn NV lúc trừ buổi.
+    if (p.commissionPerSession && p.sessionPackCount > 0 && p.sessionPackCount < 9999) {
+      return false;
+    }
     if (p.productType == PosProductType.combo &&
         (p.comboLines?.isNotEmpty ?? false)) {
       return true;

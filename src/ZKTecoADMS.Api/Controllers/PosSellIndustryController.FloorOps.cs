@@ -74,6 +74,76 @@ public partial class PosSellIndustryController
         return Ok(AppResponse<object>.Success(new { sessionId = session.Id, status = "Paused" }));
     }
 
+    /// <summary>
+    /// Chốt tiền giờ: đồng hồ dừng tại lúc chốt, tiền giờ không tăng (khách xin tính tiền, trả sau).
+    /// Mở chốt → đồng hồ chạy tiếp, không tính khoảng đã chốt.
+    /// </summary>
+    [HttpPost("resource-sessions/{id:guid}/lock-billing")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> LockBilling(Guid id)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        var session = await db.PosResourceSessions
+            .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.StoreId == storeId && s.Deleted == null);
+        if (session == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy phiên"));
+        if (!IsSessionLive(session.Status))
+            return BadRequest(AppResponse<object>.Fail("Phiên đã đóng"));
+        if (session.BillingLockedAt.HasValue)
+            return Ok(AppResponse<object>.Success(new { sessionId = session.Id, billingLockedAt = session.BillingLockedAt }));
+        if (!await CanOperateResourceAsync(storeId, session.ResourceId))
+            return BadRequest(AppResponse<object>.Fail("Bạn không được phép thao tác bàn ở khu vực này"));
+
+        var now = DateTime.UtcNow;
+        // Dừng đồng hồ như tạm dừng (dùng chung cách trừ phút) + đánh dấu chốt.
+        if (session.Status == PosResourceSessionStatus.Open)
+        {
+            session.Status = PosResourceSessionStatus.Paused;
+            session.PausedAt = now;
+        }
+        session.BillingLockedAt = now;
+        session.BillingLockedBy = CurrentUserEmail;
+        session.UpdatedAt = now;
+        session.UpdatedBy = CurrentUserEmail;
+        await db.SaveChangesAsync();
+        NotifyFloorChanged(storeId, "lockBilling", resourceId: session.ResourceId, sessionId: session.Id);
+        return Ok(AppResponse<object>.Success(new { sessionId = session.Id, billingLockedAt = now }));
+    }
+
+    [HttpPost("resource-sessions/{id:guid}/unlock-billing")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> UnlockBilling(Guid id)
+    {
+        if (!TryGetStoreId(out var storeId))
+            return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
+        var session = await db.PosResourceSessions
+            .AsTracking().FirstOrDefaultAsync(s => s.Id == id && s.StoreId == storeId && s.Deleted == null);
+        if (session == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy phiên"));
+        if (!session.BillingLockedAt.HasValue)
+            return BadRequest(AppResponse<object>.Fail("Phiên chưa chốt giờ"));
+        if (!await CanOperateResourceAsync(storeId, session.ResourceId))
+            return BadRequest(AppResponse<object>.Fail("Bạn không được phép thao tác bàn ở khu vực này"));
+
+        var now = DateTime.UtcNow;
+        if (session.Status == PosResourceSessionStatus.Paused && session.PausedAt.HasValue)
+        {
+            session.AccumulatedPauseMinutes += (int)Math.Max(0, (now - session.PausedAt.Value).TotalMinutes);
+            session.PausedAt = null;
+            session.Status = PosResourceSessionStatus.Open;
+        }
+        session.BillingLockedAt = null;
+        session.BillingLockedBy = null;
+        session.UpdatedAt = now;
+        session.UpdatedBy = CurrentUserEmail;
+        await db.SaveChangesAsync();
+        NotifyFloorChanged(storeId, "unlockBilling", resourceId: session.ResourceId, sessionId: session.Id);
+        return Ok(AppResponse<object>.Success(new
+        {
+            sessionId = session.Id,
+            accumulatedPauseMinutes = session.AccumulatedPauseMinutes,
+        }));
+    }
+
     [HttpPost("resource-sessions/{id:guid}/resume")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> ResumeSession(Guid id)
@@ -95,6 +165,8 @@ public partial class PosSellIndustryController
         }
         session.PausedAt = null;
         session.Status = PosResourceSessionStatus.Open;
+        session.BillingLockedAt = null;
+        session.BillingLockedBy = null;
         session.UpdatedAt = DateTime.UtcNow;
         session.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();

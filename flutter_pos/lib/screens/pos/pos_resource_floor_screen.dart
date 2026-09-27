@@ -2083,7 +2083,23 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                         title: Text(tr('Khách lưu trú (tạm trú)')),
                         onTap: () => Navigator.pop(ctx, 'stay_guests'),
                       ),
-                    if (_isHourly) ...[
+                    if (_isHourly && (r.openSessionId ?? '').isNotEmpty) ...[
+                      if (r.isBillingLocked)
+                        ListTile(
+                          leading: const Icon(Icons.lock_open, color: Color(0xFF7C3AED)),
+                          title: Text(tr('Mở chốt giờ')),
+                          subtitle: Text(tr('Đồng hồ chạy tiếp, không tính khoảng đã chốt')),
+                          onTap: () => Navigator.pop(ctx, 'unlock_billing'),
+                        )
+                      else
+                        ListTile(
+                          leading: const Icon(Icons.lock_clock, color: Color(0xFF7C3AED)),
+                          title: Text(tr('Chốt tiền giờ')),
+                          subtitle: Text(tr('Dừng đồng hồ tại giờ này để tính tiền — tiền giờ không tăng thêm')),
+                          onTap: () => Navigator.pop(ctx, 'lock_billing'),
+                        ),
+                    ],
+                    if (_isHourly && !r.isBillingLocked) ...[
                       if (r.isPaused)
                         ListTile(
                           leading: const Icon(Icons.play_arrow),
@@ -2163,6 +2179,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
     if (action == 'resume') {
       await _resume(r);
+      return;
+    }
+    if (action == 'lock_billing' || action == 'unlock_billing') {
+      await _setBillingLock(r, action == 'lock_billing');
       return;
     }
     if (action == 'guests') {
@@ -2885,6 +2905,28 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       NotificationOverlayManager()
           .showSuccess(title: 'Đã tạm dừng', message: r.name);
       await _reload();
+    }
+  }
+
+  Future<void> _setBillingLock(PosServiceResourceDto r, bool lock) async {
+    final sid = r.openSessionId;
+    if (sid == null) return;
+    final res = await _api.setPosResourceBillingLock(sid, lock);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      final now = DateTime.now();
+      NotificationOverlayManager().showSuccess(
+        title: lock ? 'Đã chốt tiền giờ' : 'Đã mở chốt giờ',
+        message: tr(lock
+            ? '${r.name} · chốt lúc ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'
+            : '${r.name} · tính giờ tiếp'),
+      );
+      await _reload();
+    } else {
+      NotificationOverlayManager().showError(
+        title: lock ? 'Không chốt được giờ' : 'Không mở chốt được',
+        message: res['message']?.toString() ?? 'Lỗi',
+      );
     }
   }
 
@@ -4333,6 +4375,26 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                 color: accent.withOpacity(customer.isEmpty ? 1 : 0.9),
               ),
             ),
+          ],
+        ),
+      );
+    }
+
+    if (r.isBillingLocked) {
+      final t = r.billingLockedAt!.toLocal();
+      const c = Color(0xFF7C3AED);
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock_clock, size: 22, color: c),
+            const SizedBox(height: 2),
+            Text(
+              tr('Chốt ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: c),
+            ),
+            if (r.elapsedLabel.isNotEmpty)
+              Text(r.elapsedLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c)),
           ],
         ),
       );

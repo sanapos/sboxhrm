@@ -21011,6 +21011,21 @@ class ApiService {
     }
   }
 
+  /// Chốt tiền giờ (đồng hồ dừng, tiền giờ không tăng) / mở chốt.
+  Future<Map<String, dynamic>> setPosResourceBillingLock(String id, bool locked) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/resource-sessions/$id/${locked ? 'lock-billing' : 'unlock-billing'}'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> resumePosResourceSession(String id) async {
     try {
       final response = await http

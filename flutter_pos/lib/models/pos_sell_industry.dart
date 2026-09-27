@@ -768,6 +768,7 @@ class PosServiceResourceDto {
     this.timerEndsAt,
     this.timerName,
     this.timerAlertBeforeMinutes = 5,
+    this.billingLockedAt,
   });
 
   final String id;
@@ -825,6 +826,9 @@ class PosServiceResourceDto {
   final DateTime? timerEndsAt;
   final String? timerName;
   final int timerAlertBeforeMinutes;
+  /// Đã chốt tiền giờ lúc (UTC) — đồng hồ dừng, tiền giờ không tăng.
+  final DateTime? billingLockedAt;
+  bool get isBillingLocked => billingLockedAt != null;
 
   bool get hasActiveLock => tableSessionOpen;
 
@@ -936,6 +940,7 @@ class PosServiceResourceDto {
         timerEndsAt: timerEndsAt,
         timerName: timerName,
         timerAlertBeforeMinutes: timerAlertBeforeMinutes,
+        billingLockedAt: billingLockedAt,
       );
 
   PosServiceResourceDto copyWithLayout({
@@ -993,6 +998,7 @@ class PosServiceResourceDto {
         timerEndsAt: timerEndsAt,
         timerName: timerName,
         timerAlertBeforeMinutes: timerAlertBeforeMinutes,
+        billingLockedAt: billingLockedAt,
       );
 
   String get elapsedLabel {
@@ -1125,6 +1131,7 @@ class PosServiceResourceDto {
       timerEndsAt: dt(json['timerEndsAt'] ?? json['TimerEndsAt']),
       timerName: (json['timerName'] ?? json['TimerName'])?.toString(),
       timerAlertBeforeMinutes: i(json['timerAlertBeforeMinutes'] ?? json['TimerAlertBeforeMinutes'], 5),
+      billingLockedAt: dt(json['billingLockedAt'] ?? json['BillingLockedAt']),
     );
   }
 }

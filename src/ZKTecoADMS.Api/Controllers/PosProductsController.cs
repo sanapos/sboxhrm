@@ -103,7 +103,8 @@ public partial class PosProductsController(
         bool AllowAreaHeight = true,
         int TimePackageMinutes = 0,
         Guid? OvertimeProductId = null,
-        int TimeAlertBeforeMinutes = 5);
+        int TimeAlertBeforeMinutes = 5,
+        bool CommissionPerSession = false);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -206,7 +207,8 @@ public partial class PosProductsController(
         bool AllowAreaHeight = true,
         int TimePackageMinutes = 0,
         Guid? OvertimeProductId = null,
-        int TimeAlertBeforeMinutes = 5);
+        int TimeAlertBeforeMinutes = 5,
+        bool CommissionPerSession = false);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -388,6 +390,7 @@ public partial class PosProductsController(
                 p.TimePackageMinutes,
                 p.OvertimeProductId,
                 p.TimeAlertBeforeMinutes,
+                p.CommissionPerSession,
                 p.CreatedAt,
                 p.UpdatedAt,
                 p.DailySoldOutOn,
@@ -466,7 +469,8 @@ public partial class PosProductsController(
                 IsDailySoldOut: PosDailySoldOutHelper.IsLockedToday(r.DailySoldOutOn, listBizDate),
                 TimePackageMinutes: r.TimePackageMinutes,
                 OvertimeProductId: r.OvertimeProductId,
-                TimeAlertBeforeMinutes: r.TimeAlertBeforeMinutes);
+                TimeAlertBeforeMinutes: r.TimeAlertBeforeMinutes,
+                CommissionPerSession: r.CommissionPerSession);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -732,6 +736,7 @@ public partial class PosProductsController(
             TimePackageMinutes = Math.Clamp(dto.TimePackageMinutes, 0, 7 * 24 * 60),
             OvertimeProductId = dto.OvertimeProductId,
             TimeAlertBeforeMinutes = Math.Clamp(dto.TimeAlertBeforeMinutes, 0, 120),
+            CommissionPerSession = dto.CommissionPerSession,
             IsTopping = dto.IsTopping,
             AllowToppings = dto.AllowToppings && !dto.IsTopping,
             AutoOpenToppingPopup = dto.AutoOpenToppingPopup,
@@ -861,6 +866,7 @@ public partial class PosProductsController(
         entity.TimePackageMinutes = Math.Clamp(dto.TimePackageMinutes, 0, 7 * 24 * 60);
         entity.OvertimeProductId = dto.OvertimeProductId == entity.Id ? null : dto.OvertimeProductId;
         entity.TimeAlertBeforeMinutes = Math.Clamp(dto.TimeAlertBeforeMinutes, 0, 120);
+        entity.CommissionPerSession = dto.CommissionPerSession;
         entity.IsTopping = dto.IsTopping;
         entity.AllowToppings = dto.AllowToppings && !dto.IsTopping;
         entity.AutoOpenToppingPopup = dto.AutoOpenToppingPopup;
@@ -1244,6 +1250,7 @@ public partial class PosProductsController(
             TimePackageMinutes: p.TimePackageMinutes,
             OvertimeProductId: p.OvertimeProductId,
             TimeAlertBeforeMinutes: p.TimeAlertBeforeMinutes,
+            CommissionPerSession: p.CommissionPerSession,
             IsDailySoldOut: PosDailySoldOutHelper.IsLockedToday(
                 p.DailySoldOutOn, await ResolveStoreBusinessDateAsync(storeId)),
             CommissionMode: p.CommissionMode.ToString(),

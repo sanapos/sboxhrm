@@ -993,3 +993,10 @@ CREATE INDEX IF NOT EXISTS "IX_AuditLogs_Store_Timestamp" ON "AuditLogs" ("Store
 ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "TimePackageMinutes" integer NOT NULL DEFAULT 0;
 ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "OvertimeProductId" uuid NULL;
 ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "TimeAlertBeforeMinutes" integer NOT NULL DEFAULT 5;
+
+-- Chốt tiền giờ (đếm lên) + hoa hồng theo từng buổi làm (gói liệu trình)
+ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "BillingLockedAt" timestamp without time zone NULL;
+ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "BillingLockedBy" character varying(256) NULL;
+ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "CommissionPerSession" boolean NOT NULL DEFAULT false;
+ALTER TABLE "PosSaleCommissionLines" ADD COLUMN IF NOT EXISTS "PerformedAt" timestamp without time zone NULL;
+ALTER TABLE "PosSaleCommissionLines" ADD COLUMN IF NOT EXISTS "SessionTransactionId" uuid NULL;

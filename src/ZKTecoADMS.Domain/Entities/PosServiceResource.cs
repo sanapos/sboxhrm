@@ -97,6 +97,10 @@ public class PosResourceSession : AuditableEntity<Guid>
     /// <summary>Tổng phút đã tạm dừng (cộng dồn).</summary>
     public int AccumulatedPauseMinutes { get; set; }
 
+    /// <summary>Đã chốt tiền giờ lúc này (đồng hồ dừng, tiền giờ đứng yên) — mở chốt thì tính tiếp.</summary>
+    public DateTime? BillingLockedAt { get; set; }
+    public string? BillingLockedBy { get; set; }
+
     public int GuestCount { get; set; } = 1;
 
     /// <summary>Khách xin thanh toán — tô màu ô trên sơ đồ.</summary>

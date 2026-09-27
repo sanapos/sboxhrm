@@ -249,6 +249,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _showComboComponentsOnSell = false;
   bool _comboTrackStock = false;
   String _commissionMode = 'None';
+  bool _commissionPerSession = false;
   late final TextEditingController _commissionPercentCtrl;
   late final TextEditingController _commissionFixedCtrl;
   List<PosProductToppingOption> _toppingOptions = [];
@@ -468,6 +469,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _showComboComponentsOnSell = p?.showComboComponentsOnSell ?? false;
     _comboTrackStock = p?.comboTrackStock ?? false;
     _commissionMode = p?.commissionMode ?? 'None';
+    _commissionPerSession = p?.commissionPerSession ?? false;
     _commissionPercentCtrl = TextEditingController(
         text: tr(_fmtInputMoney(p?.commissionPercent ?? 0)));
     _commissionFixedCtrl = TextEditingController(
@@ -693,6 +695,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _showComboComponentsOnSell = data.showComboComponentsOnSell;
       _comboTrackStock = data.comboTrackStock;
       _commissionMode = data.commissionMode;
+      _commissionPerSession = data.commissionPerSession;
       _commissionPercentCtrl.text = _fmtInputMoney(data.commissionPercent);
       _commissionFixedCtrl.text = _fmtInputMoney(data.commissionFixed);
       _toppingOptions =
@@ -1028,6 +1031,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'commissionMode': _commissionMode,
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),
+      'commissionPerSession': _commissionPerSession,
       'toppings': (_allowToppings && !_isTopping)
           ? _toppingOptions
               .map((t) => {
@@ -2990,6 +2994,36 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             decoration: PosTheme.inputDecoration(label: 'Hoa hồng cố định (đ)'),
           ),
         ],
+        const SizedBox(height: 12),
+        Text(tr('Gói nhiều buổi / combo liệu trình — hoa hồng tính:'),
+            style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 6),
+        SegmentedButton<bool>(
+          segments: [
+            ButtonSegment(
+                value: false,
+                icon: const Icon(Icons.point_of_sale, size: 18),
+                label: Text(tr('1 lần khi bán'))),
+            ButtonSegment(
+                value: true,
+                icon: const Icon(Icons.event_repeat, size: 18),
+                label: Text(tr('Mỗi buổi làm'))),
+          ],
+          selected: {_commissionPerSession},
+          onSelectionChanged: (v) => setState(() => _commissionPerSession = v.first),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          tr(_commissionPerSession
+              ? (_isCombo
+                  ? 'Các liệu trình nhiều buổi trong combo: hoa hồng ghi cho NV làm từng buổi khi trừ buổi '
+                      '(tiền 1 buổi = phần combo phân bổ ÷ số buổi, theo cách tính của từng dịch vụ). '
+                      'Hàng hóa / DV 1 lần trong combo vẫn tính khi bán.'
+                  : 'Chỉ áp dụng khi có «Số buổi». Mỗi lần trừ buổi → hoa hồng cho NV làm buổi đó '
+                      '(tiền 1 buổi = tiền bán gói ÷ số buổi). Cố định = số tiền mỗi buổi.')
+              : 'Hoa hồng ghi ngay khi bán cho NV được chọn trên hóa đơn (combo: chọn NV từng thành phần).'),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
       ],
     );
   }
@@ -3636,6 +3670,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'commissionMode': _commissionMode,
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),
+      'commissionPerSession': _commissionPerSession,
         'toppings': (_allowToppings && !_isTopping)
             ? _toppingOptions
                 .map((t) => {
